@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npx vite build",
+    "build": "npm install && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "cap:sync": "npm run build && npx cap sync android",
