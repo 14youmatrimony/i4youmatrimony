@@ -1,0 +1,279 @@
+import sys
+import os
+from datetime import datetime, timedelta
+from werkzeug.security import generate_password_hash
+from database import get_db_connection, init_db
+
+def seed():
+    print("[*] Initializing database tables...")
+    init_db()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # 1. Seed RBAC Admin & Staff Users
+    rbac_users = [
+        ('admin', 'admin@i4you.com', 'Admin@12345', 'Arun Thomas', 'Super Admin', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200'),
+        ('crm', 'crm@i4you.com', 'Crm@12345', 'Priya Nair', 'CRM Manager', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'),
+        ('finance', 'finance@i4you.com', 'Finance@12345', 'Kavita Iyer', 'Finance Manager', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200'),
+        ('support', 'support@i4you.com', 'Support@12345', 'Arun Kumar', 'Support Executive', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200')
+    ]
+    for username, email, pwd, name, role, avatar in rbac_users:
+        cursor.execute("SELECT id FROM admin_users WHERE email = ? OR username = ?", (email, username))
+        existing_admin = cursor.fetchone()
+        if not existing_admin:
+            pass_hash = generate_password_hash(pwd)
+            cursor.execute("""
+                INSERT INTO admin_users (username, email, password_hash, full_name, role, avatar)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (username, email, pass_hash, name, role, avatar))
+            print(f"[+] Seeded RBAC user: {email} | Role: {role} (Password: {pwd})")
+        else:
+            # Ensure correct role is assigned
+            cursor.execute("UPDATE admin_users SET role = ? WHERE email = ?", (role, email))
+
+    # 2. Seed Realistic Profiles (Matching I 4 You Matrimonial Theme)
+    cursor.execute("SELECT COUNT(*) FROM profiles")
+    profile_count = cursor.fetchone()[0]
+    
+    if profile_count == 0:
+        profiles_data = [
+            (
+                'p1', 'Dr. Ananya Kulkarni', 'ananya.kulkarni@example.com', '+91 98201 45678',
+                27, 'Female', "5'6\"", 'Fair',
+                'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Brahmin - Deshastha', 'Marathi', 'Maharashtra', 'Nashik', 'Nashik',
+                '402, Royal Palms, Mahatma Nagar',
+                'MBBS, MD (Pediatrics) - KEM Mumbai', 'Medical / Healthcare',
+                'Senior Pediatric Specialist', 'Apollo Children’s Hospital', '₹ 28 - 32 LPA',
+                'Non-Manglik', 'Vegetarian', 1, 1, 1, 96, 'active', '2026-08-10 11:20:00'
+            ),
+            (
+                'p2', 'Rohan Mehta', 'rohan.mehta@example.com', '+91 98334 11223',
+                29, 'Male', "5'11\"", 'Wheatish',
+                'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Gujarati - Vaishnav', 'Gujarati', 'Gujarat', 'Ahmedabad', 'Ahmedabad',
+                '71, Shivalik Residency, Satellite',
+                'B.Tech (CS) IIT Bombay, MS Stanford', 'Engineering / Tech',
+                'Staff Software Engineer', 'Google India', '₹ 55 - 65 LPA',
+                'Non-Manglik', 'Vegetarian', 1, 1, 1, 94, 'active', '2026-08-14 14:15:00'
+            ),
+            (
+                'p3', 'Sneha Iyer', 'sneha.iyer@example.com', '+91 98450 99881',
+                26, 'Female', "5'4\"", 'Wheatish',
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Brahmin - Iyer', 'Tamil', 'Karnataka', 'Bengaluru', 'Bengaluru Urban',
+                '12, Palm Meadows, Whitefield',
+                'B.Com, Chartered Accountant (CA - All India Rank 14)', 'Finance / Banking',
+                'Vice President - Investment Banking', 'Goldman Sachs', '₹ 38 - 42 LPA',
+                'Non-Manglik', 'Vegetarian', 1, 1, 1, 98, 'active', '2026-08-18 09:30:00'
+            ),
+            (
+                'p4', 'Vikramaditya Rao', 'vikram.rao@example.com', '+91 99002 33445',
+                30, 'Male', "6'1\"", 'Fair',
+                'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Kshatriya / Rajput', 'Hindi', 'Delhi', 'New Delhi', 'South Delhi',
+                'A-14, Vasant Vihar',
+                'B.A. (Hons), LL.B - NLSIU Bangalore', 'Legal & Civil Services',
+                'Advocate - Supreme Court of India', 'Chambers of Rao & Associates', '₹ 45 - 50 LPA',
+                'Manglik', 'Non-Vegetarian', 1, 1, 0, 91, 'active', '2026-08-22 16:45:00'
+            ),
+            (
+                'p5', 'Priya Deshmukh', 'priya.deshmukh@example.com', '+91 98230 66778',
+                28, 'Female', "5'5\"", 'Fair',
+                'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Maratha - 96 Kuli', 'Marathi', 'Maharashtra', 'Pune', 'Pune',
+                'Plot 88, Model Colony, Shivajinagar',
+                'B.Arch, M.Des (Industrial Design) - IDC IIT Bombay', 'Design / Architecture',
+                'Principal Design Architect', 'Morphogenesis Studio', '₹ 22 - 25 LPA',
+                'Non-Manglik', 'Eggetarian', 1, 1, 1, 95, 'active', '2026-08-25 10:10:00'
+            ),
+            (
+                'p6', 'Arjun Nambiar', 'arjun.nambiar@example.com', '+91 97455 22119',
+                31, 'Male', "5'10\"", 'Wheatish',
+                'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Nair', 'Malayalam', 'Kerala', 'Kochi', 'Ernakulam',
+                '34/120, Marine Drive Promenade',
+                'B.Tech Naval Architecture, MBA INSEAD', 'Aviation / Maritime',
+                'Director of Operations', 'Maersk Line Singapore & India', '₹ 60 - 70 LPA',
+                'Non-Manglik', 'Non-Vegetarian', 1, 1, 1, 92, 'active', '2026-08-29 13:20:00'
+            ),
+            (
+                'p7', 'Tanvi Chawla', 'tanvi.chawla@example.com', '+91 98112 44556',
+                25, 'Female', "5'7\"", 'Very Fair',
+                'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=800',
+                'Sikh', 'Khatri', 'Punjabi', 'Punjab', 'Chandigarh', 'Chandigarh',
+                'Sector 9-C, Chandigarh',
+                'B.Tech CSE, MBA - ISB Hyderabad', 'Consulting & Strategy',
+                'Strategy Consultant', 'McKinsey & Company', '₹ 34 - 38 LPA',
+                'Non-Manglik', 'Vegetarian', 1, 1, 1, 97, 'active', '2026-09-02 18:00:00'
+            ),
+            (
+                'p8', 'Aditya Verma', 'aditya.verma@example.com', '+91 98765 12340',
+                29, 'Male', "5'9\"", 'Fair',
+                'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Kayastha', 'Hindi', 'Uttar Pradesh', 'Lucknow', 'Lucknow',
+                '14, Gomti Nagar Extension',
+                'B.Tech (IIT Kanpur), M.S. Artificial Intelligence', 'Engineering / Tech',
+                'Lead AI Scientist', 'Microsoft R&D India', '₹ 48 - 52 LPA',
+                'Non-Manglik', 'Vegetarian', 0, 0, 0, 88, 'pending', '2026-09-05 11:40:00'
+            ),
+            (
+                'p9', 'Meera Bhatt', 'meera.bhatt@example.com', '+91 98980 33441',
+                27, 'Female', "5'3\"", 'Fair',
+                'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Brahmin - Nagar', 'Gujarati', 'Gujarat', 'Vadodara', 'Vadodara',
+                '22, Alkapuri Green Valley',
+                'M.Sc Clinical Psychology, M.Phil NIMHANS', 'Psychology / Mental Health',
+                'Licensed Child Psychologist', 'Fortis Healthcare & Mind Clinic', '₹ 18 - 22 LPA',
+                'Non-Manglik', 'Vegetarian', 1, 1, 0, 93, 'active', '2026-09-08 15:30:00'
+            ),
+            (
+                'p10', 'Karthik Reddy', 'karthik.reddy@example.com', '+91 98490 88772',
+                32, 'Male', "6'0\"", 'Wheatish',
+                'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Reddy', 'Telugu', 'Telangana', 'Hyderabad', 'Hyderabad',
+                'Banjara Hills, Road No. 12',
+                'B.Tech, MS Computer Science (Carnegie Mellon)', 'Tech Entrepreneurship',
+                'Co-Founder & CTO', 'Fintech Innovations Pvt Ltd', '₹ 80 - 95 LPA',
+                'Non-Manglik', 'Non-Vegetarian', 1, 1, 1, 95, 'active', '2026-09-11 12:10:00'
+            ),
+            (
+                'p11', 'Sunil Joshi', 'sunil.joshi@example.com', '+91 94221 55667',
+                34, 'Male', "5'8\"", 'Wheatish',
+                'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Brahmin', 'Marathi', 'Maharashtra', 'Nagpur', 'Nagpur',
+                'Civil Lines, Near High Court',
+                'Chartered Accountant, B.Com', 'Finance / Accounting',
+                'Senior Tax Consultant', 'KPMG India', '₹ 26 - 30 LPA',
+                'Manglik', 'Vegetarian', 0, 0, 0, 78, 'suspended', '2026-09-12 17:25:00'
+            ),
+            (
+                'p12', 'Pooja Agarwal', 'pooja.agarwal@example.com', '+91 98300 44112',
+                28, 'Female', "5'5\"", 'Fair',
+                'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Agarwal / Marwari', 'Hindi', 'West Bengal', 'Kolkata', 'Kolkata',
+                '8/2, Alipore Park Road',
+                'BBA, MBA (Marketing) - SP Jain Mumbai', 'E-commerce & Marketing',
+                'Brand Marketing Director', 'Unilever South Asia', '₹ 32 - 36 LPA',
+                'Non-Manglik', 'Vegetarian', 1, 1, 1, 96, 'active', '2026-09-14 14:50:00'
+            ),
+            (
+                'p13', 'Devendra Patil', 'devendra.patil@example.com', '+91 98224 88990',
+                30, 'Male', "5'11\"", 'Wheatish',
+                'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Maratha', 'Marathi', 'Maharashtra', 'Kolhapur', 'Kolhapur',
+                'Tarabai Park, Kolhapur',
+                'B.Sc Agriculture, MBA Agribusiness', 'Agri-Tech / Business',
+                'Managing Director', 'Sahyadri Agro Exports', '₹ 40 - 45 LPA',
+                'Non-Manglik', 'Non-Vegetarian', 0, 1, 0, 89, 'pending', '2026-09-17 10:20:00'
+            ),
+            (
+                'p14', 'Simran Kaur', 'simran.kaur@example.com', '+91 98720 33221',
+                26, 'Female', "5'6\"", 'Fair',
+                'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=800',
+                'Sikh', 'Arora', 'Punjabi', 'Delhi', 'New Delhi', 'West Delhi',
+                'B-3, Rajouri Garden',
+                'B.Design - NIFT Delhi, Fashion Styling', 'Fashion & Lifestyle',
+                'Celebrity Stylist & Label Founder', 'Simran Kaur Couture', '₹ 25 - 30 LPA',
+                'Non-Manglik', 'Vegetarian', 1, 1, 1, 94, 'active', '2026-09-18 16:15:00'
+            ),
+            (
+                'p15', 'Nikhil Sharma', 'nikhil.sharma@example.com', '+91 98101 22334',
+                28, 'Male', "5'10\"", 'Fair',
+                'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&q=80&w=800',
+                'Hindu', 'Brahmin - Saraswat', 'Hindi', 'Haryana', 'Gurugram', 'Gurugram',
+                'Tower 4, DLF Phase 5',
+                'B.Tech IIT Delhi, MBA Wharton', 'Venture Capital',
+                'Vice President', 'Peak XV Partners', '₹ 75 - 85 LPA',
+                'Non-Manglik', 'Vegetarian', 1, 1, 1, 99, 'active', '2026-09-20 11:05:00'
+            )
+        ]
+
+        cursor.executemany("""
+            INSERT INTO profiles (
+                id, name, email, phone, age, gender, height, skin_colour, photo,
+                religion, caste, mother_tongue, state, city, district, native_address,
+                education, education_category, profession, company, annual_income,
+                manglik, diet, verified, aadhaar_verified, govt_id_verified, match_score,
+                status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, profiles_data)
+        print(f"[+] Seeded {len(profiles_data)} verified & pending matrimonial profiles.")
+
+    # 3. Seed Promotional Offers & Discounts
+    cursor.execute("SELECT COUNT(*) FROM offers")
+    if cursor.fetchone()[0] == 0:
+        offers_data = [
+            (
+                'FESTIVE50', 'Diwali Festive Mega Discount', 50, 'All Plans',
+                'Special 50% discount on all quarterly and annual matrimonial premium plans.',
+                '2026-09-01', '2026-11-30', 500, 142, 1
+            ),
+            (
+                'ROYALVIP30', 'Royal VIP Elite Upgrade Promo', 30, 'Royal VIP 12-Months',
+                'Exclusive 30% reduction for Elite matchmaking with dedicated relationship manager.',
+                '2026-08-15', '2026-12-31', 200, 89, 1
+            ),
+            (
+                'WELCOME25', 'New Member Welcome Special', 25, 'Gold 3-Months',
+                '25% instant discount on first-time profile upgrades for verified users.',
+                '2026-07-01', '2026-10-31', 1000, 418, 1
+            ),
+            (
+                'PLATINUM20', 'Platinum 6-Month Saver Pass', 20, 'Platinum 6-Months',
+                'Save 20% on our most popular 6-month unlimited contact views and horoscopes.',
+                '2026-08-01', '2026-10-15', 350, 214, 1
+            ),
+            (
+                'EARLYBIRD35', 'Super Early Bird Advantage', 35, 'All Plans',
+                'Limited 100-redemption code for newly registered verified singles.',
+                '2026-09-15', '2026-09-30', 100, 94, 1
+            ),
+            (
+                'EXPIRED10', 'Summer Flash Sale (Archived)', 10, 'Gold 3-Months',
+                'Past promotional code for summer matchmaking drives.',
+                '2026-05-01', '2026-06-30', 500, 492, 0
+            )
+        ]
+        cursor.executemany("""
+            INSERT INTO offers (
+                code, title, discount_percent, plan_type, description,
+                valid_from, valid_until, max_uses, current_uses, is_active
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, offers_data)
+        print(f"[+] Seeded {len(offers_data)} promotional offers and discounts.")
+
+    # 4. Seed Payments & Payment History
+    cursor.execute("SELECT COUNT(*) FROM payments")
+    if cursor.fetchone()[0] == 0:
+        payments_data = [
+            ('TXN-884920', 'p1', 'Dr. Ananya Kulkarni', 'Platinum 6-Months', 5499.00, 'INR', 'UPI (Google Pay)', 'completed', 'INV-2026-0081', '2026-08-10 11:35:00', 'Applied promo FESTIVE50 (-50%)'),
+            ('TXN-885102', 'p2', 'Rohan Mehta', 'Royal VIP 12-Months', 9999.00, 'INR', 'Razorpay (HDFC Credit Card)', 'completed', 'INV-2026-0082', '2026-08-14 14:40:00', 'Applied promo ROYALVIP30 (-30%)'),
+            ('TXN-885419', 'p3', 'Sneha Iyer', 'Gold 3-Months', 2499.00, 'INR', 'UPI (PhonePe)', 'completed', 'INV-2026-0083', '2026-08-18 10:10:00', 'Applied promo WELCOME25 (-25%)'),
+            ('TXN-885834', 'p4', 'Vikramaditya Rao', 'Royal VIP 12-Months', 14299.00, 'INR', 'Net Banking (ICICI)', 'completed', 'INV-2026-0084', '2026-08-22 17:15:00', 'Full package with Astrology horoscope match'),
+            ('TXN-886120', 'p5', 'Priya Deshmukh', 'Platinum 6-Months', 5499.00, 'INR', 'UPI (Paytm)', 'completed', 'INV-2026-0085', '2026-08-25 10:45:00', 'Direct UPI payment'),
+            ('TXN-886491', 'p6', 'Arjun Nambiar', 'Royal VIP 12-Months', 9999.00, 'INR', 'Credit Card (Amex)', 'completed', 'INV-2026-0086', '2026-08-29 13:55:00', 'International traveler account activated'),
+            ('TXN-886910', 'p7', 'Tanvi Chawla', 'Platinum 6-Months', 4399.00, 'INR', 'UPI (Google Pay)', 'completed', 'INV-2026-0087', '2026-09-02 18:30:00', 'Applied promo PLATINUM20 (-20%)'),
+            ('TXN-887105', 'p8', 'Aditya Verma', 'Gold 3-Months', 2999.00, 'INR', 'Net Banking (SBI)', 'pending', 'INV-2026-0088', '2026-09-05 12:00:00', 'Awaiting bank NEFT confirmation'),
+            ('TXN-887532', 'p9', 'Meera Bhatt', 'Gold 3-Months', 2249.00, 'INR', 'UPI (BHIM)', 'completed', 'INV-2026-0089', '2026-09-08 16:00:00', 'Applied promo WELCOME25 (-25%)'),
+            ('TXN-887890', 'p10', 'Karthik Reddy', 'Royal VIP 12-Months', 14299.00, 'INR', 'Razorpay (Axis Bank)', 'completed', 'INV-2026-0090', '2026-09-11 12:40:00', 'VIP Relationship Manager assigned'),
+            ('TXN-888123', 'p11', 'Sunil Joshi', 'Gold 3-Months', 2999.00, 'INR', 'Credit Card (HDFC)', 'refunded', 'INV-2026-0091', '2026-09-12 18:00:00', 'Refund requested due to duplicate payment - Processed'),
+            ('TXN-888456', 'p12', 'Pooja Agarwal', 'Platinum 6-Months', 5499.00, 'INR', 'UPI (Google Pay)', 'completed', 'INV-2026-0092', '2026-09-14 15:20:00', 'Instant activation'),
+            ('TXN-888789', 'p13', 'Devendra Patil', 'Gold 3-Months', 2999.00, 'INR', 'UPI (PhonePe)', 'failed', 'INV-2026-0093', '2026-09-17 10:45:00', 'UPI transaction timed out by issuing bank'),
+            ('TXN-889012', 'p14', 'Simran Kaur', 'Platinum 6-Months', 4399.00, 'INR', 'Razorpay (Kotak NetBanking)', 'completed', 'INV-2026-0094', '2026-09-18 16:40:00', 'Applied promo PLATINUM20 (-20%)'),
+            ('TXN-889345', 'p15', 'Nikhil Sharma', 'Royal VIP 12-Months', 9999.00, 'INR', 'UPI (Google Pay)', 'completed', 'INV-2026-0095', '2026-09-20 11:30:00', 'Applied promo ROYALVIP30 (-30%)')
+        ]
+        cursor.executemany("""
+            INSERT INTO payments (
+                transaction_id, user_id, user_name, plan_name, amount,
+                currency, payment_method, status, invoice_no, payment_date, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, payments_data)
+        print(f"[+] Seeded {len(payments_data)} payment transactions with complete history.")
+
+    conn.commit()
+    conn.close()
+    print("[OK] Database seeding completed successfully!")
+
+if __name__ == '__main__':
+    seed()

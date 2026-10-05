@@ -1,0 +1,59 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+*.local
+.env
+.env.*
+!.env.example
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Security & Encryption Keys
+admin/customer_key.bin
+*.key
+*.bin
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Scratch & Browser test profiles
+.chrome*/
+.scratch_chrome*/
+scratch/
+scratch_*.py
+
+# Android & Gradle
+.gradle/
+**/build/
+*.apk
+*.aab
+*.dex
+local.properties
+.cxx/

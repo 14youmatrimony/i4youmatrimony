@@ -1,0 +1,380 @@
+@import "tailwindcss";
+
+@theme {
+  --color-royal-950: #060d17;
+  --color-royal-900: #0b192c;
+  --color-royal-850: #0f223d;
+  --color-royal-800: #152e52;
+  --color-royal-700: #1e3e62;
+  --color-royal-600: #1e3a8a;
+  --color-royal-500: #2563eb;
+  --color-royal-100: #e0e7ff;
+  --color-royal-50: #eff6ff;
+
+  --color-gold-50: #fefdfa;
+  --color-gold-100: #fdf8eb;
+  --color-gold-200: #f7ebc6;
+  --color-gold-300: #ecd593;
+  --color-gold-400: #dfb76c;
+  --color-gold-500: #d4af37;
+  --color-gold-600: #b89228;
+  --color-gold-700: #8c6d1f;
+  --color-gold-800: #664f19;
+
+  --font-serif: 'Playfair Display', 'Cinzel', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+html {
+  font-size: 16px;
+  zoom: 1;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Balanced sizing scoped exclusively to the Desktop/Website pages without affecting mobile screens */
+.website-view-root {
+  font-size: 15px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 10% 20%, rgba(212, 175, 55, 0.04) 0%, transparent 40%),
+              radial-gradient(circle at 90% 80%, rgba(30, 58, 138, 0.05) 0%, transparent 40%),
+              #f8fafc;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom gold gradient utilities */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #d4af37 0%, #dfb76c 50%, #8c6d1f 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-gradient-bg {
+  background: linear-gradient(135deg, #d4af37 0%, #e5c158 50%, #b89228 100%);
+}
+
+.gold-gradient-subtle {
+  background: linear-gradient(135deg, #fdf8eb 0%, #ffffff 50%, #f7ebc6 100%);
+}
+
+.royal-gradient-bg {
+  background: linear-gradient(135deg, #0b192c 0%, #152e52 50%, #1e3a8a 100%);
+}
+
+.royal-glass {
+  background: rgba(11, 25, 44, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.gold-glass {
+  background: rgba(253, 248, 235, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Custom smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Hide horizontal scrollbars cleanly for mobile & web */
+.status-scroll-bar,
+.scrollbar-none,
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.status-scroll-bar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Custom dark scrollbar for dark dialogs and modals */
+.dark-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.dark-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(244, 63, 94, 0.4);
+  border-radius: 9999px;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 63, 94, 0.7);
+}
+.dark-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(244, 63, 94, 0.4) transparent;
+}
+
+/* Photo Screenshot & Privacy Protection */
+.photo-protected {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+@media print {
+  /* Hide protected photos and personal candidate data during print / PDF generation */
+  img, .photo-protected {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  body::before {
+    content: "⚠️ CONFIDENTIAL MATRIMONIAL DATA — SCREENSHOT & PRINTING STRICTLY PROHIBITED BY I 4 YOU SECURITY POLICY.";
+    display: block;
+    padding: 20px;
+    font-size: 16pt;
+    font-weight: bold;
+    color: #dc2626;
+    border: 2px solid #dc2626;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+}
+
+/* Dual Range Slider Thumbs & Track */
+.dual-range-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 24px;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  outline: none;
+}
+
+.dual-range-input::-webkit-slider-runnable-track {
+  background: transparent;
+  border: none;
+  height: 24px;
+}
+
+.dual-range-input::-moz-range-track {
+  background: transparent;
+  border: none;
+  height: 24px;
+}
+
+.dual-range-input::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #D4AF37;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(212, 175, 55, 0.35);
+  cursor: grab;
+  margin-top: 2px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.dual-range-input::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.32), 0 0 0 2px rgba(212, 175, 55, 0.45);
+}
+
+.dual-range-input::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.22);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.38), 0 0 0 3px rgba(212, 175, 55, 0.6);
+}
+
+.dual-range-input::-moz-range-thumb {
+  pointer-events: auto;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #D4AF37;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(212, 175, 55, 0.35);
+  cursor: grab;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.dual-range-input::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.32), 0 0 0 2px rgba(212, 175, 55, 0.45);
+}
+
+.dual-range-input::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.22);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.38), 0 0 0 3px rgba(212, 175, 55, 0.6);
+}
+
+/* Ensure any lingering Google reCAPTCHA elements are removed */
+.grecaptcha-badge,
+iframe[title*="recaptcha"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* ========================================================
+   LUXURY MATRIMONIAL VISUAL ENHANCEMENTS & ANIMATIONS
+   ======================================================== */
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes floatSlowReverse {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(8px);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes shimmerSweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes goldAura {
+  0%, 100% {
+    box-shadow: 0 0 20px -5px rgba(212, 175, 55, 0.3), 0 0 40px -10px rgba(223, 183, 108, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 30px -2px rgba(212, 175, 55, 0.5), 0 0 60px -5px rgba(223, 183, 108, 0.3);
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: floatSlowReverse 7s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+.animate-gold-aura {
+  animation: goldAura 3.5s ease-in-out infinite;
+}
+
+.text-glow-gold {
+  text-shadow: 0 0 20px rgba(212, 175, 55, 0.45), 0 0 40px rgba(223, 183, 108, 0.2);
+}
+
+.luxury-glass-card {
+  background: rgba(11, 25, 44, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.luxury-glass-card:hover {
+  border-color: rgba(212, 175, 55, 0.7);
+  box-shadow: 0 15px 35px -10px rgba(11, 25, 44, 0.8), 0 0 25px -5px rgba(212, 175, 55, 0.3);
+}
+
+.gold-shine-border {
+  position: relative;
+}
+
+.gold-shine-border::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.6), transparent 50%, rgba(223, 183, 108, 0.4));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.btn-luxury-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-luxury-shimmer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: skewX(-20deg);
+  transition: 0.6s ease;
+}
+
+.btn-luxury-shimmer:hover::before {
+  left: 150%;
+}
+
+
+
+

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">I 4 You Matrimony</string>
+    <string name="title_activity_main">I 4 You Matrimony</string>
+    <string name="package_name">com.i4you.matrimony</string>
+    <string name="custom_url_scheme">com.i4you.matrimony</string>
+</resources>
