@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm install && vite build",
+    "build": "vite build && node -e \"const fs=require('fs'); fs.mkdirSync('.vercel/output/static',{recursive:true}); fs.cpSync('dist','.vercel/output/static',{recursive:true}); fs.cpSync('dist','build',{recursive:true}); fs.writeFileSync('.vercel/output/config.json', JSON.stringify({version:3,routes:[{handle:'filesystem'},{src:'/(.*)',dest:'/index.html'}]}));\"",
     "lint": "oxlint",
     "preview": "vite preview",
     "cap:sync": "npm run build && npx cap sync android",
