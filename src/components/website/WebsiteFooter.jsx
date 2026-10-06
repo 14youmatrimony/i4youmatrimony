@@ -26,7 +26,8 @@ export default function WebsiteFooter({
   selectedReligion = 'All Religions',
   onSelectReligion,
   currentUser,
-  onLogout
+  onLogout,
+  onOpenAdmin
 }) {
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [termsTab, setTermsTab] = useState('terms');
@@ -298,6 +299,16 @@ export default function WebsiteFooter({
             >
               <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
               <span>Privacy Policy</span>
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => onOpenAdmin ? onOpenAdmin() : (window.location.href = '/admin')}
+              className="flex items-center gap-1 text-slate-500 hover:text-[#DFB76C] transition-colors cursor-pointer text-xs"
+              title="Staff & Management Admin Portal"
+            >
+              <Lock className="w-3.5 h-3.5 text-slate-500" />
+              <span>Admin Portal</span>
             </button>
           </div>
 

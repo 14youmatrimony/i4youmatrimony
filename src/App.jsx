@@ -272,18 +272,44 @@ const CANDIDATE_STATUSES = {
 };
 
 export default function App() {
-  // Initialize viewMode from URL (?mode=app | ?mode=website) or hash (#app | #website) or localStorage
+  // Initialize viewMode from pathname (/admin | /app), URL search (?mode=admin), hash (#admin), or localStorage
   const getInitialViewMode = () => {
     try {
+      // 1. First check pathname (e.g. /admin, /app)
+      const path = (window.location.pathname || '').toLowerCase().replace(/^\/+|\/+$/g, '');
+      if (path === 'admin' || path === 'admin-console' || path === 'admin-portal') {
+        return 'admin';
+      }
+      if (path === 'app' || path === 'mobile') {
+        return 'app';
+      }
+
+      // 2. Next check search parameters (?mode=admin | ?admin)
       const params = new URLSearchParams(window.location.search);
-      const modeParam = params.get('mode') || params.get('view');
-      if (modeParam === 'app' || modeParam === 'website' || modeParam === 'admin') {
-        return modeParam;
+      const modeParam = (params.get('mode') || params.get('view') || '').toLowerCase();
+      if (modeParam === 'admin' || params.has('admin')) {
+        return 'admin';
       }
+      if (modeParam === 'app' || params.has('app')) {
+        return 'app';
+      }
+      if (modeParam === 'website') {
+        return 'website';
+      }
+
+      // 3. Next check URL hash (#admin | #app)
       const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (hash === 'app' || hash === 'website' || hash === 'admin') {
-        return hash;
+      if (hash === 'admin') {
+        return 'admin';
       }
+      if (hash === 'app') {
+        return 'app';
+      }
+      if (hash === 'website') {
+        return 'website';
+      }
+
+      // 4. Finally check localStorage
       const saved = localStorage.getItem('i4u_view_mode');
       if (saved === 'app' || saved === 'website' || saved === 'admin') {
         return saved;
@@ -299,8 +325,17 @@ export default function App() {
     try {
       localStorage.setItem('i4u_view_mode', mode);
       const url = new URL(window.location.href);
-      url.searchParams.set('mode', mode);
-      window.history.replaceState({}, '', url.toString());
+      if (mode === 'admin') {
+        url.pathname = '/admin';
+        url.searchParams.delete('mode');
+      } else if (mode === 'app') {
+        url.pathname = '/app';
+        url.searchParams.delete('mode');
+      } else {
+        url.pathname = '/';
+        url.searchParams.delete('mode');
+      }
+      window.history.pushState({}, '', url.toString());
     } catch (e) {}
   };
 
