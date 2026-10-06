@@ -277,6 +277,10 @@ export default function App() {
     try {
       // 1. First check pathname (e.g. /admin, /app)
       const path = (window.location.pathname || '').toLowerCase().replace(/^\/+|\/+$/g, '');
+      if (path === 'super-admin' || path === 'superadmin') {
+        window.location.href = '/super-admin.html';
+        return 'admin';
+      }
       if (path === 'admin' || path === 'admin-console' || path === 'admin-portal') {
         return 'admin';
       }

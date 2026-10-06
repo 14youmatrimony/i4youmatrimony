@@ -7,6 +7,18 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/super-admin",
+      "destination": "/super-admin.html"
+    },
+    {
+      "source": "/superadmin",
+      "destination": "/super-admin.html"
+    },
+    {
+      "source": "/super-admin/:match*",
+      "destination": "/super-admin.html"
+    },
+    {
       "source": "/admin",
       "destination": "/admin.html"
     },
@@ -15,7 +27,7 @@
       "destination": "/admin.html"
     },
     {
-      "source": "/((?!admin|assets|.*\\..*).*)",
+      "source": "/((?!admin|superadmin|super-admin|assets|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]
