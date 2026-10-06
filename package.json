@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npx --no-install vite build && node -e \"const fs=require('fs'); console.log('dist files:', fs.readdirSync('dist')); fs.mkdirSync('.vercel/output/static',{recursive:true}); fs.cpSync('dist','.vercel/output/static',{recursive:true}); fs.cpSync('dist','build',{recursive:true}); fs.writeFileSync('.vercel/output/config.json', JSON.stringify({version:3,routes:[{handle:'filesystem'},{src:'/(.*)',dest:'/index.html'}]})); console.log('Successfully prepared dist, build, and .vercel/output/static');\"",
+    "build": "npx --no-install vite build && node -e \"const fs=require('fs'); fs.cpSync('dist','public',{recursive:true}); console.log('Successfully updated public with dist bundle');\"",
     "lint": "oxlint",
     "preview": "vite preview",
     "cap:sync": "npm run build && npx cap sync android",
