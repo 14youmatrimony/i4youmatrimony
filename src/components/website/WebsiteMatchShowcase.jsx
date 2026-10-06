@@ -22,7 +22,8 @@ import {
   Utensils,
   ChevronDown,
   ChevronUp,
-  Calendar
+  Calendar,
+  Ruler
 } from 'lucide-react';
 import { STATES_AND_CITIES, getDistrictsForState } from '../../data/locationData';
 import { RELIGIONS } from '../RegistrationWizard';
@@ -34,6 +35,48 @@ import {
   isSelfProfile, 
   resolveProfileGender 
 } from '../../utils/genderMatch';
+
+export function parseHeightInches(hStr) {
+  if (!hStr) return null;
+  const match = String(hStr).match(/(\d+)\s*['’′ft\.]+\s*(\d+)?/i);
+  if (match) {
+    const feet = parseInt(match[1], 10);
+    const inches = match[2] ? parseInt(match[2], 10) : 0;
+    return feet * 12 + inches;
+  }
+  const cmMatch = String(hStr).match(/(\d+)\s*cm/i);
+  if (cmMatch) {
+    return Math.round(parseInt(cmMatch[1], 10) / 2.54);
+  }
+  return null;
+}
+
+export const HEIGHT_FILTER_OPTIONS = [
+  { value: 'All', label: 'All Heights' },
+  { value: "4'10\"+", label: "4'10\" (147 cm) & above" },
+  { value: "5'0\"+", label: "5'0\" (152 cm) & above" },
+  { value: "5'2\"+", label: "5'2\" (157 cm) & above" },
+  { value: "5'3\"+", label: "5'3\" (160 cm) & above" },
+  { value: "5'4\"+", label: "5'4\" (163 cm) & above" },
+  { value: "5'5\"+", label: "5'5\" (165 cm) & above" },
+  { value: "5'6\"+", label: "5'6\" (168 cm) & above" },
+  { value: "5'7\"+", label: "5'7\" (170 cm) & above" },
+  { value: "5'8\"+", label: "5'8\" (173 cm) & above" },
+  { value: "5'9\"+", label: "5'9\" (175 cm) & above" },
+  { value: "5'10\"+", label: "5'10\" (178 cm) & above" },
+  { value: "5'11\"+", label: "5'11\" (180 cm) & above" },
+  { value: "6'0\"+", label: "6'0\" (183 cm) & above" },
+  { value: "6'2\"+", label: "6'2\" (188 cm) & above" },
+  { value: "Under 5'0\"", label: "Under 5'0\" (Petite)" },
+  { value: "4'8\" to 5'2\"", label: "4'8\" to 5'2\" (142 - 157 cm)" },
+  { value: "5'0\" to 5'5\"", label: "5'0\" to 5'5\" (152 - 165 cm)" },
+  { value: "5'3\" to 5'8\"", label: "5'3\" to 5'8\" (160 - 173 cm)" },
+  { value: "5'5\" to 5'11\"", label: "5'5\" to 5'11\" (165 - 180 cm)" },
+  { value: "5'7\" to 6'2\"", label: "5'7\" to 6'2\" (170 - 188 cm)" },
+  { value: "5'10\" to 6'5\"", label: "5'10\" to 6'5\" (178 - 195 cm)" },
+  { value: "6'0\" to 6'11\"", label: "6'0\" to 6'11\" (183 - 210 cm)" },
+  { value: "6'5\"+", label: "6'5\"+ (195 cm and above)" }
+];
 
 export default function WebsiteMatchShowcase({
   profiles,
@@ -73,6 +116,7 @@ export default function WebsiteMatchShowcase({
     }
   }, [externalCity]);
   const [filterDiet, setFilterDiet] = useState('All');
+  const [filterHeight, setFilterHeight] = useState('All');
   const [filterMinAge, setFilterMinAge] = useState(21);
   const [filterMaxAge, setFilterMaxAge] = useState(38);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -90,10 +134,11 @@ export default function WebsiteMatchShowcase({
     if (filterDistrict !== 'All Districts') count++;
     if (filterReligion !== 'All Religions') count++;
     if (filterDiet !== 'All') count++;
+    if (filterHeight !== 'All') count++;
     if (verifiedOnly) count++;
     if (filterMinAge !== 21 || filterMaxAge !== 38) count++;
     return count;
-  }, [searchTerm, filterState, filterDistrict, filterReligion, filterDiet, verifiedOnly, filterMinAge, filterMaxAge]);
+  }, [searchTerm, filterState, filterDistrict, filterReligion, filterDiet, filterHeight, verifiedOnly, filterMinAge, filterMaxAge]);
 
   // Reset all filters
   const handleResetFilters = () => {
@@ -104,6 +149,7 @@ export default function WebsiteMatchShowcase({
     onSelectReligion?.('All Religions');
     onClearExternalCity?.();
     setFilterDiet('All');
+    setFilterHeight('All');
     setFilterMinAge(21);
     setFilterMaxAge(38);
     setVerifiedOnly(false);
@@ -154,10 +200,36 @@ export default function WebsiteMatchShowcase({
       // 4. Diet
       if (filterDiet !== 'All' && p.diet !== filterDiet) return false;
 
-      // 5. Age
+      // 5. Height Selection Filter
+      if (filterHeight && filterHeight !== 'All') {
+        const pInches = parseHeightInches(p.height);
+        if (pInches) {
+          if (filterHeight.toLowerCase().startsWith('under')) {
+            const matches = [...filterHeight.matchAll(/(\d+)'(\d+)/g)];
+            if (matches.length > 0) {
+              const maxH = parseInt(matches[0][1], 10) * 12 + parseInt(matches[0][2], 10);
+              if (pInches >= maxH) return false;
+            }
+          } else {
+            const matches = [...filterHeight.matchAll(/(\d+)'(\d+)/g)];
+            if (matches.length >= 2) {
+              const minH = parseInt(matches[0][1], 10) * 12 + parseInt(matches[0][2], 10);
+              const maxH = parseInt(matches[1][1], 10) * 12 + parseInt(matches[1][2], 10);
+              if (pInches < minH || pInches > maxH) return false;
+            } else if (matches.length === 1) {
+              const minH = parseInt(matches[0][1], 10) * 12 + parseInt(matches[0][2], 10);
+              if (pInches < minH) return false;
+            }
+          }
+        } else {
+          return false;
+        }
+      }
+
+      // 6. Age
       if (p.age < filterMinAge || p.age > filterMaxAge) return false;
 
-      // 6. Verified Only
+      // 7. Verified Only
       if (verifiedOnly && !p.verified && !p.aadhaarVerified) return false;
 
       return true;
@@ -170,6 +242,7 @@ export default function WebsiteMatchShowcase({
     filterDistrict,
     filterReligion,
     filterDiet,
+    filterHeight,
     filterMinAge,
     filterMaxAge,
     verifiedOnly
@@ -269,7 +342,7 @@ export default function WebsiteMatchShowcase({
 
           {/* Row 3: Expandable Advanced Filters Drawer */}
           {isFilterExpanded && (
-            <div className="pt-4 border-t border-slate-200/80 bg-gradient-to-b from-slate-50/70 to-amber-50/20 rounded-2xl p-4 sm:p-5 border border-slate-200/60 shadow-inner grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="pt-4 border-t border-slate-200/80 bg-gradient-to-b from-slate-50/70 to-amber-50/20 rounded-2xl p-4 sm:p-5 border border-slate-200/60 shadow-inner grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3.5 animate-in fade-in slide-in-from-top-2 duration-200">
               
               {/* State */}
               <div>
@@ -349,6 +422,25 @@ export default function WebsiteMatchShowcase({
                   <option value="Non-Vegetarian">Non-Vegetarian</option>
                   <option value="Eggetarian">Eggetarian</option>
                   <option value="Jain Vegetarian">Jain Vegetarian</option>
+                </select>
+              </div>
+
+              {/* Height Selection */}
+              <div>
+                <label className="flex items-center space-x-1 text-[11px] font-bold text-slate-700 uppercase mb-1.5">
+                  <Ruler className="w-3 h-3 text-[#DFB76C]" />
+                  <span>Height</span>
+                </label>
+                <select
+                  value={filterHeight}
+                  onChange={(e) => setFilterHeight(e.target.value)}
+                  className="w-full bg-white border border-slate-200 hover:border-[#DFB76C]/60 text-xs rounded-xl p-2.5 font-medium text-slate-800 focus:outline-hidden focus:border-[#D4AF37] focus:ring-2 focus:ring-[#DFB76C]/20 shadow-2xs cursor-pointer"
+                >
+                  {HEIGHT_FILTER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -482,6 +574,21 @@ export default function WebsiteMatchShowcase({
                     type="button"
                     onClick={() => setFilterDiet('All')}
                     className="hover:text-rose-600 cursor-pointer ml-0.5 flex items-center"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+
+              {filterHeight !== 'All' && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-300/70 text-xs font-semibold">
+                  <Ruler className="w-3 h-3 text-slate-600" />
+                  <span>Height: {filterHeight}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFilterHeight('All')}
+                    className="hover:text-rose-600 cursor-pointer ml-0.5 flex items-center"
+                    title="Clear height filter"
                   >
                     <X className="w-3 h-3" />
                   </button>

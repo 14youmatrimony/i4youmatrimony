@@ -1885,6 +1885,7 @@ export default function App() {
                 isWebsiteModal={true}
                 currentUser={currentUser}
                 onSelectPlanForPayment={handleSelectPlanForPayment}
+                onOpenLogin={() => setCurrentScreen('login')}
                 onViewInvoices={() => {
                   setCurrentScreen('app');
                   setViewMode('app');
@@ -1983,6 +1984,10 @@ export default function App() {
               isWebsiteModal={true}
               currentUser={currentUser}
               onSelectPlanForPayment={handleSelectPlanForPayment}
+              onOpenLogin={() => {
+                setIsOffersSheetOpen(false);
+                setCurrentScreen('login');
+              }}
               onViewInvoices={() => {
                 setIsOffersSheetOpen(false);
                 setViewMode('app');
@@ -2267,6 +2272,7 @@ export default function App() {
           onClose={() => setCurrentScreen('app')}
           currentUser={currentUser}
           onSelectPlanForPayment={handleSelectPlanForPayment}
+          onOpenLogin={() => setCurrentScreen('login')}
           onViewInvoices={() => {
             setCurrentScreen('app');
             setActiveTab('account');
@@ -2467,6 +2473,10 @@ export default function App() {
                 onClose={() => setIsOffersSheetOpen(false)}
                 currentUser={currentUser}
                 onSelectPlanForPayment={handleSelectPlanForPayment}
+                onOpenLogin={() => {
+                  setIsOffersSheetOpen(false);
+                  setCurrentScreen('login');
+                }}
                 onViewInvoices={() => {
                   setIsOffersSheetOpen(false);
                   setActiveTab('account');

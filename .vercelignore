@@ -1,8 +1,12 @@
-# Ignore backend and mobile builds for Vercel web deployment
-admin
-android
+# Ignore root backend and mobile project folders for Vercel web deployment
+/admin/
+/android/
 Procfile
 run_admin.bat
 run_localhost_all.bat
 scratch_inspect_db.py
 *.apk
+
+# Protect frontend components from being ignored
+!/src/components/admin/
+!/src/components/admin/**

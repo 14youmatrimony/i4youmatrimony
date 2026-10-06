@@ -20,6 +20,7 @@ import { REGIONS, STATES_AND_CITIES, getDistrictsForState } from '../data/locati
 import { RELIGIONS, MOTHER_TONGUES } from './RegistrationWizard';
 import SearchableSelect from './common/SearchableSelect';
 import { sanitizeSearchTerm } from '../utils/security';
+import { parseHeightInches, HEIGHT_FILTER_OPTIONS } from './website/WebsiteMatchShowcase';
 
 export default function SearchFilter({ 
   profiles, 
@@ -38,6 +39,7 @@ export default function SearchFilter({
   const [selectedReligion, setSelectedReligion] = useState('All Religions');
   const [selectedEducation, setSelectedEducation] = useState('All Educations');
   const [selectedDiet, setSelectedDiet] = useState('All Diets');
+  const [selectedHeight, setSelectedHeight] = useState('All');
   const [ageRange, setAgeRange] = useState({ min: 21, max: 35 });
   const [manglikFilter, setManglikFilter] = useState('All');
 
@@ -110,6 +112,7 @@ export default function SearchFilter({
     setSelectedReligion('All Religions');
     setSelectedEducation('All Educations');
     setSelectedDiet('All Diets');
+    setSelectedHeight('All');
     setAgeRange({ min: 21, max: 35 });
     setManglikFilter('All');
   };
@@ -164,6 +167,32 @@ export default function SearchFilter({
         if (selectedDiet === 'Jain' && !profile.diet.includes('Jain')) return false;
       }
 
+      // Height
+      if (selectedHeight && selectedHeight !== 'All' && selectedHeight !== 'All Heights') {
+        const pInches = parseHeightInches(profile.height);
+        if (pInches) {
+          if (selectedHeight.toLowerCase().startsWith('under')) {
+            const matches = [...selectedHeight.matchAll(/(\d+)'(\d+)/g)];
+            if (matches.length > 0) {
+              const maxH = parseInt(matches[0][1], 10) * 12 + parseInt(matches[0][2], 10);
+              if (pInches >= maxH) return false;
+            }
+          } else {
+            const matches = [...selectedHeight.matchAll(/(\d+)'(\d+)/g)];
+            if (matches.length >= 2) {
+              const minH = parseInt(matches[0][1], 10) * 12 + parseInt(matches[0][2], 10);
+              const maxH = parseInt(matches[1][1], 10) * 12 + parseInt(matches[1][2], 10);
+              if (pInches < minH || pInches > maxH) return false;
+            } else if (matches.length === 1) {
+              const minH = parseInt(matches[0][1], 10) * 12 + parseInt(matches[0][2], 10);
+              if (pInches < minH) return false;
+            }
+          }
+        } else {
+          return false;
+        }
+      }
+
       // Age range
       if (profile.age < ageRange.min || profile.age > ageRange.max) {
         return false;
@@ -185,6 +214,7 @@ export default function SearchFilter({
     selectedReligion, 
     selectedEducation, 
     selectedDiet, 
+    selectedHeight,
     ageRange, 
     manglikFilter
   ]);
@@ -292,7 +322,7 @@ export default function SearchFilter({
         </div>
 
         {/* Secondary Filters Bar */}
-        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
           
           {/* Age Range Slider */}
           <div>
@@ -312,6 +342,19 @@ export default function SearchFilter({
               />
               <span className="text-[10px] text-slate-400">40</span>
             </div>
+          </div>
+
+          {/* Height Filter */}
+          <div>
+            <SearchableSelect
+              label="Height"
+              value={selectedHeight}
+              onChange={(val) => setSelectedHeight(val)}
+              options={HEIGHT_FILTER_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+              placeholder="Select Height"
+              searchPlaceholder="Search height..."
+              buttonClassName="h-9 font-medium"
+            />
           </div>
 
           {/* Diet Filter */}
