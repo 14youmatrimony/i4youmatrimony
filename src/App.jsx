@@ -22,6 +22,7 @@ import MobileOffersAndPlansSheet from './components/mobile/MobileOffersAndPlansS
 import MobilePaymentModal from './components/mobile/MobilePaymentModal';
 import PaymentInvoiceModal from './components/mobile/PaymentInvoiceModal';
 import MobileThemeSettingsSheet from './components/mobile/MobileThemeSettingsSheet';
+import AdminConsoleView from './components/admin/AdminConsoleView';
 import { ThemeProvider } from './context/ThemeContext';
 import { MEMBERSHIP_PLANS, formatBackendPlan } from './data/plansData';
 import WebsiteView from './components/website/WebsiteView';
@@ -276,19 +277,16 @@ export default function App() {
     try {
       const params = new URLSearchParams(window.location.search);
       const modeParam = params.get('mode') || params.get('view');
-      if (modeParam === 'app' || modeParam === 'website') {
+      if (modeParam === 'app' || modeParam === 'website' || modeParam === 'admin') {
         return modeParam;
       }
       const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (hash === 'app' || hash === 'website') {
+      if (hash === 'app' || hash === 'website' || hash === 'admin') {
         return hash;
       }
       const saved = localStorage.getItem('i4u_view_mode');
-      if (saved === 'app' || saved === 'website') {
+      if (saved === 'app' || saved === 'website' || saved === 'admin') {
         return saved;
-      }
-      if (saved === 'admin') {
-        localStorage.removeItem('i4u_view_mode');
       }
     } catch (e) {}
     return 'website';
@@ -1726,56 +1724,15 @@ export default function App() {
     <ThemeProvider>
       <PhotoPrivacyProvider>
         {viewMode === 'admin' ? (
-          <div className="min-h-screen bg-[#070F1E] flex flex-col items-center justify-center p-6 text-center text-white">
-            <div className="max-w-md w-full bg-[#0B192C] border border-[#D4AF37]/40 rounded-3xl p-8 shadow-2xl space-y-5">
-              <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-[#D4AF37]/50 flex items-center justify-center mx-auto text-[#DFB76C]">
-                <ShieldCheck className="w-8 h-8" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold font-serif text-[#DFB76C]">Dedicated Admin & CRM Portal</h2>
-                <p className="text-xs text-slate-400 mt-1">Role-Based Access Control (RBAC) System</p>
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                For complete data protection and privacy, CRM and Administrative tools have been removed from the client website and mobile app.
-              </p>
-              <div className="p-3.5 rounded-xl bg-black/40 border border-slate-800 text-xs text-slate-400 text-left space-y-2">
-                <div className="flex items-center justify-between text-[11px] font-semibold text-amber-300">
-                  <span>Standalone Executive Portal:</span>
-                  <span className="font-mono text-emerald-400">Port 5000 (Active)</span>
-                </div>
-                <p className="text-[11px] text-slate-300">
-                  URL: <a href="http://localhost:5000" target="_blank" rel="noreferrer" className="text-[#DFB76C] font-mono font-bold underline hover:text-white">http://localhost:5000</a>
-                </p>
-                <div className="pt-2 border-t border-white/10 space-y-1 text-[11px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Default Email:</span>
-                    <span className="font-mono text-emerald-400 font-bold select-all">admin@i4you.com</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Default Password:</span>
-                    <span className="font-mono text-amber-300 font-bold select-all">Admin@12345</span>
-                  </div>
-                </div>
-              </div>
-              <div className="pt-2 flex flex-col gap-2.5">
-                <a 
-                  href="http://localhost:5000" 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F3E5AB] to-[#D4AF37] text-[#0B192C] font-extrabold text-xs shadow-md hover:opacity-95 transition-all flex items-center justify-center gap-1.5"
-                >
-                  Open Dedicated Admin Portal ↗
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('website')}
-                  className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all cursor-pointer"
-                >
-                  Return to Matrimonial Website
-                </button>
-              </div>
-            </div>
-          </div>
+          <AdminConsoleView 
+            profiles={profiles}
+            setProfiles={setProfiles}
+            currentUser={currentUser}
+            onSwitchToWebsite={() => setViewMode('website')}
+            onSwitchToApp={() => setViewMode('app')}
+            isProduction={isProduction}
+            onToggleProductionMode={handleToggleProductionMode}
+          />
         ) : viewMode === 'website' ? (
           <>
             {/* 1. Website View */}
