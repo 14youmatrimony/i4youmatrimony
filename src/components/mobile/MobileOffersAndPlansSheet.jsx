@@ -23,6 +23,7 @@ export default function MobileOffersAndPlansSheet({
   isWebsiteModal = false,
   currentUser,
   onSelectPlanForPayment,
+  onOpenLogin,
   onViewInvoices,
   plans = MEMBERSHIP_PLANS,
   offers = []
@@ -193,12 +194,17 @@ export default function MobileOffersAndPlansSheet({
               <button
                 type="button"
                 onClick={() => {
+                  if (!currentUser) {
+                    if (onOpenLogin) onOpenLogin();
+                    else if (onSelectPlanForPayment) onSelectPlanForPayment(targetPlan, selectedDuration, activeCoupon);
+                    return;
+                  }
                   const targetPlan = recommendedPlan || availablePlans[0];
                   if (targetPlan) onSelectPlanForPayment(targetPlan, selectedDuration, activeCoupon);
                 }}
                 className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] font-bold text-[11px] hover:opacity-95 shadow-sm flex items-center space-x-1 cursor-pointer"
               >
-                <span>Claim Offer</span>
+                <span>{!currentUser ? 'Login to Claim' : 'Claim Offer'}</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             </div>
@@ -387,15 +393,33 @@ export default function MobileOffersAndPlansSheet({
                   {/* Select Plan Button */}
                   <button
                     type="button"
-                    onClick={() => onSelectPlanForPayment(plan, selectedDuration, activeCoupon)}
+                    onClick={() => {
+                      if (!currentUser) {
+                        if (onOpenLogin) onOpenLogin();
+                        else if (onSelectPlanForPayment) onSelectPlanForPayment(plan, selectedDuration, activeCoupon);
+                        return;
+                      }
+                      onSelectPlanForPayment(plan, selectedDuration, activeCoupon);
+                    }}
                     className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center space-x-1 cursor-pointer shadow-2xs ${
-                      plan.isPopular
-                        ? 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:opacity-95'
-                        : 'bg-[#0B192C] text-white hover:bg-slate-900'
+                      !currentUser
+                        ? 'bg-slate-100 hover:bg-[#0B192C] text-slate-800 hover:text-white border border-slate-200'
+                        : plan.isPopular
+                          ? 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:opacity-95'
+                          : 'bg-[#0B192C] text-white hover:bg-slate-900'
                     }`}
                   >
-                    <span>Choose {plan.name}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    {!currentUser ? (
+                      <>
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Login to Select {plan.name}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Choose {plan.name}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
                   </button>
 
                 </div>
@@ -469,11 +493,16 @@ export default function MobileOffersAndPlansSheet({
           type="button"
           onClick={() => {
             const targetPlan = recommendedPlan || availablePlans[0];
+            if (!currentUser) {
+              if (onOpenLogin) onOpenLogin();
+              else if (onSelectPlanForPayment && targetPlan) onSelectPlanForPayment(targetPlan, selectedDuration, activeCoupon);
+              return;
+            }
             if (targetPlan) onSelectPlanForPayment(targetPlan, selectedDuration, activeCoupon);
           }}
           className="py-2 px-3.5 sm:px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#D4AF37]/30 hover:opacity-95 transition-all flex items-center space-x-1 cursor-pointer"
         >
-          <span>Upgrade Now (50% OFF)</span>
+          <span>{!currentUser ? 'Login to Upgrade' : 'Upgrade Now (50% OFF)'}</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </footer>

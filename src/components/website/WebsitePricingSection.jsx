@@ -9,11 +9,19 @@ import {
   ArrowRight, 
   Copy,
   Clock,
-  HeartHandshake
+  HeartHandshake,
+  Lock
 } from 'lucide-react';
 import { MEMBERSHIP_PLANS } from '../../data/plansData';
 
-export default function WebsitePricingSection({ plans = MEMBERSHIP_PLANS, offers = [], onSelectPlanForPayment, onOpenRegister }) {
+export default function WebsitePricingSection({ 
+  plans = MEMBERSHIP_PLANS, 
+  offers = [], 
+  currentUser,
+  onOpenLogin,
+  onSelectPlanForPayment, 
+  onOpenRegister 
+}) {
   const [selectedDuration, setSelectedDuration] = useState(6); // 3 | 6 | 12 months
   const [copiedCoupon, setCopiedCoupon] = useState(false);
   const [infoToast, setInfoToast] = useState('');
@@ -65,6 +73,16 @@ export default function WebsitePricingSection({ plans = MEMBERSHIP_PLANS, offers
   };
 
   const handleSelectPlan = (plan) => {
+    if (!currentUser) {
+      showToast('Please log in or register to select or activate a membership plan.');
+      if (onOpenLogin) {
+        onOpenLogin();
+      } else if (onOpenRegister) {
+        onOpenRegister();
+      }
+      return;
+    }
+
     const pricing = getPlanPricing(plan);
     if (pricing.discounted === 0) {
       showToast('You already have Free Basic access! Upgrade to Gold or Diamond for direct contacts.');
@@ -104,6 +122,15 @@ export default function WebsitePricingSection({ plans = MEMBERSHIP_PLANS, offers
           <p className="text-xs sm:text-sm text-slate-600 font-normal leading-relaxed max-w-2xl mx-auto">
             Unlock direct candidate telephone numbers, verified family horoscopes, and unlimited chats with zero hidden fees.
           </p>
+
+          {!currentUser && (
+            <div className="pt-2">
+              <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-amber-50/90 border border-amber-300 text-amber-900 text-xs font-semibold shadow-xs">
+                <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <span>View-Only Mode: Please log in or register to select and activate membership plans</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Dynamic Admin-Managed Offer Banner (Only if featuredOffer active) */}
@@ -258,19 +285,30 @@ export default function WebsitePricingSection({ plans = MEMBERSHIP_PLANS, offers
                         handleSelectPlan(plan);
                       }}
                       className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs mt-3 flex items-center justify-center space-x-1.5 transition-all shadow-sm cursor-pointer ${
-                        isPopular
-                          ? 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:opacity-95'
-                          : pricing.discounted === 0
-                            ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                            : 'bg-[#0B192C] text-white hover:bg-slate-800'
+                        !currentUser
+                          ? 'bg-slate-100 hover:bg-[#0B192C] text-slate-700 hover:text-white border border-slate-200 hover:border-[#0B192C]'
+                          : isPopular
+                            ? 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:opacity-95'
+                            : pricing.discounted === 0
+                              ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                              : 'bg-[#0B192C] text-white hover:bg-slate-800'
                       }`}
                     >
-                      <span>
-                        {pricing.discounted === 0 
-                          ? 'Start Free Account' 
-                          : `Upgrade • ₹${pricing.discounted}`}
-                      </span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      {!currentUser ? (
+                        <>
+                          <Lock className="w-3.5 h-3.5 text-[#8C6D1F]" />
+                          <span>{pricing.discounted === 0 ? 'Login to Get Started' : 'Login to Upgrade'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>
+                            {pricing.discounted === 0 
+                              ? 'Start Free Account' 
+                              : `Upgrade • ₹${pricing.discounted}`}
+                          </span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
                     </button>
                   </div>
 
@@ -309,13 +347,24 @@ export default function WebsitePricingSection({ plans = MEMBERSHIP_PLANS, offers
                       handleSelectPlan(plan);
                     }}
                     className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm ${
-                      isPopular
-                        ? 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:opacity-95'
-                        : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+                      !currentUser
+                        ? 'bg-slate-50 hover:bg-amber-50/80 text-slate-600 hover:text-amber-900 border border-slate-200'
+                        : isPopular
+                          ? 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:opacity-95'
+                          : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
                     }`}
                   >
-                    <span>{pricing.discounted === 0 ? 'Current Free Plan' : `Select ${plan.name}`}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    {!currentUser ? (
+                      <>
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{pricing.discounted === 0 ? 'Login for Free Access' : `Login to Select ${plan.name}`}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{pricing.discounted === 0 ? 'Current Free Plan' : `Select ${plan.name}`}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
                   </button>
                 </div>
 

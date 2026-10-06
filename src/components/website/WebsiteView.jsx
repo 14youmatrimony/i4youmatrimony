@@ -167,8 +167,10 @@ export default function WebsiteView({
         <WebsitePricingSection 
           plans={membershipPlans}
           offers={offers}
-          onSelectPlanForPayment={onSelectPlanForPayment}
+          currentUser={currentUser}
+          onOpenLogin={onOpenLogin}
           onOpenRegister={onOpenRegister}
+          onSelectPlanForPayment={onSelectPlanForPayment}
         />
 
         {/* 9. Real Blessed Marriages Success Stories */}

@@ -4,9 +4,18 @@
   "outputDirectory": "dist",
   "buildCommand": "vite build",
   "installCommand": "npm install",
+  "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/admin/:match*",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/((?!admin|assets|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

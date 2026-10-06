@@ -705,6 +705,12 @@ export default function App() {
   };
 
   const handleSelectPlanForPayment = (plan, durationMonths = 6, coupon = '') => {
+    if (!currentUser) {
+      setIsOffersSheetOpen(false);
+      setIsPaymentModalOpen(false);
+      setCurrentScreen('login');
+      return;
+    }
     setSelectedPlanForPayment(plan);
     setPaymentDuration(durationMonths);
     setPaymentCoupon(coupon);
