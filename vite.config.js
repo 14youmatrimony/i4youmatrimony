@@ -1,24 +1,30 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { resolve } from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     tailwindcss(),
     react(),
+    {
+      name: 'super-admin-rewrites',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const rawUrl = req.url || '';
+          const cleanPath = rawUrl.split('?')[0].toLowerCase();
+          if (cleanPath === '/super-admin' || cleanPath === '/superadmin' || cleanPath === '/admin') {
+            const query = rawUrl.includes('?') ? '?' + rawUrl.split('?')[1] : '';
+            req.url = '/super-admin.html' + query;
+          }
+          next();
+        });
+      }
+    },
   ],
   build: {
     outDir: 'dist',
-    emptyOutDir: true,
-    rollupOptions: {
-      input: {
-        main: resolve(import.meta.dirname, 'index.html'),
-        admin: resolve(import.meta.dirname, 'admin.html'),
-        superadmin: resolve(import.meta.dirname, 'super-admin.html')
-      }
-    }
+    emptyOutDir: true
   },
   server: {
     host: true,

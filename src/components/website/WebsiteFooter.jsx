@@ -26,8 +26,7 @@ export default function WebsiteFooter({
   selectedReligion = 'All Religions',
   onSelectReligion,
   currentUser,
-  onLogout,
-  onOpenAdmin
+  onLogout
 }) {
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [termsTab, setTermsTab] = useState('terms');
@@ -301,15 +300,14 @@ export default function WebsiteFooter({
               <span>Privacy Policy</span>
             </button>
             <span>•</span>
-            <button
-              type="button"
-              onClick={() => onOpenAdmin ? onOpenAdmin() : (window.location.href = '/admin')}
-              className="flex items-center gap-1 text-slate-500 hover:text-[#DFB76C] transition-colors cursor-pointer text-xs"
-              title="Staff & Management Admin Portal"
+            <a
+              href="/super-admin"
+              className="flex items-center gap-1 text-slate-400 hover:text-[#DFB76C] transition-colors cursor-pointer text-xs font-medium"
+              title="Central Super Admin Portal"
             >
-              <Lock className="w-3.5 h-3.5 text-slate-500" />
+              <Lock className="w-3.5 h-3.5 text-[#DFB76C]" />
               <span>Admin Portal</span>
-            </button>
+            </a>
           </div>
 
           <p>© {new Date().getFullYear()} I 4 You Matrimonial Technologies Pvt. Ltd. All rights reserved.</p>

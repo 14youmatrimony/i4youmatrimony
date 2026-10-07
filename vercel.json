@@ -15,19 +15,11 @@
       "destination": "/super-admin.html"
     },
     {
-      "source": "/super-admin/:match*",
+      "source": "/admin",
       "destination": "/super-admin.html"
     },
     {
-      "source": "/admin",
-      "destination": "/admin.html"
-    },
-    {
-      "source": "/admin/:match*",
-      "destination": "/admin.html"
-    },
-    {
-      "source": "/((?!admin|superadmin|super-admin|assets|.*\\..*).*)",
+      "source": "/((?!admin-assets|static|assets|super-admin\\.html|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

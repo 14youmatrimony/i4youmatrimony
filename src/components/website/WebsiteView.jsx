@@ -195,7 +195,6 @@ export default function WebsiteView({
           setActiveCity(city);
           handleScrollToSection('matches-section');
         }}
-        onOpenAdmin={() => setViewMode('admin')}
       />
     </div>
   );

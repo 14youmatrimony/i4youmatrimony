@@ -22,7 +22,6 @@ import MobileOffersAndPlansSheet from './components/mobile/MobileOffersAndPlansS
 import MobilePaymentModal from './components/mobile/MobilePaymentModal';
 import PaymentInvoiceModal from './components/mobile/PaymentInvoiceModal';
 import MobileThemeSettingsSheet from './components/mobile/MobileThemeSettingsSheet';
-import AdminConsoleView from './components/admin/AdminConsoleView';
 import { ThemeProvider } from './context/ThemeContext';
 import { MEMBERSHIP_PLANS, formatBackendPlan } from './data/plansData';
 import WebsiteView from './components/website/WebsiteView';
@@ -272,27 +271,28 @@ const CANDIDATE_STATUSES = {
 };
 
 export default function App() {
-  // Initialize viewMode from pathname (/admin | /app), URL search (?mode=admin), hash (#admin), or localStorage
+  // Initialize viewMode from pathname (/app), URL search (?mode=app), hash (#app), or localStorage
   const getInitialViewMode = () => {
     try {
-      // 1. First check pathname (e.g. /admin, /app)
+      // Clean up any legacy admin routes or redirects
       const path = (window.location.pathname || '').toLowerCase().replace(/^\/+|\/+$/g, '');
-      if (path === 'super-admin' || path === 'superadmin') {
+      if (['admin', 'super-admin', 'superadmin', 'admin-console', 'admin-portal'].includes(path)) {
         window.location.href = '/super-admin.html';
-        return 'admin';
-      }
-      if (path === 'admin' || path === 'admin-console' || path === 'admin-portal') {
-        return 'admin';
+        return 'website';
       }
       if (path === 'app' || path === 'mobile') {
         return 'app';
       }
 
-      // 2. Next check search parameters (?mode=admin | ?admin)
+      // Check search parameters (?mode=app | ?mode=website)
       const params = new URLSearchParams(window.location.search);
       const modeParam = (params.get('mode') || params.get('view') || '').toLowerCase();
       if (modeParam === 'admin' || params.has('admin')) {
-        return 'admin';
+        params.delete('mode');
+        params.delete('admin');
+        const newSearch = params.toString() ? `?${params.toString()}` : '';
+        window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`);
+        return 'website';
       }
       if (modeParam === 'app' || params.has('app')) {
         return 'app';
@@ -301,10 +301,11 @@ export default function App() {
         return 'website';
       }
 
-      // 3. Next check URL hash (#admin | #app)
+      // Check URL hash (#app | #website)
       const hash = window.location.hash.replace('#', '').toLowerCase();
       if (hash === 'admin') {
-        return 'admin';
+        window.history.replaceState({}, '', window.location.pathname);
+        return 'website';
       }
       if (hash === 'app') {
         return 'app';
@@ -313,32 +314,34 @@ export default function App() {
         return 'website';
       }
 
-      // 4. Finally check localStorage
+      // Check localStorage
       const saved = localStorage.getItem('i4u_view_mode');
-      if (saved === 'app' || saved === 'website' || saved === 'admin') {
+      if (saved === 'admin') {
+        localStorage.removeItem('i4u_view_mode');
+        return 'website';
+      }
+      if (saved === 'app' || saved === 'website') {
         return saved;
       }
     } catch (e) {}
     return 'website';
   };
 
-  const [viewMode, setViewModeState] = useState(getInitialViewMode); // 'website' | 'app' | 'admin'
+  const [viewMode, setViewModeState] = useState(getInitialViewMode); // 'website' | 'app'
 
   const setViewMode = (mode) => {
-    setViewModeState(mode);
+    const targetMode = mode === 'app' ? 'app' : 'website';
+    setViewModeState(targetMode);
     try {
-      localStorage.setItem('i4u_view_mode', mode);
+      localStorage.setItem('i4u_view_mode', targetMode);
       const url = new URL(window.location.href);
-      if (mode === 'admin') {
-        url.pathname = '/admin';
-        url.searchParams.delete('mode');
-      } else if (mode === 'app') {
+      if (targetMode === 'app') {
         url.pathname = '/app';
-        url.searchParams.delete('mode');
       } else {
         url.pathname = '/';
-        url.searchParams.delete('mode');
       }
+      url.searchParams.delete('mode');
+      url.searchParams.delete('admin');
       window.history.pushState({}, '', url.toString());
     } catch (e) {}
   };
@@ -1768,17 +1771,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <PhotoPrivacyProvider>
-        {viewMode === 'admin' ? (
-          <AdminConsoleView 
-            profiles={profiles}
-            setProfiles={setProfiles}
-            currentUser={currentUser}
-            onSwitchToWebsite={() => setViewMode('website')}
-            onSwitchToApp={() => setViewMode('app')}
-            isProduction={isProduction}
-            onToggleProductionMode={handleToggleProductionMode}
-          />
-        ) : viewMode === 'website' ? (
+        {viewMode === 'website' ? (
           <>
             {/* 1. Website View */}
             <WebsiteView 
