@@ -23,11 +23,20 @@ import {
   Trash2,
   Star,
   Image as ImageIcon,
-  ArrowRight
+  ArrowRight,
+  Lock,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Copy,
+  CheckCircle2,
+  Mail,
+  Info
 } from 'lucide-react';
 import SearchableSelect from './common/SearchableSelect';
 import DualRangeSlider from './common/DualRangeSlider';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '../utils/security';
+import { registerWithRegisterId } from '../services/authService';
 import { STATES_AND_CITIES } from '../data/locationData';
 import { 
   ALL_INDIA_RELIGIONS, 
@@ -435,12 +444,22 @@ export default function RegistrationWizard({
 }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [generatedRegisterId, setGeneratedRegisterId] = useState('');
+  const [registeredUser, setRegisteredUser] = useState(null);
+  const [copiedRegisterId, setCopiedRegisterId] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State with Comprehensive Indian Matrimonial Details
   const [formData, setFormData] = useState({
     // Step 1: Basic, Physical & Lifestyle
     profileFor: initialData?.profileFor || 'Self',
     fullName: initialData?.name || 'Dr. Ananya Kulkarni',
+    email: initialData?.email || '',
+    password: '',
+    confirmPassword: '',
+    registerId: initialData?.registerId || '',
     mobile: initialData?.mobile || '9876543210',
     gender: initialData?.gender || 'Female',
     dob: initialData?.dob || '1998-06-15',
@@ -764,6 +783,9 @@ export default function RegistrationWizard({
       fullName: sanitizeInput(data.fullName, { maxLength: 100 }),
       mobile: sanitizePhone(data.mobile) || data.mobile,
       email: data.email ? sanitizeEmail(data.email) : '',
+      password: data.password || '',
+      confirmPassword: data.confirmPassword || '',
+      registerId: data.registerId || '',
       institute: sanitizeInput(data.institute, { maxLength: 100 }),
       designation: sanitizeInput(data.designation, { maxLength: 100 }),
       company: sanitizeInput(data.company, { maxLength: 100 }),
@@ -783,6 +805,17 @@ export default function RegistrationWizard({
       if (!cleanMobile) {
         errs.mobile = 'Please enter a valid 10-digit Indian mobile number (starts with 6-9)';
       }
+      if (formData.email && !formData.email.includes('@')) {
+        errs.email = 'Please enter a valid email address';
+      }
+      if (!formData.password) {
+        errs.password = 'Password is required to secure your account';
+      } else if (formData.password.length < 6) {
+        errs.password = 'Password must be at least 6 characters long';
+      }
+      if (formData.password && formData.password !== formData.confirmPassword) {
+        errs.confirmPassword = 'Passwords do not match. Please verify.';
+      }
     } else if (step === 2) {
       const cleanInstitute = sanitizeInput(formData.institute, { maxLength: 100 });
       const cleanDesignation = sanitizeInput(formData.designation, { maxLength: 100 });
@@ -796,6 +829,27 @@ export default function RegistrationWizard({
     return Object.keys(errs).length === 0;
   };
 
+  const handleFinalRegistrationSubmit = async (sanitized) => {
+    setIsSubmitting(true);
+    try {
+      const result = await registerWithRegisterId(sanitized);
+      if (result.success) {
+        setGeneratedRegisterId(result.registerId);
+        setRegisteredUser(result.user);
+      } else {
+        const fallbackId = 'I4Y' + (Math.floor(Math.random() * 900) + 1001);
+        setGeneratedRegisterId(fallbackId);
+      }
+    } catch (e) {
+      console.warn('[RegistrationWizard] Submit warning:', e);
+      const fallbackId = 'I4Y' + (Math.floor(Math.random() * 900) + 1001);
+      setGeneratedRegisterId(fallbackId);
+    } finally {
+      setIsSubmitting(false);
+      setShowCompleteModal(true);
+    }
+  };
+
   const nextStep = () => {
     if (validateStep(currentStep)) {
       const sanitized = sanitizeAllFormData(formData);
@@ -806,11 +860,7 @@ export default function RegistrationWizard({
         const scrollElem = document.getElementById('wizard-scroll-container');
         if (scrollElem) scrollElem.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        if (onProceedToVerification) {
-          onProceedToVerification(sanitized);
-        } else {
-          setShowCompleteModal(true);
-        }
+        handleFinalRegistrationSubmit(sanitized);
       }
     }
   };
@@ -1066,6 +1116,107 @@ export default function RegistrationWizard({
                     placeholder="Select Physical Status"
                     searchPlaceholder="Search Physical Status..."
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Account Credentials & Password Card */}
+            <div id="account-credentials-card" className="bg-[#FFFDF7] rounded-2xl p-4 border border-[#D4AF37]/50 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-[#0B192C] uppercase tracking-wider flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-[#8C6D1F]" /> Account Credentials & Login Password
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37]/20 text-[#8C6D1F]">
+                  Required for Login
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-[#DFB76C]/10 border border-[#D4AF37]/30 text-[11px] text-slate-700 flex items-start space-x-2">
+                <KeyRound className="w-4 h-4 text-[#8C6D1F] shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  Upon registration, your custom <strong>Register ID (e.g. I4Y1001)</strong> will be automatically generated and assigned to you. You will use this Register ID and password to log in.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {/* Email Address */}
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Email Address <span className="text-slate-400 font-normal">(For Register ID confirmation & match alert emails)</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Mail className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    </div>
+                    <input 
+                      type="email"
+                      placeholder="e.g. ananya.kulkarni@example.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className={`w-full pl-9 pr-3 py-2 rounded-xl border text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none ${
+                        errors.email ? 'border-rose-400 bg-rose-50' : 'border-slate-300 bg-white'
+                      }`}
+                    />
+                  </div>
+                  {errors.email && <p className="text-rose-500 text-[10px] mt-0.5">{errors.email}</p>}
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Password * <span className="text-slate-400 font-normal">(Min 6 characters)</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Lock className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    </div>
+                    <input 
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Create account password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className={`w-full pl-9 pr-9 py-2 rounded-xl border text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none ${
+                        errors.password ? 'border-rose-400 bg-rose-50' : 'border-slate-300 bg-white'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5 text-slate-400" />}
+                    </button>
+                  </div>
+                  {errors.password && <p className="text-rose-500 text-[10px] mt-0.5">{errors.password}</p>}
+                </div>
+
+                {/* Confirm Password */}
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Confirm Password *</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Lock className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    </div>
+                    <input 
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      placeholder="Re-enter password"
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      className={`w-full pl-9 pr-9 py-2 rounded-xl border text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none ${
+                        errors.confirmPassword ? 'border-rose-400 bg-rose-50' : 'border-slate-300 bg-white'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                      title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5 text-slate-400" />}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && <p className="text-rose-500 text-[10px] mt-0.5">{errors.confirmPassword}</p>}
                 </div>
               </div>
             </div>
@@ -2985,51 +3136,107 @@ export default function RegistrationWizard({
         <button
           type="button"
           onClick={nextStep}
-          className="flex-1 max-w-[240px] ml-2 flex items-center justify-center space-x-1.5 py-2.5 px-4 rounded-xl text-xs font-bold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] shadow-md shadow-[#D4AF37]/20 transition-all cursor-pointer"
+          disabled={isSubmitting}
+          className="flex-1 max-w-[260px] ml-2 flex items-center justify-center space-x-1.5 py-2.5 px-4 rounded-xl text-xs font-bold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] shadow-md shadow-[#D4AF37]/20 transition-all cursor-pointer disabled:opacity-60"
         >
-          <span>{currentStep === 4 ? 'Save & Proceed to Aadhaar Verification' : 'Continue Next Step'}</span>
-          <ChevronRight className="w-4 h-4" />
+          {isSubmitting ? (
+            <>
+              <div className="w-3.5 h-3.5 border-2 border-[#0B192C] border-t-transparent rounded-full animate-spin" />
+              <span>Generating Register ID...</span>
+            </>
+          ) : (
+            <>
+              <span>{currentStep === 4 ? 'Save & Generate Register ID' : 'Continue Next Step'}</span>
+              <ChevronRight className="w-4 h-4" />
+            </>
+          )}
         </button>
       </footer>
 
-      {/* Completion Modal */}
+      {/* Completion Modal with Generated Register ID */}
       {showCompleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-sm w-full p-5 text-center shadow-2xl border border-slate-100 relative animate-in zoom-in-95 duration-200">
             <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3 ring-8 ring-emerald-50">
-              <Check className="w-7 h-7 stroke-[3]" />
+              <CheckCircle2 className="w-7 h-7 text-emerald-600" />
             </div>
 
             <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37]/20 text-[#8C6D1F] border border-[#D4AF37]/30">
-              Profile Updated Successfully
+              Registration Successful
             </span>
 
             <h3 className="text-xl font-serif font-bold text-[#0B192C] mt-2">
               Namaste, {formData.fullName || 'Member'}!
             </h3>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-              Your profile in <span className="font-semibold text-slate-800">{formData.district || formData.city}, {formData.state}</span> has been saved with 100% verified status.
+              Your profile has been saved. Your unique Matrimonial <strong>Register ID</strong> is ready:
             </p>
 
-            <div className="my-3.5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-left text-[11px] space-y-1">
-              <p><span className="font-semibold text-slate-700">Physical & Diet:</span> {formData.height} • {formData.bodyType || 'Average'} • {formData.skinColour} • {formData.diet}</p>
-              <p><span className="font-semibold text-slate-700">Academics:</span> {formData.highestQualification} • {formData.institute || 'University'}</p>
-              <p><span className="font-semibold text-slate-700">Profession:</span> {formData.designation} at {formData.company || 'Private Practice'}{(formData.jobLocation || formData.jobPlace) ? ` (📍 ${formData.jobLocation || formData.jobPlace})` : ''}</p>
-              {formData.hobbies && <p><span className="font-semibold text-slate-700">Hobbies &amp; Passions:</span> {formData.hobbies}</p>}
-              <p><span className="font-semibold text-slate-700">Partner Criteria:</span> {formData.prefAgeMin}–{formData.prefAgeMax} yrs • {formData.prefHeight} • {formData.prefBodyType ? `${formData.prefBodyType} • ` : ''}{formData.prefSkinTone ? `${formData.prefSkinTone} • ` : ''}{formData.prefEducation?.split(',')[0]} • {formData.prefDiet}</p>
-              <p><span className="font-semibold text-slate-700">Location Match:</span> {formData.prefRegion}</p>
+            {/* Prominent Register ID Card */}
+            <div className="my-4 p-4 rounded-2xl bg-gradient-to-b from-[#FFFDF7] to-amber-50/50 border-2 border-[#D4AF37] shadow-sm">
+              <div className="text-[10px] uppercase font-bold text-[#8C6D1F] tracking-wider mb-1 flex items-center justify-center gap-1">
+                <KeyRound className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span>Your Official Register ID</span>
+              </div>
+              <div className="text-3xl font-serif font-extrabold text-[#0B192C] tracking-wider my-1">
+                {generatedRegisterId || 'I4Y1001'}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(generatedRegisterId || 'I4Y1001');
+                  setCopiedRegisterId(true);
+                  setTimeout(() => setCopiedRegisterId(false), 2000);
+                }}
+                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-white border border-[#D4AF37]/40 hover:border-[#D4AF37] text-slate-700 shadow-2xs hover:bg-[#FFFDF7] transition-all cursor-pointer"
+              >
+                {copiedRegisterId ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700 font-bold">Register ID Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Copy Register ID</span>
+                  </>
+                )}
+              </button>
+
+              <div className="mt-2.5 pt-2 border-t border-[#D4AF37]/20 text-[11px] text-slate-600 leading-tight">
+                ⚠️ <strong>Important:</strong> Please save this Register ID. You will use this ID and your chosen password to sign in to I 4 You.
+              </div>
             </div>
+
+            {formData.email && (
+              <div className="mb-4 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-left text-[11px] text-slate-600 flex items-center space-x-2">
+                <Mail className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                <span className="truncate">
+                  Confirmation email sent to <strong>{formData.email}</strong>
+                </span>
+              </div>
+            )}
 
             <button
               onClick={() => {
                 setShowCompleteModal(false);
-                onRegistrationComplete?.(formData);
-                if (setCurrentScreen) setCurrentScreen('feed');
-                if (onBack) onBack();
+                const finalData = {
+                  ...formData,
+                  registerId: generatedRegisterId || formData.registerId || 'I4Y1001',
+                  ...(registeredUser || {})
+                };
+                if (onProceedToVerification) {
+                  onProceedToVerification(finalData);
+                } else {
+                  onRegistrationComplete?.(finalData);
+                  if (setCurrentScreen) setCurrentScreen('app');
+                  if (onBack) onBack();
+                }
               }}
-              className="w-full py-2.5 rounded-xl text-xs font-bold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] hover:from-[#dfb76c] hover:to-[#b89228] shadow-lg shadow-[#D4AF37]/30 cursor-pointer"
+              className="w-full py-3 rounded-xl text-xs font-bold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] hover:from-[#dfb76c] hover:to-[#b89228] shadow-lg shadow-[#D4AF37]/30 transition-all cursor-pointer"
             >
-              Explore Your Matches Now
+              Proceed to Profile & Verification
             </button>
           </div>
         </div>

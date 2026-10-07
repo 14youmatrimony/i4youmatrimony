@@ -28,6 +28,7 @@ import WebsiteView from './components/website/WebsiteView';
 import MobileAppModal from './components/mobile/MobileAppModal';
 import ProfileModal from './components/ProfileModal';
 import { getAppMode, setAppMode, APP_CONFIG } from './config/appConfig';
+import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
 
 import { 
   INITIAL_PROFILES, 
@@ -384,14 +385,55 @@ export default function App() {
     return getAppMode() ? [] : INITIAL_PROFILES;
   });
 
-  // Synchronize candidate profiles from Python Admin Backend
-  useEffect(() => {
-    fetchLiveProfiles().then(liveList => {
+  // Synchronize candidate profiles from Supabase Cloud & Python Admin Backend
+  const syncLiveProfiles = useCallback(async () => {
+    try {
+      const liveList = await fetchLiveProfiles();
       if (liveList && liveList.length > 0) {
         setProfiles(liveList);
       }
-    });
-  }, [isProduction]);
+    } catch (e) {
+      console.warn('[Sync Profiles Error]:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    syncLiveProfiles();
+
+    // Auto-refresh when user/admin switches window or tab gains focus
+    const handleFocus = () => syncLiveProfiles();
+    window.addEventListener('focus', handleFocus);
+    const handleVisibility = () => {
+      if (!document.hidden) syncLiveProfiles();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // Fast background sync every 3.5s to immediately show registrations across devices
+    const interval = setInterval(syncLiveProfiles, 3500);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(interval);
+    };
+  }, [syncLiveProfiles, isProduction]);
+
+  // Proactively sync existing locally registered profile to Supabase cloud if needed
+  useEffect(() => {
+    try {
+      const savedUserStr = localStorage.getItem('i4u_auth_user');
+      if (savedUserStr) {
+        const savedUser = JSON.parse(savedUserStr);
+        if (savedUser && (savedUser.name || savedUser.mobile || savedUser.phone)) {
+          const profileWithId = {
+            ...savedUser,
+            id: savedUser.id || `p_${Date.now()}`
+          };
+          registerLiveProfile(profileWithId).catch(() => {});
+        }
+      }
+    } catch (e) {}
+  }, []);
 
   // Synchronize dynamic membership plans & promotional offers from Python Admin Database
   const [membershipPlans, setMembershipPlans] = useState(MEMBERSHIP_PLANS);
@@ -1034,6 +1076,20 @@ export default function App() {
       setInterestsSent(prev => [...prev, profileId]);
       showToast(`Interest sent to ${profile?.name || 'profile'}! ✨`);
 
+      // Dispatch automated email alert to candidate's registered email
+      if (profile?.email) {
+        sendInAppNotificationWithEmail({
+          recipientId: profile.id,
+          recipientEmail: profile.email,
+          type: 'interest_received',
+          title: `💖 New Matrimonial Interest from ${currentUser?.name || 'A Verified Member'}!`,
+          message: `${currentUser?.name || 'A Verified Member'} reviewed your profile on I 4 You and expressed interest in connecting with you.`,
+          senderName: currentUser?.name,
+          senderPhoto: currentUser?.photo,
+          profileLink: 'https://i4youmatrimony.com/app'
+        }).catch(err => console.warn('[App] Interest email notification notice:', err));
+      }
+
       // Ensure a conversation thread exists
       setConversations(prev => {
         if (!prev.find(c => c.profileId === profileId)) {
@@ -1226,10 +1282,18 @@ export default function App() {
   // Handler when Mobile Verification succeeds
   const handleVerificationSuccess = (verifiedData) => {
     setCurrentUser(prev => {
+      const generatedId = verifiedData?.id || (prev?.id && !prev.id.startsWith('demo_') && prev.id !== 'p1' && prev.id !== 'p2' ? prev.id : `p_${Date.now()}`);
+      const resolvedName = verifiedData?.fullName || verifiedData?.name || prev?.name || 'New Member';
+      const resolvedPhone = verifiedData?.mobile || verifiedData?.phone || prev?.mobile || prev?.phone || '';
+
       const updated = {
         ...(prev || {}),
-        name: verifiedData.fullName || prev?.name,
-        mobile: verifiedData.mobile || prev?.mobile,
+        id: generatedId,
+        registerId: verifiedData?.registerId || verifiedData?.register_id || prev?.registerId || ('I4Y' + (Math.floor(Math.random() * 900) + 1003)),
+        name: resolvedName,
+        fullName: resolvedName,
+        mobile: resolvedPhone,
+        phone: resolvedPhone,
         city: verifiedData.city || prev?.city,
         district: verifiedData.district || verifiedData.city || prev?.district,
         state: verifiedData.state || prev?.state,
@@ -1286,7 +1350,10 @@ export default function App() {
       setNotifications(getNotificationsForUser(updated));
       setActiveChatProfileId(isMale ? 'p1' : 'p2');
 
-      // Synchronize candidate profile registration with Python Admin Backend & Database
+      // Immediately display profile in matches feed
+      setProfiles(prevProfiles => [updated, ...prevProfiles.filter(p => p.id !== updated.id)]);
+
+      // Synchronize candidate profile registration with Supabase Cloud & Python Admin
       registerLiveProfile(updated);
 
       return updated;
@@ -1304,6 +1371,10 @@ export default function App() {
     const resolvedAadhaarStatus = isManualOrPending ? 'pending' : (verifiedData?.aadhaar_status || 'approved');
 
     setCurrentUser(prev => {
+      const generatedId = prev?.id && !prev.id.startsWith('demo_') && prev.id !== 'p1' && prev.id !== 'p2'
+        ? prev.id 
+        : (verifiedData?.id || `p_${Date.now()}`);
+
       // Ensure candidate's personal profile photo is NEVER replaced by their Aadhaar card scan
       const resolvedPhoto = (verifiedData?.photo && verifiedData.photo !== verifiedData?.aadhaar_front_image && verifiedData.photo !== verifiedData?.aadhaar_back_image)
         ? verifiedData.photo
@@ -1320,6 +1391,7 @@ export default function App() {
       const updated = {
         ...(prev || {}),
         ...(verifiedData || {}),
+        id: generatedId,
         photo: resolvedPhoto,
         singlePhotos: resolvedSinglePhotos,
         familyPhotos: resolvedFamilyPhotos,
@@ -1361,7 +1433,10 @@ export default function App() {
       setNotifications(getNotificationsForUser(updated));
       setActiveChatProfileId(isMale ? 'p1' : 'p2');
 
-      // Synchronize candidate registration and live verification with Python Admin Backend & Database
+      // Immediately display profile in matches feed
+      setProfiles(prevProfiles => [updated, ...prevProfiles.filter(p => p.id !== updated.id)]);
+
+      // Synchronize candidate registration and live verification with Supabase Cloud & Python Admin
       registerLiveProfile(updated);
       verifyLiveAadhaar(updated);
 
@@ -2232,6 +2307,7 @@ export default function App() {
               handleVerificationSuccess(regData);
             }
           }}
+          onProceedToVerification={handleProceedToVerification}
           setCurrentScreen={setCurrentScreen}
           onNavigateToLogin={() => setCurrentScreen('login')}
           onBack={() => setCurrentScreen('app')}

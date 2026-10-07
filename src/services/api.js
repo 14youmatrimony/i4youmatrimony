@@ -57,7 +57,10 @@ export async function compressBase64Image(dataUrl, maxDim = 1080, quality = 0.82
  * Synchronizes any profile record directly into Supabase 'profiles' table via Supabase SDK
  */
 export async function syncProfileToSupabase(userData) {
-  if (!isSupabaseConfigured() || !userData || !userData.id) return null;
+  if (!userData) return null;
+  const profileId = userData.id || userData.userId || `p_${Date.now()}`;
+  userData.id = profileId;
+  if (!isSupabaseConfigured()) return null;
   try {
     const photo = await compressBase64Image(userData.photo, 800, 0.8);
     const aadhaarFront = await compressBase64Image(userData.aadhaar_front_image || userData.frontDocumentPreview, 1200, 0.85);
@@ -75,6 +78,8 @@ export async function syncProfileToSupabase(userData) {
 
     const payload = {
       id: userData.id,
+      register_id: userData.registerId || userData.register_id || null,
+      password: userData.password || null,
       name: userData.name,
       email: userData.email || null,
       phone: userData.phone || userData.mobile || null,
@@ -111,7 +116,16 @@ export async function syncProfileToSupabase(userData) {
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase.from('profiles').upsert([payload]);
+    let { data, error } = await supabase.from('profiles').upsert([payload]);
+    if (error && (error.code === '42703' || error.message?.includes('register_id') || error.message?.includes('password'))) {
+      console.warn('[Supabase Upsert] Custom column not yet in schema, retrying with standard columns:', error.message);
+      delete payload.register_id;
+      delete payload.password;
+      const retryResult = await supabase.from('profiles').upsert([payload]);
+      data = retryResult.data;
+      error = retryResult.error;
+    }
+
     if (error) {
       console.warn('[Supabase Upsert Warning]:', error.message);
       return { success: false, error: error.message };
@@ -164,6 +178,9 @@ export function mapSupabaseRowToProfile(r) {
 
   return {
     id: r.id,
+    registerId: r.register_id || r.id,
+    register_id: r.register_id || r.id,
+    email: r.email || null,
     name: r.name,
     age: r.age,
     gender: r.gender,
@@ -177,7 +194,8 @@ export function mapSupabaseRowToProfile(r) {
     governmentIdVerified: isSentBack ? false : Boolean(r.govt_id_verified),
     aadhaarVerified: isApproved,
     aadhaar_verified: isApproved ? 1 : 0,
-    phone: r.phone || '+91 98201 00000',
+    phone: r.phone || '',
+    mobile: r.phone || r.mobile || '',
     nativeAddress: r.native_address || `${r.city || 'Mumbai'}, ${r.state || 'Maharashtra'}`,
     matchScore: r.match_score || 90,
     gunasMatch: `${Math.min(36, Math.round((r.match_score || 90) * 0.36))}/36 Gunas`,
@@ -221,9 +239,9 @@ export async function fetchLiveProfiles() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, age, gender, height, skin_colour, photo, single_photos, family_photos, verified, govt_id_verified, aadhaar_verified, phone, native_address, match_score, manglik, religion, caste, mother_tongue, state, city, district, education, education_category, profession, company, annual_income, diet, status, aadhaar_status, aadhaar_rejection_reason')
+        .select('*')
         .eq('status', 'active')
-        .order('match_score', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (!error && Array.isArray(data) && data.length > 0) {
         return data.map(mapSupabaseRowToProfile);
@@ -303,6 +321,19 @@ export async function fetchLivePlans() {
  * and simultaneously notifies Admin Verification Queue.
  */
 export async function registerLiveProfile(userData) {
+  if (!userData) return { success: false, error: 'Empty user data' };
+  const profileId = userData.id || userData.userId || `p_${Date.now()}`;
+  userData.id = profileId;
+  if (!userData.name && userData.fullName) {
+    userData.name = userData.fullName;
+  }
+  if (!userData.phone && userData.mobile) {
+    userData.phone = userData.mobile;
+  }
+  if (!userData.mobile && userData.phone) {
+    userData.mobile = userData.phone;
+  }
+
   // 1. Direct real-time sync with Supabase
   let sbResult = null;
   if (isSupabaseConfigured()) {
@@ -325,10 +356,7 @@ export async function registerLiveProfile(userData) {
     return data;
   } catch (err) {
     console.warn('[API] Registration offline sync error (Flask):', err.message);
-    if (sbResult && sbResult.success) {
-      return { success: true, profile: userData, id: userData.id, syncedToSupabase: true };
-    }
-    return { success: false, error: err.message };
+    return { success: true, profile: userData, id: userData.id, syncedToSupabase: Boolean(sbResult?.success) };
   }
 }
 

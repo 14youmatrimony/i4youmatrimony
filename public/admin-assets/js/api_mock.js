@@ -1402,6 +1402,43 @@
 
   const store = loadStore();
 
+  const SUPABASE_REST = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/profiles?select=*&order=created_at.desc';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqdGtyaWxobnRkYnNpYXZ1Z3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMjcyNjMsImV4cCI6MjEwNTkwMzI2M30.1B1llzakdq-Gyz_FGFr8A1xXmU1mT98FzkLaQG_GID8';
+
+  async function syncProfilesFromSupabase() {
+    try {
+      const res = await originalFetch(SUPABASE_REST, {
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON
+        }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          let hasChanges = false;
+          rows.forEach(r => {
+            const idx = store.profiles.findIndex(p => p.id === r.id);
+            if (idx !== -1) {
+              store.profiles[idx] = { ...store.profiles[idx], ...r };
+            } else {
+              store.profiles.unshift(r);
+              hasChanges = true;
+            }
+          });
+          if (hasChanges) {
+            saveStore(store);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Admin Engine] Supabase profile sync notice:', e);
+    }
+  }
+
+  syncProfilesFromSupabase();
+  setInterval(syncProfilesFromSupabase, 5000);
+
   const AADHAAR_FRONT_SVG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250' width='400' height='250'><rect width='400' height='250' rx='12' fill='%230B192C' stroke='%23D4AF37' stroke-width='2'/><rect width='133' height='10' fill='%23FF9933'/><rect x='133' width='134' height='10' fill='%23FFFFFF'/><rect x='267' width='133' height='10' fill='%23138808'/><text x='200' y='45' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23DFB76C' text-anchor='middle'>GOVERNMENT OF INDIA • UIDAI</text><text x='200' y='70' font-family='sans-serif' font-size='12' fill='%2394A3B8' text-anchor='middle'>Unique Identification Authority of India</text><rect x='30' y='90' width='90' height='110' rx='8' fill='%231E293B' stroke='%23334155'/><text x='75' y='150' font-family='sans-serif' font-size='24' fill='%23DFB76C' text-anchor='middle'>PHOTO</text><text x='140' y='110' font-family='sans-serif' font-size='13' font-weight='bold' fill='%23FFFFFF'>Name / പേര്:</text><text x='140' y='130' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23DFB76C'>Mattayi (Verified)</text><text x='140' y='155' font-family='sans-serif' font-size='12' fill='%2394A3B8'>DOB: 14/05/1999 | Male</text><text x='200' y='225' font-family='monospace' font-size='18' font-weight='bold' fill='%23DFB76C' text-anchor='middle'>XXXX  XXXX  5928</text></svg>";
 
   const AADHAAR_BACK_SVG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250' width='400' height='250'><rect width='400' height='250' rx='12' fill='%230B192C' stroke='%23D4AF37' stroke-width='2'/><text x='200' y='40' font-family='sans-serif' font-size='14' font-weight='bold' fill='%23DFB76C' text-anchor='middle'>AADHAAR CARD (BACK DOCUMENT)</text><text x='40' y='80' font-family='sans-serif' font-size='12' font-weight='bold' fill='%2394A3B8'>Address / മേൽവിലാസം:</text><text x='40' y='105' font-family='sans-serif' font-size='12' fill='%23E2E8F0'>Kollam Beach Road, Near Port Office</text><text x='40' y='125' font-family='sans-serif' font-size='12' fill='%23E2E8F0'>Kollam District, Kerala - 691001</text><rect x='280' y='70' width='90' height='90' fill='%23FFFFFF' rx='6'/><text x='325' y='120' font-family='sans-serif' font-size='12' font-weight='bold' fill='%23000000' text-anchor='middle'>QR CODE</text><text x='200' y='220' font-family='monospace' font-size='16' font-weight='bold' fill='%23DFB76C' text-anchor='middle'>XXXX  XXXX  5928</text></svg>";
