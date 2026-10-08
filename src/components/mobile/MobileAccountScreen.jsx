@@ -75,7 +75,7 @@ export default function MobileAccountScreen({
 
   // Dynamic active offer from Python Admin Database
   const activeOffer = useMemo(() => {
-    return (offers || []).find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1' || o.is_active === undefined) || (offers && offers.length > 0 ? offers[0] : null);
+    return (offers || []).find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1') || null;
   }, [offers]);
 
   // Personal Account Deletion State

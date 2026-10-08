@@ -32,8 +32,7 @@ import {
   getTargetCandidateGender, 
   isCandidateMatchingTarget, 
   normalizeGender, 
-  isSelfProfile, 
-  resolveProfileGender 
+  isSelfProfile 
 } from '../../utils/genderMatch';
 
 export function parseHeightInches(hStr) {
@@ -698,18 +697,6 @@ export default function WebsiteMatchShowcase({
                         <span className="px-2.5 py-0.5 rounded-md bg-emerald-950/85 border border-emerald-500/50 text-emerald-300 font-bold text-[10px] flex items-center gap-1 shadow-xs backdrop-blur-xs">
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> UIDAI Verified
                         </span>
-                        <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] shadow-xs backdrop-blur-xs flex items-center gap-1 ${
-                          resolveProfileGender(profile) === 'female'
-                            ? 'bg-rose-950/85 border border-rose-400/40 text-rose-200'
-                            : 'bg-blue-950/85 border border-blue-400/40 text-blue-200'
-                        }`}>
-                          <span>{resolveProfileGender(profile) === 'female' ? '👰 Bride' : '🤵 Groom'}</span>
-                        </span>
-                        {profile.manglik && profile.manglik !== 'Not Manglik' && (
-                          <span className="px-2 py-0.5 rounded-md bg-amber-500/90 text-white font-bold text-[10px] shadow-xs">
-                            {profile.manglik}
-                          </span>
-                        )}
                       </div>
 
                       <h3 className="text-xl font-serif font-bold text-white tracking-wide truncate group-hover:text-[#DFB76C] transition-colors drop-shadow-sm">

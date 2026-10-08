@@ -65,7 +65,7 @@ export default function MobilePaymentModal({
   offers = []
 }) {
   const activeOffer = (offers && offers.length > 0)
-    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1' || o.is_active === undefined) || offers[0])
+    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1') || null)
     : null;
   const defaultCode = initialCoupon || activeOffer?.code || '';
   const [couponInput, setCouponInput] = useState(defaultCode);
@@ -135,7 +135,7 @@ export default function MobilePaymentModal({
       setIsUpiPinAuthorizing(false);
       setUpiPinError('');
       setQrTimer(180);
-      const codeToApply = initialCoupon || (offers && offers.length > 0 ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1' || o.is_active === undefined)?.code || offers[0]?.code) : '') || '';
+      const codeToApply = initialCoupon || (offers && offers.length > 0 ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1')?.code || '') : '') || '';
       setAppliedCouponCode(codeToApply);
       setCouponInput(codeToApply);
     }

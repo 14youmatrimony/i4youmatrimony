@@ -1782,9 +1782,13 @@
         return jsonResponse({ success: true, message: 'Candidate registered successfully', profile: newCandidate }, 201);
       }
 
-      // 6. /api/offers
-      if (pathname === '/api/offers') {
+      // 6. /api/offers & /api/public/offers
+      if (pathname === '/api/offers' || pathname === '/api/public/offers') {
         if (method === 'GET') {
+          if (pathname === '/api/public/offers') {
+            const activeOnly = (store.offers || []).filter(o => o.is_active == 1);
+            return jsonResponse({ success: true, offers: activeOnly, count: activeOnly.length });
+          }
           return jsonResponse({ offers: store.offers, total: store.offers.length });
         }
         if (method === 'POST') {

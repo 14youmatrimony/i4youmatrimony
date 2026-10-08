@@ -42,7 +42,7 @@ export default function WebsiteNavbar({
 
   // Dynamic active offer from Python Admin Database
   const featuredOffer = (offers && offers.length > 0)
-    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1' || o.is_active === undefined) || offers[0])
+    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1') || null)
     : null;
 
   const handleCopyCoupon = () => {

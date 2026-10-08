@@ -33,7 +33,7 @@ export default function WebsitePricingSection({
 
   // Dynamic Featured Offer from Python Admin Database
   const featuredOffer = (offers && offers.length > 0)
-    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1' || o.is_active === undefined) || offers[0])
+    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1') || null)
     : null;
   const activePromoCode = featuredOffer?.code || '';
   const activeDiscountPercent = featuredOffer ? (Number(featuredOffer.discount_percent) || 0) : 0;

@@ -32,7 +32,7 @@ export default function WebsiteFooter({
   const [termsTab, setTermsTab] = useState('terms');
 
   const featuredOffer = (offers && offers.length > 0)
-    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1' || o.is_active === undefined) || offers[0])
+    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1') || null)
     : null;
 
   const religionOptions = [

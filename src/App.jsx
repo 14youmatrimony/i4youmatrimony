@@ -449,7 +449,8 @@ export default function App() {
         setMembershipPlans(livePlans.map(formatBackendPlan));
       }
       if (Array.isArray(liveOffers)) {
-        setActiveOffers(liveOffers);
+        const activeOnly = liveOffers.filter(o => o && (o.is_active === 1 || o.is_active === true || o.is_active === '1'));
+        setActiveOffers(activeOnly);
       }
 
       // Synchronize logged-in user profile status (e.g. Aadhaar Sent Back / Approved by Admin)

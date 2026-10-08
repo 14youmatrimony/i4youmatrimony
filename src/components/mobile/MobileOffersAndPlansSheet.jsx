@@ -32,7 +32,7 @@ export default function MobileOffersAndPlansSheet({
 
   // Derive dynamic featured offer from Python Admin Database
   const featuredOffer = (offers && offers.length > 0)
-    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1' || o.is_active === undefined) || offers[0])
+    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1') || null)
     : null;
   const defaultPromoCode = featuredOffer?.code || '';
   const defaultDiscountPercent = featuredOffer ? (Number(featuredOffer.discount_percent) || 0) : 0;
@@ -502,7 +502,7 @@ export default function MobileOffersAndPlansSheet({
           }}
           className="py-2 px-3.5 sm:px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] text-[#0B192C] font-extrabold text-xs shadow-md shadow-[#D4AF37]/30 hover:opacity-95 transition-all flex items-center space-x-1 cursor-pointer"
         >
-          <span>{!currentUser ? 'Login to Upgrade' : 'Upgrade Now (50% OFF)'}</span>
+          <span>{!currentUser ? 'Login to Upgrade' : (defaultDiscountPercent > 0 ? `Upgrade Now (${defaultDiscountPercent}% OFF)` : 'Upgrade Now')}</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </footer>
