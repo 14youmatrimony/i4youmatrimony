@@ -620,9 +620,7 @@ export default function App() {
           user.id === 'demo-priya' ||
           user.id === 'demo-rohan' ||
           user.id === 'demo_user' ||
-          user.isDemo ||
-          user.name === 'Priya Sharma' ||
-          user.mobile === '9876543210'
+          user.isDemo === true
         ) {
           try {
             localStorage.removeItem('i4u_auth_user');

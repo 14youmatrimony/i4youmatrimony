@@ -63,7 +63,10 @@ ALLOWED_PROFILE_UPDATE_FIELDS = {
     'profession', 'company', 'annual_income', 'manglik', 'diet', 
     'verified', 'aadhaar_verified', 'govt_id_verified', 'match_score', 'status',
     'deletion_reason', 'deleted_at', 'aadhaar_front_image', 'aadhaar_back_image',
-    'aadhaar_status', 'aadhaar_rejection_reason'
+    'aadhaar_status', 'aadhaar_rejection_reason',
+    'about', 'marital_status', 'partner_expectations', 'family_details',
+    'body_type', 'smoking', 'drinking', 'hobbies', 'single_photos', 'family_photos',
+    'photo_url'
 }
 
 # Sensitive Customer PII Fields that must ALWAYS be encrypted at rest in SQLite
@@ -178,10 +181,16 @@ class PostgresCursorWrapper:
             except Exception:
                 self._conn.rollback()
 
-        if params is not None:
-            self._cursor.execute(converted, params)
-        else:
-            self._cursor.execute(converted)
+        try:
+            if params is not None:
+                self._cursor.execute(converted, params)
+            else:
+                self._cursor.execute(converted)
+        except Exception as e:
+            global _pg_last_fail_time
+            import time
+            _pg_last_fail_time = time.time()
+            raise e
         return self
 
     def executemany(self, query: str, seq_of_params):

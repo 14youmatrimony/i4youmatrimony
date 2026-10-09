@@ -2250,6 +2250,10 @@ def api_update_user(id):
                 match_score = ?, status = ?,
                 aadhaar_front_image = COALESCE(?, aadhaar_front_image),
                 aadhaar_back_image = COALESCE(?, aadhaar_back_image),
+                about = COALESCE(?, about),
+                marital_status = COALESCE(?, marital_status),
+                partner_expectations = COALESCE(?, partner_expectations),
+                body_type = COALESCE(?, body_type),
                 updated_at = ?
             WHERE id = ?
         """, (
@@ -2282,6 +2286,10 @@ def api_update_user(id):
             data.get('status', existing['status']),
             data.get('aadhaar_front_image'),
             data.get('aadhaar_back_image'),
+            data.get('about'),
+            data.get('marital_status') or data.get('maritalStatus'),
+            data.get('partner_expectations') or data.get('partnerExpectations'),
+            data.get('body_type') or data.get('bodyType'),
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             id
         ))

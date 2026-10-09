@@ -1424,11 +1424,115 @@
 
   const SUPABASE_BASE = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/profiles';
   const SUPABASE_REST = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/profiles?select=*&order=created_at.desc';
+  const SUPABASE_OFFERS = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/offers';
+  const SUPABASE_PLANS = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/membership_plans';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqdGtyaWxobnRkYnNpYXZ1Z3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMjcyNjMsImV4cCI6MjEwNTkwMzI2M30.1B1llzakdq-Gyz_FGFr8A1xXmU1mT98FzkLaQG_GID8';
+
+  const VALID_PROFILE_COLS = new Set([
+    'id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'skin_colour',
+    'photo', 'religion', 'caste', 'mother_tongue', 'state', 'city',
+    'district', 'native_address', 'education', 'education_category',
+    'profession', 'company', 'annual_income', 'manglik', 'diet',
+    'verified', 'aadhaar_verified', 'govt_id_verified', 'match_score', 'status',
+    'deletion_reason', 'deleted_at', 'aadhaar_front_image', 'aadhaar_back_image',
+    'aadhaar_status', 'aadhaar_rejection_reason', 'single_photos', 'family_photos',
+    'register_id', 'password', 'photo_url', 'about', 'marital_status',
+    'partner_expectations', 'family_details', 'body_type', 'smoking', 'drinking', 'hobbies'
+  ]);
+
+  function sanitizeProfilePayload(obj) {
+    const clean = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (VALID_PROFILE_COLS.has(k)) {
+        clean[k] = v;
+      }
+    }
+    clean.updated_at = new Date().toISOString();
+    return clean;
+  }
+
+  async function pushProfileInsertToSupabase(candidateObj) {
+    try {
+      const clean = sanitizeProfilePayload(candidateObj);
+      await originalFetch(SUPABASE_BASE, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(clean)
+      });
+    } catch (err) {
+      console.warn('[Admin Engine] Supabase live insert notice:', err);
+    }
+  }
 
   async function pushProfileUpdateToSupabase(profileId, patchObj) {
     try {
-      await originalFetch(`${SUPABASE_BASE}?id=eq.${encodeURIComponent(profileId)}`, {
+      const clean = sanitizeProfilePayload(patchObj);
+      const cleanId = String(profileId).trim();
+      const isReg = cleanId.toUpperCase().startsWith('I4Y');
+      const filter = isReg
+        ? `or=(register_id.eq.${encodeURIComponent(cleanId)},id.eq.${encodeURIComponent(cleanId)})`
+        : `or=(id.eq.${encodeURIComponent(cleanId)},register_id.eq.${encodeURIComponent(cleanId)},phone.eq.${encodeURIComponent(cleanId)})`;
+
+      await originalFetch(`${SUPABASE_BASE}?${filter}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(clean)
+      });
+    } catch (err) {
+      console.warn('[Admin Engine] Supabase live patch notice:', err);
+    }
+  }
+
+  async function pushProfileDeleteToSupabase(profileId) {
+    try {
+      const cleanId = String(profileId).trim();
+      const isReg = cleanId.toUpperCase().startsWith('I4Y');
+      const filter = isReg
+        ? `or=(register_id.eq.${encodeURIComponent(cleanId)},id.eq.${encodeURIComponent(cleanId)})`
+        : `or=(id.eq.${encodeURIComponent(cleanId)},register_id.eq.${encodeURIComponent(cleanId)})`;
+
+      await originalFetch(`${SUPABASE_BASE}?${filter}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON
+        }
+      });
+    } catch (err) {
+      console.warn('[Admin Engine] Supabase live delete notice:', err);
+    }
+  }
+
+  async function pushOfferInsertToSupabase(offerObj) {
+    try {
+      await originalFetch(SUPABASE_OFFERS, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(offerObj)
+      });
+    } catch (e) {
+      console.warn('[Admin Engine] Supabase offer insert notice:', e);
+    }
+  }
+
+  async function pushOfferUpdateToSupabase(offerId, patchObj) {
+    try {
+      await originalFetch(`${SUPABASE_OFFERS}?id=eq.${encodeURIComponent(offerId)}`, {
         method: 'PATCH',
         headers: {
           'apikey': SUPABASE_ANON,
@@ -1438,22 +1542,70 @@
         },
         body: JSON.stringify(patchObj)
       });
-    } catch (err) {
-      console.warn('[Admin Engine] Supabase live patch notice:', err);
+    } catch (e) {
+      console.warn('[Admin Engine] Supabase offer patch notice:', e);
     }
   }
 
-  async function pushProfileDeleteToSupabase(profileId) {
+  async function pushOfferDeleteToSupabase(offerId) {
     try {
-      await originalFetch(`${SUPABASE_BASE}?id=eq.${encodeURIComponent(profileId)}`, {
+      await originalFetch(`${SUPABASE_OFFERS}?id=eq.${encodeURIComponent(offerId)}`, {
         method: 'DELETE',
         headers: {
           'apikey': SUPABASE_ANON,
           'Authorization': 'Bearer ' + SUPABASE_ANON
         }
       });
-    } catch (err) {
-      console.warn('[Admin Engine] Supabase live delete notice:', err);
+    } catch (e) {
+      console.warn('[Admin Engine] Supabase offer delete notice:', e);
+    }
+  }
+
+  async function pushPlanInsertToSupabase(planObj) {
+    try {
+      await originalFetch(SUPABASE_PLANS, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(planObj)
+      });
+    } catch (e) {
+      console.warn('[Admin Engine] Supabase plan insert notice:', e);
+    }
+  }
+
+  async function pushPlanUpdateToSupabase(planId, patchObj) {
+    try {
+      await originalFetch(`${SUPABASE_PLANS}?id=eq.${encodeURIComponent(planId)}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(patchObj)
+      });
+    } catch (e) {
+      console.warn('[Admin Engine] Supabase plan patch notice:', e);
+    }
+  }
+
+  async function pushPlanDeleteToSupabase(planId) {
+    try {
+      await originalFetch(`${SUPABASE_PLANS}?id=eq.${encodeURIComponent(planId)}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON
+        }
+      });
+    } catch (e) {
+      console.warn('[Admin Engine] Supabase plan delete notice:', e);
     }
   }
 
@@ -1473,6 +1625,7 @@
             const idx = store.profiles.findIndex(p => p.id === r.id);
             if (idx !== -1) {
               store.profiles[idx] = { ...store.profiles[idx], ...r };
+              hasChanges = true;
             } else {
               store.profiles.unshift(r);
               hasChanges = true;
@@ -1488,8 +1641,54 @@
     }
   }
 
+  async function syncOffersFromSupabase() {
+    try {
+      const res = await originalFetch(`${SUPABASE_OFFERS}?select=*&order=id.desc`, {
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON
+        }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          store.offers = rows;
+          saveStore(store);
+        }
+      }
+    } catch (e) {
+      console.warn('[Admin Engine] Supabase offers sync notice:', e);
+    }
+  }
+
+  async function syncPlansFromSupabase() {
+    try {
+      const res = await originalFetch(`${SUPABASE_PLANS}?select=*&order=sort_order.asc`, {
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON
+        }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          store.plans = rows;
+          saveStore(store);
+        }
+      }
+    } catch (e) {
+      console.warn('[Admin Engine] Supabase plans sync notice:', e);
+    }
+  }
+
   syncProfilesFromSupabase();
-  setInterval(syncProfilesFromSupabase, 5000);
+  syncOffersFromSupabase();
+  syncPlansFromSupabase();
+  setInterval(() => {
+    syncProfilesFromSupabase();
+    syncOffersFromSupabase();
+    syncPlansFromSupabase();
+  }, 5000);
 
   const AADHAAR_FRONT_SVG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250' width='400' height='250'><rect width='400' height='250' rx='12' fill='%230B192C' stroke='%23D4AF37' stroke-width='2'/><rect width='133' height='10' fill='%23FF9933'/><rect x='133' width='134' height='10' fill='%23FFFFFF'/><rect x='267' width='133' height='10' fill='%23138808'/><text x='200' y='45' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23DFB76C' text-anchor='middle'>GOVERNMENT OF INDIA • UIDAI</text><text x='200' y='70' font-family='sans-serif' font-size='12' fill='%2394A3B8' text-anchor='middle'>Unique Identification Authority of India</text><rect x='30' y='90' width='90' height='110' rx='8' fill='%231E293B' stroke='%23334155'/><text x='75' y='150' font-family='sans-serif' font-size='24' fill='%23DFB76C' text-anchor='middle'>PHOTO</text><text x='140' y='110' font-family='sans-serif' font-size='13' font-weight='bold' fill='%23FFFFFF'>Name / പേര്:</text><text x='140' y='130' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23DFB76C'>Mattayi (Verified)</text><text x='140' y='155' font-family='sans-serif' font-size='12' fill='%2394A3B8'>DOB: 14/05/1999 | Male</text><text x='200' y='225' font-family='monospace' font-size='18' font-weight='bold' fill='%23DFB76C' text-anchor='middle'>XXXX  XXXX  5928</text></svg>";
 
@@ -1946,6 +2145,7 @@
         };
         store.profiles.unshift(newCandidate);
         saveStore(store);
+        pushProfileInsertToSupabase(newCandidate);
         return jsonResponse({ success: true, message: 'Candidate registered successfully', profile: newCandidate }, 201);
       }
 
@@ -1977,6 +2177,7 @@
           };
           store.offers.unshift(newOffer);
           saveStore(store);
+          pushOfferInsertToSupabase(newOffer);
           return jsonResponse({ success: true, message: 'Offer created', offer: newOffer }, 201);
         }
       }
@@ -1991,6 +2192,7 @@
           if (idx !== -1) {
             store.offers[idx].is_active = store.offers[idx].is_active == 1 ? 0 : 1;
             saveStore(store);
+            pushOfferUpdateToSupabase(offerId, { is_active: store.offers[idx].is_active });
             return jsonResponse({ success: true, is_active: store.offers[idx].is_active });
           }
           return jsonResponse({ error: 'Offer not found' }, 404);
@@ -2000,6 +2202,7 @@
           if (idx !== -1) {
             store.offers.splice(idx, 1);
             saveStore(store);
+            pushOfferDeleteToSupabase(offerId);
             return jsonResponse({ success: true, message: 'Offer deleted' });
           }
           return jsonResponse({ error: 'Offer not found' }, 404);
@@ -2010,6 +2213,7 @@
           if (idx !== -1) {
             store.offers[idx] = { ...store.offers[idx], ...body };
             saveStore(store);
+            pushOfferUpdateToSupabase(offerId, body);
             return jsonResponse({ success: true, offer: store.offers[idx] });
           }
           return jsonResponse({ error: 'Offer not found' }, 404);
@@ -2046,6 +2250,7 @@
           };
           store.plans.push(newPlan);
           saveStore(store);
+          pushPlanInsertToSupabase(newPlan);
           return jsonResponse({ success: true, plan: newPlan }, 201);
         }
       }
@@ -2060,6 +2265,7 @@
           if (idx !== -1) {
             store.plans[idx].is_active = store.plans[idx].is_active == 1 ? 0 : 1;
             saveStore(store);
+            pushPlanUpdateToSupabase(planId, { is_active: store.plans[idx].is_active });
             return jsonResponse({ success: true, is_active: store.plans[idx].is_active });
           }
           return jsonResponse({ error: 'Plan not found' }, 404);
@@ -2070,6 +2276,7 @@
           if (idx !== -1) {
             store.plans[idx] = { ...store.plans[idx], ...body, updated_at: new Date().toISOString() };
             saveStore(store);
+            pushPlanUpdateToSupabase(planId, body);
             return jsonResponse({ success: true, plan: store.plans[idx] });
           }
           return jsonResponse({ error: 'Plan not found' }, 404);
@@ -2079,6 +2286,7 @@
           if (idx !== -1) {
             store.plans.splice(idx, 1);
             saveStore(store);
+            pushPlanDeleteToSupabase(planId);
             return jsonResponse({ success: true, message: 'Plan deleted' });
           }
           return jsonResponse({ error: 'Plan not found' }, 404);

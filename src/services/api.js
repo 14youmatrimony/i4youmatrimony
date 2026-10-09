@@ -126,6 +126,10 @@ export async function syncProfileToSupabase(userData) {
       family_photos: Array.isArray(userData.familyPhotos) ? JSON.stringify(userData.familyPhotos) : (userData.family_photos || null),
       match_score: userData.matchScore || 85,
       status: userData.status || 'active',
+      about: userData.about || userData.aboutBio || null,
+      marital_status: userData.maritalStatus || userData.marital_status || 'Never Married',
+      partner_expectations: userData.partnerExpectations || userData.partner_expectations || null,
+      body_type: userData.bodyType || userData.body_type || null,
       updated_at: new Date().toISOString()
     };
 
@@ -241,7 +245,12 @@ export function mapSupabaseRowToProfile(r) {
     aadhaar_rejection_reason: r.aadhaar_rejection_reason || null,
     aadhaarRejectionReason: r.aadhaar_rejection_reason || null,
     aadhaar_front_image: r.aadhaar_front_image || null,
-    aadhaar_back_image: r.aadhaar_back_image || null
+    aadhaar_back_image: r.aadhaar_back_image || null,
+    about: r.about || '',
+    maritalStatus: r.marital_status || 'Never Married',
+    marital_status: r.marital_status || 'Never Married',
+    bodyType: r.body_type || 'Slim',
+    partnerExpectations: r.partner_expectations || ''
   };
 }
 
@@ -329,6 +338,22 @@ export async function fetchLiveProfiles() {
  * Fetch promotional coupons and offers from the Python database
  */
 export async function fetchLiveOffers() {
+  // 1. Direct real-time fetch from Supabase Cloud Database
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('offers')
+        .select('*')
+        .order('id', { ascending: false });
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    } catch (sbErr) {
+      console.warn('[Supabase fetchLiveOffers fallback]:', sbErr.message);
+    }
+  }
+
+  // 2. Fallback to Python backend
   try {
     const res = await fetch(`${API_BASE}/public/offers?t=${Date.now()}`, {
       headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
@@ -349,6 +374,22 @@ export async function fetchLiveOffers() {
  * Fetch dynamic membership plans from the Python database
  */
 export async function fetchLivePlans() {
+  // 1. Direct real-time fetch from Supabase Cloud Database
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabase
+        .from('membership_plans')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    } catch (sbErr) {
+      console.warn('[Supabase fetchLivePlans fallback]:', sbErr.message);
+    }
+  }
+
+  // 2. Fallback to Python backend
   try {
     const res = await fetch(`${API_BASE}/public/plans?t=${Date.now()}`, {
       headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
@@ -434,12 +475,13 @@ export async function deletePersonalAccount({ userId, reason, feedback, email, p
   // 1. Direct Supabase update
   if (isSupabaseConfigured() && userId) {
     try {
+      const cleanId = String(userId).trim();
       await supabase.from('profiles').update({
         status: 'deleted',
         deletion_reason: reason || feedback || 'User deleted account',
         deleted_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      }).eq('id', userId);
+      }).or(`id.eq.${cleanId},register_id.eq.${cleanId}`);
     } catch (sbErr) {
       console.warn('[Supabase deletePersonalAccount Warning]:', sbErr.message);
     }
@@ -467,6 +509,7 @@ export async function verifyLiveAadhaar(aadhaarData) {
   // 1. Direct Supabase sync
   if (isSupabaseConfigured() && aadhaarData?.id) {
     try {
+      const cleanId = String(aadhaarData.id).trim();
       const front = await compressBase64Image(aadhaarData.aadhaar_front_image || aadhaarData.frontDocumentPreview, 1200, 0.85);
       const back = await compressBase64Image(aadhaarData.aadhaar_back_image || aadhaarData.backDocumentPreview, 1200, 0.85);
       const isApproved = aadhaarData.aadhaar_status === 'approved' || Boolean(aadhaarData.aadhaarVerified);
@@ -478,7 +521,7 @@ export async function verifyLiveAadhaar(aadhaarData) {
       };
       if (front) payload.aadhaar_front_image = front;
       if (back) payload.aadhaar_back_image = back;
-      await supabase.from('profiles').update(payload).eq('id', aadhaarData.id);
+      await supabase.from('profiles').update(payload).or(`id.eq.${cleanId},register_id.eq.${cleanId}`);
     } catch (sbErr) {
       console.warn('[Supabase Aadhaar Sync Warning]:', sbErr.message);
     }
@@ -507,6 +550,7 @@ export async function updateLivePhotos(photoData) {
   // 1. Direct Supabase sync
   if (isSupabaseConfigured() && profileId) {
     try {
+      const cleanId = String(profileId).trim();
       const photo = await compressBase64Image(photoData.photo, 800, 0.8);
       let singlePhotos = photoData.singlePhotos;
       if (Array.isArray(singlePhotos)) {
@@ -521,7 +565,7 @@ export async function updateLivePhotos(photoData) {
       if (photoData.familyPhotos) {
         payload.family_photos = Array.isArray(photoData.familyPhotos) ? JSON.stringify(photoData.familyPhotos) : photoData.familyPhotos;
       }
-      await supabase.from('profiles').update(payload).eq('id', profileId);
+      await supabase.from('profiles').update(payload).or(`id.eq.${cleanId},register_id.eq.${cleanId}`);
     } catch (sbErr) {
       console.warn('[Supabase Photo Sync Warning]:', sbErr.message);
     }
@@ -604,6 +648,12 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
   if (updateData.manglik !== undefined) payload.manglik = updateData.manglik;
   if (updateData.about !== undefined) payload.about = updateData.about;
   if (updateData.aboutBio !== undefined) payload.about = updateData.aboutBio;
+  if (updateData.maritalStatus !== undefined) payload.marital_status = updateData.maritalStatus;
+  if (updateData.marital_status !== undefined) payload.marital_status = updateData.marital_status;
+  if (updateData.bodyType !== undefined) payload.body_type = updateData.bodyType;
+  if (updateData.body_type !== undefined) payload.body_type = updateData.body_type;
+  if (updateData.partnerExpectations !== undefined) payload.partner_expectations = updateData.partnerExpectations;
+  if (updateData.partner_expectations !== undefined) payload.partner_expectations = updateData.partner_expectations;
 
   if (photoUrl) {
     payload.photo = photoUrl;
@@ -630,7 +680,7 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
       if (isRegId) {
         query = query.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
       } else {
-        query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId}`);
+        query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
       }
 
       const { data, error } = await query.select();
@@ -681,7 +731,7 @@ export async function fetchLiveUserProfile(userId) {
       if (isRegId) {
         query = query.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
       } else {
-        query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId}`);
+        query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
       }
 
       const { data, error } = await query.limit(1).maybeSingle();
