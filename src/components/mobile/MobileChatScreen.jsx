@@ -28,7 +28,8 @@ export default function MobileChatScreen({
   onSelectProfile,
   isDirectChatOpen = false,
   setIsDirectChatOpen,
-  onOpenOffers
+  onOpenOffers,
+  onOpenLogin
 }) {
   const isProduction = getAppMode();
   const { bottomBarStyle, accent, isDarkMode } = useTheme();
@@ -64,11 +65,10 @@ export default function MobileChatScreen({
     });
   }, [profiles, currentUser, targetCandidateGender]);
 
-  // Conversations List Profiles (Strictly Opposite Gender Matches)
+  // Conversations List Profiles (Strictly Opposite Gender Matches with real messages)
   const chatProfiles = useMemo(() => {
-    const matchingConvs = validProfiles.filter(p => conversations.some(c => c.profileId === p.id && (c.messages?.length > 0 || !isProduction)));
-    return matchingConvs.length > 0 ? matchingConvs : validProfiles.slice(0, 6);
-  }, [validProfiles, conversations, isProduction]);
+    return validProfiles.filter(p => conversations.some(c => c.profileId === p.id && c.messages?.length > 0));
+  }, [validProfiles, conversations]);
 
   const activeProfile = validProfiles.find(p => p.id === activeProfileId) || validProfiles[0] || {
     id: 'placeholder',
@@ -81,22 +81,35 @@ export default function MobileChatScreen({
   const activeConv = existingConv || {
     profileId: activeProfile.id,
     unreadCount: 0,
-    messages: isProduction ? [] : [
-      {
-        id: 'init-1',
-        sender: 'them',
-        text: `Namaste! Thank you for connecting on I 4 You. I noticed your profile and our family values align very well.`,
-        time: 'Just now',
-        status: 'read'
-      }
-    ],
-    autoReplies: isProduction ? [] : [
-      "Thank you so much! It is wonderful connecting with you.",
-      `Yes, my parents here in ${activeProfile.city || 'our hometown'} also had a look and were very pleased.`,
-      "Would love to speak further! Let's arrange a time that works best for you.",
-      "Wishing you an auspicious day ahead!"
-    ]
+    messages: [],
+    autoReplies: []
   };
+
+  // If user is not logged in, display the Login Required screen immediately
+  if (!currentUser) {
+    return (
+      <div className={`p-4 min-h-[460px] flex items-center justify-center ${isDarkMode ? 'bg-[#060D17] text-white' : 'bg-slate-50 text-slate-900'}`}>
+        <div className={`w-full max-w-sm p-6 rounded-3xl border text-center shadow-lg ${
+          isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
+        }`}>
+          <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 mx-auto flex items-center justify-center mb-4 shadow-sm">
+            <Lock className="w-8 h-8 text-[#DFB76C]" />
+          </div>
+          <h3 className="font-serif font-bold text-lg mb-2">Login Required</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+            Please log in or register to view your messages and chat directly with verified matches.
+          </p>
+          <button
+            type="button"
+            onClick={onOpenLogin}
+            className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-md hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 cursor-pointer"
+          >
+            <span>Log In / Register</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const scrollToBottom = (behavior = 'smooth') => {
     if (messagesContainerRef.current) {

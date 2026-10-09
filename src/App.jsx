@@ -543,22 +543,35 @@ export default function App() {
   }, [syncPlansAndOffers, isProduction]);
 
   const [interestsSent, setInterestsSent] = useState(() => {
-    return getAppMode() ? [] : (DEMO_USER.interestsSent || []);
+    try {
+      const saved = localStorage.getItem('i4u_auth_user');
+      if (saved) {
+        const u = JSON.parse(saved);
+        return u.interestsSent || [];
+      }
+    } catch (e) {}
+    return [];
   });
   const [shortlisted, setShortlisted] = useState(() => {
-    return getAppMode() ? [] : (DEMO_USER.shortlisted || []);
+    try {
+      const saved = localStorage.getItem('i4u_auth_user');
+      if (saved) {
+        const u = JSON.parse(saved);
+        return u.shortlisted || [];
+      }
+    } catch (e) {}
+    return [];
   });
   const [declinedReceivedIds, setDeclinedReceivedIds] = useState([]);
   const [conversations, setConversations] = useState(() => {
-    if (getAppMode()) {
-      try {
-        const saved = localStorage.getItem('i4u_conversations');
-        return saved ? JSON.parse(saved) : [];
-      } catch (e) {
-        return [];
-      }
+    try {
+      const savedUser = localStorage.getItem('i4u_auth_user');
+      if (!savedUser) return [];
+      const saved = localStorage.getItem('i4u_conversations');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
     }
-    return INITIAL_CONVERSATIONS;
   });
   const [activeChatProfileId, setActiveChatProfileId] = useState('p1');
   const [selectedProfile, setSelectedProfile] = useState(null);
@@ -581,10 +594,7 @@ export default function App() {
         }
         return user;
       }
-      if (getAppMode()) {
-        return null;
-      }
-      return DEMO_USER;
+      return null;
     } catch (e) {
       return null;
     }
@@ -654,6 +664,8 @@ export default function App() {
   // Mobile Notifications State
   const [notifications, setNotifications] = useState(() => {
     try {
+      const savedUser = localStorage.getItem('i4u_auth_user');
+      if (!savedUser) return [];
       const saved = localStorage.getItem('i4u_notifications');
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -662,7 +674,7 @@ export default function App() {
         }
       }
     } catch (e) {}
-    return getAppMode() ? [] : INITIAL_NOTIFICATIONS;
+    return [];
   });
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -674,7 +686,7 @@ export default function App() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [activeInvoice, setActiveInvoice] = useState(null);
 
-  const unreadNotificationsCount = (notifications || []).filter(n => n && !n.isRead).length;
+  const unreadNotificationsCount = currentUser ? (notifications || []).filter(n => n && !n.isRead).length : 0;
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -692,9 +704,9 @@ export default function App() {
       // Switched TO Production Mode
       try {
         const saved = localStorage.getItem('i4u_auth_user');
-        setCurrentUser(saved ? JSON.parse(saved) : DEMO_USER);
+        setCurrentUser(saved ? JSON.parse(saved) : null);
       } catch (e) {
-        setCurrentUser(DEMO_USER);
+        setCurrentUser(null);
       }
       setConversations([]);
       setNotifications([]);
@@ -734,6 +746,11 @@ export default function App() {
     } catch (e) {}
     setCurrentUser(null);
     setSelectedProfile(null);
+    setConversations([]);
+    setNotifications([]);
+    setInterestsSent([]);
+    setShortlisted([]);
+    setDeclinedReceivedIds([]);
     setActiveTab('feed');
     if (viewMode === 'app') {
       setCurrentScreen('login');
@@ -1842,7 +1859,7 @@ export default function App() {
     return profiles;
   }, [profiles, currentUser]);
 
-  const totalUnreadChatCount = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+  const totalUnreadChatCount = currentUser ? conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0) : 0;
 
   return (
     <ThemeProvider>
@@ -2029,7 +2046,12 @@ export default function App() {
               isOpen={isNotificationsOpen}
               onClose={() => setIsNotificationsOpen(false)}
               isWebsiteModal={true}
-              notifications={notifications}
+              currentUser={currentUser}
+              onOpenLogin={() => {
+                setIsNotificationsOpen(false);
+                setCurrentScreen('login');
+              }}
+              notifications={currentUser ? notifications : []}
               profiles={profiles}
               onMarkAsRead={handleMarkNotificationAsRead}
               onMarkAllAsRead={handleMarkAllNotificationsAsRead}
@@ -2367,7 +2389,7 @@ export default function App() {
             setActiveTab(tabId);
           }}
           unreadCount={totalUnreadChatCount}
-          interestCount={interestsSent.length}
+          interestCount={currentUser ? interestsSent.length : 0}
           unreadNotificationsCount={unreadNotificationsCount}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
           currentUser={currentUser}
@@ -2383,7 +2405,12 @@ export default function App() {
               <MobileNotificationsSheet 
                 isOpen={isNotificationsOpen}
                 onClose={() => setIsNotificationsOpen(false)}
-                notifications={notifications}
+                currentUser={currentUser}
+                onOpenLogin={() => {
+                  setIsNotificationsOpen(false);
+                  setCurrentScreen('login');
+                }}
+                notifications={currentUser ? notifications : []}
                 profiles={profiles}
                 onMarkAsRead={handleMarkNotificationAsRead}
                 onMarkAllAsRead={handleMarkAllNotificationsAsRead}
@@ -2642,6 +2669,7 @@ export default function App() {
             <MobileInterestsScreen 
               profiles={filteredProfiles}
               currentUser={currentUser}
+              onOpenLogin={() => setCurrentScreen('login')}
               interestsSent={interestsSent}
               onToggleInterest={handleToggleInterest}
               shortlisted={shortlisted}
@@ -2662,6 +2690,7 @@ export default function App() {
             <MobileChatScreen 
               profiles={filteredProfiles}
               currentUser={currentUser}
+              onOpenLogin={() => setCurrentScreen('login')}
               conversations={conversations}
               setConversations={setConversations}
               activeProfileId={activeChatProfileId}

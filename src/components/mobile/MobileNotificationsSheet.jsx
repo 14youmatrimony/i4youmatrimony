@@ -13,7 +13,8 @@ import {
   ShieldCheck, 
   Trash2, 
   Clock,
-  Users
+  Users,
+  Lock
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 
@@ -21,6 +22,8 @@ export default function MobileNotificationsSheet({
   isOpen,
   onClose,
   isWebsiteModal = false,
+  currentUser = null,
+  onOpenLogin,
   notifications = [],
   profiles = [],
   onMarkAsRead,
@@ -243,13 +246,13 @@ export default function MobileNotificationsSheet({
                 <h2 className="font-serif font-bold text-[11.5px] sm:text-sm text-white tracking-wide truncate">
                   Notifications
                 </h2>
-                {unreadCount > 0 ? (
+                {currentUser && unreadCount > 0 ? (
                   <span className="text-[8px] sm:text-[8.5px] font-extrabold px-1.5 py-0.2 rounded-full bg-rose-600 text-white shadow-2xs">
                     {unreadCount} New
                   </span>
                 ) : (
                   <span className="text-[8px] font-semibold px-1.5 py-0.2 rounded-full bg-white/15 text-slate-300">
-                    Caught up
+                    {currentUser ? 'Caught up' : 'Login'}
                   </span>
                 )}
               </div>
@@ -281,8 +284,34 @@ export default function MobileNotificationsSheet({
         </div>
       </header>
 
-      {/* Filter Pills with Interactive Smooth Side Scroll */}
-      <div className="relative bg-white border-b border-slate-200 shadow-2xs group/filter">
+      {!currentUser ? (
+        <div className="flex-1 flex items-center justify-center p-6 text-center">
+          <div className="max-w-xs space-y-4">
+            <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 mx-auto flex items-center justify-center shadow-xs">
+              <Lock className="w-7 h-7 text-[#DFB76C]" />
+            </div>
+            <div>
+              <h4 className="font-serif font-bold text-base text-slate-800">Login Required</h4>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Please log in to your account to view your notifications, activity alerts, and match updates.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                if (onOpenLogin) onOpenLogin();
+              }}
+              className="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-md hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center cursor-pointer"
+            >
+              Log In / Register
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Filter Pills with Interactive Smooth Side Scroll */}
+          <div className="relative bg-white border-b border-slate-200 shadow-2xs group/filter">
         {/* Left Side Scroll Indicator & Arrow */}
         {canScrollLeft && (
           <div className="absolute left-0 top-0 bottom-0 z-20 flex items-center bg-gradient-to-r from-white via-white/95 to-transparent pr-3 pl-1">
@@ -700,6 +729,8 @@ export default function MobileNotificationsSheet({
           })
         )}
       </div>
+        </>
+      )}
 
     </div>
   );

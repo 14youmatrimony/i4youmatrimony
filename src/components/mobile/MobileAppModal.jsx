@@ -413,9 +413,9 @@ export default function MobileAppModal({
                     }
                     setActiveTab(tabId);
                   }}
-                  unreadCount={totalUnreadChatCount}
-                  interestCount={interestsSent.length}
-                  unreadNotificationsCount={unreadNotificationsCount}
+                  unreadCount={currentUser ? totalUnreadChatCount : 0}
+                  interestCount={currentUser ? interestsSent.length : 0}
+                  unreadNotificationsCount={currentUser ? unreadNotificationsCount : 0}
                   onOpenNotifications={() => setIsNotificationsOpen(true)}
                   currentUser={currentUser}
                   onOpenFilter={() => setIsFilterSheetOpen(true)}
@@ -429,7 +429,12 @@ export default function MobileAppModal({
                       <MobileNotificationsSheet 
                         isOpen={isNotificationsOpen}
                         onClose={() => setIsNotificationsOpen(false)}
-                        notifications={notifications}
+                        currentUser={currentUser}
+                        onOpenLogin={() => {
+                          setIsNotificationsOpen(false);
+                          if (onOpenLogin) onOpenLogin();
+                        }}
+                        notifications={currentUser ? notifications : []}
                         profiles={profiles}
                         onMarkAsRead={onMarkNotificationAsRead}
                         onMarkAllAsRead={onMarkAllNotificationsAsRead}
@@ -653,6 +658,7 @@ export default function MobileAppModal({
                     <MobileInterestsScreen 
                       profiles={filteredProfiles || profiles}
                       currentUser={currentUser}
+                      onOpenLogin={onOpenLogin}
                       interestsSent={interestsSent}
                       onToggleInterest={onToggleInterest}
                       shortlisted={shortlisted}
@@ -673,6 +679,7 @@ export default function MobileAppModal({
                     <MobileChatScreen 
                       profiles={filteredProfiles || profiles}
                       currentUser={currentUser}
+                      onOpenLogin={onOpenLogin}
                       conversations={conversations}
                       setConversations={setConversations}
                       activeProfileId={activeChatProfileId}

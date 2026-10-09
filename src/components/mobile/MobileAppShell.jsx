@@ -39,9 +39,9 @@ export default function MobileAppShell({
   const tabs = [
     { id: 'feed', label: 'Discover', icon: Flame, badge: null },
     { id: 'search', label: 'Search', icon: Search, badge: null },
-    { id: 'interests', label: 'Interests', icon: Heart, badge: interestCount > 0 ? interestCount : null },
-    { id: 'chat', label: 'Messages', icon: MessageCircle, badge: unreadCount > 0 ? unreadCount : null },
-    { id: 'account', label: 'Profile', icon: User, badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : null }
+    { id: 'interests', label: 'Interests', icon: Heart, badge: currentUser && interestCount > 0 ? interestCount : null },
+    { id: 'chat', label: 'Messages', icon: MessageCircle, badge: currentUser && unreadCount > 0 ? unreadCount : null },
+    { id: 'account', label: 'Profile', icon: User, badge: currentUser && unreadNotificationsCount > 0 ? unreadNotificationsCount : null }
   ];
 
   // Dynamic styling for bottom navigation container based on selected Theme Setting

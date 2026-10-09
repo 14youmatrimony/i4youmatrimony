@@ -8,14 +8,17 @@ import {
   Sparkles, 
   MapPin, 
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  Lock
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { getTargetCandidateGender, isCandidateMatchingTarget, normalizeGender } from '../../utils/genderMatch';
+import { getAppMode } from '../../config/appConfig';
 
 export default function MobileInterestsScreen({
   profiles,
   currentUser,
+  onOpenLogin,
   interestsSent,
   onToggleInterest,
   shortlisted,
@@ -32,6 +35,30 @@ export default function MobileInterestsScreen({
   const { triggerScreenshotBlock, screenshotRestricted } = usePhotoPrivacy();
   const [internalSegment, setInternalSegment] = useState('sent'); // 'sent' | 'received' | 'shortlist'
   const [localDeclinedIds, setLocalDeclinedIds] = useState([]);
+
+  // If user is not logged in, display the Login Required screen immediately
+  if (!currentUser) {
+    return (
+      <div className="p-4 min-h-[460px] flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
+        <div className="w-full max-w-sm p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 text-center shadow-lg">
+          <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 mx-auto flex items-center justify-center mb-4 shadow-sm">
+            <Lock className="w-8 h-8 text-[#DFB76C]" />
+          </div>
+          <h3 className="font-serif font-bold text-lg mb-2">Login Required</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+            Please log in or register to view sent and received interests, shortlisted profiles, and mutual matches.
+          </p>
+          <button
+            type="button"
+            onClick={onOpenLogin}
+            className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-md hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 cursor-pointer"
+          >
+            <span>Log In / Register</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const activeSegment = externalSegment !== undefined ? externalSegment : internalSegment;
   const setActiveSegment = (seg) => {
@@ -50,7 +77,9 @@ export default function MobileInterestsScreen({
   const targetCandidateGender = getTargetCandidateGender(currentUser);
   const isMaleUser = normalizeGender(currentUser?.gender) === 'male';
   // Male user receives interests from Women; Female user receives interests from Gents
-  const initialReceivedCandidateIds = isMaleUser ? ['p1', 'p3', 'p5'] : ['p2', 'p4', 'p6'];
+  const initialReceivedCandidateIds = Array.isArray(currentUser?.receivedInterests)
+    ? currentUser.receivedInterests
+    : (getAppMode() ? [] : (isMaleUser ? ['p1', 'p3', 'p5'] : ['p2', 'p4', 'p6']));
 
   const oppositeGenderProfiles = profiles.filter(p => {
     if (currentUser?.id && p.id === currentUser.id) return false;
