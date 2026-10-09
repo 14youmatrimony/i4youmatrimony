@@ -49,8 +49,9 @@ export default function WebsiteView({
 
   // Featured Profile for Hero Card (Strict opposite gender of logged-in user or bride by default)
   const featuredProfile = useMemo(() => {
+    if (!profiles || profiles.length === 0) return null;
     const targetGender = getTargetCandidateGender(currentUser);
-    return profiles.find(p => isCandidateMatchingTarget(p.gender, targetGender)) || profiles[0];
+    return profiles.find(p => isCandidateMatchingTarget(p.gender, targetGender)) || profiles[0] || null;
   }, [profiles, currentUser]);
 
   const handleScrollToSection = (sectionId) => {

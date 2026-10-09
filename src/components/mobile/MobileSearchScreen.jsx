@@ -17,6 +17,7 @@ import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import SearchableSelect from '../common/SearchableSelect';
 import { sanitizeSearchTerm } from '../../utils/security';
 import { getTargetCandidateGender, isCandidateMatchingTarget } from '../../utils/genderMatch';
+import { isDemoProfile } from '../../services/api';
 
 export default function MobileSearchScreen({
   profiles,
@@ -52,9 +53,11 @@ export default function MobileSearchScreen({
 
   const filteredProfiles = useMemo(() => {
     const cleanSearch = sanitizeSearchTerm(searchTerm);
-    return profiles.filter(p => {
-      // 0. Exclude own profile
-      if (currentUser?.id && p.id === currentUser.id) return false;
+    return (profiles || [])
+      .filter(p => !isDemoProfile(p))
+      .filter(p => {
+        // 0. Exclude own profile
+        if (currentUser?.id && p.id === currentUser.id) return false;
       if (currentUser?.mobile && (p.mobile === currentUser.mobile || p.phone === currentUser.mobile)) return false;
 
       // 0.1 Strict Opposite Gender Matchmaking Rule

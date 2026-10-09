@@ -40,6 +40,7 @@ import {
   isSelfProfile, 
   resolveProfileGender 
 } from '../../utils/genderMatch';
+import { isDemoProfile } from '../../services/api';
 
 export default function MobileMatchFeed({
   profiles,
@@ -172,11 +173,13 @@ export default function MobileMatchFeed({
 
   // Filtered list of candidate stories (Strict opposite gender, prioritize those with active statuses, show up to 20)
   const storyProfiles = useMemo(() => {
-    const valid = (profiles || []).filter(p => {
-      if (hiddenStatusIds.has(p.id) || deletedStatusIds.has(p.id)) return false;
-      if (isSelfProfile(p, currentUser)) return false;
-      return isCandidateMatchingTarget(p, targetCandidateGender);
-    });
+    const valid = (profiles || [])
+      .filter(p => !isDemoProfile(p))
+      .filter(p => {
+        if (hiddenStatusIds.has(p.id) || deletedStatusIds.has(p.id)) return false;
+        if (isSelfProfile(p, currentUser)) return false;
+        return isCandidateMatchingTarget(p, targetCandidateGender);
+      });
     return [...valid].sort((a, b) => {
       const aHas = !!candidateStatuses[a.id];
       const bHas = !!candidateStatuses[b.id];

@@ -34,6 +34,7 @@ import {
   normalizeGender, 
   isSelfProfile 
 } from '../../utils/genderMatch';
+import { isDemoProfile } from '../../services/api';
 
 export function parseHeightInches(hStr) {
   if (!hStr) return null;
@@ -159,9 +160,11 @@ export default function WebsiteMatchShowcase({
     const isUserLoggedIn = Boolean(currentUser && currentUser.gender);
     const targetGender = isUserLoggedIn ? getTargetCandidateGender(currentUser) : null;
 
-    return profiles.filter((p) => {
-      // 0. Exclude own profile (by ID, Name, and Phone)
-      if (isSelfProfile(p, currentUser)) return false;
+    return profiles
+      .filter((p) => !isDemoProfile(p))
+      .filter((p) => {
+        // 0. Exclude own profile (by ID, Name, and Phone)
+        if (isSelfProfile(p, currentUser)) return false;
 
       // 0.1 Strict Opposite Gender Matchmaking Rule:
       // Male users can ONLY see Female profiles (Brides)

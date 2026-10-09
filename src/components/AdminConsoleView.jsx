@@ -4,6 +4,7 @@ import {
   Trash2, ExternalLink, Filter, CheckCircle2, AlertCircle 
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
+import { isDemoProfile } from '../services/api';
 import SafeAvatar from './common/SafeAvatar';
 
 /**
@@ -57,8 +58,9 @@ export default function AdminConsoleView() {
         throw queryError;
       }
 
-      setProfiles(data || []);
-      setTotalCount(count || 0);
+      const realOnly = (data || []).filter(p => !isDemoProfile(p));
+      setProfiles(realOnly);
+      setTotalCount(realOnly.length);
     } catch (err) {
       console.error('[AdminConsoleView] Fetch error:', err);
       setError(err.message || 'Failed to load registered profiles');
@@ -81,12 +83,16 @@ export default function AdminConsoleView() {
         (payload) => {
           console.log('[Admin Live Sync] Event received:', payload.eventType);
           if (payload.eventType === 'INSERT') {
-            setProfiles((prev) => [payload.new, ...prev]);
-            setTotalCount((cnt) => cnt + 1);
+            if (!isDemoProfile(payload.new)) {
+              setProfiles((prev) => [payload.new, ...prev]);
+              setTotalCount((cnt) => cnt + 1);
+            }
           } else if (payload.eventType === 'UPDATE') {
-            setProfiles((prev) =>
-              prev.map((p) => (p.id === payload.new.id ? { ...p, ...payload.new } : p))
-            );
+            if (!isDemoProfile(payload.new)) {
+              setProfiles((prev) =>
+                prev.map((p) => (p.id === payload.new.id ? { ...p, ...payload.new } : p))
+              );
+            }
           } else if (payload.eventType === 'DELETE') {
             setProfiles((prev) => prev.filter((p) => p.id === payload.old.id));
             setTotalCount((cnt) => Math.max(0, cnt - 1));

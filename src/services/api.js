@@ -246,7 +246,75 @@ export function mapSupabaseRowToProfile(r) {
 }
 
 /**
- * Fetch all active profiles from Supabase first, with fallback to Flask backend & mock data
+ * Validates whether a profile is a mock/demo candidate profile
+ */
+export function isDemoProfile(p) {
+  if (!p) return true;
+  const id = String(p.id || '').toLowerCase().trim();
+  const name = String(p.name || '').toLowerCase().trim();
+  const phone = String(p.phone || p.mobile || '').replace(/\D/g, '');
+
+  if (p.isDemo === true || p.is_demo === true || p.isDemo === 'true') return true;
+
+  // Match demo IDs
+  if (/^p[1-8]$/.test(id) || id === 'demo-priya' || id === 'demo-rohan' || id === 'demo_user' || id === 'p_1790963054403') {
+    return true;
+  }
+
+  // Match demo candidate names
+  const demoNames = [
+    'priya sharma',
+    'dr. ananya kulkarni',
+    'ananya kulkarni',
+    'aditya sengupta',
+    'meera nambiar',
+    'meera venkatraman',
+    'kabir oberoi',
+    'priyanka rathore',
+    'dr. siddharth nair',
+    'siddharth nair',
+    'tanvi deshmukh',
+    'rohan jayasimha',
+    'rohan verma',
+    'simran kaur'
+  ];
+  if (demoNames.includes(name)) return true;
+
+  // Match demo phone numbers
+  const demoPhones = [
+    '9876543210', '9820145678', '9819012345', '9845012345', 
+    '9811098765', '9414034567', '9447056789', '9822067890', 
+    '9123456780', '9422018273'
+  ];
+  if (demoPhones.includes(phone)) return true;
+
+  return false;
+}
+
+/**
+ * Permanently deletes any legacy demo profiles from the Supabase database in the cloud
+ */
+export async function purgeDemoProfilesFromSupabase() {
+  if (!isSupabaseConfigured()) return;
+  try {
+    await supabase.from('profiles').delete().in('id', [
+      'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8',
+      'demo-priya', 'demo-rohan', 'demo_user', 'p_1790963054403'
+    ]);
+    await supabase.from('profiles').delete().in('name', [
+      'Priya Sharma', 'Dr. Ananya Kulkarni', 'Aditya Sengupta', 
+      'Meera Nambiar', 'Meera Venkatraman', 'Kabir Oberoi', 
+      'Priyanka Rathore', 'Dr. Siddharth Nair', 'Tanvi Deshmukh', 
+      'Rohan Jayasimha', 'Rohan Verma', 'Simran Kaur'
+    ]);
+  } catch (err) {
+    console.warn('[purgeDemoProfilesFromSupabase] Exception:', err);
+  }
+}
+
+/**
+ * Fetch all active profiles from Supabase first, with fallback to Flask backend
+ * Excludes all demo profiles - returns only real registered candidates.
  */
 export async function fetchLiveProfiles() {
   // 1. Direct Supabase query (Port 443 HTTPS - Works universally without backend)
@@ -258,8 +326,10 @@ export async function fetchLiveProfiles() {
         .eq('status', 'active')
         .order('created_at', { ascending: false });
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        return data.map(mapSupabaseRowToProfile);
+      if (!error && Array.isArray(data)) {
+        return data
+          .map(mapSupabaseRowToProfile)
+          .filter(p => !isDemoProfile(p));
       }
     } catch (sbErr) {
       console.warn('[Supabase Profiles Fetch Fallback]:', sbErr.message);
@@ -272,22 +342,24 @@ export async function fetchLiveProfiles() {
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
     if (data.success && Array.isArray(data.profiles) && data.profiles.length > 0) {
-      return data.profiles.map(p => ({
-        ...p,
-        familyDetails: p.familyDetails || {
-          type: p.familyType || 'Nuclear Family',
-          values: p.familyValues || 'Traditional yet Progressive',
-          financialStatus: p.familyFinancialStatus || p.familyStatus || 'Upper Middle Class',
-          father: p.fatherOccupation || 'Retired Professional',
-          mother: p.motherOccupation || 'Homemaker',
-          siblings: p.siblingsDetails || '1 Sibling'
-        }
-      }));
+      return data.profiles
+        .filter(p => !isDemoProfile(p))
+        .map(p => ({
+          ...p,
+          familyDetails: p.familyDetails || {
+            type: p.familyType || 'Nuclear Family',
+            values: p.familyValues || 'Traditional yet Progressive',
+            financialStatus: p.familyFinancialStatus || p.familyStatus || 'Upper Middle Class',
+            father: p.fatherOccupation || 'Retired Professional',
+            mother: p.motherOccupation || 'Homemaker',
+            siblings: p.siblingsDetails || '1 Sibling'
+          }
+        }));
     }
-    return getAppMode() ? [] : INITIAL_PROFILES;
+    return [];
   } catch (err) {
     console.warn('[API] Could not connect to backend, fallback:', err.message);
-    return getAppMode() ? [] : INITIAL_PROFILES;
+    return [];
   }
 }
 

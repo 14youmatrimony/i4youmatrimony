@@ -9,6 +9,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { getTargetCandidateGender, isCandidateMatchingTarget, isSelfProfile } from '../../utils/genderMatch';
+import { isDemoProfile } from '../../services/api';
 
 export default function WebsiteStoriesReel({
   profiles,
@@ -22,12 +23,14 @@ export default function WebsiteStoriesReel({
   const reelRef = useRef(null);
 
   const targetCandidateGender = getTargetCandidateGender(currentUser);
-  // Profiles that have an active status story (strictly opposite gender)
-  const profilesWithStories = profiles.filter(p => {
-    if (isSelfProfile(p, currentUser)) return false;
-    if (!isCandidateMatchingTarget(p, targetCandidateGender)) return false;
-    return candidateStatuses[p.id] || p.singlePhotos?.length > 1;
-  });
+  // Profiles that have an active status story (strictly opposite gender, real profiles only)
+  const profilesWithStories = (profiles || [])
+    .filter(p => !isDemoProfile(p))
+    .filter(p => {
+      if (isSelfProfile(p, currentUser)) return false;
+      if (!isCandidateMatchingTarget(p, targetCandidateGender)) return false;
+      return candidateStatuses[p.id] || p.singlePhotos?.length > 1;
+    });
 
   return (
     <section id="stories-section" className="py-7 sm:py-9 bg-[#07111E] border-b border-white/10 text-white select-none">

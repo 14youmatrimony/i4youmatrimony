@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, updateLiveUserProfile, compressBase64Image } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, updateLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile } from './services/api';
 import { supabase, isSupabaseConfigured } from './services/supabase';
 import { uploadProfilePhoto } from './services/storageService';
 import DeviceFrameSimulator from './components/mobile/DeviceFrameSimulator';
@@ -383,21 +383,24 @@ export default function App() {
     return () => window.removeEventListener('i4u_mode_change', handleModeChange);
   }, []);
 
-  // Application Data & State
-  const [profiles, setProfiles] = useState(() => {
-    return getAppMode() ? [] : INITIAL_PROFILES;
-  });
+  // Application Data & State (Strictly real registered profiles, all demo profiles removed)
+  const [profiles, setProfiles] = useState([]);
 
   // Synchronize candidate profiles from Supabase Cloud & Python Admin Backend
   const syncLiveProfiles = useCallback(async () => {
     try {
       const liveList = await fetchLiveProfiles();
-      if (liveList && liveList.length > 0) {
+      if (Array.isArray(liveList)) {
         setProfiles(liveList);
       }
     } catch (e) {
       console.warn('[Sync Profiles Error]:', e);
     }
+  }, []);
+
+  // Ensure any legacy demo profiles in Supabase are completely purged
+  useEffect(() => {
+    purgeDemoProfilesFromSupabase().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -467,10 +470,7 @@ export default function App() {
       } catch (e) {}
 
       if (!targetUserId) {
-        targetUserId = localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id') || window.__currentUserId;
-      }
-      if (!targetUserId) {
-        targetUserId = 'p_1790963054403'; // Default candidate in database (Priya Sharma)
+        targetUserId = localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id') || window.__currentUserId || null;
       }
 
       if (targetUserId) {
@@ -795,8 +795,7 @@ export default function App() {
       setConversations(INITIAL_CONVERSATIONS);
       setNotifications(INITIAL_NOTIFICATIONS);
       setInterestsSent(DEMO_USER.interestsSent || []);
-      setShortlisted(DEMO_USER.shortlisted || []);
-      setProfiles(INITIAL_PROFILES);
+      setProfiles([]);
       setMyStatus({
         id: 'my-status-init',
         type: 'photo',
@@ -1772,9 +1771,11 @@ export default function App() {
   const filteredProfiles = useMemo(() => {
     const targetGender = getTargetCandidateGender(currentUser, guestLookingFor);
 
-    return profiles.filter(p => {
-      // 0. Exclude current user's own profile (by ID, Name, and Phone)
-      if (isSelfProfile(p, currentUser)) return false;
+    return profiles
+      .filter(p => !isDemoProfile(p))
+      .filter(p => {
+        // 0. Exclude current user's own profile (by ID, Name, and Phone)
+        if (isSelfProfile(p, currentUser)) return false;
 
       // 0.1 Strict Opposite Gender Matchmaking Rule:
       // Male users can ONLY see Female profiles (Brides)
