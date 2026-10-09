@@ -251,64 +251,26 @@ export function mapSupabaseRowToProfile(r) {
 export function isDemoProfile(p) {
   if (!p) return true;
   const id = String(p.id || '').toLowerCase().trim();
-  const name = String(p.name || '').toLowerCase().trim();
-  const phone = String(p.phone || p.mobile || '').replace(/\D/g, '');
 
-  if (p.isDemo === true || p.is_demo === true || p.isDemo === 'true') return true;
-
-  // Match demo IDs
-  if (/^p[1-8]$/.test(id) || id === 'demo-priya' || id === 'demo-rohan' || id === 'demo_user' || id === 'p_1790963054403') {
+  // Only exclude artificial test probe records
+  if (id.startsWith('test_probe') || id.startsWith('test_payload') || id === 'demo_user') {
     return true;
   }
-
-  // Match demo candidate names
-  const demoNames = [
-    'priya sharma',
-    'dr. ananya kulkarni',
-    'ananya kulkarni',
-    'aditya sengupta',
-    'meera nambiar',
-    'meera venkatraman',
-    'kabir oberoi',
-    'priyanka rathore',
-    'dr. siddharth nair',
-    'siddharth nair',
-    'tanvi deshmukh',
-    'rohan jayasimha',
-    'rohan verma',
-    'simran kaur'
-  ];
-  if (demoNames.includes(name)) return true;
-
-  // Match demo phone numbers
-  const demoPhones = [
-    '9876543210', '9820145678', '9819012345', '9845012345', 
-    '9811098765', '9414034567', '9447056789', '9822067890', 
-    '9123456780', '9422018273'
-  ];
-  if (demoPhones.includes(phone)) return true;
 
   return false;
 }
 
 /**
- * Permanently deletes any legacy demo profiles from the Supabase database in the cloud
+ * Cleanup only explicit automated test probes from database
  */
 export async function purgeDemoProfilesFromSupabase() {
   if (!isSupabaseConfigured()) return;
   try {
     await supabase.from('profiles').delete().in('id', [
-      'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8',
-      'demo-priya', 'demo-rohan', 'demo_user', 'p_1790963054403'
-    ]);
-    await supabase.from('profiles').delete().in('name', [
-      'Priya Sharma', 'Dr. Ananya Kulkarni', 'Aditya Sengupta', 
-      'Meera Nambiar', 'Meera Venkatraman', 'Kabir Oberoi', 
-      'Priyanka Rathore', 'Dr. Siddharth Nair', 'Tanvi Deshmukh', 
-      'Rohan Jayasimha', 'Rohan Verma', 'Simran Kaur'
+      'test_probe_1791394020373', 'test_payload_1'
     ]);
   } catch (err) {
-    console.warn('[purgeDemoProfilesFromSupabase] Exception:', err);
+    console.warn('[purgeDemoProfilesFromSupabase] Notice:', err);
   }
 }
 

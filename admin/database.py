@@ -297,6 +297,7 @@ def get_db_connection():
                     keepalives_interval=10,
                     keepalives_count=5
                 )
+            raw_conn.autocommit = True
             return PostgresConnectionWrapper(raw_conn)
         except Exception as pg_err:
             _pg_last_fail_time = now

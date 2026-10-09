@@ -1826,16 +1826,62 @@
 
         // Subroute: aadhaar-front / aadhaar-back images
         if (subRoute === '/aadhaar-front') {
-          return new Response(AADHAAR_FRONT_SVG, {
-            status: 200,
-            headers: { 'Content-Type': 'image/svg+xml' }
-          });
+          const u = userIndex !== -1 ? store.profiles[userIndex] : null;
+          const frontImg = u?.aadhaar_front_image || AADHAAR_FRONT_SVG;
+          if (frontImg.startsWith('http://') || frontImg.startsWith('https://')) {
+            return Response.redirect(frontImg, 302);
+          }
+          if (frontImg.startsWith('data:image/svg+xml')) {
+            return new Response(frontImg, {
+              status: 200,
+              headers: { 'Content-Type': 'image/svg+xml' }
+            });
+          }
+          try {
+            const parts = frontImg.split(',');
+            const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+            const bstr = atob(parts[1]);
+            const u8arr = new Uint8Array(bstr.length);
+            for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
+            return new Response(u8arr, {
+              status: 200,
+              headers: { 'Content-Type': mime }
+            });
+          } catch(e) {
+            return new Response(AADHAAR_FRONT_SVG, {
+              status: 200,
+              headers: { 'Content-Type': 'image/svg+xml' }
+            });
+          }
         }
         if (subRoute === '/aadhaar-back') {
-          return new Response(AADHAAR_BACK_SVG, {
-            status: 200,
-            headers: { 'Content-Type': 'image/svg+xml' }
-          });
+          const u = userIndex !== -1 ? store.profiles[userIndex] : null;
+          const backImg = u?.aadhaar_back_image || AADHAAR_BACK_SVG;
+          if (backImg.startsWith('http://') || backImg.startsWith('https://')) {
+            return Response.redirect(backImg, 302);
+          }
+          if (backImg.startsWith('data:image/svg+xml')) {
+            return new Response(backImg, {
+              status: 200,
+              headers: { 'Content-Type': 'image/svg+xml' }
+            });
+          }
+          try {
+            const parts = backImg.split(',');
+            const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+            const bstr = atob(parts[1]);
+            const u8arr = new Uint8Array(bstr.length);
+            for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
+            return new Response(u8arr, {
+              status: 200,
+              headers: { 'Content-Type': mime }
+            });
+          } catch(e) {
+            return new Response(AADHAAR_BACK_SVG, {
+              status: 200,
+              headers: { 'Content-Type': 'image/svg+xml' }
+            });
+          }
         }
 
         // User GET
