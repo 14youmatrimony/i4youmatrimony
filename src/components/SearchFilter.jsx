@@ -445,13 +445,10 @@ export default function SearchFilter({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
 
-                  <div className="absolute top-3 left-3 flex flex-col gap-1">
+                  <div className="absolute top-3 left-3">
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37] text-[#0B192C] shadow-md flex items-center space-x-1">
                       <Sparkles className="w-3 h-3" />
                       <span>{profile.matchScore}% Match</span>
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-black/60 text-white backdrop-blur-md">
-                      {profile.gunasMatch}
                     </span>
                   </div>
 

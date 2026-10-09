@@ -1466,16 +1466,24 @@
     try {
       // 1. /api/auth/me
       if (pathname === '/api/auth/me') {
+        if (store.is_logged_out || sessionStorage.getItem('i4u_admin_logged_out') === 'true') {
+          return jsonResponse({ authenticated: false, error: 'Unauthorized' }, 401);
+        }
+        const currentId = store.current_admin_id || 1;
+        const currentAdmin = (store.admin_users && store.admin_users.find(u => u.id === currentId)) || (store.admin_users && store.admin_users[0]) || {
+          id: 1,
+          username: 'admin',
+          email: 'admin@i4you.com',
+          full_name: 'Arun Thomas',
+          role: 'Super Admin',
+          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200'
+        };
+
         return jsonResponse({
           authenticated: true,
           user: {
-            id: 1,
-            username: 'admin',
-            email: 'admin@i4you.com',
-            name: 'Arun Thomas',
-            full_name: 'Arun Thomas',
-            role: 'Super Admin',
-            avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
+            ...currentAdmin,
+            name: currentAdmin.full_name || currentAdmin.name || 'Arun Thomas',
             permissions: [
               'analytics:view', 'users:view', 'users:edit', 'users:delete', 'users:verify', 'users:export',
               'offers:view', 'offers:edit', 'offers:delete',
@@ -1490,9 +1498,26 @@
 
       // 2. /api/auth/login or /api/auth/logout
       if (pathname === '/api/auth/login') {
-        return jsonResponse({ success: true, message: 'Authenticated successfully' });
+        const body = init && init.body ? JSON.parse(init.body) : {};
+        const inputId = (body.email || body.username || '').toLowerCase().trim();
+        const found = store.admin_users.find(u => 
+          (u.email && u.email.toLowerCase() === inputId) || 
+          (u.username && u.username.toLowerCase() === inputId)
+        ) || store.admin_users[0];
+
+        store.is_logged_out = false;
+        store.current_admin_id = found ? found.id : 1;
+        saveStore(store);
+
+        return jsonResponse({
+          success: true,
+          message: 'Authenticated successfully',
+          user: found
+        });
       }
       if (pathname === '/api/auth/logout') {
+        store.is_logged_out = true;
+        saveStore(store);
         return jsonResponse({ success: true, message: 'Logged out successfully' });
       }
 
@@ -2003,13 +2028,39 @@
         const adminId = parseInt(adminUserMatch[1], 10);
         const idx = store.admin_users.findIndex(a => a.id === adminId);
 
+        if (method === 'GET') {
+          if (idx !== -1) {
+            return jsonResponse(store.admin_users[idx]);
+          }
+          if (adminId === 1) {
+            return jsonResponse({
+              id: 1,
+              username: 'admin',
+              email: 'admin@i4you.com',
+              full_name: 'Arun Thomas',
+              role: 'Super Admin',
+              avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200'
+            });
+          }
+          return jsonResponse({ error: 'Administrator not found' }, 404);
+        }
+
         if (method === 'DELETE') {
           if (idx !== -1) {
+            const isSelf = (adminId === (store.current_admin_id || 1));
+            const deletedAdmin = store.admin_users[idx];
             store.admin_users.splice(idx, 1);
+            if (isSelf) {
+              store.is_logged_out = true;
+            }
             saveStore(store);
-            return jsonResponse({ success: true, message: 'Admin removed' });
+            return jsonResponse({
+              success: true,
+              message: `Administrator '${deletedAdmin.full_name || deletedAdmin.username}' deleted successfully.`,
+              logout: isSelf
+            });
           }
-          return jsonResponse({ error: 'Admin not found' }, 404);
+          return jsonResponse({ error: 'Administrator not found' }, 404);
         }
 
         if (method === 'PUT') {
@@ -2017,9 +2068,29 @@
           if (idx !== -1) {
             store.admin_users[idx] = { ...store.admin_users[idx], ...body };
             saveStore(store);
-            return jsonResponse({ success: true, admin: store.admin_users[idx] });
+            return jsonResponse({
+              success: true,
+              message: 'Administrator profile updated successfully',
+              admin: store.admin_users[idx]
+            });
+          } else if (adminId === 1) {
+            const updated = {
+              id: 1,
+              username: body.username || 'admin',
+              email: body.email || 'admin@i4you.com',
+              full_name: body.full_name || 'Arun Thomas',
+              role: body.role || 'Super Admin',
+              avatar: body.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200'
+            };
+            store.admin_users.unshift(updated);
+            saveStore(store);
+            return jsonResponse({
+              success: true,
+              message: 'Administrator profile updated successfully',
+              admin: updated
+            });
           }
-          return jsonResponse({ error: 'Admin not found' }, 404);
+          return jsonResponse({ error: 'Administrator not found' }, 404);
         }
       }
 

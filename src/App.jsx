@@ -547,6 +547,7 @@ export default function App() {
       const saved = localStorage.getItem('i4u_auth_user');
       if (saved) {
         const u = JSON.parse(saved);
+        if (u.id === 'demo-priya' || u.id === 'demo-rohan' || u.id === 'demo_user' || u.name === 'Priya Sharma' || u.mobile === '9876543210' || u.isDemo) return [];
         return u.interestsSent || [];
       }
     } catch (e) {}
@@ -557,6 +558,7 @@ export default function App() {
       const saved = localStorage.getItem('i4u_auth_user');
       if (saved) {
         const u = JSON.parse(saved);
+        if (u.id === 'demo-priya' || u.id === 'demo-rohan' || u.id === 'demo_user' || u.name === 'Priya Sharma' || u.mobile === '9876543210' || u.isDemo) return [];
         return u.shortlisted || [];
       }
     } catch (e) {}
@@ -567,6 +569,8 @@ export default function App() {
     try {
       const savedUser = localStorage.getItem('i4u_auth_user');
       if (!savedUser) return [];
+      const u = JSON.parse(savedUser);
+      if (u.id === 'demo-priya' || u.id === 'demo-rohan' || u.id === 'demo_user' || u.name === 'Priya Sharma' || u.mobile === '9876543210' || u.isDemo) return [];
       const saved = localStorage.getItem('i4u_conversations');
       return saved ? JSON.parse(saved) : [];
     } catch (e) {
@@ -583,6 +587,22 @@ export default function App() {
       const saved = localStorage.getItem('i4u_auth_user');
       if (saved) {
         let user = JSON.parse(saved);
+        if (
+          !user ||
+          user.id === 'demo-priya' ||
+          user.id === 'demo-rohan' ||
+          user.id === 'demo_user' ||
+          user.isDemo ||
+          user.name === 'Priya Sharma' ||
+          user.mobile === '9876543210'
+        ) {
+          try {
+            localStorage.removeItem('i4u_auth_user');
+            localStorage.removeItem('i4u_conversations');
+            localStorage.removeItem('i4u_notifications');
+          } catch (e) {}
+          return null;
+        }
         const isAadhaarDone = localStorage.getItem('i4u_aadhaar_verified') === 'true';
         if (isAadhaarDone) {
           user = { ...user, aadhaarVerified: true, verified: true };
@@ -599,6 +619,26 @@ export default function App() {
       return null;
     }
   });
+
+  // Purge any residual demo user data from prior visits immediately
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('i4u_auth_user');
+      if (saved) {
+        const u = JSON.parse(saved);
+        if (u.id === 'demo-priya' || u.id === 'demo-rohan' || u.id === 'demo_user' || u.name === 'Priya Sharma' || u.mobile === '9876543210' || u.isDemo) {
+          localStorage.removeItem('i4u_auth_user');
+          localStorage.removeItem('i4u_conversations');
+          localStorage.removeItem('i4u_notifications');
+          setCurrentUser(null);
+          setConversations([]);
+          setNotifications([]);
+          setInterestsSent([]);
+          setShortlisted([]);
+        }
+      }
+    } catch (e) {}
+  }, []);
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -666,6 +706,8 @@ export default function App() {
     try {
       const savedUser = localStorage.getItem('i4u_auth_user');
       if (!savedUser) return [];
+      const u = JSON.parse(savedUser);
+      if (u.id === 'demo-priya' || u.id === 'demo-rohan' || u.id === 'demo_user' || u.name === 'Priya Sharma' || u.mobile === '9876543210' || u.isDemo) return [];
       const saved = localStorage.getItem('i4u_notifications');
       if (saved) {
         const parsed = JSON.parse(saved);

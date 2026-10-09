@@ -127,9 +127,6 @@ export default function ProfileModal({
               <Sparkles className="w-3.5 h-3.5" />
               <span>{profile.matchScore}% Match</span>
             </span>
-            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-white/20 text-white backdrop-blur-md border border-white/30">
-              {profile.gunasMatch}
-            </span>
           </div>
 
           {/* Avatar and Basic Header Bar */}

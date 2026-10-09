@@ -249,39 +249,78 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (e) {}
 });
 
+function showLoggedOutOverlay() {
+  let overlay = document.getElementById('adminLoggedOutOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'adminLoggedOutOverlay';
+    overlay.className = 'fixed inset-0 z-50 bg-[#070F1E] flex items-center justify-center p-4';
+    overlay.innerHTML = `
+      <div class="w-full max-w-md p-8 rounded-3xl bg-[#0B192C] border border-[#D4AF37]/30 shadow-2xl text-center space-y-6">
+        <div class="w-16 h-16 rounded-2xl bg-[#DFB76C]/10 border border-[#DFB76C]/30 text-[#DFB76C] flex items-center justify-center mx-auto">
+          <i data-lucide="shield-check" class="w-8 h-8"></i>
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-white mb-2">Signed Out</h2>
+          <p class="text-xs text-slate-400">You have been signed out from the I 4 You Super Admin Portal.</p>
+        </div>
+        <div class="space-y-3 pt-2">
+          <button onclick="sessionStorage.removeItem('i4u_admin_logged_out'); window.location.reload();" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2">
+            <i data-lucide="log-in" class="w-4 h-4"></i>
+            <span>Log In Again</span>
+          </button>
+          <a href="/" class="block w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 transition-colors">
+            Return to Main Website
+          </a>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    if (window.lucide) lucide.createIcons();
+  } else {
+    overlay.style.display = 'flex';
+  }
+}
+
 async function checkAuth() {
+  if (sessionStorage.getItem('i4u_admin_logged_out') === 'true') {
+    state.admin = null;
+    showLoggedOutOverlay();
+    return;
+  }
+
+  let storedUser = null;
+  try {
+    const raw = localStorage.getItem('i4u_admin_user');
+    if (raw) storedUser = JSON.parse(raw);
+  } catch (e) {}
+
   try {
     const res = await fetch('/api/auth/me');
-    if (!res.ok) {
-      state.admin = {
-        id: 1,
-        username: 'admin',
-        name: 'Arun Thomas',
-        full_name: 'Arun Thomas',
-        email: 'admin@i4you.com',
-        role: 'Super Admin',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
-        permissions: ['*']
-      };
+    if (res.ok) {
+      const data = await res.json();
+      state.admin = data.user || data;
+      if (storedUser && storedUser.id === state.admin.id) {
+        state.admin = { ...state.admin, ...storedUser };
+      }
       updateAdminProfileUI();
       return;
     }
-    const data = await res.json();
-    state.admin = data.user || data;
-    updateAdminProfileUI();
   } catch (err) {
-    state.admin = {
-      id: 1,
-      username: 'admin',
-      name: 'Arun Thomas',
-      full_name: 'Arun Thomas',
-      email: 'admin@i4you.com',
-      role: 'Super Admin',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
-      permissions: ['*']
-    };
-    updateAdminProfileUI();
+    console.warn('Auth check notice:', err);
   }
+
+  state.admin = storedUser || {
+    id: 1,
+    username: 'admin',
+    name: 'Arun Thomas',
+    full_name: 'Arun Thomas',
+    email: 'admin@i4you.com',
+    role: 'Super Admin',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
+    permissions: ['*']
+  };
+  updateAdminProfileUI();
 }
 
 function canAccessTab(tabId) {
