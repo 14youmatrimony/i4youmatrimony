@@ -1508,11 +1508,7 @@ def api_public_delete_account():
 @app.route('/admin')
 def home():
     if 'admin_id' not in session:
-        session['admin_id'] = 1
-        session['admin_username'] = 'admin'
-        session['admin_name'] = 'Arun Thomas'
-        session['admin_role'] = 'Super Admin'
-        session['admin_email'] = 'admin@i4you.com'
+        return redirect(url_for('login_page'))
     return render_template('index.html', cache_bust=int(time.time()))
 
 @app.route('/:')
@@ -1593,11 +1589,7 @@ def api_logout():
 @app.route('/api/auth/me', methods=['GET'])
 def api_me():
     if 'admin_id' not in session:
-        session['admin_id'] = 1
-        session['admin_username'] = 'admin'
-        session['admin_name'] = 'Arun Thomas'
-        session['admin_role'] = 'Super Admin'
-        session['admin_email'] = 'admin@i4you.com'
+        return jsonify({'authenticated': False, 'error': 'Unauthorized'}), 401
     
     conn = get_db_connection()
     cursor = conn.cursor()

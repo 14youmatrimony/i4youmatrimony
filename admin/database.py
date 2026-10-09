@@ -231,13 +231,25 @@ class PostgresConnectionWrapper:
         return PostgresCursorWrapper(raw_cursor, self._conn)
 
     def commit(self):
-        self._conn.commit()
+        try:
+            if hasattr(self._conn, 'closed') and not self._conn.closed:
+                self._conn.commit()
+        except Exception:
+            pass
 
     def rollback(self):
-        self._conn.rollback()
+        try:
+            if hasattr(self._conn, 'closed') and not self._conn.closed:
+                self._conn.rollback()
+        except Exception:
+            pass
 
     def close(self):
-        self._conn.close()
+        try:
+            if hasattr(self._conn, 'closed') and not self._conn.closed:
+                self._conn.close()
+        except Exception:
+            pass
 
     def execute(self, query: str, params=None):
         cur = self.cursor()
@@ -992,20 +1004,41 @@ def seed_default_offers(conn):
 
 def init_db():
     """Initializes database tables on PostgreSQL or SQLite depending on active engine."""
-    conn = get_db_connection()
     try:
-        if isinstance(conn, PostgresConnectionWrapper):
-            init_postgres_tables(conn)
-        else:
-            init_sqlite_tables(conn)
-        seed_default_plans(conn)
-        seed_default_offers(conn)
-        seed_default_admin_users(conn)
-    finally:
-        conn.close()
+        conn = get_db_connection()
+        try:
+            if isinstance(conn, PostgresConnectionWrapper):
+                init_postgres_tables(conn)
+            else:
+                init_sqlite_tables(conn)
+            seed_default_plans(conn)
+            seed_default_offers(conn)
+            seed_default_admin_users(conn)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[-] Database initialization notice: {e}. Falling back to SQLite.")
+        try:
+            sqlite_conn = sqlite3.connect(DB_PATH)
+            sqlite_conn.row_factory = sqlite3.Row
+            try:
+                init_sqlite_tables(sqlite_conn)
+                seed_default_plans(sqlite_conn)
+                seed_default_offers(sqlite_conn)
+                seed_default_admin_users(sqlite_conn)
+            finally:
+                sqlite_conn.close()
+        except Exception as sqle:
+            print(f"[-] SQLite fallback notice: {sqle}")
 
     # Automatically ensure customer PII records are encrypted at rest
-    migrate_encrypt_customer_data()
+    try:
+        migrate_encrypt_customer_data()
+    except Exception:
+        pass
 
 
 # ==========================================

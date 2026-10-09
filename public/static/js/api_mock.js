@@ -1466,7 +1466,7 @@
     try {
       // 1. /api/auth/me
       if (pathname === '/api/auth/me') {
-        if (store.is_logged_out || sessionStorage.getItem('i4u_admin_logged_out') === 'true') {
+        if (store.is_logged_out || sessionStorage.getItem('i4u_admin_logged_out') === 'true' || localStorage.getItem('i4u_admin_logged_out') === 'true') {
           return jsonResponse({ authenticated: false, error: 'Unauthorized' }, 401);
         }
         const currentId = store.current_admin_id || 1;

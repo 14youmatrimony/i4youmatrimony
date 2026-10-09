@@ -4,6 +4,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from './supabase';
+import { uploadProfilePhoto } from './storageService';
 import { sanitizeInput, hashPasswordSha256 } from '../utils/security';
 import { sendRegistrationEmail } from './emailNotificationService';
 import { DEMO_USER, DEMO_USER_FEMALE, DEMO_USER_MALE } from '../data/mockProfiles';
@@ -84,6 +85,19 @@ export async function registerWithRegisterId(formData) {
   const registerId = formData.registerId || await getNextSequentialRegisterId();
   const profileId = formData.id || `${registerId.toLowerCase()}_${Date.now()}`;
 
+  // Upload photo to Supabase Storage if it is a Data URL or Blob
+  let publicPhotoUrl = formData.photo || (formData.singlePhotos && formData.singlePhotos[0]) || null;
+  if (publicPhotoUrl && (publicPhotoUrl.startsWith('data:') || publicPhotoUrl.startsWith('blob:'))) {
+    try {
+      const uploadRes = await uploadProfilePhoto(publicPhotoUrl, profileId, 'avatars');
+      if (uploadRes.success && uploadRes.publicUrl) {
+        publicPhotoUrl = uploadRes.publicUrl;
+      }
+    } catch (photoErr) {
+      console.warn('[authService] Photo upload to Supabase storage fallback:', photoErr);
+    }
+  }
+
   const profilePayload = {
     id: profileId,
     name: sanitizeInput(formData.fullName || formData.name, { maxLength: 100 }),
@@ -107,7 +121,8 @@ export async function registerWithRegisterId(formData) {
     verified: 1,
     aadhaar_verified: 0,
     aadhaar_status: 'pending',
-    photo: formData.photo || null,
+    photo: publicPhotoUrl,
+    photo_url: publicPhotoUrl,
     single_photos: Array.isArray(formData.singlePhotos) ? JSON.stringify(formData.singlePhotos) : (formData.single_photos || null),
     family_photos: Array.isArray(formData.familyPhotos) ? JSON.stringify(formData.familyPhotos) : (formData.family_photos || null),
     created_at: new Date().toISOString(),

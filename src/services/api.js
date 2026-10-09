@@ -6,6 +6,7 @@
 import { INITIAL_PROFILES } from '../data/mockProfiles';
 import { getAppMode } from '../config/appConfig';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { uploadProfilePhoto } from './storageService';
 
 /**
  * Compresses base64 images in browser using offscreen canvas to prevent large database payload bottlenecks
@@ -62,7 +63,18 @@ export async function syncProfileToSupabase(userData) {
   userData.id = profileId;
   if (!isSupabaseConfigured()) return null;
   try {
-    const photo = await compressBase64Image(userData.photo, 800, 0.8);
+    let photo = await compressBase64Image(userData.photo, 800, 0.8);
+    if (photo && (photo.startsWith('data:') || photo.startsWith('blob:'))) {
+      try {
+        const uploadRes = await uploadProfilePhoto(photo, profileId, 'avatars');
+        if (uploadRes.success && uploadRes.publicUrl) {
+          photo = uploadRes.publicUrl;
+        }
+      } catch (uploadErr) {
+        console.warn('[api] Supabase storage upload fallback:', uploadErr);
+      }
+    }
+
     const aadhaarFront = await compressBase64Image(userData.aadhaar_front_image || userData.frontDocumentPreview, 1200, 0.85);
     const aadhaarBack = await compressBase64Image(userData.aadhaar_back_image || userData.backDocumentPreview, 1200, 0.85);
 
@@ -88,6 +100,7 @@ export async function syncProfileToSupabase(userData) {
       height: userData.height || null,
       skin_colour: userData.skinColour || userData.skin_colour || null,
       photo: photo || null,
+      photo_url: photo || null,
       religion: userData.religion || 'Hindu',
       caste: userData.caste || null,
       mother_tongue: userData.motherTongue || userData.mother_tongue || null,
@@ -186,7 +199,9 @@ export function mapSupabaseRowToProfile(r) {
     gender: r.gender,
     height: r.height || "5'6\"",
     skinColour: r.skin_colour || 'Fair',
-    photo: r.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
+    photo: r.photo_url || r.photo || (String(r.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800'),
+    photo_url: r.photo_url || r.photo || null,
+    avatar_url: r.photo_url || r.photo || null,
     coverPhoto: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200',
     singlePhotos,
     familyPhotos,
