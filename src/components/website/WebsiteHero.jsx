@@ -149,12 +149,10 @@ export default function WebsiteHero({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-transparent to-transparent"></div>
 
-                  {/* High Match Gunas Badge */}
+                  {/* High Match Score Badge */}
                   <div className="absolute top-2.5 right-2.5 flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-[#0B192C]/90 text-[#DFB76C] border border-[#D4AF37]/60 font-bold text-[11px] shadow-lg backdrop-blur-md">
                     <Sparkles className="w-3 h-3 text-[#DFB76C]" />
                     <span>{featuredProfile.matchScore}% Match</span>
-                    <span className="w-1 h-1 rounded-full bg-[#DFB76C]/60" />
-                    <span className="text-emerald-400 font-mono text-[10px]">{featuredProfile.gunasMatch}</span>
                   </div>
 
                   {/* Aadhaar Verified Badge */}

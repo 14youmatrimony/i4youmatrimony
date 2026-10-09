@@ -253,6 +253,12 @@ function showAdminLoginScreen() {
   const overlay = document.getElementById('adminLoginOverlay');
   if (overlay) {
     overlay.classList.remove('hidden');
+    const passInput = document.getElementById('adminLoginPassword');
+    if (passInput) {
+      passInput.value = '';
+    }
+    const errorAlert = document.getElementById('adminLoginError');
+    if (errorAlert) errorAlert.classList.add('hidden');
     if (window.lucide) lucide.createIcons();
   }
 }
@@ -276,11 +282,30 @@ async function handleAdminLoginSubmit(e) {
   const password = passwordInput ? passwordInput.value : '';
 
   if (errorAlert) errorAlert.classList.add('hidden');
+
+  if (!email) {
+    if (errorAlert && errorMsg) {
+      errorMsg.textContent = 'Please enter administrator email or username.';
+      errorAlert.classList.remove('hidden');
+    }
+    showToast('Please enter administrator email or username', 'warning');
+    return;
+  }
+  if (!password) {
+    if (errorAlert && errorMsg) {
+      errorMsg.textContent = 'Please enter administrator password.';
+      errorAlert.classList.remove('hidden');
+    }
+    showToast('Please enter administrator password', 'warning');
+    return;
+  }
+
   if (btn) btn.disabled = true;
 
   try {
     let authSuccess = false;
     let loggedAdmin = null;
+    let errorMessage = 'Invalid email or password.';
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -288,20 +313,32 @@ async function handleAdminLoginSubmit(e) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          authSuccess = true;
-          loggedAdmin = data.user;
-        }
-      }
-    } catch (netErr) {}
-
-    // Fallback authentication for offline / standalone mode
-    if (!authSuccess) {
-      if (password && password.length >= 4) {
+      const data = await res.json();
+      if (res.ok && data.success) {
         authSuccess = true;
-        loggedAdmin = {
+        loggedAdmin = data.user;
+      } else {
+        errorMessage = data.error || data.message || 'Invalid email or password.';
+      }
+    } catch (netErr) {
+      console.warn('Network login notice, checking local credentials:', netErr);
+      const customPass = localStorage.getItem('i4u_custom_admin_password');
+      let storedUser = null;
+      try {
+        const rawStore = localStorage.getItem('i4you_admin_store_v3');
+        if (rawStore) {
+          const parsed = JSON.parse(rawStore);
+          storedUser = parsed.admin_users && parsed.admin_users.find(u => 
+            (u.email && u.email.toLowerCase() === email.toLowerCase()) || 
+            (u.username && u.username.toLowerCase() === email.toLowerCase())
+          );
+        }
+      } catch (err) {}
+
+      const expectedPassword = (storedUser && storedUser.password) || customPass || 'admin123';
+      if (password === expectedPassword || (!customPass && !storedUser?.password && (password === 'admin123' || password === 'Admin@12345'))) {
+        authSuccess = true;
+        loggedAdmin = storedUser || {
           id: 1,
           username: email.split('@')[0] || 'admin',
           full_name: 'Arun Thomas',
@@ -311,6 +348,8 @@ async function handleAdminLoginSubmit(e) {
           avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
           permissions: ['*']
         };
+      } else {
+        errorMessage = 'Incorrect password. Access denied.';
       }
     }
 
@@ -329,10 +368,10 @@ async function handleAdminLoginSubmit(e) {
       if (typeof loadUsers === 'function') loadUsers();
     } else {
       if (errorAlert) {
-        if (errorMsg) errorMsg.textContent = 'Invalid credentials. Password must be at least 4 characters.';
+        if (errorMsg) errorMsg.textContent = errorMessage;
         errorAlert.classList.remove('hidden');
       }
-      showToast('Authentication failed', 'error');
+      showToast(errorMessage, 'error');
     }
   } catch (err) {
     if (errorAlert) {
@@ -3453,44 +3492,119 @@ function openCreateAdminModal() {
   if (window.lucide) lucide.createIcons();
 }
 
+function closeAdminModal() {
+  const modal = document.getElementById('adminModal');
+  if (modal) {
+    try {
+      if (typeof modal.close === 'function') {
+        modal.close();
+      } else {
+        modal.removeAttribute('open');
+      }
+    } catch (e) {
+      modal.removeAttribute('open');
+    }
+  }
+}
+
 async function saveAdminForm(event) {
-  event.preventDefault();
-  const id = document.getElementById('adminFormId').value || 1;
-  const mode = document.getElementById('adminFormMode').value;
-  const fullName = document.getElementById('adminFormFullName').value.trim();
-  const username = document.getElementById('adminFormUsername').value.trim();
-  const email = document.getElementById('adminFormEmail').value.trim();
-  const role = document.getElementById('adminFormRole').value;
-  const avatar = document.getElementById('adminFormAvatar').value.trim();
-  const password = document.getElementById('adminFormPassword').value;
-  const passwordConfirm = document.getElementById('adminFormPasswordConfirm').value;
-
-  if (password || mode === 'create') {
-    if (password.length < 6) {
-      showToast('Password must be at least 6 characters long', 'error');
-      return;
-    }
-    if (password !== passwordConfirm) {
-      showToast('Passwords do not match. Please re-enter identical passwords.', 'error');
-      return;
-    }
+  if (event) {
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
   }
 
-  const payload = {
-    full_name: fullName,
-    username: username,
-    email: email,
-    role: role,
-    avatar: avatar
-  };
-  if (password) {
-    payload.password = password;
-  }
+  const saveBtn = document.getElementById('saveAdminBtn');
+  const originalBtnHtml = saveBtn ? saveBtn.innerHTML : '<span>Save Administrator</span>';
 
   try {
-    let res;
-    let data;
+    const idEl = document.getElementById('adminFormId');
+    const modeEl = document.getElementById('adminFormMode');
+    const fullNameEl = document.getElementById('adminFormFullName');
+    const usernameEl = document.getElementById('adminFormUsername');
+    const emailEl = document.getElementById('adminFormEmail');
+    const roleEl = document.getElementById('adminFormRole');
+    const avatarEl = document.getElementById('adminFormAvatar');
+    const passwordEl = document.getElementById('adminFormPassword');
+    const passwordConfirmEl = document.getElementById('adminFormPasswordConfirm');
+
+    const id = (idEl && idEl.value) ? idEl.value : 1;
+    const mode = (modeEl && modeEl.value) ? modeEl.value : 'edit';
+    const fullName = fullNameEl ? fullNameEl.value.trim() : '';
+    const username = usernameEl ? usernameEl.value.trim() : '';
+    const email = emailEl ? emailEl.value.trim() : '';
+    const role = roleEl ? roleEl.value : 'Super Admin';
+    const avatar = avatarEl ? avatarEl.value.trim() : '';
+    const password = passwordEl ? passwordEl.value : '';
+    const passwordConfirm = passwordConfirmEl ? passwordConfirmEl.value : '';
+
+    // Programmatic Validation
+    if (!fullName) {
+      showToast('Please enter administrator full name', 'warning');
+      fullNameEl?.focus();
+      return;
+    }
+    if (!username) {
+      showToast('Please enter a username', 'warning');
+      usernameEl?.focus();
+      return;
+    }
+    if (!email) {
+      showToast('Please enter an email address', 'warning');
+      emailEl?.focus();
+      return;
+    }
+
+    if (mode === 'create' && !password) {
+      showToast('Password is required when creating a new administrator', 'warning');
+      passwordEl?.focus();
+      return;
+    }
+
+    if (password) {
+      if (password.length < 6) {
+        showToast('Password must be at least 6 characters long', 'warning');
+        passwordEl?.focus();
+        return;
+      }
+      if (password !== passwordConfirm) {
+        showToast('Passwords do not match. Please re-enter identical passwords.', 'warning');
+        passwordConfirmEl?.focus();
+        return;
+      }
+    }
+
+    // Set button loading state
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-slate-950 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>Saving...</span>
+      `;
+    }
+
+    const payload = {
+      id: Number(id) || id,
+      full_name: fullName,
+      name: fullName,
+      username: username,
+      email: email,
+      role: role,
+      avatar: avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
+      permissions: ['*']
+    };
+    if (password) {
+      payload.password = password;
+      try {
+        localStorage.setItem('i4u_custom_admin_password', password);
+      } catch (e) {}
+    }
+
+    let data = null;
     try {
+      let res;
       if (mode === 'create') {
         res = await fetch('/api/admin/users', {
           method: 'POST',
@@ -3508,34 +3622,59 @@ async function saveAdminForm(event) {
         data = await res.json();
       }
     } catch (e) {
-      console.warn('Network update notice:', e);
+      console.warn('Network admin save notice (falling back to local persistence):', e);
     }
 
     const savedAdmin = (data && data.admin) ? data.admin : { id, ...payload };
 
-    // If updating current logged-in user, refresh state.admin and sidebar
-    if (state.admin && (state.admin.id == id || !id || state.admin.email === email || mode === 'edit')) {
-      state.admin = { ...state.admin, ...savedAdmin };
-      try {
-        localStorage.setItem('i4u_admin_user', JSON.stringify(state.admin));
-      } catch (e) {}
-      updateAdminProfileUI();
+    // Update global state and localStorage
+    state.admin = {
+      ...(state.admin || {}),
+      ...savedAdmin,
+      name: fullName,
+      full_name: fullName,
+      username: username,
+      email: email,
+      role: role,
+      avatar: payload.avatar,
+      permissions: (state.admin && state.admin.permissions) || ['*']
+    };
+    if (password) {
+      state.admin.password = password;
     }
 
-    const modal = document.getElementById('adminModal');
-    if (modal) {
-      if (typeof modal.close === 'function') modal.close();
-      else modal.removeAttribute('open');
+    try {
+      localStorage.setItem('i4u_admin_user', JSON.stringify(state.admin));
+    } catch (e) {
+      console.warn('LocalStorage save notice:', e);
     }
 
-    showToast((data && data.message) || 'Administrator profile updated successfully', 'success');
+    // Reset password fields in modal form
+    if (passwordEl) passwordEl.value = '';
+    if (passwordConfirmEl) passwordConfirmEl.value = '';
+
+    // Refresh UI elements immediately
+    updateAdminProfileUI();
+
+    // Safely close the modal
+    closeAdminModal();
+
+    const successMsg = password ? 'Administrator profile and new password updated successfully!' : ((data && data.message) || 'Administrator profile saved successfully!');
+    showToast(successMsg, 'success');
 
     if (typeof loadAdminUsers === 'function') {
-      loadAdminUsers();
+      try {
+        loadAdminUsers();
+      } catch (e) {}
     }
   } catch (err) {
     console.error('Error saving admin form:', err);
     showToast(err.message || 'Failed to save administrator', 'error');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = originalBtnHtml;
+    }
   }
 }
 

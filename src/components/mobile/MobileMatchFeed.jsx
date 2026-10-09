@@ -242,8 +242,22 @@ export default function MobileMatchFeed({
                   : 'bg-slate-200'
               }`}>
                 <div className="w-full h-full rounded-full bg-slate-100 flex items-center justify-center overflow-hidden ring-2 ring-white">
-                  {currentUser?.photo ? (
-                    <img src={currentUser.photo} alt="My Status" className="w-full h-full object-cover" />
+                  {myStatus?.mediaUrl || currentUser?.photo ? (
+                    <img 
+                      src={myStatus?.mediaUrl || currentUser?.photo} 
+                      alt="My Status" 
+                      className="w-full h-full object-cover" 
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        if (currentUser?.photo && e.target.src !== currentUser.photo) {
+                          e.target.src = currentUser.photo;
+                        }
+                      }}
+                    />
+                  ) : myStatus?.type === 'text' ? (
+                    <div className={`w-full h-full flex items-center justify-center text-[10px] font-bold text-white bg-gradient-to-br ${myStatus?.bgGradient || 'from-[#0B192C] to-[#1E3A8A]'}`}>
+                      Status
+                    </div>
                   ) : (
                     <Camera className="w-5 h-5 text-slate-400" />
                   )}

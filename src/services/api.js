@@ -509,6 +509,129 @@ export async function updateLivePhotos(photoData) {
 }
 
 /**
+ * Update candidate profile directly in Supabase with automatic storage upload,
+ * camelCase-to-snake_case mapping, and local session synchronization.
+ *
+ * @param {string} profileIdentifier - User's id or register_id
+ * @param {Object} updateData - Object containing fields to update
+ * @returns {Promise<{success: boolean, profile?: Object, error?: string}>}
+ */
+export async function updateLiveUserProfile(profileIdentifier, updateData) {
+  if (!profileIdentifier || !updateData) {
+    return { success: false, error: 'Identifier and update payload required' };
+  }
+
+  const cleanId = String(profileIdentifier).trim();
+
+  // 1. Process and upload photo if new base64 image provided
+  let photoUrl = updateData.photo || updateData.photo_url;
+  if (photoUrl && (photoUrl.startsWith('data:') || photoUrl.startsWith('blob:'))) {
+    try {
+      const uploadRes = await uploadProfilePhoto(photoUrl, cleanId, 'avatars');
+      if (uploadRes.success && uploadRes.publicUrl) {
+        photoUrl = uploadRes.publicUrl;
+      }
+    } catch (photoErr) {
+      console.warn('[updateLiveUserProfile] Photo upload error:', photoErr);
+    }
+  }
+
+  // 2. Build snake_case database payload
+  const payload = {
+    updated_at: new Date().toISOString()
+  };
+
+  if (updateData.name !== undefined) payload.name = updateData.name;
+  if (updateData.fullName !== undefined) payload.name = updateData.fullName;
+  if (updateData.email !== undefined) payload.email = updateData.email;
+  if (updateData.phone !== undefined) payload.phone = updateData.phone;
+  if (updateData.mobile !== undefined) payload.phone = updateData.mobile;
+  if (updateData.age !== undefined) payload.age = parseInt(updateData.age, 10) || updateData.age;
+  if (updateData.gender !== undefined) payload.gender = updateData.gender;
+  if (updateData.height !== undefined) payload.height = updateData.height;
+  if (updateData.skinColour !== undefined) payload.skin_colour = updateData.skinColour;
+  if (updateData.skin_colour !== undefined) payload.skin_colour = updateData.skin_colour;
+  if (updateData.religion !== undefined) payload.religion = updateData.religion;
+  if (updateData.caste !== undefined) payload.caste = updateData.caste;
+  if (updateData.motherTongue !== undefined) payload.mother_tongue = updateData.motherTongue;
+  if (updateData.mother_tongue !== undefined) payload.mother_tongue = updateData.mother_tongue;
+  if (updateData.state !== undefined) payload.state = updateData.state;
+  if (updateData.city !== undefined) payload.city = updateData.city;
+  if (updateData.district !== undefined) payload.district = updateData.district;
+  if (updateData.nativeAddress !== undefined) payload.native_address = updateData.nativeAddress;
+  if (updateData.native_address !== undefined) payload.native_address = updateData.native_address;
+  if (updateData.education !== undefined) payload.education = updateData.education;
+  if (updateData.educationCategory !== undefined) payload.education_category = updateData.educationCategory;
+  if (updateData.profession !== undefined) payload.profession = updateData.profession;
+  if (updateData.company !== undefined) payload.company = updateData.company;
+  if (updateData.annualIncome !== undefined) payload.annual_income = updateData.annualIncome;
+  if (updateData.annual_income !== undefined) payload.annual_income = updateData.annual_income;
+  if (updateData.diet !== undefined) payload.diet = updateData.diet;
+  if (updateData.manglik !== undefined) payload.manglik = updateData.manglik;
+  if (updateData.about !== undefined) payload.about = updateData.about;
+  if (updateData.aboutBio !== undefined) payload.about = updateData.aboutBio;
+
+  if (photoUrl) {
+    payload.photo = photoUrl;
+    payload.photo_url = photoUrl;
+  }
+
+  if (updateData.singlePhotos !== undefined) {
+    payload.single_photos = Array.isArray(updateData.singlePhotos) 
+      ? JSON.stringify(updateData.singlePhotos) 
+      : updateData.singlePhotos;
+  }
+  if (updateData.familyPhotos !== undefined) {
+    payload.family_photos = Array.isArray(updateData.familyPhotos) 
+      ? JSON.stringify(updateData.familyPhotos) 
+      : updateData.familyPhotos;
+  }
+
+  // 3. Execute Supabase update query
+  if (isSupabaseConfigured()) {
+    try {
+      const isRegId = cleanId.toUpperCase().startsWith('I4Y');
+      let query = supabase.from('profiles').update(payload);
+
+      if (isRegId) {
+        query = query.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
+      } else {
+        query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId}`);
+      }
+
+      const { data, error } = await query.select();
+
+      if (error) {
+        console.error('[updateLiveUserProfile] Supabase update error:', error.message);
+        return { success: false, error: error.message };
+      }
+
+      const updatedRow = data && data.length > 0 ? data[0] : null;
+      const mappedProfile = updatedRow ? mapSupabaseRowToProfile(updatedRow) : null;
+
+      // 4. Keep local session in sync so refresh never reverts
+      try {
+        const currentSaved = localStorage.getItem('i4u_auth_user');
+        const parsed = currentSaved ? JSON.parse(currentSaved) : {};
+        const merged = { ...parsed, ...updateData, ...(mappedProfile || {}) };
+        if (photoUrl) merged.photo = photoUrl;
+        localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
+        if (cleanId) {
+          localStorage.setItem('i4u_current_user_id', cleanId);
+        }
+      } catch (e) {}
+
+      return { success: true, profile: mappedProfile || updateData };
+    } catch (err) {
+      console.error('[updateLiveUserProfile] Exception:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  return { success: false, error: 'Supabase is not configured' };
+}
+
+/**
  * Fetch candidate profile with live Aadhaar status & admin rejection reason
  */
 export async function fetchLiveUserProfile(userId) {
@@ -517,11 +640,17 @@ export async function fetchLiveUserProfile(userId) {
   // 1. Try Supabase direct query
   if (isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const cleanId = String(userId).trim();
+      const isRegId = cleanId.toUpperCase().startsWith('I4Y');
+
+      let query = supabase.from('profiles').select('*');
+      if (isRegId) {
+        query = query.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
+      } else {
+        query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId}`);
+      }
+
+      const { data, error } = await query.limit(1).maybeSingle();
       if (!error && data) {
         return mapSupabaseRowToProfile(data);
       }

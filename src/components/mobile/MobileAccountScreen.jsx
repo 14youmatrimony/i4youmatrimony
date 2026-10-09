@@ -38,6 +38,8 @@ import RegistrationWizard, { SAMPLE_SINGLE_PHOTOS, SAMPLE_FAMILY_PHOTOS } from '
 import MobileVerificationScreen from '../MobileVerificationScreen';
 import AadhaarVerificationScreen from '../AadhaarVerificationScreen';
 import MobilePhotoManagerSheet from './MobilePhotoManagerSheet';
+import EditProfileModal from '../EditProfileModal';
+import { updateLiveUserProfile } from '../../services/api';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { useTheme } from '../../context/ThemeContext';
 import { isKundaliApplicableReligion } from '../../data/religionData';
@@ -89,6 +91,9 @@ export default function MobileAccountScreen({
   const [kundaliGunasPref, setKundaliGunasPref] = useState(currentUser?.kundaliGunasPref || '28');
   const [kundaliManglikPref, setKundaliManglikPref] = useState(currentUser?.kundaliManglikPref || 'doesnt_matter');
   const [kundaliSavedToast, setKundaliSavedToast] = useState(false);
+  const [isSavingKundali, setIsSavingKundali] = useState(false);
+  const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Photo Privacy Context State
   const { 
@@ -448,10 +453,28 @@ export default function MobileAccountScreen({
 
           <button
             type="button"
-            onClick={() => setSubView('profile')}
-            className="w-full py-2.5 rounded-xl bg-[#0B192C] text-[#DFB76C] text-xs font-bold shadow-md hover:bg-[#152E52] cursor-pointer"
+            disabled={isSavingPrivacy}
+            onClick={async () => {
+              setIsSavingPrivacy(true);
+              const userId = currentUser?.id || currentUser?.registerId || localStorage.getItem('i4u_current_user_id');
+              try {
+                if (userId) {
+                  await updateLiveUserProfile(userId, {
+                    requireAadhaarToViewContact: hideContactFromUnverified,
+                    screenshotRestricted,
+                    showAadhaarBadge
+                  });
+                }
+              } catch (e) {
+                console.warn('[Privacy] Update warning:', e);
+              } finally {
+                setIsSavingPrivacy(false);
+                setSubView('profile');
+              }
+            }}
+            className="w-full py-2.5 rounded-xl bg-[#0B192C] text-[#DFB76C] text-xs font-bold shadow-md hover:bg-[#152E52] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            Save & Return to Account
+            {isSavingPrivacy ? 'Saving to Supabase...' : 'Save & Return to Account'}
           </button>
         </div>
       </div>
@@ -607,8 +630,8 @@ export default function MobileAccountScreen({
             title="Click to manage profile photos"
           >
             <img 
-              src={currentUser?.photo || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300"} 
-              alt={currentUser?.name}
+              src={currentUser?.photo || (currentUser?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300")} 
+              alt={currentUser?.name || "Profile"}
               draggable={false}
               onDragStart={(e) => e.preventDefault()}
               onContextMenu={(e) => {
@@ -1205,7 +1228,7 @@ export default function MobileAccountScreen({
             {/* Edit Registration Option */}
             <div 
               onClick={() => {
-                setSubView('edit_reg');
+                setShowEditModal(true);
               }}
               className="p-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer"
             >
@@ -1620,16 +1643,32 @@ export default function MobileAccountScreen({
               </button>
               <button 
                 type="button"
-                onClick={() => {
-                  setKundaliSavedToast(true);
-                  setTimeout(() => {
-                    setKundaliSavedToast(false);
-                    setShowKundaliSettingsModal(false);
-                  }, 1200);
+                disabled={isSavingKundali}
+                onClick={async () => {
+                  setIsSavingKundali(true);
+                  const userId = currentUser?.id || currentUser?.registerId || localStorage.getItem('i4u_current_user_id');
+                  try {
+                    if (userId) {
+                      await updateLiveUserProfile(userId, {
+                        kundaliGunasPref,
+                        kundaliManglikPref,
+                        manglik: kundaliManglikPref === 'manglik' ? 'Manglik' : 'Non-Manglik'
+                      });
+                    }
+                    setKundaliSavedToast(true);
+                    setTimeout(() => {
+                      setKundaliSavedToast(false);
+                      setShowKundaliSettingsModal(false);
+                    }, 1200);
+                  } catch (e) {
+                    console.warn('[Kundali] Save error:', e);
+                  } finally {
+                    setIsSavingKundali(false);
+                  }
                 }}
-                className="flex-1 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] text-xs font-bold shadow-md hover:opacity-95 active:scale-95 transition-all cursor-pointer"
+                className="flex-1 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] text-xs font-bold shadow-md hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
               >
-                Save Settings
+                {isSavingKundali ? 'Saving...' : 'Save Settings'}
               </button>
             </div>
 
@@ -1664,6 +1703,18 @@ export default function MobileAccountScreen({
         isOpen={showTermsModal}
         onClose={() => setShowTermsModal(false)}
       />
+
+      {/* Edit Profile Modal (Supabase Direct Persistence) */}
+      {showEditModal && (
+        <EditProfileModal
+          isOpen={showEditModal}
+          currentUser={currentUser}
+          onClose={() => setShowEditModal(false)}
+          onProfileUpdated={(updated) => {
+            onRegistrationComplete?.(updated);
+          }}
+        />
+      )}
 
     </div>
   );

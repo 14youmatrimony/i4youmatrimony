@@ -70,11 +70,28 @@ export default function WebsiteStoriesReel({
               className="flex flex-col items-center space-y-1.5 shrink-0 cursor-pointer group"
             >
               <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-0.5 sm:p-1 bg-gradient-to-tr from-[#D4AF37] via-[#DFB76C] to-emerald-400 shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300">
-                <img 
-                  src={myStatus?.mediaUrl || currentUser?.photo || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300"} 
-                  alt="My Status"
-                  className="w-full h-full object-cover rounded-xl sm:rounded-2xl group-hover:scale-105 transition-transform duration-500"
-                />
+                {myStatus?.mediaUrl || currentUser?.photo ? (
+                  <img 
+                    src={myStatus?.mediaUrl || currentUser?.photo} 
+                    alt="My Status"
+                    className="w-full h-full object-cover rounded-xl sm:rounded-2xl group-hover:scale-105 transition-transform duration-500"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      if (currentUser?.photo && e.target.src !== currentUser.photo) {
+                        e.target.src = currentUser.photo;
+                      }
+                    }}
+                  />
+                ) : myStatus?.type === 'text' ? (
+                  <div className={`w-full h-full flex items-center justify-center p-3 text-center text-xs font-semibold text-white rounded-xl sm:rounded-2xl bg-gradient-to-br ${myStatus?.bgGradient || 'from-[#0B192C] to-[#1E3A8A]'}`}>
+                    "{myStatus?.caption || myStatus?.text || 'My Status'}"
+                  </div>
+                ) : (
+                  <div className="w-full h-full rounded-xl sm:rounded-2xl bg-gradient-to-b from-[#152E52] to-[#0B192C] flex flex-col items-center justify-center text-amber-200/70 p-2">
+                    <Camera className="w-7 h-7 mb-1" />
+                    <span className="text-[10px]">Add Status</span>
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent rounded-xl sm:rounded-2xl"></div>
                 
                 <div className="absolute bottom-2.5 left-2 right-2 sm:bottom-3 flex flex-col items-center text-center">

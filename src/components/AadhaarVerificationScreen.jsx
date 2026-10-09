@@ -1336,13 +1336,13 @@ export default function AadhaarVerificationScreen({
             <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/60 to-amber-50/40 border border-emerald-200/80 text-left text-xs space-y-2.5">
               <div className="flex items-center space-x-3 pb-2 border-b border-emerald-200/50">
                 <img 
-                  src={verifiedProfileData?.profileImage ? `data:image/jpeg;base64,${verifiedProfileData.profileImage}` : (registrationData?.photo || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300")} 
+                  src={verifiedProfileData?.profileImage ? `data:image/jpeg;base64,${verifiedProfileData.profileImage}` : (registrationData?.photo || (registrationData?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300"))} 
                   alt={verifiedProfileData?.fullName || registrationData?.name || registrationData?.fullName}
                   className="w-12 h-12 rounded-full object-cover ring-2 ring-emerald-500 shadow-sm" 
                 />
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                    <span>{verifiedProfileData?.fullName || registrationData?.fullName || registrationData?.name || 'Priya Sharma'}</span>
+                    <span>{verifiedProfileData?.fullName || registrationData?.fullName || registrationData?.name || 'Verified Member'}</span>
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                   </h3>
                   <p className="text-[11px] text-slate-600">

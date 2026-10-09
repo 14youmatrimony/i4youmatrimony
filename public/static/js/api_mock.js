@@ -12,6 +12,7 @@
       "full_name": "Arun Thomas",
       "role": "Super Admin",
       "avatar": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
+      "password": "admin123",
       "last_login": "2026-10-04 23:20:14",
       "created_at": "2026-09-23 09:38:41"
     },
@@ -22,6 +23,7 @@
       "full_name": "Security Officer",
       "role": "Security Admin",
       "avatar": null,
+      "password": "admin123",
       "last_login": "2026-09-25 00:22:44",
       "created_at": "2026-09-24 18:52:44"
     },
@@ -32,6 +34,7 @@
       "full_name": "Priya Nair",
       "role": "CRM Manager",
       "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
+      "password": "admin123",
       "last_login": "2026-10-02 21:51:28",
       "created_at": "2026-10-02 05:53:09"
     },
@@ -42,6 +45,7 @@
       "full_name": "Kavita Iyer",
       "role": "Finance Manager",
       "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200",
+      "password": "admin123",
       "last_login": "2026-10-02 21:52:00",
       "created_at": "2026-10-02 05:53:09"
     },
@@ -52,6 +56,7 @@
       "full_name": "Arun Kumar",
       "role": "Support Executive",
       "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200",
+      "password": "admin123",
       "last_login": "2026-10-02 21:53:00",
       "created_at": "2026-10-02 05:53:09"
     }
@@ -1378,13 +1383,28 @@
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && parsed.profiles && parsed.profiles.length > 0) {
+          if (parsed.admin_users && Array.isArray(parsed.admin_users)) {
+            const customPass = localStorage.getItem('i4u_custom_admin_password');
+            parsed.admin_users.forEach(u => {
+              if (customPass && (u.id === 1 || u.email === 'admin@i4you.com' || u.role === 'Super Admin')) {
+                u.password = customPass;
+              } else if (!u.password) {
+                u.password = 'admin123';
+              }
+            });
+          }
           return parsed;
         }
       }
     } catch (e) {
       console.warn('[Admin Engine] Error reading localStorage, falling back to seed:', e);
     }
-    return JSON.parse(JSON.stringify(SEED_DATA));
+    const seed = JSON.parse(JSON.stringify(SEED_DATA));
+    const customPass = localStorage.getItem('i4u_custom_admin_password');
+    if (customPass && seed.admin_users && seed.admin_users[0]) {
+      seed.admin_users[0].password = customPass;
+    }
+    return seed;
   }
 
   function saveStore(store) {
@@ -1402,8 +1422,40 @@
 
   const store = loadStore();
 
+  const SUPABASE_BASE = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/profiles';
   const SUPABASE_REST = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/profiles?select=*&order=created_at.desc';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqdGtyaWxobnRkYnNpYXZ1Z3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMjcyNjMsImV4cCI6MjEwNTkwMzI2M30.1B1llzakdq-Gyz_FGFr8A1xXmU1mT98FzkLaQG_GID8';
+
+  async function pushProfileUpdateToSupabase(profileId, patchObj) {
+    try {
+      await originalFetch(`${SUPABASE_BASE}?id=eq.${encodeURIComponent(profileId)}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(patchObj)
+      });
+    } catch (err) {
+      console.warn('[Admin Engine] Supabase live patch notice:', err);
+    }
+  }
+
+  async function pushProfileDeleteToSupabase(profileId) {
+    try {
+      await originalFetch(`${SUPABASE_BASE}?id=eq.${encodeURIComponent(profileId)}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON
+        }
+      });
+    } catch (err) {
+      console.warn('[Admin Engine] Supabase live delete notice:', err);
+    }
+  }
 
   async function syncProfilesFromSupabase() {
     try {
@@ -1500,13 +1552,43 @@
       if (pathname === '/api/auth/login') {
         const body = init && init.body ? JSON.parse(init.body) : {};
         const inputId = (body.email || body.username || '').toLowerCase().trim();
+        const inputPassword = (body.password || '').trim();
+
+        if (!inputId || !inputPassword) {
+          return jsonResponse({
+            success: false,
+            error: 'Username/Email and Password are required'
+          }, 400);
+        }
+
         const found = store.admin_users.find(u => 
           (u.email && u.email.toLowerCase() === inputId) || 
           (u.username && u.username.toLowerCase() === inputId)
-        ) || store.admin_users[0];
+        );
+
+        if (!found) {
+          return jsonResponse({
+            success: false,
+            error: 'Administrator account not found with given email or username'
+          }, 401);
+        }
+
+        const customSavedPass = localStorage.getItem('i4u_custom_admin_password');
+        const expectedPassword = found.password || customSavedPass || 'admin123';
+
+        const isMatch = (inputPassword === expectedPassword) || 
+                        (!found.password && (inputPassword === 'admin123' || inputPassword === 'Admin@12345'));
+
+        if (!isMatch) {
+          return jsonResponse({
+            success: false,
+            error: 'Invalid password. Please enter the correct administrator password.'
+          }, 401);
+        }
 
         store.is_logged_out = false;
-        store.current_admin_id = found ? found.id : 1;
+        store.current_admin_id = found.id;
+        found.last_login = new Date().toISOString();
         saveStore(store);
 
         return jsonResponse({
@@ -1692,6 +1774,12 @@
             store.profiles[userIndex].aadhaar_status = 'approved';
             store.profiles[userIndex].aadhaar_rejection_reason = null;
             saveStore(store);
+            pushProfileUpdateToSupabase(userId, {
+              aadhaar_verified: 1,
+              verified: 1,
+              aadhaar_status: 'approved',
+              aadhaar_rejection_reason: null
+            });
             return jsonResponse({
               success: true,
               message: 'Aadhaar identity verified successfully',
@@ -1710,6 +1798,11 @@
             store.profiles[userIndex].aadhaar_status = 'sent_back';
             store.profiles[userIndex].aadhaar_rejection_reason = reason;
             saveStore(store);
+            pushProfileUpdateToSupabase(userId, {
+              aadhaar_verified: 0,
+              aadhaar_status: 'sent_back',
+              aadhaar_rejection_reason: reason
+            });
             return jsonResponse({
               success: true,
               message: 'Aadhaar document sent back for re-upload',
@@ -1725,6 +1818,7 @@
           if (userIndex !== -1) {
             store.profiles[userIndex].status = body.status || 'active';
             saveStore(store);
+            pushProfileUpdateToSupabase(userId, { status: body.status || 'active' });
             return jsonResponse({ success: true, message: 'Status updated' });
           }
           return jsonResponse({ error: 'Candidate not found' }, 404);
@@ -1761,6 +1855,7 @@
           if (userIndex !== -1) {
             store.profiles[userIndex] = { ...store.profiles[userIndex], ...body, updated_at: new Date().toISOString() };
             saveStore(store);
+            pushProfileUpdateToSupabase(userId, body);
             return jsonResponse({ success: true, profile: store.profiles[userIndex] });
           }
           return jsonResponse({ error: 'Candidate not found' }, 404);
@@ -1771,6 +1866,7 @@
           if (userIndex !== -1) {
             store.profiles.splice(userIndex, 1);
             saveStore(store);
+            pushProfileDeleteToSupabase(userId);
             return jsonResponse({ success: true, message: 'Candidate removed' });
           }
           return jsonResponse({ error: 'Candidate not found' }, 404);
@@ -2014,6 +2110,7 @@
             full_name: body.full_name || 'Executive Staff',
             role: body.role || 'Support Executive',
             avatar: body.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
+            password: (body.password && typeof body.password === 'string' && body.password.trim()) ? body.password.trim() : 'admin123',
             last_login: new Date().toISOString(),
             created_at: new Date().toISOString()
           };
@@ -2039,7 +2136,8 @@
               email: 'admin@i4you.com',
               full_name: 'Arun Thomas',
               role: 'Super Admin',
-              avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200'
+              avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
+              password: localStorage.getItem('i4u_custom_admin_password') || 'admin123'
             });
           }
           return jsonResponse({ error: 'Administrator not found' }, 404);
@@ -2065,32 +2163,46 @@
 
         if (method === 'PUT') {
           const body = init && init.body ? JSON.parse(init.body) : {};
+          const newPassword = (body.password && typeof body.password === 'string' && body.password.trim()) ? body.password.trim() : null;
           if (idx !== -1) {
-            store.admin_users[idx] = { ...store.admin_users[idx], ...body };
+            const currentPass = store.admin_users[idx].password || localStorage.getItem('i4u_custom_admin_password') || 'admin123';
+            store.admin_users[idx] = { 
+              ...store.admin_users[idx], 
+              ...body,
+              password: newPassword || currentPass
+            };
             saveStore(store);
+            if (newPassword && (store.admin_users[idx].id === 1 || store.admin_users[idx].email === 'admin@i4you.com' || store.admin_users[idx].role === 'Super Admin')) {
+              localStorage.setItem('i4u_custom_admin_password', newPassword);
+            }
             return jsonResponse({
               success: true,
-              message: 'Administrator profile updated successfully',
+              message: 'Administrator profile and password updated successfully',
               admin: store.admin_users[idx]
             });
-          } else if (adminId === 1) {
+          } else {
+            const currentPass = localStorage.getItem('i4u_custom_admin_password') || 'admin123';
             const updated = {
-              id: 1,
+              id: adminId || 1,
               username: body.username || 'admin',
               email: body.email || 'admin@i4you.com',
-              full_name: body.full_name || 'Arun Thomas',
+              full_name: body.full_name || body.name || 'Arun Thomas',
               role: body.role || 'Super Admin',
-              avatar: body.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200'
+              avatar: body.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
+              password: newPassword || currentPass,
+              ...body
             };
             store.admin_users.unshift(updated);
             saveStore(store);
+            if (newPassword) {
+              localStorage.setItem('i4u_custom_admin_password', newPassword);
+            }
             return jsonResponse({
               success: true,
-              message: 'Administrator profile updated successfully',
+              message: 'Administrator profile and password updated successfully',
               admin: updated
             });
           }
-          return jsonResponse({ error: 'Administrator not found' }, 404);
         }
       }
 

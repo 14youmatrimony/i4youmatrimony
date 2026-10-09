@@ -52,13 +52,13 @@ const SAMPLE_VIDEOS = [
 // Curated sample matrimony photos for instant test
 const SAMPLE_PHOTOS = [
   {
-    name: 'Traditional Architecture',
-    url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800',
-    caption: 'Traditional family celebration at our ancestral home 🏛️✨'
+    name: 'Traditional Festivities',
+    url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
+    caption: 'Traditional family celebration and cultural festivities 🏛️✨'
   },
   {
     name: 'Festive Attire',
-    url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
+    url: 'https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&q=80&w=800',
     caption: 'Traditional ethnic celebration weekend with blessings 🙏🌺'
   }
 ];
@@ -508,10 +508,9 @@ export function WhatsAppStatusEditorSheet({
     setIsProcessing(true);
     setDurationError('');
 
-    const objectUrl = URL.createObjectURL(file);
-
     if (file.type.startsWith('video/')) {
       setActiveTab('video');
+      const objectUrl = URL.createObjectURL(file);
       // Read video duration using HTML5 video metadata
       const tempVideo = document.createElement('video');
       tempVideo.preload = 'metadata';
@@ -529,21 +528,75 @@ export function WhatsAppStatusEditorSheet({
           setDurationError('');
           setVideoDuration(duration);
         }
-        setMediaUrl(objectUrl);
-        setIsProcessing(false);
       };
 
       tempVideo.onerror = () => {
-        // Fallback for video duration
         setVideoDuration(30);
+      };
+
+      // Read video as Data URL if under 15MB for persistence across reloads
+      if (file.size < 15 * 1024 * 1024) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          setMediaUrl(evt.target?.result);
+          setIsProcessing(false);
+        };
+        reader.onerror = () => {
+          setMediaUrl(objectUrl);
+          setIsProcessing(false);
+        };
+        reader.readAsDataURL(file);
+      } else {
         setMediaUrl(objectUrl);
         setIsProcessing(false);
-      };
+      }
     } else {
-      // Photo file
+      // Photo file: Read as Base64 Data URL and compress to ~80-120KB so it never fails in localStorage or Supabase
       setActiveTab('photo');
-      setMediaUrl(objectUrl);
-      setIsProcessing(false);
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const rawDataUrl = evt.target?.result;
+        if (!rawDataUrl) {
+          setIsProcessing(false);
+          return;
+        }
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const maxDim = 900;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', 0.8);
+            setMediaUrl(compressed);
+          } catch (e) {
+            setMediaUrl(rawDataUrl);
+          }
+          setIsProcessing(false);
+        };
+        img.onerror = () => {
+          setMediaUrl(rawDataUrl);
+          setIsProcessing(false);
+        };
+        img.src = rawDataUrl;
+      };
+      reader.onerror = () => {
+        setIsProcessing(false);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -551,7 +604,7 @@ export function WhatsAppStatusEditorSheet({
     const newStatus = {
       id: 'status-' + Date.now(),
       type: activeTab,
-      mediaUrl: activeTab === 'text' ? null : mediaUrl || (activeTab === 'photo' ? SAMPLE_PHOTOS[0].url : SAMPLE_VIDEOS[0].url),
+      mediaUrl: activeTab === 'text' ? null : (mediaUrl || ''),
       duration: activeTab === 'video' ? (videoDuration > 60 ? 60 : videoDuration || 20) : null,
       caption: caption.trim(),
       bgGradient: activeTab === 'text' ? selectedGradient : null,
@@ -602,7 +655,6 @@ export function WhatsAppStatusEditorSheet({
             <button
               onClick={() => {
                 setActiveTab('photo');
-                if (!mediaUrl) setMediaUrl(SAMPLE_PHOTOS[0].url);
               }}
               className={`flex-1 py-1.5 rounded-lg font-bold flex items-center justify-center space-x-1.5 transition-all ${
                 activeTab === 'photo' 

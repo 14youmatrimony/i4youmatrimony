@@ -15,7 +15,8 @@ import {
   Heart,
   Search,
   Flame,
-  LogOut
+  LogOut,
+  Edit3
 } from 'lucide-react';
 
 export default function WebsiteNavbar({
@@ -23,6 +24,7 @@ export default function WebsiteNavbar({
   setViewMode,
   onOpenLogin,
   onOpenRegister,
+  onOpenEditProfile,
   onOpenOffers,
   offers = [],
   onOpenNotifications,
@@ -208,6 +210,17 @@ export default function WebsiteNavbar({
             {/* User Auth: Login/Register or Logout */}
             {currentUser ? (
               <div className="flex items-center space-x-1.5 shrink-0">
+                {onOpenEditProfile && (
+                  <button
+                    type="button"
+                    onClick={onOpenEditProfile}
+                    className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-[#D4AF37]/50 text-[#DFB76C] text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all active:scale-95 shrink-0"
+                    title="Edit your Matrimony Profile"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-[#DFB76C]" />
+                    <span>Edit Profile</span>
+                  </button>
+                )}
                 {onLogout && (
                   <button
                     type="button"
@@ -280,8 +293,8 @@ export default function WebsiteNavbar({
                     <div className="flex items-center space-x-2.5">
                       <div className="relative">
                         <img 
-                          src={currentUser.photo || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150"} 
-                          alt={currentUser.name} 
+                          src={currentUser.photo || (currentUser?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150")} 
+                          alt={currentUser.name || "Member"} 
                           className="w-9 h-9 rounded-full object-cover ring-1 ring-emerald-400"
                         />
                         {currentUser.aadhaarVerified && (

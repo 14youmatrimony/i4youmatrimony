@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, updateLiveUserProfile, compressBase64Image } from './services/api';
+import { supabase, isSupabaseConfigured } from './services/supabase';
+import { uploadProfilePhoto } from './services/storageService';
 import DeviceFrameSimulator from './components/mobile/DeviceFrameSimulator';
 import MobileAppShell from './components/mobile/MobileAppShell';
 import MobileMatchFeed from './components/mobile/MobileMatchFeed';
@@ -27,6 +29,7 @@ import { MEMBERSHIP_PLANS, formatBackendPlan } from './data/plansData';
 import WebsiteView from './components/website/WebsiteView';
 import MobileAppModal from './components/mobile/MobileAppModal';
 import ProfileModal from './components/ProfileModal';
+import EditProfileModal from './components/EditProfileModal';
 import { getAppMode, setAppMode, APP_CONFIG } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
 
@@ -453,18 +456,18 @@ export default function App() {
         setActiveOffers(activeOnly);
       }
 
-      // Synchronize logged-in user profile status (e.g. Aadhaar Sent Back / Approved by Admin)
+      // Synchronize logged-in user profile status & latest profile edits from Supabase
       let targetUserId = null;
       try {
         const s = localStorage.getItem('i4u_auth_user');
         if (s) {
           const parsed = JSON.parse(s);
-          targetUserId = parsed?.id;
+          targetUserId = parsed?.id || parsed?.registerId || parsed?.register_id;
         }
       } catch (e) {}
 
-      if (!targetUserId && window.__currentUserId) {
-        targetUserId = window.__currentUserId;
+      if (!targetUserId) {
+        targetUserId = localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id') || window.__currentUserId;
       }
       if (!targetUserId) {
         targetUserId = 'p_1790963054403'; // Default candidate in database (Priya Sharma)
@@ -488,9 +491,11 @@ export default function App() {
           );
 
           setCurrentUser(prev => {
-            if (!prev) return prev;
+            const base = prev || {};
             const updated = {
-              ...prev,
+              ...base,
+              ...liveUser,
+              // Retain active client preferences if present
               aadhaar_status: isSentBack ? 'sent_back' : (isAadhaarApproved ? 'approved' : 'pending'),
               aadhaarStatus: isSentBack ? 'sent_back' : (isAadhaarApproved ? 'approved' : 'pending'),
               aadhaar_rejection_reason: isSentBack ? (liveUser.aadhaar_rejection_reason || liveUser.aadhaarRejectionReason) : null,
@@ -498,18 +503,41 @@ export default function App() {
               aadhaarVerified: isAadhaarApproved,
               aadhaar_verified: isAadhaarApproved ? 1 : 0,
               governmentIdVerified: isAadhaarApproved,
-              verified: isAadhaarApproved ? true : (isSentBack ? false : prev.verified),
-              aadhaar_front_image: liveUser.aadhaar_front_image || prev.aadhaar_front_image || null,
-              aadhaar_back_image: liveUser.aadhaar_back_image || prev.aadhaar_back_image || null
+              verified: isAadhaarApproved ? true : (isSentBack ? false : base.verified),
+              aadhaar_front_image: liveUser.aadhaar_front_image || base.aadhaar_front_image || null,
+              aadhaar_back_image: liveUser.aadhaar_back_image || base.aadhaar_back_image || null
             };
             try {
               localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
+              if (updated.id) localStorage.setItem('i4u_current_user_id', updated.id);
+              if (updated.registerId) localStorage.setItem('i4u_register_id', updated.registerId);
               if (updated.aadhaarVerified) {
                 localStorage.setItem('i4u_aadhaar_verified', 'true');
               } else {
                 localStorage.removeItem('i4u_aadhaar_verified');
               }
             } catch (e) {}
+
+            // Synchronize status image if available from database and user hasn't explicitly deleted status
+            if (liveUser.cover_photo && localStorage.getItem('i4u_my_status_deleted') !== 'true') {
+              setMyStatus(curr => {
+                if (curr?.mediaUrl) return curr;
+                const hydrated = {
+                  id: 'st-live-' + (liveUser.id || 'my-status'),
+                  type: 'photo',
+                  mediaUrl: liveUser.cover_photo,
+                  caption: liveUser.about || `${liveUser.name || 'Candidate'}'s Status`,
+                  timestamp: 'Active',
+                  viewsCount: 0,
+                  views: []
+                };
+                try {
+                  localStorage.setItem('i4u_my_status', JSON.stringify(hydrated));
+                } catch (e) {}
+                return hydrated;
+              });
+            }
+
             return updated;
           });
         }
@@ -649,20 +677,24 @@ export default function App() {
   const [pendingRegistration, setPendingRegistration] = useState(null);
   const [aadhaarOrigin, setAadhaarOrigin] = useState('app');
   const [isDirectChatOpen, setIsDirectChatOpen] = useState(false);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
-  // WhatsApp Status Management State
+  // WhatsApp Status Management State (Hydrates from localStorage so user changes persist)
   const [myStatus, setMyStatus] = useState(() => {
+    try {
+      if (localStorage.getItem('i4u_my_status_deleted') === 'true') {
+        return null;
+      }
+      const saved = localStorage.getItem('i4u_my_status');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) {}
+
+    // Only show default sample status for fresh visitor if not deleted
     if (getAppMode()) return null;
-    return {
-      id: 'my-status-init',
-      type: 'photo',
-      mediaUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800',
-      caption: 'Traditional family celebration at ancestral home in Pune 🏛️✨',
-      timestamp: 'Just now',
-      duration: null,
-      viewsCount: 18,
-      isHidden: false
-    };
+    return null;
   });
   const [activeStoryViewer, setActiveStoryViewer] = useState(null); // { profile, status, isOwnStatus }
   const [isStatusEditorOpen, setIsStatusEditorOpen] = useState(false);
@@ -768,7 +800,7 @@ export default function App() {
       setMyStatus({
         id: 'my-status-init',
         type: 'photo',
-        mediaUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800',
+        mediaUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
         caption: 'Traditional family celebration at ancestral home in Pune 🏛️✨',
         timestamp: 'Just now',
         duration: null,
@@ -1275,13 +1307,83 @@ export default function App() {
     setStatusMenuData({ profile, isOwnStatus, hasStatus });
   };
 
-  const handleSaveMyStatus = (newStatus) => {
-    setMyStatus(newStatus);
-    showToast('Status shared successfully! ✨');
+  const handleSaveMyStatus = async (newStatus) => {
+    let statusToSave = { ...newStatus };
+
+    // If mediaUrl is a base64 Data URL, compress and upload to Supabase Storage
+    if (statusToSave.mediaUrl && statusToSave.mediaUrl.startsWith('data:')) {
+      try {
+        statusToSave.mediaUrl = await compressBase64Image(statusToSave.mediaUrl, 900, 0.78);
+      } catch (cErr) {}
+
+      try {
+        const uploadRes = await uploadProfilePhoto(statusToSave.mediaUrl, currentUser?.id || 'my_status', 'avatars');
+        if (uploadRes.success && uploadRes.publicUrl) {
+          statusToSave.mediaUrl = uploadRes.publicUrl;
+        }
+      } catch (photoErr) {
+        console.warn('[handleSaveMyStatus] Storage upload fallback:', photoErr);
+      }
+    }
+
+    setMyStatus(statusToSave);
+    try {
+      localStorage.removeItem('i4u_my_status_deleted');
+      localStorage.setItem('i4u_my_status', JSON.stringify(statusToSave));
+    } catch (e) {
+      console.warn('[handleSaveMyStatus] LocalStorage save warning:', e);
+    }
+
+    // Keep currentUser cover_photo in sync across sessions
+    if (currentUser) {
+      setCurrentUser(prev => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          coverPhoto: statusToSave.mediaUrl || prev.coverPhoto,
+          cover_photo: statusToSave.mediaUrl || prev.cover_photo
+        };
+        try {
+          localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+    }
+
+    // Persist status update to Supabase database if logged in
+    if (currentUser?.id && isSupabaseConfigured()) {
+      try {
+        await supabase.from('profiles').update({
+          cover_photo: statusToSave.mediaUrl || null,
+          updated_at: new Date().toISOString()
+        }).eq('id', currentUser.id);
+      } catch (sbErr) {
+        console.warn('[handleSaveMyStatus] Supabase sync warning:', sbErr);
+      }
+    }
+
+    showToast('Status shared & saved successfully! ✨');
   };
 
   const handleDeleteMyStatus = () => {
     setMyStatus(null);
+    try {
+      localStorage.removeItem('i4u_my_status');
+      localStorage.setItem('i4u_my_status_deleted', 'true');
+    } catch (e) {}
+    if (currentUser) {
+      setCurrentUser(prev => {
+        if (!prev) return prev;
+        const updated = { ...prev, coverPhoto: null, cover_photo: null };
+        try {
+          localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+    }
+    if (currentUser?.id && isSupabaseConfigured()) {
+      supabase.from('profiles').update({ cover_photo: null }).eq('id', currentUser.id).catch(() => {});
+    }
     showToast('Status deleted');
   };
 
@@ -1289,8 +1391,12 @@ export default function App() {
     setMyStatus(prev => {
       if (!prev) return prev;
       const nextHidden = !prev.isHidden;
+      const updated = { ...prev, isHidden: nextHidden };
+      try {
+        localStorage.setItem('i4u_my_status', JSON.stringify(updated));
+      } catch (e) {}
       showToast(nextHidden ? 'Status hidden from candidate feeds 🔒' : 'Status made visible to matches ✨');
-      return { ...prev, isHidden: nextHidden };
+      return updated;
     });
   };
 
@@ -1955,7 +2061,28 @@ export default function App() {
               membershipPlans={membershipPlans}
               offers={activeOffers}
               onOpenAppModal={() => setIsAppModalOpen(true)}
+              onOpenEditProfile={() => setIsEditProfileModalOpen(true)}
             />
+
+            {/* Global Edit Profile Modal on Website */}
+            {isEditProfileModalOpen && (
+              <EditProfileModal
+                isOpen={isEditProfileModalOpen}
+                currentUser={currentUser}
+                onClose={() => setIsEditProfileModalOpen(false)}
+                onProfileUpdated={(updatedProfile) => {
+                  setCurrentUser(prev => {
+                    const base = prev || {};
+                    const merged = { ...base, ...updatedProfile };
+                    try {
+                      localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
+                    } catch (e) {}
+                    return merged;
+                  });
+                  showToast('Profile updated and saved to Supabase! ✨');
+                }}
+              />
+            )}
 
             {/* SCREEN 1: Dedicated Login Modal on Website */}
             {currentScreen === 'login' && (

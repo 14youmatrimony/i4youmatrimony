@@ -22,6 +22,7 @@ export default function WebsiteView({
   onStartChat,
   onOpenLogin,
   onOpenRegister,
+  onOpenEditProfile,
   onOpenOffers,
   onOpenNotifications,
   unreadNotificationsCount = 0,
@@ -86,6 +87,7 @@ export default function WebsiteView({
         setViewMode={setViewMode}
         onOpenLogin={onOpenLogin}
         onOpenRegister={onOpenRegister}
+        onOpenEditProfile={onOpenEditProfile}
         onOpenOffers={onOpenOffers}
         offers={offers}
         onOpenNotifications={onOpenNotifications}

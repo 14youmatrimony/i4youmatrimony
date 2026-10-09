@@ -663,14 +663,11 @@ export default function WebsiteMatchShowcase({
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/25 to-transparent"></div>
 
-                    {/* Top Badges: Match Score & Gunas */}
-                    <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
+                    {/* Top Badge: Match Score */}
+                    <div className="absolute top-3 left-3 z-10">
                       <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] shadow-lg flex items-center space-x-1.5">
                         <Sparkles className="w-3.5 h-3.5 fill-[#0B192C]" />
                         <span>{profile.matchScore}% Match</span>
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-black/70 text-[#DFB76C] backdrop-blur-md border border-white/20 shadow-xs">
-                        {profile.gunasMatch}
                       </span>
                     </div>
 

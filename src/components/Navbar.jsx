@@ -146,14 +146,14 @@ export default function Navbar({
             >
               <div className="relative">
                 <img 
-                  src={currentUser?.photo || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150"} 
+                  src={currentUser?.photo || (currentUser?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150")} 
                   alt={currentUser?.name || "User"} 
                   className="w-8 h-8 rounded-full object-cover ring-1 ring-[#DFB76C]"
                 />
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 absolute -bottom-0.5 -right-0.5 bg-[#0B192C] rounded-full" />
               </div>
               <div className="text-left hidden lg:block">
-                <p className="text-xs font-semibold text-white leading-tight">{currentUser?.name || "Priya Sharma"}</p>
+                <p className="text-xs font-semibold text-white leading-tight">{currentUser?.name || "Member"}</p>
                 <p className="text-[10px] text-[#DFB76C] leading-tight">Verified Profile</p>
               </div>
             </div>

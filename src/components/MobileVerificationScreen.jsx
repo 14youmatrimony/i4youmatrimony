@@ -598,8 +598,8 @@ export default function MobileVerificationScreen({
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-slate-50 to-amber-50/40 border border-slate-200 text-left text-xs space-y-2">
               <div className="flex items-center space-x-3 pb-2 border-b border-slate-200/60">
                 <img 
-                  src={registrationData?.photo || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300"} 
-                  alt={registrationData?.fullName}
+                  src={registrationData?.photo || (registrationData?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300")} 
+                  alt={registrationData?.fullName || "Candidate"}
                   className="w-12 h-12 rounded-full object-cover ring-2 ring-[#DFB76C]" 
                 />
                 <div>

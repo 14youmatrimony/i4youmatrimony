@@ -74,23 +74,36 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
     const fileName = `${cleanUserId}_${Date.now()}.${fileExt}`;
     const filePath = `${cleanUserId}/${fileName}`;
 
-    // 1. Upload to Supabase Storage bucket
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(bucketName)
+    // 1. Upload to Supabase Storage bucket (with fallback to 'avatars')
+    let activeBucket = bucketName;
+    let uploadRes = await supabase.storage
+      .from(activeBucket)
       .upload(filePath, uploadBody, {
         cacheControl: '3600',
         upsert: true,
         contentType
       });
 
-    if (uploadError) {
-      console.warn(`[storageService] Upload to '${bucketName}' failed:`, uploadError.message);
-      return { success: false, error: uploadError.message };
+    if (uploadRes.error && activeBucket !== 'avatars') {
+      console.warn(`[storageService] Upload to '${activeBucket}' failed (${uploadRes.error.message}), retrying with 'avatars' bucket...`);
+      activeBucket = 'avatars';
+      uploadRes = await supabase.storage
+        .from(activeBucket)
+        .upload(filePath, uploadBody, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType
+        });
+    }
+
+    if (uploadRes.error) {
+      console.warn(`[storageService] Storage upload failed:`, uploadRes.error.message);
+      return { success: false, error: uploadRes.error.message };
     }
 
     // 2. Retrieve public URL
     const { data: urlData } = supabase.storage
-      .from(bucketName)
+      .from(activeBucket)
       .getPublicUrl(filePath);
 
     const publicUrl = urlData?.publicUrl;
@@ -99,8 +112,8 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
       return { success: false, error: 'Could not generate public URL' };
     }
 
-    // 3. Automatically persist to 'profiles' table if userId provided
-    if (userId) {
+    // 3. Automatically persist to 'profiles' table if userId provided AND this is an avatar upload
+    if (userId && bucketName === 'avatars') {
       try {
         await supabase
           .from('profiles')
