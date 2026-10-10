@@ -260,23 +260,105 @@ export function mapSupabaseRowToProfile(r) {
 export function isDemoProfile(p) {
   if (!p) return true;
   const id = String(p.id || '').toLowerCase().trim();
+  const name = String(p.name || '').toLowerCase().trim();
+  const phone = String(p.phone || p.mobile || '').replace(/\D/g, '');
 
-  // Only exclude artificial test probe records
-  if (id.startsWith('test_probe') || id.startsWith('test_payload') || id === 'demo_user') {
+  if (p.isDemo === true || p.is_demo === true || p.isDemo === 'true') return true;
+
+  // Match demo IDs
+  if (
+    /^p[0-9]+$/.test(id) ||
+    id.startsWith('demo-') ||
+    id.startsWith('demo_') ||
+    id === 'demo' ||
+    id.startsWith('test_') ||
+    id === 'p_1790963054403' ||
+    id === 'p_1790182902571' ||
+    id === 'p_1790585472737' ||
+    id === 'p_1791395066352' ||
+    id === 'p_1791395066369' ||
+    id === 'i4y1008_1791482054640'
+  ) {
     return true;
   }
+
+  // Match demo candidate names
+  const demoNames = [
+    'priya sharma',
+    'priya sharma (archived)',
+    'dr. ananya kulkarni',
+    'ananya kulkarni',
+    'aditya sengupta',
+    'meera nambiar',
+    'meera venkatraman',
+    'kabir oberoi',
+    'kabir singh sodhi',
+    'priyanka rathore',
+    'dr. siddharth nair',
+    'siddharth nair',
+    'tanvi deshmukh',
+    'rohan jayasimha',
+    'rohan mehta',
+    'rohan verma',
+    'simran kaur',
+    'sneha iyer',
+    'vikramaditya rao',
+    'priya deshmukh',
+    'arjun nambiar',
+    'tanvi chawla',
+    'aditya verma',
+    'meera bhatt',
+    'karthik reddy',
+    'sunil joshi',
+    'pooja agarwal',
+    'devendra patil',
+    'nikhil sharma',
+    'test candidate',
+    'test registration',
+    'test probe',
+    'supabase live test user',
+    'test sdk user'
+  ];
+  if (demoNames.includes(name)) return true;
+
+  // Match demo phone numbers
+  const demoPhones = [
+    '9876543210', '9820145678', '9819012345', '9845012345', 
+    '9811098765', '9414034567', '9447056789', '9822067890', 
+    '9123456780', '9422018273', '9833411223', '9845099881',
+    '9900233445', '9823066778', '9745522119', '9811244556',
+    '9876512340', '9898033441', '9849088772', '9422155667',
+    '9830044112', '9822488990', '9872033221', '9810122334'
+  ];
+  if (demoPhones.includes(phone)) return true;
 
   return false;
 }
 
 /**
- * Cleanup only explicit automated test probes from database
+ * Permanently deletes all legacy demo and test profiles from Supabase database in the cloud
  */
 export async function purgeDemoProfilesFromSupabase() {
   if (!isSupabaseConfigured()) return;
   try {
-    await supabase.from('profiles').delete().in('id', [
-      'test_probe_1791394020373', 'test_payload_1'
+    const demoIds = [
+      'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10',
+      'p11', 'p12', 'p13', 'p14', 'p15',
+      'demo-priya', 'demo-rohan', 'demo_user',
+      'p_1790182902571', 'p_1790585472737', 'p_1790963054403', 'p_1791395066352', 'p_1791395066369',
+      'i4y1008_1791482054640',
+      'test_sdk_1791097509591', 'test_sync_1791098620388', 'test_anon_1791369041', 'test_probe_1791394020373', 'test_payload_1'
+    ];
+    await supabase.from('profiles').delete().in('id', demoIds);
+    await supabase.from('profiles').delete().in('name', [
+      'Priya Sharma', 'Priya Sharma (Archived)', 'Dr. Ananya Kulkarni', 'Aditya Sengupta', 
+      'Meera Nambiar', 'Meera Venkatraman', 'Kabir Oberoi', 'Kabir Singh Sodhi',
+      'Priyanka Rathore', 'Dr. Siddharth Nair', 'Tanvi Deshmukh', 
+      'Rohan Jayasimha', 'Rohan Mehta', 'Rohan Verma', 'Simran Kaur',
+      'Sneha Iyer', 'Vikramaditya Rao', 'Priya Deshmukh', 'Arjun Nambiar',
+      'Tanvi Chawla', 'Aditya Verma', 'Meera Bhatt', 'Karthik Reddy',
+      'Sunil Joshi', 'Pooja Agarwal', 'Devendra Patil', 'Nikhil Sharma',
+      'Test Candidate', 'Test Registration', 'Test Probe', 'Supabase Live Test User', 'Test SDK User'
     ]);
   } catch (err) {
     console.warn('[purgeDemoProfilesFromSupabase] Notice:', err);

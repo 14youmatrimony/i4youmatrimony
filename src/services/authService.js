@@ -219,15 +219,20 @@ export async function loginWithRegisterId(registerIdInput, passwordInput) {
   }
 
   // 1. Check built-in demo credentials first (Instant test verification)
+  const cleanDigits = cleanInput.replace(/\D/g, '').slice(-10);
   const matchedDemo = DEMO_CREDENTIALS.find(
-    d => d.registerId.toUpperCase() === cleanRegisterId
+    d => d.registerId.toUpperCase() === cleanRegisterId ||
+         (cleanDigits.length === 10 && (
+           (d.user.mobile && d.user.mobile.replace(/\D/g, '').endsWith(cleanDigits)) ||
+           (d.user.phone && d.user.phone.replace(/\D/g, '').endsWith(cleanDigits))
+         ))
   );
   if (matchedDemo) {
     if (matchedDemo.password === rawPassword) {
       persistUserSession(matchedDemo.user);
       return { success: true, user: matchedDemo.user };
     }
-    return { success: false, error: 'Incorrect password for this Register ID. (Demo Password: Password@123)' };
+    return { success: false, error: 'Incorrect password for this account. (Demo Password: Password@123)' };
   }
 
   // 2. Query Supabase Database
@@ -316,6 +321,82 @@ export async function loginWithRegisterId(registerIdInput, passwordInput) {
     success: false, 
     error: `Account "${cleanInput}" not found. Please verify your Register ID or phone number.` 
   };
+}
+
+/**
+ * Authenticate or create session for a mobile number after successful OTP verification
+ */
+export async function loginWithMobileOtpSuccess(phoneNumber) {
+  const cleanDigits = String(phoneNumber || '').replace(/\D/g, '').slice(-10);
+  if (!cleanDigits || cleanDigits.length !== 10) {
+    return { success: false, error: 'Please enter a valid 10-digit mobile number' };
+  }
+
+  // 1. Check built-in demo credentials
+  const matchedDemo = DEMO_CREDENTIALS.find(
+    d => (d.user.mobile && d.user.mobile.replace(/\D/g, '').endsWith(cleanDigits)) ||
+         (d.user.phone && d.user.phone.replace(/\D/g, '').endsWith(cleanDigits))
+  );
+  if (matchedDemo) {
+    persistUserSession(matchedDemo.user);
+    return { success: true, user: matchedDemo.user };
+  }
+
+  // 2. Query Supabase
+  if (isSupabaseConfigured()) {
+    try {
+      const { data: phoneMatches, error: phoneErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('phone', `%${cleanDigits}%`)
+        .limit(1);
+
+      if (!phoneErr && phoneMatches && phoneMatches.length > 0) {
+        const authenticatedUser = mapSupabaseToSession(phoneMatches[0]);
+        persistUserSession(authenticatedUser);
+        return { success: true, user: authenticatedUser };
+      }
+    } catch (e) {
+      console.warn('[authService] Error fetching member by phone:', e);
+    }
+  }
+
+  // 3. Offline / localStorage fallback check
+  const localSaved = localStorage.getItem('i4u_auth_user');
+  if (localSaved) {
+    try {
+      const parsed = JSON.parse(localSaved);
+      if (
+        (parsed.mobile && parsed.mobile.replace(/\D/g, '').endsWith(cleanDigits)) ||
+        (parsed.phone && parsed.phone.replace(/\D/g, '').endsWith(cleanDigits))
+      ) {
+        persistUserSession(parsed);
+        return { success: true, user: parsed };
+      }
+    } catch (e) {}
+  }
+
+  // 4. Create verified member session for this mobile number
+  const fallbackUser = {
+    id: `usr_${cleanDigits}`,
+    registerId: `I4Y${cleanDigits.slice(-4)}`,
+    name: 'Verified Member',
+    mobile: cleanDigits,
+    phone: cleanDigits,
+    gender: 'Female',
+    age: 26,
+    city: 'Mumbai',
+    district: 'Mumbai',
+    state: 'Maharashtra',
+    religion: 'Hindu',
+    verified: true,
+    mobileVerified: true,
+    aadhaarVerified: false,
+    photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800',
+    membership: 'free'
+  };
+  persistUserSession(fallbackUser);
+  return { success: true, user: fallbackUser };
 }
 
 /**

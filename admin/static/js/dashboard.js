@@ -1465,21 +1465,30 @@ function openDeleteUserModal(id, name) {
 }
 
 async function confirmDelete() {
+  if (!state.pendingDelete) return;
   const { type, id, name } = state.pendingDelete;
   if (!id) return;
 
+  const modal = document.getElementById('deleteModal');
+  const deleteBtn = document.querySelector('#deleteModal button.bg-rose-600') || (window.event && window.event.currentTarget);
+  const origBtnText = deleteBtn ? deleteBtn.innerHTML : '';
+  if (deleteBtn) {
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<span class="inline-block animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full mr-1"></span> Deleting...';
+  }
+
   try {
     let url = '';
-    if (type === 'user') url = `/api/users/${id}`;
-    else if (type === 'offer') url = `/api/offers/${id}`;
-    else if (type === 'plan') url = `/api/plans/${id}`;
-    else if (type === 'payment') url = `/api/payments/${id}`;
-    else if (type === 'admin') url = `/api/admin/users/${id}`;
+    if (type === 'user') url = `/api/users/${encodeURIComponent(id)}`;
+    else if (type === 'offer') url = `/api/offers/${encodeURIComponent(id)}`;
+    else if (type === 'plan') url = `/api/plans/${encodeURIComponent(id)}`;
+    else if (type === 'payment') url = `/api/payments/${encodeURIComponent(id)}`;
+    else if (type === 'admin') url = `/api/admin/users/${encodeURIComponent(id)}`;
 
     let data = { success: true, message: 'Deleted successfully' };
     try {
       const res = await fetch(url, { method: 'DELETE' });
-      if (res && res.ok) {
+      if (res) {
         data = await res.json();
       }
     } catch (netErr) {
@@ -1487,23 +1496,24 @@ async function confirmDelete() {
     }
 
     showToast(data.message || 'Deleted successfully', 'success');
-    const deleteModal = document.getElementById('deleteModal');
-    if (deleteModal) {
-      if (typeof deleteModal.close === 'function') deleteModal.close();
-      else deleteModal.removeAttribute('open');
+    if (modal) {
+      if (typeof modal.close === 'function') modal.close();
+      else modal.removeAttribute('open');
     }
 
+    state.pendingDelete = {};
+
     if (type === 'user') {
-      loadUsers();
-      loadAnalytics();
+      await loadUsers();
+      await loadAnalytics();
     } else if (type === 'offer') {
-      loadOffers();
-      loadAnalytics();
+      await loadOffers();
+      await loadAnalytics();
     } else if (type === 'plan') {
-      loadPlans();
+      await loadPlans();
     } else if (type === 'payment') {
-      loadPayments();
-      loadAnalytics();
+      await loadPayments();
+      await loadAnalytics();
     } else if (type === 'admin') {
       const isCurrentAdmin = (state.admin && state.admin.id == id);
       if (data.logout || isCurrentAdmin) {
@@ -1524,6 +1534,11 @@ async function confirmDelete() {
     }
   } catch (err) {
     showToast(err.message || 'Deletion error', 'error');
+  } finally {
+    if (deleteBtn) {
+      deleteBtn.disabled = false;
+      deleteBtn.innerHTML = origBtnText;
+    }
   }
 }
 

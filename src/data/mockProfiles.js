@@ -3,134 +3,13 @@
 export const INITIAL_PROFILES = [];
 
 
-// Initial mock chat conversations for Female users (chats with Gents / Male candidates only)
-export const CONVERSATIONS_FOR_FEMALE = [
-  {
-    profileId: 'p2', // Rohan Jayasimha (Male)
-    unreadCount: 1,
-    messages: [
-      {
-        id: 'm1',
-        sender: 'them',
-        text: 'Namaste Priya! Thank you for connecting. I reviewed your profile and our family values align wonderfully.',
-        time: '10:32 AM',
-        status: 'read'
-      },
-      {
-        id: 'm2',
-        sender: 'me',
-        text: 'Namaste Rohan! Delighted to connect. Really loved your AI research work and your love for hiking in the Western Ghats.',
-        time: '10:35 AM',
-        status: 'read'
-      },
-      {
-        id: 'm3',
-        sender: 'them',
-        text: 'Thank you! Yes, our elders in Mysuru also had a look at the horoscope details — the Gunas match came to 32/36 which made everyone very happy. Would you be open to a casual call this Sunday?',
-        time: '10:48 AM',
-        status: 'unread'
-      }
-    ],
-    autoReplies: [
-      "Sunday afternoon around 4 PM works wonderfully for me and my family!",
-      "I would love that. Let me share my father's contact so our families can exchange auspicious greetings.",
-      "Looking forward to speaking this weekend. Wishing you a blessed day ahead!"
-    ]
-  },
-  {
-    profileId: 'p4', // Kabir Singh Sodhi (Male)
-    unreadCount: 0,
-    messages: [
-      {
-        id: 'm4',
-        sender: 'them',
-        text: 'Hello Priya! Excited to connect with you. Loved your creative perspective on design and life balance.',
-        time: 'Yesterday',
-        status: 'read'
-      },
-      {
-        id: 'm5',
-        sender: 'me',
-        text: 'Hi Kabir! Really appreciated your profile and family business values in Chandigarh.',
-        time: 'Yesterday',
-        status: 'read'
-      }
-    ],
-    autoReplies: [
-      "That is fantastic! Respect and open communication are so essential.",
-      "My parents were also really happy looking at our compatibility.",
-      "Let's definitely connect over a quick voice call whenever you are free!"
-    ]
-  }
-];
+// Initial mock chat conversations (Empty: strictly real chat conversations)
+export const CONVERSATIONS_FOR_FEMALE = [];
+export const CONVERSATIONS_FOR_MALE = [];
 
-// Initial mock chat conversations for Male users (chats with Women / Female candidates only)
-export const CONVERSATIONS_FOR_MALE = [
-  {
-    profileId: 'p1', // Dr. Ananya Kulkarni (Female)
-    unreadCount: 1,
-    messages: [
-      {
-        id: 'm1',
-        sender: 'them',
-        text: 'Namaste Rohan! Thank you for connecting. I reviewed your profile and our family values align wonderfully.',
-        time: '10:32 AM',
-        status: 'read'
-      },
-      {
-        id: 'm2',
-        sender: 'me',
-        text: 'Namaste Dr. Ananya! It is wonderful to connect. I was really impressed by your dedication to pediatrics and your cultural background.',
-        time: '10:35 AM',
-        status: 'read'
-      },
-      {
-        id: 'm3',
-        sender: 'them',
-        text: 'Thank you! Yes, our elders in Nashik also had a look at the horoscope details — the Gunas match came to 33/36 which made everyone very happy. Would you be open to a casual video call this Sunday?',
-        time: '10:48 AM',
-        status: 'unread'
-      }
-    ],
-    autoReplies: [
-      "Sunday afternoon around 4 PM works wonderfully for me and my family!",
-      "I would love that. Let me also share my father's contact details so our families can exchange auspicious greetings.",
-      "Thank you for sharing your thoughts. Looking forward to our conversation this weekend!"
-    ]
-  },
-  {
-    profileId: 'p3', // Meera Venkatraman (Female)
-    unreadCount: 0,
-    messages: [
-      {
-        id: 'm4',
-        sender: 'them',
-        text: 'Hello Rohan! Excited to see your interest. I love your perspective on travel and balancing work with life.',
-        time: 'Yesterday',
-        status: 'read'
-      },
-      {
-        id: 'm5',
-        sender: 'me',
-        text: 'Hi Meera! Really appreciated your profile. Your career as a CA and love for classical music sounds amazing.',
-        time: 'Yesterday',
-        status: 'read'
-      }
-    ],
-    autoReplies: [
-      "That is fantastic! Mutual respect is so essential in a marriage.",
-      "My parents were also really happy looking at our horoscope compatibility.",
-      "Let's definitely connect over a quick voice call whenever you are free!"
-    ]
-  }
-];
+export const getConversationsForUser = () => [];
 
-export const getConversationsForUser = (user) => {
-  const isMale = (user?.gender || '').toLowerCase() === 'male';
-  return isMale ? CONVERSATIONS_FOR_MALE : CONVERSATIONS_FOR_FEMALE;
-};
-
-export const INITIAL_CONVERSATIONS = CONVERSATIONS_FOR_FEMALE;
+export const INITIAL_CONVERSATIONS = [];
 
 // Female Demo User (Priya Sharma - Bride persona looking for Gents)
 export const DEMO_USER_FEMALE = {

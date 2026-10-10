@@ -1496,12 +1496,17 @@
   async function pushProfileDeleteToSupabase(profileId) {
     try {
       const cleanId = String(profileId).trim();
-      const isReg = cleanId.toUpperCase().startsWith('I4Y');
-      const filter = isReg
-        ? `or=(register_id.eq.${encodeURIComponent(cleanId)},id.eq.${encodeURIComponent(cleanId)})`
-        : `or=(id.eq.${encodeURIComponent(cleanId)},register_id.eq.${encodeURIComponent(cleanId)})`;
+      const filter = `or=(id.eq.${encodeURIComponent(cleanId)},register_id.eq.${encodeURIComponent(cleanId)})`;
 
       await originalFetch(`${SUPABASE_BASE}?${filter}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_ANON,
+          'Prefer': 'return=representation'
+        }
+      });
+      await originalFetch(`${SUPABASE_BASE}?id=eq.${encodeURIComponent(cleanId)}`, {
         method: 'DELETE',
         headers: {
           'apikey': SUPABASE_ANON,
@@ -1619,21 +1624,13 @@
       });
       if (res.ok) {
         const rows = await res.json();
-        if (Array.isArray(rows) && rows.length > 0) {
-          let hasChanges = false;
-          rows.forEach(r => {
-            const idx = store.profiles.findIndex(p => p.id === r.id);
-            if (idx !== -1) {
-              store.profiles[idx] = { ...store.profiles[idx], ...r };
-              hasChanges = true;
-            } else {
-              store.profiles.unshift(r);
-              hasChanges = true;
-            }
+        if (Array.isArray(rows)) {
+          const reconciled = rows.map(r => {
+            const local = store.profiles.find(p => String(p.id) === String(r.id));
+            return local ? { ...local, ...r } : r;
           });
-          if (hasChanges) {
-            saveStore(store);
-          }
+          store.profiles = reconciled;
+          saveStore(store);
         }
       }
     } catch (e) {
@@ -2111,10 +2108,9 @@
           if (userIndex !== -1) {
             store.profiles.splice(userIndex, 1);
             saveStore(store);
-            pushProfileDeleteToSupabase(userId);
-            return jsonResponse({ success: true, message: 'Candidate removed' });
           }
-          return jsonResponse({ error: 'Candidate not found' }, 404);
+          await pushProfileDeleteToSupabase(userId);
+          return jsonResponse({ success: true, message: 'Candidate removed' });
         }
       }
 

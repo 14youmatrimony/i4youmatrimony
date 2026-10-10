@@ -21,13 +21,13 @@ const STORAGE_ENV_KEY = 'i4u_app_environment';
  * Reads user override from localStorage, or defaults to false (Demo Mode for dev).
  */
 export function getAppMode() {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') return true;
   const saved = localStorage.getItem(STORAGE_ENV_KEY);
   if (saved === 'production') return true;
   if (saved === 'demo') return false;
   
-  // Default to environment variable if configured, else default to false (demo mode during development)
-  return import.meta.env.VITE_APP_ENV === 'production';
+  // Default to true (Production Mode: strictly real registered profiles, all demo profiles removed)
+  return true;
 }
 
 /**

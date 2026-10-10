@@ -186,7 +186,7 @@ export const getNotificationsForUser = (user) => {
   }
 };
 
-export const INITIAL_NOTIFICATIONS = getNotificationsForUser(DEMO_USER);
+export const INITIAL_NOTIFICATIONS = [];
 
 // Pan-India authentic candidate status stories (Photo, Video max 60s, and Text)
 const CANDIDATE_STATUSES = {
@@ -1618,7 +1618,7 @@ export default function App() {
   // Handler when Login succeeds
   const handleLoginSuccess = (userData) => {
     const finalName = (!userData?.name || userData.name === 'Verified Member')
-      ? (currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : DEMO_USER.name)
+      ? (currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'Verified Member')
       : userData.name;
     const resolvedGender = normalizeGender(userData?.gender || currentUser?.gender) === 'male' ? 'Male' : 'Female';
     const isMale = resolvedGender === 'Male';
