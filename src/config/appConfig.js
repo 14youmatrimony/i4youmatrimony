@@ -42,7 +42,7 @@ export function setAppMode(isProduction) {
 export const APP_CONFIG = {
   APP_NAME: 'I 4 You Matrimony',
   TAGLINE: 'Trusted Pan-India Vedic Matchmaking',
-  API_BASE_URL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api',
+  API_BASE_URL: import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://127.0.0.1:5000/api' : '/api'),
   PRODUCTION_API_URL: 'https://api.i4youmatrimony.com/api',
   SUPPORT_PHONE: '+91 89689 26566',
   SUPPORT_EMAIL: 'i4youmatrimony@gmail.com'

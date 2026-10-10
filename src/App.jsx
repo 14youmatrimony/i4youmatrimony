@@ -533,6 +533,11 @@ export default function App() {
             const updated = {
               ...base,
               ...liveUser,
+              membership: base.membership || liveUser.membership || 'free',
+              membershipPlan: base.membershipPlan || liveUser.membershipPlan || 'Free Member',
+              contactCredits: base.contactCredits !== undefined ? base.contactCredits : (liveUser.contactCredits || 0),
+              planExpiry: base.planExpiry || liveUser.planExpiry || null,
+              paymentHistory: (base.paymentHistory && base.paymentHistory.length > 0) ? base.paymentHistory : (liveUser.paymentHistory || []),
               // Retain active client preferences if present
               aadhaar_status: isSentBack ? 'sent_back' : (isAadhaarApproved ? 'approved' : 'pending'),
               aadhaarStatus: isSentBack ? 'sent_back' : (isAadhaarApproved ? 'approved' : 'pending'),
@@ -545,6 +550,7 @@ export default function App() {
               aadhaar_front_image: liveUser.aadhaar_front_image || base.aadhaar_front_image || null,
               aadhaar_back_image: liveUser.aadhaar_back_image || base.aadhaar_back_image || null
             };
+            if (JSON.stringify(base) === JSON.stringify(updated)) return prev;
             try {
               localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
               if (updated.id) localStorage.setItem('i4u_current_user_id', updated.id);

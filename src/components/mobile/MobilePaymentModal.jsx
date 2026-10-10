@@ -148,7 +148,7 @@ export default function MobilePaymentModal({
   // Background polling for payment confirmation (e.g. when user pays via real GPay/PhonePe and returns)
   useEffect(() => {
     let pollInterval;
-    if (isOpen && (step === 'upi_pin' || step === 'authorizing') && activeCfOrderId) {
+    if (isOpen && (step === 'upi_pin' || step === 'authorizing') && activeCfOrderId && !activeCfOrderId.startsWith('order_test_')) {
       pollInterval = setInterval(async () => {
         try {
           const res = await verifyCashfreeOrder(activeCfOrderId);
@@ -946,8 +946,11 @@ export default function MobilePaymentModal({
                       {UPI_APPS.map(app => (
                         <div
                           key={app.id}
-                          onClick={() => setSelectedUpiApp(app.id)}
-                          className={`p-3 rounded-2xl border flex items-center space-x-3 cursor-pointer transition-all ${
+                          onClick={() => {
+                            setSelectedUpiApp(app.id);
+                            handlePayDirectUpi(app.id);
+                          }}
+                          className={`p-3 rounded-2xl border flex items-center space-x-3 cursor-pointer transition-all active:scale-95 ${
                             selectedUpiApp === app.id
                               ? 'bg-amber-50/90 border-[#D4AF37] ring-2 ring-[#D4AF37]/50 shadow-sm'
                               : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs'
