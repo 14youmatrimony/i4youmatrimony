@@ -29,7 +29,9 @@ export default function MobileChatScreen({
   isDirectChatOpen = false,
   setIsDirectChatOpen,
   onOpenOffers,
-  onOpenLogin
+  onOpenLogin,
+  onStartAudioCall,
+  onStartVideoCall
 }) {
   const isProduction = getAppMode();
   const { bottomBarStyle, accent, isDarkMode } = useTheme();
@@ -282,14 +284,16 @@ export default function MobileChatScreen({
 
           <div className="flex items-center space-x-1 shrink-0">
             <button
-              onClick={() => alert(`Calling ${activeProfile.name} via secure matrimony call...`)}
-              className="p-2 text-slate-300 hover:text-emerald-400"
+              onClick={() => onStartAudioCall ? onStartAudioCall(activeProfile) : alert(`Audio calling ${activeProfile.name}...`)}
+              className="p-2 text-slate-300 hover:text-emerald-400 cursor-pointer active:scale-90 transition-transform"
+              title="Voice Call"
             >
               <Phone className="w-4 h-4" />
             </button>
             <button
-              onClick={() => alert(`Starting video meeting with ${activeProfile.name}...`)}
-              className="p-2 text-slate-300 hover:text-blue-400"
+              onClick={() => onStartVideoCall ? onStartVideoCall(activeProfile) : alert(`Video calling ${activeProfile.name}...`)}
+              className="p-2 text-slate-300 hover:text-blue-400 cursor-pointer active:scale-90 transition-transform"
+              title="Family Video Meeting"
             >
               <Video className="w-4 h-4" />
             </button>

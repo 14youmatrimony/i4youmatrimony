@@ -122,7 +122,7 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
             photo_url: publicUrl,
             updated_at: new Date().toISOString()
           })
-          .eq('id', userId);
+          .or(`id.eq.${userId},register_id.eq.${userId}`);
       } catch (dbErr) {
         console.warn('[storageService] Failed to update profiles table with photo_url:', dbErr);
       }

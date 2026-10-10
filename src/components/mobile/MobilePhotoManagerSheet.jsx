@@ -16,10 +16,12 @@ import {
   Key,
   Shield,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { SAMPLE_SINGLE_PHOTOS, SAMPLE_FAMILY_PHOTOS } from '../RegistrationWizard';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
+import { optimizeImageFile } from '../../utils/imageOptimizer';
 
 export default function MobilePhotoManagerSheet({
   isOpen,
@@ -36,30 +38,57 @@ export default function MobilePhotoManagerSheet({
   const [photoVisibility, setPhotoVisibility] = useState(currentUser?.photoVisibility || 'all'); // 'all' | 'accepted' | 'request' | 'hidden'
   const [blurPhotosForUnconnected, setBlurPhotosForUnconnected] = useState(currentUser?.blurPhotosForUnconnected ?? false);
 
-  // Sync state whenever sheet opens
+  // Local synchronized state for immediate and reactive UI updates
+  const [singlePhotos, setSinglePhotos] = useState(() => {
+    return currentUser?.singlePhotos?.length
+      ? currentUser.singlePhotos
+      : [currentUser?.photo || SAMPLE_SINGLE_PHOTOS[0].url];
+  });
+
+  const [familyPhotos, setFamilyPhotos] = useState(() => {
+    return currentUser?.familyPhotos?.length
+      ? currentUser.familyPhotos
+      : [SAMPLE_FAMILY_PHOTOS[0].url, SAMPLE_FAMILY_PHOTOS[1].url];
+  });
+
+  const [uploadingSingle, setUploadingSingle] = useState(false);
+  const [uploadingFamily, setUploadingFamily] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState(null);
+
+  const showFeedback = (msg) => {
+    setFeedbackMsg(msg);
+    setTimeout(() => setFeedbackMsg(null), 3500);
+  };
+
+  // Sync state whenever sheet opens or currentUser updates
   useEffect(() => {
     if (isOpen) {
       if (initialTab) setActiveTab(initialTab);
       setHidePhotos(currentUser?.hidePhotos ?? false);
       setPhotoVisibility(currentUser?.photoVisibility || 'all');
       setBlurPhotosForUnconnected(currentUser?.blurPhotosForUnconnected ?? false);
+      if (currentUser?.singlePhotos?.length) {
+        setSinglePhotos(currentUser.singlePhotos);
+      } else if (currentUser?.photo) {
+        setSinglePhotos([currentUser.photo]);
+      }
+      if (currentUser?.familyPhotos?.length) {
+        setFamilyPhotos(currentUser.familyPhotos);
+      }
     }
   }, [isOpen, initialTab, currentUser]);
 
   if (!isOpen) return null;
 
-  const singlePhotos = currentUser?.singlePhotos?.length
-    ? currentUser.singlePhotos
-    : [currentUser?.photo || SAMPLE_SINGLE_PHOTOS[0].url];
 
-  const familyPhotos = currentUser?.familyPhotos?.length
-    ? currentUser.familyPhotos
-    : [SAMPLE_FAMILY_PHOTOS[0].url, SAMPLE_FAMILY_PHOTOS[1].url];
 
   const handleUpdate = (newSingle, newFamily, extraPrivacy = {}) => {
     const nextSingle = newSingle || singlePhotos;
     const nextFamily = newFamily || familyPhotos;
     const primary = nextSingle[0] || currentUser?.photo;
+
+    setSinglePhotos(nextSingle);
+    setFamilyPhotos(nextFamily);
 
     onUpdatePhotos?.({
       singlePhotos: nextSingle,
@@ -72,7 +101,7 @@ export default function MobilePhotoManagerSheet({
   };
 
   // Single Photos (Max 5) Handlers
-  const handleAddSinglePhoto = (url) => {
+  const handleAddSinglePhoto = (url, customMsg = null) => {
     if (singlePhotos.length >= 5) {
       alert("Maximum 5 single photos allowed.");
       return;
@@ -82,6 +111,7 @@ export default function MobilePhotoManagerSheet({
     // Place newly uploaded photo at index 0 so it becomes primary profile photo immediately
     const updated = [url, ...realPhotos].slice(0, 5);
     handleUpdate(updated, familyPhotos);
+    showFeedback(customMsg || "Photo uploaded! Set as Slot #1 (Main Profile Photo) ⭐");
   };
 
   const handleRemoveSinglePhoto = (idx) => {
@@ -91,61 +121,89 @@ export default function MobilePhotoManagerSheet({
     }
     const updated = singlePhotos.filter((_, i) => i !== idx);
     handleUpdate(updated, familyPhotos);
+    showFeedback("Photo removed");
   };
 
   const handleSetMainPhoto = (idx) => {
     if (idx === 0) return;
     const chosen = singlePhotos[idx];
     const rest = singlePhotos.filter((_, i) => i !== idx);
-    handleUpdate([chosen, ...rest], familyPhotos);
+    const updated = [chosen, ...rest];
+    handleUpdate(updated, familyPhotos);
+    showFeedback("Main Profile Photo updated! ⭐ Slot #1 is active.");
   };
 
-  const handleSingleFileUpload = (e) => {
+  const handleSingleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (singlePhotos.length >= 5) {
       alert("Maximum 5 single photos allowed.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        handleAddSinglePhoto(event.target.result);
+    setUploadingSingle(true);
+    try {
+      const result = await optimizeImageFile(file, {
+        maxDimension: 1200,
+        targetMaxKB: 180,
+        initialQuality: 0.85
+      });
+      if (result?.dataUrl) {
+        const feedbackMsg = result.originalSizeKB > 250
+          ? `HD Photo optimized (${result.originalFormatted} ➔ ${result.compressedFormatted}) ⭐ Slot #1 Active`
+          : `Photo uploaded! Set as Slot #1 (Main Profile Photo) ⭐`;
+        handleAddSinglePhoto(result.dataUrl, feedbackMsg);
       }
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    } catch (err) {
+      console.error("Photo upload error:", err);
+    } finally {
+      setUploadingSingle(false);
+      e.target.value = '';
+    }
   };
 
   // Family Photos (Max 2) Handlers
-  const handleAddFamilyPhoto = (url) => {
+  const handleAddFamilyPhoto = (url, customMsg = null) => {
     if (familyPhotos.length >= 2) {
       alert("Maximum 2 family photos allowed.");
       return;
     }
-    handleUpdate(singlePhotos, [...familyPhotos, url]);
+    const updated = [...familyPhotos, url].slice(0, 2);
+    handleUpdate(singlePhotos, updated);
+    showFeedback(customMsg || "Family photo added to album! 👨‍👩‍👧");
   };
 
   const handleRemoveFamilyPhoto = (idx) => {
     const updated = familyPhotos.filter((_, i) => i !== idx);
     handleUpdate(singlePhotos, updated);
+    showFeedback("Family photo removed");
   };
 
-  const handleFamilyFileUpload = (e) => {
+  const handleFamilyFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (familyPhotos.length >= 2) {
       alert("Maximum 2 family photos allowed.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        handleAddFamilyPhoto(event.target.result);
+    setUploadingFamily(true);
+    try {
+      const result = await optimizeImageFile(file, {
+        maxDimension: 1200,
+        targetMaxKB: 180,
+        initialQuality: 0.85
+      });
+      if (result?.dataUrl) {
+        const feedbackMsg = result.originalSizeKB > 250
+          ? `Family photo optimized (${result.originalFormatted} ➔ ${result.compressedFormatted}) 👨‍👩‍👧`
+          : `Family photo added to album! 👨‍👩‍👧`;
+        handleAddFamilyPhoto(result.dataUrl, feedbackMsg);
       }
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    } catch (err) {
+      console.error("Family photo upload error:", err);
+    } finally {
+      setUploadingFamily(false);
+      e.target.value = '';
+    }
   };
 
   // Privacy Handlers
@@ -207,7 +265,34 @@ export default function MobilePhotoManagerSheet({
     <div 
       className="absolute inset-0 z-50 flex flex-col bg-slate-50 animate-in fade-in duration-200 overflow-hidden"
     >
+      {/* 1. Top Header with Title and Close Button */}
+      <div className="px-4 py-3 bg-[#0B192C] text-white flex items-center justify-between border-b border-slate-800 shrink-0 z-20">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 flex items-center justify-center text-[#DFB76C]">
+            <Camera className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm text-[#DFB76C] leading-tight">Photo & Album Manager</h3>
+            <p className="text-[10px] text-slate-400">Manage profile portraits & family pictures</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer"
+          title="Close"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
+      {/* Action Feedback Banner */}
+      {feedbackMsg && (
+        <div className="bg-emerald-600 text-white px-3 py-1.5 text-xs font-semibold text-center flex items-center justify-center gap-1.5 shadow-md animate-in slide-in-from-top duration-200 shrink-0 z-20">
+          <Check className="w-3.5 h-3.5" />
+          <span>{feedbackMsg}</span>
+        </div>
+      )}
 
       {/* 2. Segmented 3-Tab Switcher */}
       <div className="px-3 pt-2 pb-1.5 bg-[#07111F] border-b border-slate-800 grid grid-cols-3 gap-1.5 shrink-0 z-10">
@@ -338,16 +423,26 @@ export default function MobilePhotoManagerSheet({
                     accept="image/*" 
                     className="hidden" 
                     onChange={handleSingleFileUpload} 
+                    disabled={uploadingSingle}
                   />
-                  <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 text-[#8C6D1F] flex items-center justify-center mb-1">
-                    <Plus className="w-4 h-4" />
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-800 leading-tight">
-                    + Add Photo
-                  </span>
-                  <span className="text-[8px] text-slate-500 mt-0.5">
-                    Upload from device
-                  </span>
+                  {uploadingSingle ? (
+                    <div className="flex flex-col items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#8C6D1F] mb-1" />
+                      <span className="text-[9px] font-bold text-slate-700">Uploading...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 text-[#8C6D1F] flex items-center justify-center mb-1">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-800 leading-tight">
+                        + Add Photo
+                      </span>
+                      <span className="text-[8px] text-slate-500 mt-0.5">
+                        Upload from device
+                      </span>
+                    </>
+                  )}
                 </label>
               )}
             </div>
@@ -431,16 +526,26 @@ export default function MobilePhotoManagerSheet({
                       accept="image/*" 
                       className="hidden" 
                       onChange={handleFamilyFileUpload} 
+                      disabled={uploadingFamily}
                     />
-                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center mb-1">
-                      <Upload className="w-4 h-4" />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-800 leading-tight">
-                      + Add Family #{slotIdx + 1}
-                    </span>
-                    <span className="text-[8px] text-slate-500 mt-0.5">
-                      {slotIdx === 0 ? 'Parents / Portrait' : 'Gathering / Function'}
-                    </span>
+                    {uploadingFamily ? (
+                      <div className="flex flex-col items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-blue-600 mb-1" />
+                        <span className="text-[9px] font-bold text-slate-700">Uploading...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center mb-1">
+                          <Upload className="w-4 h-4" />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-800 leading-tight">
+                          + Add Family #{slotIdx + 1}
+                        </span>
+                        <span className="text-[8px] text-slate-500 mt-0.5">
+                          {slotIdx === 0 ? 'Parents / Portrait' : 'Gathering / Function'}
+                        </span>
+                      </>
+                    )}
                   </label>
                 );
               })}
@@ -643,7 +748,10 @@ export default function MobilePhotoManagerSheet({
 
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => {
+            handleUpdate(singlePhotos, familyPhotos);
+            onClose();
+          }}
           className="px-6 py-2 rounded-xl text-xs font-bold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] hover:from-[#dfb76c] hover:to-[#b89228] active:scale-95 transition-all shadow-md shadow-[#D4AF37]/25 flex items-center gap-1.5 cursor-pointer shrink-0"
         >
           <Check className="w-4 h-4 text-[#0B192C] stroke-[2.5]" />

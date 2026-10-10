@@ -39,6 +39,7 @@ import {
   saveSurepassToken,
   getSurepassToken 
 } from '../services/surepassAadhaar';
+import { optimizeImageFile } from '../utils/imageOptimizer';
 import {
   saveSandboxCredentials,
   getSandboxApiKey,
@@ -460,24 +461,36 @@ export default function AadhaarVerificationScreen({
   };
 
   // Manual File Upload Handlers
-  const handleFileSelect = (side, file) => {
+  const handleFileSelect = async (side, file) => {
     if (!file) return;
     setError('');
-    if (file.size > 15 * 1024 * 1024) {
-      setError('File size exceeds 15MB limit. Please upload a smaller image.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onloadend = () => {
+    try {
+      const result = await optimizeImageFile(file, {
+        maxDimension: 1600,
+        targetMaxKB: 250,
+        initialQuality: 0.88
+      });
       if (side === 'front') {
         setFrontFile(file);
-        setFrontPreview(reader.result);
+        setFrontPreview(result.dataUrl);
       } else {
         setBackFile(file);
-        setBackPreview(reader.result);
+        setBackPreview(result.dataUrl);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn("Aadhaar optimization fallback:", err);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (side === 'front') {
+          setFrontFile(file);
+          setFrontPreview(reader.result);
+        } else {
+          setBackFile(file);
+          setBackPreview(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleRemoveFile = (side) => {

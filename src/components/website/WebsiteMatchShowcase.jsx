@@ -82,6 +82,7 @@ export default function WebsiteMatchShowcase({
   profiles,
   interestsSent,
   onToggleInterest,
+  onRequestSendInterest,
   shortlisted,
   onToggleShortlist,
   onSelectProfile,
@@ -766,7 +767,13 @@ export default function WebsiteMatchShowcase({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onToggleInterest(profile.id);
+                          if (isInterested) {
+                            onToggleInterest(profile.id);
+                          } else if (onRequestSendInterest) {
+                            onRequestSendInterest(profile);
+                          } else {
+                            onToggleInterest(profile.id);
+                          }
                         }}
                         className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-md active:scale-95 ${
                           isInterested

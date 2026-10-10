@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, X, Check, ChevronDown } from 'lucide-react';
+import { Search, X, Check, ChevronDown, Plus } from 'lucide-react';
 
 /**
  * SearchableSelect Component
@@ -21,7 +21,10 @@ export default function SearchableSelect({
   icon: Icon,
   required = false,
   error = null,
-  badge = null
+  badge = null,
+  allowCustom = false,
+  customActionText = 'Add',
+  onAddCustom = null
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,8 +53,13 @@ export default function SearchableSelect({
     if (strVal === '') {
       return normalizedOptions.find((o) => o.value === '') || null;
     }
-    return normalizedOptions.find((o) => o.value === strVal || o.label === strVal) || null;
-  }, [normalizedOptions, value]);
+    const found = normalizedOptions.find((o) => o.value === strVal || o.label === strVal);
+    if (found) return found;
+    if (allowCustom && strVal.trim()) {
+      return { label: strVal, value: strVal };
+    }
+    return null;
+  }, [normalizedOptions, value, allowCustom]);
 
   // Filtered options based on search input
   const filteredOptions = useMemo(() => {
@@ -172,7 +180,7 @@ export default function SearchableSelect({
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="w-[52%] min-w-[200px] max-w-[240px] bg-white rounded-2xl shadow-2xl flex flex-col max-h-[65vh] overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150"
+            className={`${allowCustom ? 'w-[75%] min-w-[240px] max-w-[290px]' : 'w-[52%] min-w-[200px] max-w-[240px]'} bg-white rounded-2xl shadow-2xl flex flex-col max-h-[65vh] overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header with Title and Close Button */}
@@ -220,25 +228,84 @@ export default function SearchableSelect({
 
             {/* Scrollable Option List - Decreased size, Attractive, Single-column */}
             <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5 scrollbar-thin">
-              {filteredOptions.length === 0 ? (
-                <div className="py-6 px-2 text-center text-xs text-slate-500">
-                  <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-1.5">
-                    <Search className="w-3 h-3" />
+              
+              {/* Custom Add Option Button when allowCustom is true and user typed something not matching */}
+              {allowCustom && searchQuery.trim() && !normalizedOptions.some(opt => 
+                opt.label.toLowerCase() === searchQuery.trim().toLowerCase() || 
+                opt.value.toLowerCase() === searchQuery.trim().toLowerCase()
+              ) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const customVal = searchQuery.trim();
+                    if (typeof onAddCustom === 'function') {
+                      onAddCustom(customVal);
+                    }
+                    handleSelect(customVal);
+                  }}
+                  className="w-full px-2 py-1.5 mb-1.5 rounded-lg text-left flex items-center justify-between gap-1.5 bg-gradient-to-r from-amber-50 to-amber-100/90 hover:from-amber-100 hover:to-amber-200/90 text-[#8C6D1F] border border-amber-300 font-bold transition-all cursor-pointer shadow-2xs group shrink-0"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-4 h-4 rounded-full bg-[#DFB76C] text-[#0B192C] flex items-center justify-center shrink-0">
+                      <Plus className="w-2.5 h-2.5 stroke-[3]" />
+                    </div>
+                    <span className="text-[11px] truncate">
+                      {customActionText} <span className="font-extrabold text-[#0B192C]">"{searchQuery.trim()}"</span>
+                    </span>
                   </div>
-                  <p className="font-semibold text-[11px] text-slate-700">No match</p>
-                  <p className="text-[9px] text-slate-400 mt-0.5">
-                    Try another keyword.
-                  </p>
-                  {searchQuery && (
+                  <span className="text-[8px] uppercase tracking-wider bg-white/90 px-1 py-0.5 rounded border border-amber-300/60 shrink-0 font-extrabold text-[#8C6D1F]">
+                    + Add
+                  </span>
+                </button>
+              )}
+
+              {filteredOptions.length === 0 ? (
+                allowCustom && searchQuery.trim() ? (
+                  <div className="py-4 px-2 text-center text-xs">
+                    <div className="w-7 h-7 rounded-full bg-amber-50 text-[#8C6D1F] border border-amber-200 flex items-center justify-center mx-auto mb-1.5">
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    </div>
+                    <p className="font-bold text-slate-800 text-[11px] mb-0.5">
+                      "{searchQuery.trim()}" not in list
+                    </p>
+                    <p className="text-[9px] text-slate-400 mb-2">
+                      Click below to add it directly.
+                    </p>
                     <button
                       type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="mt-2 px-2 py-0.5 rounded bg-amber-50 text-[#8C6D1F] border border-amber-200 text-[10px] font-semibold cursor-pointer"
+                      onClick={() => {
+                        const customVal = searchQuery.trim();
+                        if (typeof onAddCustom === 'function') {
+                          onAddCustom(customVal);
+                        }
+                        handleSelect(customVal);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] font-extrabold text-[10px] shadow-2xs hover:shadow transition-all inline-flex items-center gap-1 cursor-pointer"
                     >
-                      Clear
+                      <Plus className="w-3 h-3 stroke-[3]" />
+                      <span>Add "{searchQuery.trim()}"</span>
                     </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="py-6 px-2 text-center text-xs text-slate-500">
+                    <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-1.5">
+                      <Search className="w-3 h-3" />
+                    </div>
+                    <p className="font-semibold text-[11px] text-slate-700">No match</p>
+                    <p className="text-[9px] text-slate-400 mt-0.5">
+                      Try another keyword.
+                    </p>
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="mt-2 px-2 py-0.5 rounded bg-amber-50 text-[#8C6D1F] border border-amber-200 text-[10px] font-semibold cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )
               ) : (
                 filteredOptions.map((opt) => {
                   const isSelected = selectedOption && selectedOption.value === opt.value;

@@ -23,7 +23,9 @@ export default function ChatInterface({
   setConversations, 
   activeProfileId, 
   setActiveProfileId, 
-  onSelectProfile 
+  onSelectProfile,
+  onStartAudioCall,
+  onStartVideoCall
 }) {
   const [messageInput, setMessageInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -290,16 +292,16 @@ export default function ChatInterface({
               </button>
 
               <button 
-                onClick={() => alert(`Simulating safe matrimony audio call with ${activeProfile.name}...`)}
-                className="p-2 rounded-xl text-slate-600 hover:bg-white hover:text-emerald-600 hover:shadow-sm transition-all"
+                onClick={() => onStartAudioCall ? onStartAudioCall(activeProfile) : alert(`Simulating safe matrimony audio call with ${activeProfile.name}...`)}
+                className="p-2 rounded-xl text-slate-600 hover:bg-white hover:text-emerald-600 hover:shadow-sm transition-all cursor-pointer active:scale-95"
                 title="Voice Call"
               >
                 <Phone className="w-4 h-4" />
               </button>
 
               <button 
-                onClick={() => alert(`Simulating safe family video meeting with ${activeProfile.name}...`)}
-                className="p-2 rounded-xl text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm transition-all"
+                onClick={() => onStartVideoCall ? onStartVideoCall(activeProfile) : alert(`Simulating safe family video meeting with ${activeProfile.name}...`)}
+                className="p-2 rounded-xl text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm transition-all cursor-pointer active:scale-95"
                 title="Video Call"
               >
                 <Video className="w-4 h-4" />

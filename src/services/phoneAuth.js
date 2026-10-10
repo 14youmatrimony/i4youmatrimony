@@ -27,24 +27,24 @@ export const getFriendlyAuthErrorMessage = (error) => {
   const combined = `${code} ${msg}`.toLowerCase();
 
   if (combined.includes('rate limit') || combined.includes('too many requests')) {
-    return 'നിരവധി തവണ OTP അയച്ചു കഴിഞ്ഞു. അല്പസമയത്തിനു ശേഷം വീണ്ടും ശ്രമിക്കുക. (Too many requests. Please wait a moment.)';
+    return 'Too many requests. Please wait a moment before trying again.';
   }
   if (combined.includes('invalid') && (combined.includes('token') || combined.includes('otp') || combined.includes('code'))) {
-    return 'നൽകിയ OTP തെറ്റാണ്. ദയവായി പരിശോധിച്ചു വീണ്ടും നൽകുക. (Incorrect OTP entered.)';
+    return 'Incorrect OTP entered. Please check and try again.';
   }
   if (combined.includes('expired')) {
-    return 'OTP കാലാവധി കഴിഞ്ഞു. പുതിയ OTP ലഭിക്കാൻ Resend അമർത്തുക. (OTP expired. Request a new one.)';
+    return 'OTP has expired. Please request a new one by clicking Resend OTP.';
   }
   if (combined.includes('phone') && combined.includes('invalid')) {
-    return 'അസാധുവായ ഫോൺ നമ്പർ. ദയവായി 10 അക്ക മൊബൈൽ നമ്പർ ശരിയായി നൽകുക. (Invalid phone number format)';
+    return 'Invalid phone number format. Please enter a valid 10-digit Indian mobile number.';
   }
   if (combined.includes('provider disabled') || combined.includes('sms not enabled') || combined.includes('sms provider')) {
-    return 'Supabase-ൽ SMS പ്രൊവൈഡർ കോൺഫിഗർ ചെയ്തിട്ടില്ല. Fast2SMS അല്ലെങ്കിൽ ഡെമോ കോഡ് ഉപയോഗിക്കുക. (SMS provider not enabled in Supabase)';
+    return 'SMS provider not configured. Please use demo OTP code.';
   }
   if (combined.includes('network') || combined.includes('fetch')) {
-    return 'ഇന്റർനെറ്റ് കണക്ഷൻ പരിശോധിക്കുക. (Network connection error. Check your internet connection.)';
+    return 'Network connection error. Please check your internet connection.';
   }
-  return msg || 'മൊബൈൽ വെരിഫിക്കേഷനിൽ ഒരു തടസ്സമുണ്ടായി. വീണ്ടും ശ്രമിക്കുക. (Verification failed. Please retry.)';
+  return msg || 'Verification failed. Please retry.';
 };
 
 /**

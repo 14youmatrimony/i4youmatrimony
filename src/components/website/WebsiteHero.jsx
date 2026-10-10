@@ -17,6 +17,7 @@ export default function WebsiteHero({
   onSelectProfile,
   featuredProfile,
   onToggleInterest,
+  onRequestSendInterest,
   isInterested,
   onScrollToSection,
   setViewMode
@@ -178,7 +179,15 @@ export default function WebsiteHero({
                     </div>
 
                     <button
-                      onClick={() => onToggleInterest(featuredProfile.id)}
+                      onClick={() => {
+                        if (isInterested) {
+                          onToggleInterest(featuredProfile.id);
+                        } else if (onRequestSendInterest) {
+                          onRequestSendInterest(featuredProfile);
+                        } else {
+                          onToggleInterest(featuredProfile.id);
+                        }
+                      }}
                       className={`p-2 rounded-full transition-all cursor-pointer shadow-md ${
                         isInterested
                           ? 'bg-rose-600 text-white hover:bg-rose-700 animate-pulse'
@@ -208,7 +217,15 @@ export default function WebsiteHero({
                       View Horoscope
                     </button>
                     <button
-                      onClick={() => onToggleInterest(featuredProfile.id)}
+                      onClick={() => {
+                        if (isInterested) {
+                          onToggleInterest(featuredProfile.id);
+                        } else if (onRequestSendInterest) {
+                          onRequestSendInterest(featuredProfile);
+                        } else {
+                          onToggleInterest(featuredProfile.id);
+                        }
+                      }}
                       className="flex-1 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] font-extrabold text-xs transition-all text-center cursor-pointer shadow-md hover:brightness-110 btn-luxury-shimmer active:scale-95"
                     >
                       {isInterested ? '💖 Interest Sent' : 'Send Free Interest'}

@@ -376,24 +376,25 @@ export async function loginWithMobileOtpSuccess(phoneNumber) {
     } catch (e) {}
   }
 
-  // 4. Create verified member session for this mobile number
+  // 4. Create initial member session for this mobile number (Draft, not published to public feed)
   const fallbackUser = {
     id: `usr_${cleanDigits}`,
     registerId: `I4Y${cleanDigits.slice(-4)}`,
-    name: 'Verified Member',
+    name: `Member ${cleanDigits.slice(-4)}`,
     mobile: cleanDigits,
     phone: cleanDigits,
     gender: 'Female',
     age: 26,
-    city: 'Mumbai',
-    district: 'Mumbai',
-    state: 'Maharashtra',
-    religion: 'Hindu',
-    verified: true,
+    city: 'Kottayam',
+    district: 'Kottayam',
+    state: 'Kerala',
+    religion: 'Christian',
+    verified: false,
     mobileVerified: true,
     aadhaarVerified: false,
     photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800',
-    membership: 'free'
+    membership: 'free',
+    isDraft: true
   };
   persistUserSession(fallbackUser);
   return { success: true, user: fallbackUser };
@@ -415,12 +416,52 @@ export function persistUserSession(user) {
  * Maps Supabase raw profile row to standard frontend user session object
  */
 function mapSupabaseToSession(row) {
+  let singlePhotos = [];
+  try {
+    if (row.single_photos) {
+      singlePhotos = typeof row.single_photos === 'string' ? JSON.parse(row.single_photos) : row.single_photos;
+    }
+  } catch (e) {}
+  if (!Array.isArray(singlePhotos)) singlePhotos = [];
+
+  let familyPhotos = [];
+  try {
+    if (row.family_photos) {
+      familyPhotos = typeof row.family_photos === 'string' ? JSON.parse(row.family_photos) : row.family_photos;
+    }
+  } catch (e) {}
+  if (!Array.isArray(familyPhotos)) familyPhotos = [];
+
+  const defaultMale = 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800';
+  const defaultFemale = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800';
+  const defaultAvatar = (row.gender || '').toLowerCase() === 'male' ? defaultMale : defaultFemale;
+
+  const isCustomSingle = singlePhotos.length > 0 && !singlePhotos[0].includes('images.unsplash.com');
+  const isCustomPhoto = row.photo && !row.photo.includes('images.unsplash.com');
+  const isCustomPhotoUrl = row.photo_url && !row.photo_url.includes('images.unsplash.com');
+
+  const resolvedPhoto = (isCustomSingle ? singlePhotos[0] : null) || 
+                        (isCustomPhoto ? row.photo : null) || 
+                        (isCustomPhotoUrl ? row.photo_url : null) || 
+                        row.photo || 
+                        row.photo_url || 
+                        defaultAvatar;
+
+  if (singlePhotos.length === 0) {
+    singlePhotos = [resolvedPhoto];
+  } else if (singlePhotos[0] !== resolvedPhoto && !singlePhotos[0].includes('images.unsplash.com')) {
+    singlePhotos = [resolvedPhoto, ...singlePhotos.filter(p => p !== resolvedPhoto)].slice(0, 5);
+  }
+
   return {
     id: row.id,
     registerId: row.register_id,
+    register_id: row.register_id,
     name: row.name || 'Member',
+    fullName: row.name || 'Member',
     email: row.email,
     mobile: row.phone || row.mobile,
+    phone: row.phone || row.mobile,
     gender: (row.gender || '').toLowerCase() === 'male' ? 'Male' : 'Female',
     age: row.age || 26,
     height: row.height,
@@ -432,9 +473,13 @@ function mapSupabaseToSession(row) {
     verified: Boolean(row.verified),
     mobileVerified: true,
     aadhaarVerified: Boolean(row.aadhaar_verified),
-    photo: row.photo || (row.gender === 'Male' 
-      ? 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800'
-      : 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800'),
+    photo: resolvedPhoto,
+    photo_url: resolvedPhoto,
+    avatar_url: resolvedPhoto,
+    singlePhotos,
+    familyPhotos,
+    hidePhotos: Boolean(row.hide_photos),
+    photoVisibility: row.photo_visibility || 'all',
     membership: row.membership || 'free'
   };
 }

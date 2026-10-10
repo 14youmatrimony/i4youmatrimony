@@ -26,7 +26,8 @@ import {
   X,
   Crown,
   Zap,
-  AlertCircle
+  AlertCircle,
+  Video
 } from 'lucide-react';
 import { calculateLocationMatch } from '../../data/locationData';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
@@ -37,10 +38,13 @@ export default function MobileProfileDetailSheet({
   currentUser,
   onClose,
   onToggleInterest,
+  onRequestSendInterest,
   isInterested,
   onToggleShortlist,
   isShortlisted,
   onStartChat,
+  onStartAudioCall,
+  onStartVideoCall,
   onOpenAadhaarVerification,
   onOpenOffers,
   onUnlockContact
@@ -1332,7 +1336,7 @@ export default function MobileProfileDetailSheet({
         {/* Shortlist Heart Button */}
         <button
           onClick={() => onToggleShortlist(profile.id)}
-          className={`p-3 rounded-2xl border transition-all flex items-center justify-center cursor-pointer ${
+          className={`p-2.5 rounded-2xl border transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
             isShortlisted 
               ? 'bg-rose-50 border-rose-200 text-rose-600' 
               : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -1342,23 +1346,52 @@ export default function MobileProfileDetailSheet({
           <Heart className={`w-5 h-5 ${isShortlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
         </button>
 
+        {/* Audio Call Button */}
+        <button
+          onClick={() => {
+            if (onStartAudioCall) onStartAudioCall(profile);
+          }}
+          className="p-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
+          title="Direct Matrimonial Audio Call"
+        >
+          <Phone className="w-5 h-5" />
+        </button>
+
+        {/* Video Call Button */}
+        <button
+          onClick={() => {
+            if (onStartVideoCall) onStartVideoCall(profile);
+          }}
+          className="p-2.5 rounded-2xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
+          title="Live Matrimonial Video Meeting"
+        >
+          <Video className="w-5 h-5" />
+        </button>
+
         {/* Direct Chat Button */}
         <button
           onClick={() => {
             onClose();
             onStartChat(profile.id);
           }}
-          className="p-3 rounded-2xl border border-slate-200 bg-white text-[#1E3A8A] hover:bg-blue-50 transition-colors font-bold text-xs flex items-center space-x-1.5 cursor-pointer shadow-xs"
+          className="p-2.5 rounded-2xl border border-blue-200 bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
           title="Message Candidate"
         >
           <MessageCircle className="w-5 h-5" />
-          <span className="hidden sm:inline">Message</span>
         </button>
 
         {/* Connect / Send Interest Button */}
         <button
-          onClick={() => onToggleInterest(profile.id)}
-          className={`flex-1 py-3 px-4 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-2 shadow-md cursor-pointer ${
+          onClick={() => {
+            if (isInterested) {
+              onToggleInterest(profile.id);
+            } else if (onRequestSendInterest) {
+              onRequestSendInterest(profile);
+            } else {
+              onToggleInterest(profile.id);
+            }
+          }}
+          className={`flex-1 py-3 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 ${
             isInterested 
               ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
               : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] shadow-[#D4AF37]/30'
@@ -1367,12 +1400,12 @@ export default function MobileProfileDetailSheet({
           {isInterested ? (
             <>
               <Check className="w-4 h-4 stroke-[3]" />
-              <span>Interest Sent</span>
+              <span className="truncate">Interest Sent</span>
             </>
           ) : (
             <>
               <Send className="w-4 h-4" />
-              <span>Connect / Send Interest</span>
+              <span className="truncate">Connect / Send Interest</span>
             </>
           )}
         </button>

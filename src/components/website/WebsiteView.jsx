@@ -16,6 +16,7 @@ export default function WebsiteView({
   currentScreen = 'app',
   interestsSent,
   onToggleInterest,
+  onRequestSendInterest,
   shortlisted,
   onToggleShortlist,
   onSelectProfile,
@@ -116,6 +117,7 @@ export default function WebsiteView({
           onSelectProfile={onSelectProfile}
           featuredProfile={featuredProfile}
           onToggleInterest={onToggleInterest}
+          onRequestSendInterest={onRequestSendInterest}
           isInterested={interestsSent.includes(featuredProfile?.id)}
           onScrollToSection={handleScrollToSection}
           currentUser={currentUser}
@@ -139,6 +141,7 @@ export default function WebsiteView({
           profiles={profiles}
           interestsSent={interestsSent}
           onToggleInterest={onToggleInterest}
+          onRequestSendInterest={onRequestSendInterest}
           shortlisted={shortlisted}
           onToggleShortlist={onToggleShortlist}
           onSelectProfile={onSelectProfile}

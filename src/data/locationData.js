@@ -234,21 +234,218 @@ export const STATES_AND_CITIES = [
     state: 'Kerala',
     region: 'South India',
     cities: [
-      { name: 'Kochi', district: 'Ernakulam' },
-      { name: 'Thiruvananthapuram', district: 'Thiruvananthapuram' },
-      { name: 'Kozhikode', district: 'Kozhikode' },
-      { name: 'Thrissur', district: 'Thrissur' },
-      { name: 'Kollam', district: 'Kollam' },
-      { name: 'Palakkad', district: 'Palakkad' },
-      { name: 'Alappuzha', district: 'Alappuzha' },
+      // Kannur District
       { name: 'Kannur', district: 'Kannur' },
-      { name: 'Kottayam', district: 'Kottayam' },
-      { name: 'Manjeri', district: 'Malappuram' },
       { name: 'Thalassery', district: 'Kannur' },
-      { name: 'Ponnani', district: 'Malappuram' },
+      { name: 'Payyanur', district: 'Kannur' },
+      { name: 'Taliparamba', district: 'Kannur' },
+      { name: 'Mattannur', district: 'Kannur' },
+      { name: 'Koothuparamba', district: 'Kannur' },
+      { name: 'Iritty', district: 'Kannur' },
+      { name: 'Panoor', district: 'Kannur' },
+      { name: 'Chakkarakkal', district: 'Kannur' },
+      { name: 'Anjarakandy', district: 'Kannur' },
+      { name: 'Cherupuzha', district: 'Kannur' },
+      { name: 'Alakode', district: 'Kannur' },
+      { name: 'Sreekandapuram', district: 'Kannur' },
+      { name: 'Valapattanam', district: 'Kannur' },
+      { name: 'Pappinisseri', district: 'Kannur' },
+      { name: 'Mayyil', district: 'Kannur' },
+      { name: 'Peravoor', district: 'Kannur' },
+      { name: 'Kelakam', district: 'Kannur' },
+      { name: 'Kalliasseri', district: 'Kannur' },
+      { name: 'Dharmashala', district: 'Kannur' },
+      { name: 'Pinarayi', district: 'Kannur' },
+      { name: 'Munderi', district: 'Kannur' },
+      { name: 'Kadambur', district: 'Kannur' },
+      { name: 'Chala', district: 'Kannur' },
+      { name: 'Edakkad', district: 'Kannur' },
+
+      // Kasaragod District
+      { name: 'Kasaragod', district: 'Kasaragod' },
+      { name: 'Kanhangad', district: 'Kasaragod' },
+      { name: 'Nileshwaram', district: 'Kasaragod' },
+      { name: 'Uppala', district: 'Kasaragod' },
+      { name: 'Manjeshwar', district: 'Kasaragod' },
+      { name: 'Cheruvathur', district: 'Kasaragod' },
+      { name: 'Trikaripur', district: 'Kasaragod' },
+      { name: 'Kumbla', district: 'Kasaragod' },
+      { name: 'Bekal', district: 'Kasaragod' },
+      { name: 'Badiadka', district: 'Kasaragod' },
+      { name: 'Chittarikkal', district: 'Kasaragod' },
+
+      // Kozhikode District
+      { name: 'Kozhikode (Calicut)', district: 'Kozhikode' },
       { name: 'Vatakara', district: 'Kozhikode' },
+      { name: 'Koyilandy', district: 'Kozhikode' },
+      { name: 'Ramanattukara', district: 'Kozhikode' },
+      { name: 'Feroke', district: 'Kozhikode' },
+      { name: 'Koduvally', district: 'Kozhikode' },
+      { name: 'Thamarassery', district: 'Kozhikode' },
+      { name: 'Mukkam', district: 'Kozhikode' },
+      { name: 'Balussery', district: 'Kozhikode' },
+      { name: 'Kunnamangalam', district: 'Kozhikode' },
+      { name: 'Nadapuram', district: 'Kozhikode' },
+      { name: 'Payyoli', district: 'Kozhikode' },
+      { name: 'Beypore', district: 'Kozhikode' },
+      { name: 'Thiruvambady', district: 'Kozhikode' },
+      { name: 'Mavoor', district: 'Kozhikode' },
+
+      // Wayanad District
+      { name: 'Kalpetta', district: 'Wayanad' },
+      { name: 'Sulthan Bathery', district: 'Wayanad' },
+      { name: 'Mananthavady', district: 'Wayanad' },
+      { name: 'Meenangadi', district: 'Wayanad' },
+      { name: 'Vythiri', district: 'Wayanad' },
+      { name: 'Ambalavayal', district: 'Wayanad' },
+      { name: 'Pulpally', district: 'Wayanad' },
+      { name: 'Panamaram', district: 'Wayanad' },
+      { name: 'Padinjarathara', district: 'Wayanad' },
+
+      // Malappuram District
+      { name: 'Malappuram', district: 'Malappuram' },
+      { name: 'Manjeri', district: 'Malappuram' },
+      { name: 'Tirur', district: 'Malappuram' },
+      { name: 'Ponnani', district: 'Malappuram' },
+      { name: 'Perinthalmanna', district: 'Malappuram' },
+      { name: 'Kottakkal', district: 'Malappuram' },
+      { name: 'Nilambur', district: 'Malappuram' },
+      { name: 'Kondotty', district: 'Malappuram' },
+      { name: 'Edappal', district: 'Malappuram' },
+      { name: 'Tanur', district: 'Malappuram' },
+      { name: 'Parappanangadi', district: 'Malappuram' },
+      { name: 'Valanchery', district: 'Malappuram' },
+      { name: 'Tirurangadi', district: 'Malappuram' },
+      { name: 'Areekode', district: 'Malappuram' },
+      { name: 'Wandoor', district: 'Malappuram' },
+      { name: 'Kuttippuram', district: 'Malappuram' },
+      { name: 'Changaramkulam', district: 'Malappuram' },
+
+      // Palakkad District
+      { name: 'Palakkad', district: 'Palakkad' },
+      { name: 'Ottapalam', district: 'Palakkad' },
+      { name: 'Shoranur', district: 'Palakkad' },
+      { name: 'Chittur-Thathamangalam', district: 'Palakkad' },
+      { name: 'Mannarkkad', district: 'Palakkad' },
+      { name: 'Pattambi', district: 'Palakkad' },
+      { name: 'Cherpulassery', district: 'Palakkad' },
+      { name: 'Alathur', district: 'Palakkad' },
+      { name: 'Nemmara', district: 'Palakkad' },
+      { name: 'Kollengode', district: 'Palakkad' },
+      { name: 'Vadakkencherry', district: 'Palakkad' },
+      { name: 'Kuzhalmannam', district: 'Palakkad' },
+
+      // Thrissur District
+      { name: 'Thrissur', district: 'Thrissur' },
+      { name: 'Guruvayur', district: 'Thrissur' },
+      { name: 'Chavakkad', district: 'Thrissur' },
+      { name: 'Kodungallur', district: 'Thrissur' },
+      { name: 'Chalakudy', district: 'Thrissur' },
+      { name: 'Irinjalakuda', district: 'Thrissur' },
+      { name: 'Kunnamkulam', district: 'Thrissur' },
+      { name: 'Wadakkanchery', district: 'Thrissur' },
+      { name: 'Ollur', district: 'Thrissur' },
+      { name: 'Triprayar', district: 'Thrissur' },
+      { name: 'Mala', district: 'Thrissur' },
+      { name: 'Pudukad', district: 'Thrissur' },
+      { name: 'Cherpu', district: 'Thrissur' },
+
+      // Ernakulam District
+      { name: 'Kochi (Cochin)', district: 'Ernakulam' },
+      { name: 'Ernakulam', district: 'Ernakulam' },
+      { name: 'Aluva', district: 'Ernakulam' },
+      { name: 'Angamaly', district: 'Ernakulam' },
+      { name: 'North Paravur', district: 'Ernakulam' },
+      { name: 'Perumbavoor', district: 'Ernakulam' },
+      { name: 'Muvattupuzha', district: 'Ernakulam' },
+      { name: 'Kothamangalam', district: 'Ernakulam' },
+      { name: 'Tripunithura', district: 'Ernakulam' },
+      { name: 'Kalamassery', district: 'Ernakulam' },
+      { name: 'Kakkanad', district: 'Ernakulam' },
+      { name: 'Piravom', district: 'Ernakulam' },
+      { name: 'Kaloor', district: 'Ernakulam' },
+      { name: 'Edappally', district: 'Ernakulam' },
+      { name: 'Fort Kochi', district: 'Ernakulam' },
+      { name: 'Vyttila', district: 'Ernakulam' },
+      { name: 'Maradu', district: 'Ernakulam' },
+
+      // Idukki District
+      { name: 'Thodupuzha', district: 'Idukki' },
+      { name: 'Kattappana', district: 'Idukki' },
+      { name: 'Munnar', district: 'Idukki' },
+      { name: 'Adimali', district: 'Idukki' },
+      { name: 'Nedumkandam', district: 'Idukki' },
+      { name: 'Kumily', district: 'Idukki' },
+      { name: 'Painavu', district: 'Idukki' },
+      { name: 'Peermade', district: 'Idukki' },
+      { name: 'Vagamon', district: 'Idukki' },
+
+      // Kottayam District
+      { name: 'Kottayam', district: 'Kottayam' },
+      { name: 'Changanassery', district: 'Kottayam' },
+      { name: 'Pala', district: 'Kottayam' },
+      { name: 'Vaikom', district: 'Kottayam' },
+      { name: 'Ettumanoor', district: 'Kottayam' },
+      { name: 'Erattupetta', district: 'Kottayam' },
+      { name: 'Kanjirappally', district: 'Kottayam' },
+      { name: 'Pampady', district: 'Kottayam' },
+      { name: 'Ponkunnam', district: 'Kottayam' },
+      { name: 'Mundakkayam', district: 'Kottayam' },
+      { name: 'Kaduthuruthy', district: 'Kottayam' },
+      { name: 'Kuravilangad', district: 'Kottayam' },
+
+      // Alappuzha District
+      { name: 'Alappuzha (Alleppey)', district: 'Alappuzha' },
+      { name: 'Cherthala', district: 'Alappuzha' },
       { name: 'Kayamkulam', district: 'Alappuzha' },
-      { name: 'Perinthalmanna', district: 'Malappuram' }
+      { name: 'Mavelikkara', district: 'Alappuzha' },
+      { name: 'Haripad', district: 'Alappuzha' },
+      { name: 'Chengannur', district: 'Alappuzha' },
+      { name: 'Ambalapuzha', district: 'Alappuzha' },
+      { name: 'Aroor', district: 'Alappuzha' },
+      { name: 'Kuttanad', district: 'Alappuzha' },
+
+      // Pathanamthitta District
+      { name: 'Pathanamthitta', district: 'Pathanamthitta' },
+      { name: 'Thiruvalla', district: 'Pathanamthitta' },
+      { name: 'Adoor', district: 'Pathanamthitta' },
+      { name: 'Pandalam', district: 'Pathanamthitta' },
+      { name: 'Ranni', district: 'Pathanamthitta' },
+      { name: 'Konni', district: 'Pathanamthitta' },
+      { name: 'Kozhencherry', district: 'Pathanamthitta' },
+      { name: 'Mallappally', district: 'Pathanamthitta' },
+      { name: 'Kumbanad', district: 'Pathanamthitta' },
+
+      // Kollam District
+      { name: 'Kollam (Quilon)', district: 'Kollam' },
+      { name: 'Karunagappalli', district: 'Kollam' },
+      { name: 'Paravur', district: 'Kollam' },
+      { name: 'Punalur', district: 'Kollam' },
+      { name: 'Kottarakkara', district: 'Kollam' },
+      { name: 'Sasthamkotta', district: 'Kollam' },
+      { name: 'Kundara', district: 'Kollam' },
+      { name: 'Anchal', district: 'Kollam' },
+      { name: 'Chavara', district: 'Kollam' },
+      { name: 'Pathanapuram', district: 'Kollam' },
+      { name: 'Chathannoor', district: 'Kollam' },
+      { name: 'Oachira', district: 'Kollam' },
+      { name: 'Kadakkal', district: 'Kollam' },
+
+      // Thiruvananthapuram District
+      { name: 'Thiruvananthapuram (Trivandrum)', district: 'Thiruvananthapuram' },
+      { name: 'Neyyattinkara', district: 'Thiruvananthapuram' },
+      { name: 'Attingal', district: 'Thiruvananthapuram' },
+      { name: 'Nedumangad', district: 'Thiruvananthapuram' },
+      { name: 'Varkala', district: 'Thiruvananthapuram' },
+      { name: 'Kazhakkoottam', district: 'Thiruvananthapuram' },
+      { name: 'Kovalam', district: 'Thiruvananthapuram' },
+      { name: 'Kattakada', district: 'Thiruvananthapuram' },
+      { name: 'Parassala', district: 'Thiruvananthapuram' },
+      { name: 'Kilimanoor', district: 'Thiruvananthapuram' },
+      { name: 'Venjaramoodu', district: 'Thiruvananthapuram' },
+      { name: 'Pothencode', district: 'Thiruvananthapuram' },
+      { name: 'Balaramapuram', district: 'Thiruvananthapuram' },
+      { name: 'Vizhinjam', district: 'Thiruvananthapuram' }
     ]
   },
   {
@@ -491,6 +688,21 @@ export const getAllDistricts = () => {
     st.cities.forEach(c => all.add(c.district));
   });
   return Array.from(all).sort();
+};
+
+// Helper: Get unique sorted towns for a given state and district
+export const getTownsForDistrict = (stateName, districtName) => {
+  if (!stateName) return [];
+  const stateObj = STATES_AND_CITIES.find(s => s.state === stateName);
+  if (!stateObj) return [];
+  if (!districtName || districtName === 'All Districts') {
+    return Array.from(new Set(stateObj.cities.map(c => c.name))).sort();
+  }
+  const filtered = stateObj.cities.filter(c => c.district === districtName);
+  if (filtered.length === 0) {
+    return Array.from(new Set(stateObj.cities.map(c => c.name))).sort();
+  }
+  return Array.from(new Set(filtered.map(c => c.name))).sort();
 };
 
 // Location Matching Engine: Calculates proximity compatibility between user & candidate

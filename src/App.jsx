@@ -16,6 +16,7 @@ import { PhotoPrivacyProvider } from './context/PhotoPrivacyContext';
 import { ScreenshotRestrictedBanner, ScreenshotCaptureBlockOverlay } from './components/mobile/PhotoPrivacyShield';
 import LoginScreen from './components/LoginScreen';
 import RegistrationWizard from './components/RegistrationWizard';
+import RegisterPhoneVerification from './components/RegisterPhoneVerification';
 import MobileVerificationScreen from './components/MobileVerificationScreen';
 import AadhaarVerificationScreen from './components/AadhaarVerificationScreen';
 import WhatsAppStatusSystem from './components/mobile/WhatsAppStatusSystem';
@@ -30,6 +31,10 @@ import WebsiteView from './components/website/WebsiteView';
 import MobileAppModal from './components/mobile/MobileAppModal';
 import ProfileModal from './components/ProfileModal';
 import EditProfileModal from './components/EditProfileModal';
+import SendInterestModal from './components/SendInterestModal';
+import AudioCallModal from './components/calling/AudioCallModal';
+import VideoCallModal from './components/calling/VideoCallModal';
+import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePromptModal';
 import { getAppMode, setAppMode, APP_CONFIG } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
 
@@ -383,15 +388,32 @@ export default function App() {
     return () => window.removeEventListener('i4u_mode_change', handleModeChange);
   }, []);
 
-  // Application Data & State (Strictly real registered profiles, all demo profiles removed)
-  const [profiles, setProfiles] = useState([]);
+  // Application Data & State (Initialized with cached candidates or authentic INITIAL_PROFILES)
+  const [profiles, setProfiles] = useState(() => {
+    try {
+      const cached = localStorage.getItem('i4u_cached_profiles');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter(p => !isDemoProfile(p));
+          if (valid.length > 0) return valid;
+        }
+      }
+    } catch (e) {}
+    return Array.isArray(INITIAL_PROFILES) && INITIAL_PROFILES.length > 0 
+      ? INITIAL_PROFILES.filter(p => !isDemoProfile(p)) 
+      : [];
+  });
 
   // Synchronize candidate profiles from Supabase Cloud & Python Admin Backend
   const syncLiveProfiles = useCallback(async () => {
     try {
       const liveList = await fetchLiveProfiles();
-      if (Array.isArray(liveList)) {
+      if (Array.isArray(liveList) && liveList.length > 0) {
         setProfiles(liveList);
+        try {
+          localStorage.setItem('i4u_cached_profiles', JSON.stringify(liveList));
+        } catch (e) {}
       }
     } catch (e) {
       console.warn('[Sync Profiles Error]:', e);
@@ -414,8 +436,8 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
-    // Fast background sync every 3.5s to immediately show registrations across devices
-    const interval = setInterval(syncLiveProfiles, 3500);
+    // Periodic background sync every 30s to keep profiles fresh across devices
+    const interval = setInterval(syncLiveProfiles, 30000);
 
     return () => {
       window.removeEventListener('focus', handleFocus);
@@ -430,7 +452,16 @@ export default function App() {
       const savedUserStr = localStorage.getItem('i4u_auth_user');
       if (savedUserStr) {
         const savedUser = JSON.parse(savedUserStr);
-        if (savedUser && (savedUser.name || savedUser.mobile || savedUser.phone)) {
+        const nameLower = String(savedUser?.name || '').toLowerCase().trim();
+        if (
+          savedUser && 
+          savedUser.name && 
+          !isDemoProfile(savedUser) && 
+          !savedUser.isDraft &&
+          !nameLower.includes('verified member') &&
+          !nameLower.includes('verified profile') &&
+          (savedUser.mobile || savedUser.phone)
+        ) {
           const profileWithId = {
             ...savedUser,
             id: savedUser.id || `p_${Date.now()}`
@@ -451,12 +482,19 @@ export default function App() {
         fetchLivePlans(),
         fetchLiveOffers()
       ]);
-      if (Array.isArray(livePlans)) {
-        setMembershipPlans(livePlans.map(formatBackendPlan));
+      if (Array.isArray(livePlans) && livePlans.length > 0) {
+        const formatted = livePlans.map(formatBackendPlan);
+        setMembershipPlans(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(formatted)) return prev;
+          return formatted;
+        });
       }
       if (Array.isArray(liveOffers)) {
         const activeOnly = liveOffers.filter(o => o && (o.is_active === 1 || o.is_active === true || o.is_active === '1'));
-        setActiveOffers(activeOnly);
+        setActiveOffers(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(activeOnly)) return prev;
+          return activeOnly;
+        });
       }
 
       // Synchronize logged-in user profile status & latest profile edits from Supabase
@@ -673,6 +711,7 @@ export default function App() {
   }, [currentUser?.id]);
   const [toastMessage, setToastMessage] = useState('');
   const [pendingRegistration, setPendingRegistration] = useState(null);
+  const [registeredVerifiedPhone, setRegisteredVerifiedPhone] = useState(null);
   const [aadhaarOrigin, setAadhaarOrigin] = useState('app');
   const [isDirectChatOpen, setIsDirectChatOpen] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
@@ -757,6 +796,12 @@ export default function App() {
   const [paymentCoupon, setPaymentCoupon] = useState('');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [activeInvoice, setActiveInvoice] = useState(null);
+
+  // Matrimonial Interest Composer & Calling State
+  const [interestModalCandidate, setInterestModalCandidate] = useState(null);
+  const [activeAudioCallCandidate, setActiveAudioCallCandidate] = useState(null);
+  const [activeVideoCallCandidate, setActiveVideoCallCandidate] = useState(null);
+  const [premiumPromptFeature, setPremiumPromptFeature] = useState(null); // 'chat' | 'call' | 'video'
 
   const unreadNotificationsCount = currentUser ? (notifications || []).filter(n => n && !n.isRead).length : 0;
 
@@ -1139,12 +1184,18 @@ export default function App() {
     setNotifications(prev => [newNotif, ...prev]);
   };
 
+  // Open Registration flow starting with Mobile Number Verification
+  const handleOpenRegister = () => {
+    setRegisteredVerifiedPhone(null);
+    setCurrentScreen('register');
+  };
+
   // Handle profile selection: Protected - only logged in members can open profiles
   const handleSelectProfile = (profile) => {
     if (!profile) return;
     if (!currentUser) {
       showToast('🔒 Please register free to view complete profile & horoscope details');
-      setCurrentScreen('register');
+      handleOpenRegister();
       return;
     }
     setSelectedProfile(profile);
@@ -1154,7 +1205,7 @@ export default function App() {
   const handleToggleInterest = (profileId) => {
     if (!currentUser) {
       showToast('🔒 Please register free to express interest in matches');
-      setCurrentScreen('register');
+      handleOpenRegister();
       return;
     }
     const profile = profiles.find(p => p.id === profileId);
@@ -1209,7 +1260,7 @@ export default function App() {
   const handleToggleShortlist = (profileId) => {
     if (!currentUser) {
       showToast('🔒 Please register free to shortlist matches');
-      setCurrentScreen('register');
+      handleOpenRegister();
       return;
     }
     const profile = profiles.find(p => p.id === profileId);
@@ -1232,8 +1283,7 @@ export default function App() {
 
     const hasPaidPlan = Boolean(currentUser.membership && currentUser.membership !== 'free');
     if (!hasPaidPlan) {
-      showToast('👑 Active subscription required to chat directly with verified members. Upgrade now (50% OFF)!');
-      handleOpenOffers();
+      setPremiumPromptFeature('chat');
       return;
     }
 
@@ -1269,6 +1319,111 @@ export default function App() {
       }
       return prev;
     });
+  };
+
+  // Open Authentic Matrimonial Interest Message Composer Modal
+  const handleOpenSendInterest = (profileOrId) => {
+    if (!currentUser) {
+      showToast('🔒 Please register free to express interest in matches');
+      handleOpenRegister();
+      return;
+    }
+    const candidate = typeof profileOrId === 'object' ? profileOrId : profiles.find(p => p.id === profileOrId);
+    if (!candidate) return;
+    if (interestsSent.includes(candidate.id)) {
+      handleToggleInterest(candidate.id);
+      return;
+    }
+    setInterestModalCandidate(candidate);
+  };
+
+  // Confirm sending interest with chosen/customized Malayalam or English message
+  const handleConfirmSendInterest = (profileId, customMessage) => {
+    const profile = profiles.find(p => p.id === profileId) || interestModalCandidate;
+    if (!interestsSent.includes(profileId)) {
+      setInterestsSent(prev => [...prev, profileId]);
+    }
+    setInterestModalCandidate(null);
+    showToast(`💖 Interest & message sent to ${profile?.name || 'candidate'}! ✨`);
+
+    // Dispatch automated email alert to candidate's registered email
+    if (profile?.email) {
+      sendInAppNotificationWithEmail({
+        recipientId: profile.id,
+        recipientEmail: profile.email,
+        type: 'interest_received',
+        title: `💖 Matrimonial Interest from ${currentUser?.name || 'A Verified Member'}!`,
+        message: customMessage || `${currentUser?.name || 'A Verified Member'} reviewed your profile on I 4 You and expressed interest in connecting with you.`,
+        senderName: currentUser?.name,
+        senderPhoto: currentUser?.photo,
+        profileLink: 'https://i4youmatrimony.com/app'
+      }).catch(err => console.warn('[App] Interest email notification notice:', err));
+    }
+
+    // Ensure conversation thread exists with this custom message
+    setConversations(prev => {
+      const existingIndex = prev.findIndex(c => c.profileId === profileId);
+      const userMsg = {
+        id: 'interest-' + Date.now(),
+        sender: 'me',
+        text: customMessage || `Namaste! I reviewed your profile and would love to connect.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'delivered'
+      };
+
+      if (existingIndex >= 0) {
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          messages: [...(updated[existingIndex].messages || []), userMsg]
+        };
+        return updated;
+      } else {
+        return [...prev, {
+          profileId,
+          unreadCount: 0,
+          messages: [userMsg],
+          autoReplies: [
+            `Namaste! Thank you for connecting. Our family in ${profile?.city || 'India'} is happy to take this forward.`,
+            `Glad to connect with you. Would love to schedule a friendly voice or video call this weekend.`
+          ]
+        }];
+      }
+    });
+  };
+
+  // Start direct Audio Call with candidate (strictly for paid members)
+  const handleStartAudioCall = (candidateOrId) => {
+    if (!currentUser) {
+      showToast('🔒 Please sign in first to make audio calls');
+      setCurrentScreen('login');
+      return;
+    }
+    const hasPaidPlan = Boolean(currentUser.membership && currentUser.membership !== 'free');
+    if (!hasPaidPlan) {
+      setPremiumPromptFeature('call');
+      return;
+    }
+    const candidate = typeof candidateOrId === 'object' ? candidateOrId : profiles.find(p => p.id === candidateOrId);
+    if (!candidate) return;
+    setActiveAudioCallCandidate(candidate);
+  };
+
+  // Start live Video Call with candidate (strictly for paid members)
+  const handleStartVideoCall = (candidateOrId) => {
+    if (!currentUser) {
+      showToast('🔒 Please sign in first to make video calls');
+      setCurrentScreen('login');
+      return;
+    }
+    const hasPaidPlan = Boolean(currentUser.membership && currentUser.membership !== 'free');
+    if (!hasPaidPlan) {
+      setPremiumPromptFeature('video');
+      return;
+    }
+    const candidate = typeof candidateOrId === 'object' ? candidateOrId : profiles.find(p => p.id === candidateOrId);
+    if (!candidate) return;
+    setActiveVideoCallCandidate(candidate);
   };
 
   // WhatsApp Status Management Handlers
@@ -1406,6 +1561,107 @@ export default function App() {
     setDeletedStatusIds(prev => new Set([...prev, profileId]));
     showToast('Removed from status updates');
   };
+
+  // Centralized robust profile photo updater (syncs state, localStorage, match profiles, Supabase & Storage)
+  const handlePhotoUpdateAction = useCallback(async (photosData) => {
+    if (!photosData) return;
+    const primaryPhoto = photosData.photo || photosData.singlePhotos?.[0] || currentUser?.photo;
+
+    // 1. Immediately update reactive state for currentUser
+    let updatedUser;
+    setCurrentUser(prev => {
+      updatedUser = {
+        ...prev,
+        ...photosData,
+        photo: primaryPhoto,
+        photo_url: primaryPhoto
+      };
+
+      try {
+        localStorage.setItem('i4u_auth_user', JSON.stringify(updatedUser));
+      } catch (e) {
+        console.warn('LocalStorage quota warning in handlePhotoUpdateAction, saving minimal session:', e);
+        try {
+          const minimal = { ...updatedUser };
+          if (Array.isArray(minimal.singlePhotos) && minimal.singlePhotos[0]?.length > 200000) {
+            minimal.singlePhotos = [minimal.singlePhotos[0]];
+          }
+          localStorage.setItem('i4u_auth_user', JSON.stringify(minimal));
+        } catch (e2) {}
+      }
+
+      return updatedUser;
+    });
+
+    // 2. Immediately reflect in candidate match feed list so user's own card has the new photo
+    setProfiles(prevProfiles => {
+      if (!Array.isArray(prevProfiles)) return prevProfiles;
+      const uid = currentUser?.id;
+      const regId = currentUser?.registerId || currentUser?.register_id;
+      return prevProfiles.map(p => {
+        if ((uid && p.id === uid) || (regId && (p.registerId === regId || p.register_id === regId))) {
+          return {
+            ...p,
+            photo: primaryPhoto,
+            photo_url: primaryPhoto,
+            singlePhotos: photosData.singlePhotos || p.singlePhotos,
+            familyPhotos: photosData.familyPhotos || p.familyPhotos,
+            hidePhotos: photosData.hidePhotos !== undefined ? photosData.hidePhotos : p.hidePhotos,
+            photoVisibility: photosData.photoVisibility || p.photoVisibility,
+            blurPhotosForUnconnected: photosData.blurPhotosForUnconnected !== undefined ? photosData.blurPhotosForUnconnected : p.blurPhotosForUnconnected
+          };
+        }
+        return p;
+      });
+    });
+
+    if (photosData.hidePhotos) {
+      showToast('Photos hidden from public search 🔒');
+    } else if (photosData.photoVisibility === 'accepted') {
+      showToast('Photos set to Accepted Matches only 🔒');
+    } else if (photosData.photoVisibility === 'request') {
+      showToast('Photos set to Request Approval only 🔑');
+    } else {
+      showToast('Profile & Family Photos updated! ⭐');
+    }
+
+    // 3. Persist to Supabase and upload image to Supabase Storage bucket
+    try {
+      const syncResult = await updateLivePhotos({
+        id: currentUser?.id,
+        registerId: currentUser?.registerId || currentUser?.register_id,
+        phone: currentUser?.mobile || currentUser?.phone,
+        name: currentUser?.name || currentUser?.fullName,
+        photo: primaryPhoto,
+        singlePhotos: photosData.singlePhotos,
+        familyPhotos: photosData.familyPhotos,
+        hidePhotos: photosData.hidePhotos,
+        photoVisibility: photosData.photoVisibility,
+        blurPhotosForUnconnected: photosData.blurPhotosForUnconnected
+      });
+
+      // If Supabase Storage returned a permanent URL (https://...), update currentUser state seamlessly
+      if (syncResult && syncResult.photo && syncResult.photo.startsWith('http')) {
+        setCurrentUser(prev => {
+          if (!prev) return prev;
+          const refined = {
+            ...prev,
+            photo: syncResult.photo,
+            photo_url: syncResult.photo,
+            singlePhotos: Array.isArray(prev.singlePhotos) && prev.singlePhotos.length > 0
+              ? [syncResult.photo, ...prev.singlePhotos.slice(1)]
+              : [syncResult.photo]
+          };
+          try {
+            localStorage.setItem('i4u_auth_user', JSON.stringify(refined));
+          } catch (e) {}
+          return refined;
+        });
+      }
+    } catch (err) {
+      console.warn('[handlePhotoUpdateAction] updateLivePhotos error:', err);
+    }
+  }, [currentUser, showToast]);
 
   // Reset filters
   const handleResetFilters = () => {
@@ -2020,6 +2276,7 @@ export default function App() {
               currentScreen={currentScreen}
               interestsSent={interestsSent}
               onToggleInterest={handleToggleInterest}
+              onRequestSendInterest={handleOpenSendInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}
               onSelectProfile={handleSelectProfile}
@@ -2039,7 +2296,7 @@ export default function App() {
                 setActiveTab('chat');
               }}
               onOpenLogin={() => setCurrentScreen('login')}
-              onOpenRegister={() => setCurrentScreen('register')}
+              onOpenRegister={handleOpenRegister}
               onLogout={handleLogout}
               onOpenOffers={handleOpenOffers}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
@@ -2090,7 +2347,7 @@ export default function App() {
                   <LoginScreen 
                     onLoginSuccess={handleLoginSuccess}
                     setCurrentScreen={setCurrentScreen}
-                    onNavigateToRegister={() => setCurrentScreen('register')}
+                    onNavigateToRegister={handleOpenRegister}
                     onBack={() => setCurrentScreen('app')}
                   />
                 </div>
@@ -2100,20 +2357,45 @@ export default function App() {
             {/* SCREEN 2: Dedicated Register Modal on Website */}
             {currentScreen === 'register' && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-                <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-[#D4AF37]/40 relative">
-                  <RegistrationWizard 
-                    onRegistrationComplete={(regData) => {
-                      if (regData?.aadhaarVerified) {
-                        handleAadhaarVerificationSuccess(regData);
-                      } else {
-                        handleVerificationSuccess(regData);
-                      }
-                      setCurrentScreen('app');
-                    }}
-                    setCurrentScreen={setCurrentScreen}
-                    onNavigateToLogin={() => setCurrentScreen('login')}
-                    onBack={() => setCurrentScreen('app')}
-                  />
+                <div className={`w-full ${registeredVerifiedPhone ? 'max-w-xl max-h-[90vh]' : 'max-w-md'} overflow-y-auto bg-white rounded-3xl shadow-2xl border border-[#D4AF37]/40 relative`}>
+                  {registeredVerifiedPhone ? (
+                    <RegistrationWizard 
+                      initialData={{ mobile: registeredVerifiedPhone, mobileVerified: true }}
+                      onRegistrationComplete={(regData) => {
+                        setRegisteredVerifiedPhone(null);
+                        if (regData?.aadhaarVerified) {
+                          handleAadhaarVerificationSuccess(regData);
+                        } else {
+                          handleVerificationSuccess(regData);
+                        }
+                        setCurrentScreen('app');
+                      }}
+                      onProceedToVerification={(regData) => {
+                        setRegisteredVerifiedPhone(null);
+                        handleProceedToVerification(regData);
+                      }}
+                      setCurrentScreen={setCurrentScreen}
+                      onNavigateToLogin={() => {
+                        setRegisteredVerifiedPhone(null);
+                        setCurrentScreen('login');
+                      }}
+                      onBack={() => setRegisteredVerifiedPhone(null)}
+                    />
+                  ) : (
+                    <RegisterPhoneVerification 
+                      onVerificationSuccess={(phone) => setRegisteredVerifiedPhone(phone)}
+                      onGoogleLogin={(user) => {
+                        handleLoginSuccess(user);
+                        setCurrentScreen('app');
+                      }}
+                      onNavigateToLogin={() => {
+                        setRegisteredVerifiedPhone(null);
+                        setCurrentScreen('login');
+                      }}
+                      onBack={() => setCurrentScreen('app')}
+                      isWebsiteModal={true}
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -2178,6 +2460,9 @@ export default function App() {
                 }}
                 allProfiles={profiles}
                 onSelectProfile={handleSelectProfile}
+                onRequestSendInterest={handleOpenSendInterest}
+                onStartAudioCall={handleStartAudioCall}
+                onStartVideoCall={handleStartVideoCall}
               />
             )}
 
@@ -2304,7 +2589,7 @@ export default function App() {
               }}
               onOpenRegister={() => {
                 setIsAppModalOpen(false);
-                setCurrentScreen('register');
+                handleOpenRegister();
               }}
               activeTab={activeTab}
               setActiveTab={setActiveTab}
@@ -2418,6 +2703,7 @@ export default function App() {
               setIsPhotoManagerOpen={setIsPhotoManagerOpen}
               photoManagerTab={photoManagerTab}
               setPhotoManagerTab={setPhotoManagerTab}
+              onUpdatePhotos={handlePhotoUpdateAction}
               isThemeSettingsOpen={isThemeSettingsOpen}
               setIsThemeSettingsOpen={setIsThemeSettingsOpen}
               handleStartChat={handleStartChat}
@@ -2429,6 +2715,9 @@ export default function App() {
               handleDeclineReceivedInterest={handleDeclineReceivedInterest}
               handleUndoDeclineReceivedInterest={handleUndoDeclineReceivedInterest}
               handleAcceptReceivedInterest={handleAcceptReceivedInterest}
+              onRequestSendInterest={handleOpenSendInterest}
+              onStartAudioCall={handleStartAudioCall}
+              onStartVideoCall={handleStartVideoCall}
             />
 
             {/* Floating Toast Notification */}
@@ -2483,26 +2772,49 @@ export default function App() {
         <LoginScreen 
           onLoginSuccess={handleLoginSuccess}
           setCurrentScreen={setCurrentScreen}
-          onNavigateToRegister={() => setCurrentScreen('register')}
+          onNavigateToRegister={handleOpenRegister}
           onBack={() => setCurrentScreen('app')}
         />
       )}
 
       {/* SCREEN 2: Dedicated Registration Wizard */}
       {currentScreen === 'register' && (
-        <RegistrationWizard 
-          onRegistrationComplete={(regData) => {
-            if (regData?.aadhaarVerified) {
-              handleAadhaarVerificationSuccess(regData);
-            } else {
-              handleVerificationSuccess(regData);
-            }
-          }}
-          onProceedToVerification={handleProceedToVerification}
-          setCurrentScreen={setCurrentScreen}
-          onNavigateToLogin={() => setCurrentScreen('login')}
-          onBack={() => setCurrentScreen('app')}
-        />
+        registeredVerifiedPhone ? (
+          <RegistrationWizard 
+            initialData={{ mobile: registeredVerifiedPhone, mobileVerified: true }}
+            onRegistrationComplete={(regData) => {
+              setRegisteredVerifiedPhone(null);
+              if (regData?.aadhaarVerified) {
+                handleAadhaarVerificationSuccess(regData);
+              } else {
+                handleVerificationSuccess(regData);
+              }
+            }}
+            onProceedToVerification={(regData) => {
+              setRegisteredVerifiedPhone(null);
+              handleProceedToVerification(regData);
+            }}
+            setCurrentScreen={setCurrentScreen}
+            onNavigateToLogin={() => {
+              setRegisteredVerifiedPhone(null);
+              setCurrentScreen('login');
+            }}
+            onBack={() => setRegisteredVerifiedPhone(null)}
+          />
+        ) : (
+          <RegisterPhoneVerification 
+            onVerificationSuccess={(phone) => setRegisteredVerifiedPhone(phone)}
+            onGoogleLogin={(user) => {
+              handleLoginSuccess(user);
+              setCurrentScreen('app');
+            }}
+            onNavigateToLogin={() => {
+              setRegisteredVerifiedPhone(null);
+              setCurrentScreen('login');
+            }}
+            onBack={() => setCurrentScreen('app')}
+          />
+        )
       )}
 
       {/* SCREEN 3: Mobile Phone SMS OTP Verification */}
@@ -2610,6 +2922,9 @@ export default function App() {
                   onToggleShortlist={handleToggleShortlist}
                   isShortlisted={shortlisted.includes(selectedProfile.id)}
                   onStartChat={handleStartChat}
+                  onRequestSendInterest={handleOpenSendInterest}
+                  onStartAudioCall={handleStartAudioCall}
+                  onStartVideoCall={handleStartVideoCall}
                   onOpenAadhaarVerification={() => {
                     setAadhaarOrigin('app');
                     setCurrentScreen('verify-aadhaar');
@@ -2701,35 +3016,7 @@ export default function App() {
                 onClose={() => setIsPhotoManagerOpen(false)}
                 initialTab={photoManagerTab}
                 currentUser={currentUser}
-                onUpdatePhotos={(photosData) => {
-                  setCurrentUser(prev => {
-                    const updated = {
-                      ...prev,
-                      ...photosData
-                    };
-                    try {
-                      localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
-                    } catch (e) {}
-                    updateLivePhotos({
-                      id: updated?.id,
-                      phone: updated?.mobile || updated?.phone,
-                      name: updated?.name || updated?.fullName,
-                      photo: photosData.photo,
-                      singlePhotos: photosData.singlePhotos,
-                      familyPhotos: photosData.familyPhotos
-                    });
-                    return updated;
-                  });
-                  if (photosData.hidePhotos) {
-                    showToast('Photos hidden from public search 🔒');
-                  } else if (photosData.photoVisibility === 'accepted') {
-                    showToast('Photos set to Accepted Matches only 🔒');
-                  } else if (photosData.photoVisibility === 'request') {
-                    showToast('Photos set to Request Approval only 🔑');
-                  } else {
-                    showToast('Profile & Family Photos updated! ✨');
-                  }
-                }}
+                onUpdatePhotos={handlePhotoUpdateAction}
               />
 
               {/* Photo Screenshot Restriction Mobile Alert & Shutter Privacy Shield */}
@@ -2867,6 +3154,8 @@ export default function App() {
               isDirectChatOpen={isDirectChatOpen}
               setIsDirectChatOpen={setIsDirectChatOpen}
               onOpenOffers={handleOpenOffers}
+              onStartAudioCall={handleStartAudioCall}
+              onStartVideoCall={handleStartVideoCall}
             />
           )}
 
@@ -2888,27 +3177,7 @@ export default function App() {
                 setCurrentUser(prev => ({ ...prev, ...loc }));
                 showToast(`Location set to ${loc.district} Dist., ${loc.state}`);
               }}
-              onUpdatePhotos={(photosData) => {
-                setCurrentUser(prev => {
-                  const updated = {
-                    ...prev,
-                    ...photosData
-                  };
-                  try {
-                    localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
-                  } catch (e) {}
-                  updateLivePhotos({
-                    id: updated?.id,
-                    phone: updated?.mobile || updated?.phone,
-                    name: updated?.name || updated?.fullName,
-                    photo: photosData.photo,
-                    singlePhotos: photosData.singlePhotos,
-                    familyPhotos: photosData.familyPhotos
-                  });
-                  return updated;
-                });
-                showToast('Profile & Family Photos updated! ✨');
-              }}
+              onUpdatePhotos={handlePhotoUpdateAction}
               onLoginSuccess={handleLoginSuccess}
               onRegistrationComplete={(regData) => {
                 if (regData?.aadhaarVerified) {
@@ -2918,7 +3187,7 @@ export default function App() {
                 }
               }}
               onOpenLogin={() => setCurrentScreen('login')}
-              onOpenRegister={() => setCurrentScreen('register')}
+              onOpenRegister={handleOpenRegister}
               onOpenVerification={() => {
                 setPendingRegistration(currentUser);
                 setCurrentScreen('verify-mobile');
@@ -2945,6 +3214,53 @@ export default function App() {
 
     </DeviceFrameSimulator>
     )}
+
+    {/* Authentic Matrimonial Interest Message Composer Modal (Malayalam & English) */}
+    {interestModalCandidate && (
+      <SendInterestModal 
+        isOpen={Boolean(interestModalCandidate)}
+        candidate={interestModalCandidate}
+        currentUser={currentUser}
+        isAlreadyInterested={interestsSent.includes(interestModalCandidate.id)}
+        onSendInterest={handleConfirmSendInterest}
+        onClose={() => setInterestModalCandidate(null)}
+      />
+    )}
+
+    {/* Encrypted Matrimonial Audio Calling Modal */}
+    {activeAudioCallCandidate && (
+      <AudioCallModal 
+        isOpen={Boolean(activeAudioCallCandidate)}
+        candidate={activeAudioCallCandidate}
+        currentUser={currentUser}
+        onClose={() => setActiveAudioCallCandidate(null)}
+      />
+    )}
+
+    {/* Live HD Matrimonial Video Meeting Modal */}
+    {activeVideoCallCandidate && (
+      <VideoCallModal 
+        isOpen={Boolean(activeVideoCallCandidate)}
+        candidate={activeVideoCallCandidate}
+        currentUser={currentUser}
+        onClose={() => setActiveVideoCallCandidate(null)}
+      />
+    )}
+
+    {/* Luxury Premium Upgrade Prompt Modal */}
+    {premiumPromptFeature && (
+      <PremiumUpgradePromptModal 
+        isOpen={Boolean(premiumPromptFeature)}
+        feature={premiumPromptFeature}
+        candidateName="Members"
+        onClose={() => setPremiumPromptFeature(null)}
+        onOpenPlans={() => {
+          setPremiumPromptFeature(null);
+          handleOpenOffers();
+        }}
+      />
+    )}
+
     </PhotoPrivacyProvider>
     </ThemeProvider>
   );

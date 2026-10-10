@@ -43,6 +43,7 @@ import { updateLiveUserProfile } from '../../services/api';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { useTheme } from '../../context/ThemeContext';
 import { isKundaliApplicableReligion } from '../../data/religionData';
+import { optimizeImageFile } from '../../utils/imageOptimizer';
 
 export default function MobileAccountScreen({
   currentUser,
@@ -185,21 +186,27 @@ export default function MobileAccountScreen({
     applyPhotoUpdate([selected, ...remaining], currentFamilyPhotos);
   };
 
-  const handleSingleFileUpload = (e) => {
+  const handleSingleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (currentSinglePhotos.length >= 5) {
       alert("Maximum 5 single photos allowed.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        handleAddSinglePhoto(event.target.result);
+    try {
+      const result = await optimizeImageFile(file, {
+        maxDimension: 1200,
+        targetMaxKB: 180,
+        initialQuality: 0.85
+      });
+      if (result?.dataUrl) {
+        handleAddSinglePhoto(result.dataUrl);
       }
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    } catch (err) {
+      console.error("Account photo upload error:", err);
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const handleAddFamilyPhoto = (url) => {
@@ -215,21 +222,27 @@ export default function MobileAccountScreen({
     applyPhotoUpdate(currentSinglePhotos, next);
   };
 
-  const handleFamilyFileUpload = (e) => {
+  const handleFamilyFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (currentFamilyPhotos.length >= 2) {
       alert("Maximum 2 family photos allowed.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        handleAddFamilyPhoto(event.target.result);
+    try {
+      const result = await optimizeImageFile(file, {
+        maxDimension: 1200,
+        targetMaxKB: 180,
+        initialQuality: 0.85
+      });
+      if (result?.dataUrl) {
+        handleAddFamilyPhoto(result.dataUrl);
       }
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    } catch (err) {
+      console.error("Account family photo upload error:", err);
+    } finally {
+      e.target.value = '';
+    }
   };
 
 
@@ -630,7 +643,7 @@ export default function MobileAccountScreen({
             title="Click to manage profile photos"
           >
             <img 
-              src={currentUser?.photo || (currentUser?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300")} 
+              src={currentUser?.singlePhotos?.[0] || currentUser?.photo || (currentUser?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300")} 
               alt={currentUser?.name || "Profile"}
               draggable={false}
               onDragStart={(e) => e.preventDefault()}

@@ -209,7 +209,7 @@ export function MobileBottomNavigationIndicator({
     }
 
     if (currentScreen === 'register') {
-      return { containerBg: 'bg-[#07111F]', indicatorLine: 'bg-[#DFB76C]/60' };
+      return { containerBg: 'bg-[#FAF8F5]', indicatorLine: 'bg-[#D4AF37]/50' };
     }
 
     if (currentScreen === 'verify-mobile' || currentScreen === 'verify-aadhaar') {

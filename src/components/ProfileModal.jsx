@@ -18,6 +18,7 @@ import {
   Check,
   Lock,
   Phone,
+  Video,
   ChevronLeft,
   ChevronRight,
   Crown,
@@ -38,7 +39,10 @@ export default function ProfileModal({
   onOpenOffers,
   onUnlockContact,
   allProfiles = [],
-  onSelectProfile
+  onSelectProfile,
+  onStartAudioCall,
+  onStartVideoCall,
+  onRequestSendInterest
 }) {
   const [activeTab, setActiveTab] = useState('about');
 
@@ -887,6 +891,27 @@ export default function ProfileModal({
           </button>
 
           <div className="flex items-center space-x-2">
+            {/* Audio Call Button */}
+            <button
+              type="button"
+              onClick={() => onStartAudioCall ? onStartAudioCall(profile) : alert(`Audio calling ${profile.name}...`)}
+              className="p-2.5 rounded-xl border border-slate-300 bg-white hover:bg-emerald-50 text-emerald-600 transition-colors cursor-pointer shadow-xs active:scale-95"
+              title="Private Matrimony Voice Call"
+            >
+              <Phone className="w-4 h-4" />
+            </button>
+
+            {/* Video Call Button */}
+            <button
+              type="button"
+              onClick={() => onStartVideoCall ? onStartVideoCall(profile) : alert(`Video calling ${profile.name}...`)}
+              className="p-2.5 rounded-xl border border-slate-300 bg-white hover:bg-blue-50 text-indigo-600 transition-colors cursor-pointer shadow-xs active:scale-95"
+              title="Family Video Meeting"
+            >
+              <Video className="w-4 h-4" />
+            </button>
+
+            {/* Message Button */}
             <button
               onClick={() => {
                 if (!hasPaidPlan) {
@@ -903,9 +928,18 @@ export default function ProfileModal({
               <span>{hasPaidPlan ? 'Message' : 'Message (Locked)'}</span>
             </button>
 
+            {/* Express Interest Button */}
             <button
-              onClick={() => onToggleInterest(profile.id)}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer ${
+              onClick={() => {
+                if (isInterested) {
+                  onToggleInterest(profile.id);
+                } else if (onRequestSendInterest) {
+                  onRequestSendInterest(profile);
+                } else {
+                  onToggleInterest(profile.id);
+                }
+              }}
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer active:scale-95 ${
                 isInterested 
                   ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
                   : 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:from-[#dfb76c] hover:to-[#b89228] shadow-[#D4AF37]/25'

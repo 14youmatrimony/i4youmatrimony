@@ -158,9 +158,13 @@ export default function MobileAppModal({
   setIsPhotoManagerOpen,
   photoManagerTab,
   setPhotoManagerTab,
+  onUpdatePhotos,
   isThemeSettingsOpen,
   setIsThemeSettingsOpen,
   handleStartChat,
+  onRequestSendInterest,
+  onStartAudioCall,
+  onStartVideoCall,
   onAadhaarVerificationComplete,
   isProduction,
   showToast,
@@ -460,10 +464,13 @@ export default function MobileAppModal({
                           currentUser={currentUser}
                           onClose={() => setSelectedProfile(null)}
                           onToggleInterest={onToggleInterest}
+                          onRequestSendInterest={onRequestSendInterest}
                           isInterested={interestsSent.includes(selectedProfile.id)}
                           onToggleShortlist={onToggleShortlist}
                           isShortlisted={shortlisted.includes(selectedProfile.id)}
                           onStartChat={handleStartChat}
+                          onStartAudioCall={onStartAudioCall}
+                          onStartVideoCall={onStartVideoCall}
                           onOpenAadhaarVerification={() => setInternalScreen('verify-aadhaar')}
                           onOpenOffers={onOpenOffers}
                           onUnlockContact={handleUnlockContact}
@@ -553,11 +560,15 @@ export default function MobileAppModal({
                         initialTab={photoManagerTab}
                         currentUser={currentUser}
                         onUpdatePhotos={(photosData) => {
-                          setCurrentUser(prev => ({
-                            ...prev,
-                            ...photosData
-                          }));
-                          showToast?.('Photos updated! ✨');
+                          if (onUpdatePhotos) {
+                            onUpdatePhotos(photosData);
+                          } else {
+                            setCurrentUser(prev => ({
+                              ...prev,
+                              ...photosData
+                            }));
+                            showToast?.('Photos updated! ✨');
+                          }
                         }}
                       />
 
@@ -688,6 +699,8 @@ export default function MobileAppModal({
                       isDirectChatOpen={isDirectChatOpen}
                       setIsDirectChatOpen={setIsDirectChatOpen}
                       onOpenOffers={onOpenOffers}
+                      onStartAudioCall={onStartAudioCall}
+                      onStartVideoCall={onStartVideoCall}
                     />
                   )}
 
@@ -710,10 +723,14 @@ export default function MobileAppModal({
                         showToast?.(`Location set to ${loc.district} Dist., ${loc.state}`);
                       }}
                       onUpdatePhotos={(photosData) => {
-                        setCurrentUser(prev => ({
-                          ...prev,
-                          ...photosData
-                        }));
+                        if (onUpdatePhotos) {
+                          onUpdatePhotos(photosData);
+                        } else {
+                          setCurrentUser(prev => ({
+                            ...prev,
+                            ...photosData
+                          }));
+                        }
                       }}
                       onOpenOffers={onOpenOffers}
                       onOpenThemeSettings={() => setIsThemeSettingsOpen(true)}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   User, 
   GraduationCap, 
@@ -36,8 +36,9 @@ import {
 import SearchableSelect from './common/SearchableSelect';
 import DualRangeSlider from './common/DualRangeSlider';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '../utils/security';
+import { optimizeImageFile } from '../utils/imageOptimizer';
 import { registerWithRegisterId } from '../services/authService';
-import { STATES_AND_CITIES } from '../data/locationData';
+import { STATES_AND_CITIES, getTownsForDistrict } from '../data/locationData';
 import { 
   ALL_INDIA_RELIGIONS, 
   RELIGION_COMMUNITIES, 
@@ -455,19 +456,19 @@ export default function RegistrationWizard({
   const [formData, setFormData] = useState({
     // Step 1: Basic, Physical & Lifestyle
     profileFor: initialData?.profileFor || 'Self',
-    fullName: initialData?.name || 'Dr. Ananya Kulkarni',
+    fullName: initialData?.name || initialData?.fullName || '',
     email: initialData?.email || '',
     password: '',
     confirmPassword: '',
     registerId: initialData?.registerId || '',
-    mobile: initialData?.mobile || '9876543210',
+    mobile: initialData?.mobile || '',
     gender: initialData?.gender || 'Female',
-    dob: initialData?.dob || '1998-06-15',
-    height: initialData?.height || "5'6\" (168 cm)",
+    dob: initialData?.dob || '',
+    height: initialData?.height || "5'5\" (165 cm)",
     religion: initialData?.religion || 'Hindu',
-    motherTongue: initialData?.motherTongue || 'Marathi',
-    caste: initialData?.caste || 'Brahmin - Deshastha',
-    gothra: initialData?.gothra || 'Kashyap',
+    motherTongue: initialData?.motherTongue || 'Malayalam',
+    caste: initialData?.caste || '',
+    gothra: initialData?.gothra || '',
     maritalStatus: initialData?.maritalStatus || 'Never Married',
     skinColour: initialData?.skinColour || initialData?.complexion || 'Fair',
     bodyType: initialData?.bodyType || 'Average',
@@ -477,93 +478,90 @@ export default function RegistrationWizard({
     drinking: initialData?.drinking || 'Never',
 
     // Hobbies & Interests
-    hobbies: initialData?.hobbies || 'Classical Dance (Bharatnatyam), Reading, Gardening',
-    interests: initialData?.interests || 'Classical Music, Pediatric Health Camps, Organic Cooking',
-    sportsFitness: initialData?.sportsFitness || 'Yoga, Badminton & Weekend Walks',
+    hobbies: initialData?.hobbies || '',
+    interests: initialData?.interests || '',
+    sportsFitness: initialData?.sportsFitness || '',
 
     // Step 2: Education & Career
-    highestQualification: initialData?.highestQualification || 'MBBS',
-    educationCategory: initialData?.educationCategory || 'Medical / Healthcare',
-    institute: initialData?.institute || 'KEM Hospital & Seth GS Medical College, Mumbai',
+    highestQualification: initialData?.highestQualification || '',
+    educationCategory: initialData?.educationCategory || '',
+    institute: initialData?.institute || '',
 
     // 12th Standard / HSC / Intermediate Details
-    twelfthSchool: initialData?.twelfthSchool || 'Fergusson Junior College, Pune',
-    twelfthBoard: initialData?.twelfthBoard || 'State Board (HSC / Intermediate / PUC)',
-    twelfthStream: initialData?.twelfthStream || 'Science (PCB - Pre-Medical)',
-    twelfthYear: initialData?.twelfthYear || '2016',
+    twelfthSchool: initialData?.twelfthSchool || '',
+    twelfthBoard: initialData?.twelfthBoard || '',
+    twelfthStream: initialData?.twelfthStream || '',
+    twelfthYear: initialData?.twelfthYear || '',
     twelfthPercentage: initialData?.twelfthPercentage || '',
 
     // 10th Standard / SSC / Matriculation Details
-    tenthSchool: initialData?.tenthSchool || 'St. Joseph Convent High School, Nashik',
-    tenthBoard: initialData?.tenthBoard || 'State Board (SSC / 10th)',
-    tenthYear: initialData?.tenthYear || '2014',
+    tenthSchool: initialData?.tenthSchool || '',
+    tenthBoard: initialData?.tenthBoard || '',
+    tenthYear: initialData?.tenthYear || '',
     tenthPercentage: initialData?.tenthPercentage || '',
 
-    employedIn: initialData?.employedIn || 'Private Sector',
-    designation: initialData?.designation || 'Senior Pediatric Specialist',
-    company: initialData?.company || 'Apollo Children’s Hospital & Private Clinic',
-    jobLocation: initialData?.jobLocation || initialData?.jobPlace || initialData?.workLocation || 'Mumbai / Nashik',
-    jobPlace: initialData?.jobLocation || initialData?.jobPlace || initialData?.workLocation || 'Mumbai / Nashik',
-    workLocationType: initialData?.workLocationType || 'On-site / Hospital',
-    annualIncome: initialData?.annualIncome || '₹ 25 - 40 LPA',
+    employedIn: initialData?.employedIn || '',
+    designation: initialData?.designation || '',
+    company: initialData?.company || '',
+    jobLocation: initialData?.jobLocation || initialData?.jobPlace || initialData?.workLocation || '',
+    jobPlace: initialData?.jobLocation || initialData?.jobPlace || initialData?.workLocation || '',
+    workLocationType: initialData?.workLocationType || 'On-site',
+    annualIncome: initialData?.annualIncome || '',
 
     // Step 3: Location, Family & Vedic Astrology
-    state: initialData?.state || 'Maharashtra',
-    district: initialData?.district || 'Nashik',
-    city: initialData?.city || 'Nashik',
-    address: initialData?.address || 'Flat 402, Royal Palms, Near Mahatma Nagar',
-    pincode: initialData?.pincode || '422007',
-    nativePlace: initialData?.nativePlace || 'Pune / Nashik, Maharashtra',
-    familyType: initialData?.familyDetails?.type || 'Nuclear Family',
-    familyValues: initialData?.familyDetails?.values || 'Traditional yet Progressive',
-    familyFinancialStatus: initialData?.familyFinancialStatus || initialData?.familyDetails?.financialStatus || initialData?.familyStatus || 'Upper Middle Class',
-    familyStatus: initialData?.familyFinancialStatus || initialData?.familyDetails?.financialStatus || initialData?.familyStatus || 'Upper Middle Class',
-    familyIncome: initialData?.familyIncome || initialData?.familyDetails?.familyIncome || '₹ 20 - 50 LPA',
-    familyAffluence: initialData?.familyAffluence || 'Upper Middle Class',
+    state: initialData?.state || 'Kerala',
+    district: initialData?.district || '',
+    city: initialData?.city || '',
+    address: initialData?.address || '',
+    pincode: initialData?.pincode || '',
+    nativePlace: initialData?.nativePlace || '',
+    familyType: initialData?.familyDetails?.type || initialData?.familyType || 'Nuclear Family',
+    familyValues: initialData?.familyDetails?.values || initialData?.familyValues || 'Traditional yet Progressive',
+    familyFinancialStatus: initialData?.familyFinancialStatus || initialData?.familyDetails?.financialStatus || initialData?.familyStatus || 'Middle Class',
+    familyStatus: initialData?.familyFinancialStatus || initialData?.familyDetails?.financialStatus || initialData?.familyStatus || 'Middle Class',
+    familyIncome: initialData?.familyIncome || initialData?.familyDetails?.familyIncome || '',
+    familyAffluence: initialData?.familyAffluence || 'Middle Class',
     // Father
-    fatherName: initialData?.fatherName || 'Suresh Kulkarni',
-    fatherStatus: sanitizeParentStatus(initialData?.fatherStatus, 'Retired'),
-    fatherEducation: initialData?.fatherEducation || 'B.Tech / B.E',
-    fatherOccupation: initialData?.familyDetails?.father || 'Retired Civil Engineer (PWD Maharashtra)',
-    fatherMobile: initialData?.fatherMobile || initialData?.familyPhone || '9422018273',
-    fatherWhatsApp: initialData?.fatherWhatsApp || initialData?.fatherMobile || initialData?.familyPhone || '9422018273',
+    fatherName: initialData?.fatherName || '',
+    fatherStatus: sanitizeParentStatus(initialData?.fatherStatus, 'Employed'),
+    fatherEducation: initialData?.fatherEducation || '',
+    fatherOccupation: initialData?.fatherOccupation || initialData?.familyDetails?.father || '',
+    fatherMobile: initialData?.fatherMobile || initialData?.familyPhone || '',
+    fatherWhatsApp: initialData?.fatherWhatsApp || initialData?.fatherMobile || initialData?.familyPhone || '',
     // Mother
-    motherName: initialData?.motherName || 'Sujata Kulkarni',
+    motherName: initialData?.motherName || '',
     motherStatus: sanitizeParentStatus(initialData?.motherStatus, 'Homemaker'),
-    motherEducation: initialData?.motherEducation || 'B.A / M.A',
-    motherOccupation: initialData?.familyDetails?.mother || 'High School Principal (Nashik)',
-    motherMobile: initialData?.motherMobile || '9422018274',
-    motherWhatsApp: initialData?.motherWhatsApp || initialData?.motherMobile || '9422018274',
-    familyPhone: initialData?.familyPhone || initialData?.fatherMobile || '9422018273',
+    motherEducation: initialData?.motherEducation || '',
+    motherOccupation: initialData?.motherOccupation || initialData?.familyDetails?.mother || '',
+    motherMobile: initialData?.motherMobile || '',
+    motherWhatsApp: initialData?.motherWhatsApp || initialData?.motherMobile || '',
+    familyPhone: initialData?.familyPhone || initialData?.fatherMobile || '',
     // Siblings — array of sibling objects
-    siblings: initialData?.siblings || [
-      { name: 'Rahul Kulkarni', relation: 'Elder Brother', maritalStatus: 'Married', education: 'B.Arch (Architecture)', profession: 'Architect (Private Firm, Pune)' }
-    ],
-    siblingsDetails: initialData?.familyDetails?.siblings || '1 Elder Brother (Married, Architect)',
+    siblings: initialData?.siblings || [],
+    siblingsDetails: initialData?.siblingsDetails || initialData?.familyDetails?.siblings || '',
     kundaliMatch: initialData?.kundaliMatch || 'Yes, Gunas Match Preferred',
-    rashi: initialData?.astronomy?.rashi || 'Kanya (Virgo)',
-    nakshatra: initialData?.astronomy?.nakshatra || 'Hasta',
+    rashi: initialData?.astronomy?.rashi || '',
+    nakshatra: initialData?.astronomy?.nakshatra || '',
     manglik: initialData?.manglik || 'Non-Manglik',
 
     // Step 4: Partner Preferences, Bio & Verified Photo
-    prefAgeMin: initialData?.prefAgeMin || 26,
-    prefAgeMax: initialData?.prefAgeMax || 32,
-    prefHeight: initialData?.prefHeight || "5'7\" to 6'2\"",
-    prefSkinTone: initialData?.prefSkinTone || 'Fair / Wheatish / Any Tone',
-    prefBodyType: initialData?.prefBodyType || 'Doesn\'t Matter / Any Body Type',
+    prefAgeMin: initialData?.prefAgeMin || 24,
+    prefAgeMax: initialData?.prefAgeMax || 30,
+    prefHeight: initialData?.prefHeight || "5'2\" to 6'0\"",
+    prefSkinTone: initialData?.prefSkinTone || 'Any Complexion',
+    prefBodyType: initialData?.prefBodyType || 'Any Body Type',
     prefMaritalStatus: initialData?.prefMaritalStatus || 'Never Married Only',
-    prefEducation: initialData?.prefEducation || 'Doctor, Engineer, CA, MBA, Civil Services',
-    prefProfession: initialData?.prefProfession || 'Working Professional Preferred',
-    prefIncome: initialData?.prefIncome || '₹ 25 LPA+',
-    prefWorkLocation: initialData?.prefWorkLocation || 'Same City or Flexible to Relocate',
-    prefRegion: initialData?.prefRegion || 'Same District & State Preferred',
-    prefMotherTongue: initialData?.prefMotherTongue || 'Open to All Communities',
-    prefDiet: initialData?.prefDiet || 'Vegetarian / Eggetarian',
+    prefEducation: initialData?.prefEducation || '',
+    prefProfession: initialData?.prefProfession || '',
+    prefIncome: initialData?.prefIncome || '',
+    prefWorkLocation: initialData?.prefWorkLocation || '',
+    prefRegion: initialData?.prefRegion || '',
+    prefMotherTongue: initialData?.prefMotherTongue || 'Malayalam',
+    prefDiet: initialData?.prefDiet || 'Doesn\'t Matter',
     prefManglik: initialData?.prefManglik || 'Doesn’t Matter',
     prefTraits: initialData?.prefTraits || [
       'Family-Oriented',
-      'Mutual Respect',
-      'Intellectual Conversations'
+      'Mutual Respect'
     ],
     aboutBio: initialData?.about || initialData?.aboutBio || '',
     singlePhotos: initialData?.singlePhotos?.length
@@ -580,10 +578,57 @@ export default function RegistrationWizard({
 
   const [errors, setErrors] = useState({});
 
+  useEffect(() => {
+    if (initialData?.mobile) {
+      setFormData(prev => ({
+        ...prev,
+        mobile: initialData.mobile,
+        fullName: prev.fullName || initialData?.name || initialData?.fullName || '',
+        governmentIdVerified: initialData?.governmentIdVerified ?? prev.governmentIdVerified
+      }));
+    }
+  }, [initialData]);
+
   // Dynamic cities and districts for chosen state
   const selectedStateObj = STATES_AND_CITIES.find(s => s.state === formData.state) || STATES_AND_CITIES[0];
   const availableCities = selectedStateObj?.cities || [];
   const availableDistricts = Array.from(new Set(availableCities.map(c => c.district).filter(Boolean))).sort();
+
+  // State for user custom-added towns
+  const [customTowns, setCustomTowns] = useState(() => {
+    try {
+      const saved = localStorage.getItem('i4u_custom_towns');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [isCustomTownMode, setIsCustomTownMode] = useState(false);
+
+  // Available towns specifically filtered by chosen formData.district
+  const availableTownsForDistrict = useMemo(() => {
+    let baseTowns = [];
+    if (formData.district) {
+      baseTowns = availableCities
+        .filter(c => c.district === formData.district)
+        .map(c => c.name);
+    }
+    if (baseTowns.length === 0) {
+      baseTowns = availableCities.map(c => c.name);
+    }
+
+    // Custom towns added for this district
+    const customForDistrict = customTowns
+      .filter(ct => !ct.district || ct.district === formData.district)
+      .map(ct => ct.name);
+
+    // If current city is already set and not in list, include it
+    if (formData.city && !baseTowns.includes(formData.city) && !customForDistrict.includes(formData.city)) {
+      customForDistrict.push(formData.city);
+    }
+
+    return Array.from(new Set([...customForDistrict, ...baseTowns])).filter(Boolean).sort();
+  }, [availableCities, formData.district, formData.city, customTowns]);
 
   const stateOptions = useMemo(() => {
     return STATES_AND_CITIES.map(st => st.state);
@@ -614,21 +659,42 @@ export default function RegistrationWizard({
 
   const handleDistrictChange = (e) => {
     const newDistrict = e?.target?.value !== undefined ? e.target.value : e;
-    const matchedCity = availableCities.find(c => c.district === newDistrict) || availableCities[0];
+    const townsInNewDist = availableCities.filter(c => c.district === newDistrict);
+    const currentCityStillValid = townsInNewDist.some(c => c.name === formData.city);
     setFormData(prev => ({
       ...prev,
       district: newDistrict,
-      city: matchedCity?.name || ''
+      city: currentCityStillValid ? prev.city : (townsInNewDist[0]?.name || '')
     }));
   };
 
   const handleCityChange = (e) => {
     const cityName = e?.target?.value !== undefined ? e.target.value : e;
-    const cityObj = availableCities.find(c => c.name === cityName);
+    const trimmed = typeof cityName === 'string' ? cityName.trim() : cityName;
+    const cityObj = availableCities.find(c => c.name === trimmed);
     setFormData(prev => ({
       ...prev,
-      city: cityName,
+      city: trimmed,
       district: cityObj?.district || prev.district
+    }));
+  };
+
+  const handleAddCustomTown = (newTownName) => {
+    const trimmed = (newTownName || '').trim();
+    if (!trimmed) return;
+    setCustomTowns(prev => {
+      if (prev.some(t => t.name.toLowerCase() === trimmed.toLowerCase() && t.district === formData.district)) {
+        return prev;
+      }
+      const updated = [{ name: trimmed, district: formData.district, state: formData.state }, ...prev];
+      try {
+        localStorage.setItem('i4u_custom_towns', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    setFormData(prev => ({
+      ...prev,
+      city: trimmed
     }));
   };
 
@@ -717,13 +783,17 @@ export default function RegistrationWizard({
     }));
   };
 
-  const handleSingleFileUpload = (e) => {
+  const handleSingleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        const uploadedUrl = event.target.result;
+    try {
+      const result = await optimizeImageFile(file, {
+        maxDimension: 1200,
+        targetMaxKB: 180,
+        initialQuality: 0.85
+      });
+      if (result?.dataUrl) {
+        const uploadedUrl = result.dataUrl;
         // Prioritize the user's real uploaded photo as primary photo
         const filtered = (formData.singlePhotos || []).filter(p => !p.includes('images.unsplash.com'));
         const updated = [uploadedUrl, ...filtered].slice(0, 5);
@@ -733,9 +803,11 @@ export default function RegistrationWizard({
           photo: uploadedUrl
         }));
       }
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    } catch (err) {
+      console.error("Registration photo upload error:", err);
+    } finally {
+      e.target.value = '';
+    }
   };
 
   // Family Photos (Max 2) Handlers
@@ -759,21 +831,27 @@ export default function RegistrationWizard({
     }));
   };
 
-  const handleFamilyFileUpload = (e) => {
+  const handleFamilyFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (formData.familyPhotos.length >= 2) {
       alert("Maximum 2 family photos allowed.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        handleAddFamilyPhoto(event.target.result);
+    try {
+      const result = await optimizeImageFile(file, {
+        maxDimension: 1200,
+        targetMaxKB: 180,
+        initialQuality: 0.85
+      });
+      if (result?.dataUrl) {
+        handleAddFamilyPhoto(result.dataUrl);
       }
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    } catch (err) {
+      console.error("Registration family photo upload error:", err);
+    } finally {
+      e.target.value = '';
+    }
   };
 
 
@@ -801,9 +879,9 @@ export default function RegistrationWizard({
       const cleanName = sanitizeInput(formData.fullName, { maxLength: 100 });
       if (!cleanName) errs.fullName = 'Full Name is required';
       if (!formData.dob) errs.dob = 'Date of birth is required';
-      const cleanMobile = sanitizePhone(formData.mobile);
+      const cleanMobile = sanitizePhone(formData.mobile || initialData?.mobile);
       if (!cleanMobile) {
-        errs.mobile = 'Please enter a valid 10-digit Indian mobile number (starts with 6-9)';
+        errs.mobile = 'Verified mobile number is required.';
       }
       if (formData.email && !formData.email.includes('@')) {
         errs.email = 'Please enter a valid email address';
@@ -998,7 +1076,7 @@ export default function RegistrationWizard({
                   <label className="block font-semibold text-slate-700 mb-1">Full Name *</label>
                   <input 
                     type="text"
-                    placeholder="e.g. Dr. Ananya Kulkarni"
+                    placeholder="Enter Full Name"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                     className={`w-full px-3 py-2 rounded-xl border text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none ${
@@ -1010,27 +1088,18 @@ export default function RegistrationWizard({
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Mobile Number *
+                    Verified Mobile Number
                   </label>
-                  <div className={`flex rounded-xl border overflow-hidden transition-all ${
-                    errors.mobile ? 'border-rose-400 bg-rose-50' : 'border-slate-300 bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#D4AF37]'
-                  }`}>
-                    <span className="px-2.5 py-2 bg-slate-100 text-slate-600 font-semibold text-xs border-r border-slate-200 flex items-center gap-1">
+                  <div className="flex items-center justify-between px-3 py-2 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-xs h-[38px]">
+                    <span className="flex items-center gap-1.5 font-bold text-slate-800">
                       <span>🇮🇳</span>
-                      <span>+91</span>
+                      <span>+91 {formData.mobile || initialData?.mobile || 'Verified'}</span>
                     </span>
-                    <input 
-                      type="tel"
-                      maxLength={10}
-                      placeholder="Enter 10-digit mobile"
-                      value={formData.mobile}
-                      onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/\D/g, '') })}
-                      className="flex-1 px-3 py-2 text-xs focus:outline-none bg-transparent font-medium"
-                    />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-300">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Verified ✓</span>
+                    </span>
                   </div>
-                  {errors.mobile && (
-                    <p className="text-rose-500 text-[10px] mt-0.5">{errors.mobile}</p>
-                  )}
                 </div>
 
                 <div>
@@ -2066,15 +2135,74 @@ export default function RegistrationWizard({
 
                 {/* City / Town */}
                 <div>
-                  <SearchableSelect 
-                    label="City / Town *"
-                    badge="Town / City"
-                    value={formData.city}
-                    onChange={handleCityChange}
-                    options={availableCities.map(c => c.name)}
-                    placeholder="Select City / Town"
-                    searchPlaceholder="Search City / Town..."
-                  />
+                  {isCustomTownMode ? (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="font-semibold text-slate-700 text-xs">
+                          City / Town (Type Your Town) *
+                        </label>
+                        <span className="text-[10px] font-bold text-[#8C6D1F] bg-amber-50 px-2 py-0.2 rounded-full border border-amber-200">
+                          Custom Town
+                        </span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <input 
+                          type="text"
+                          placeholder={formData.district ? `Enter town name in ${formData.district}...` : "Enter your town or city name..."}
+                          value={formData.city}
+                          onChange={(e) => handleCityChange(e.target.value)}
+                          className="flex-1 px-3 py-2 rounded-xl border border-amber-300 bg-amber-50/50 focus:bg-white focus:ring-2 focus:ring-[#D4AF37] focus:outline-none text-xs font-semibold text-slate-900 shadow-2xs"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (formData.city) handleAddCustomTown(formData.city);
+                            setIsCustomTownMode(false);
+                          }}
+                          className="px-3 py-2 bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] text-xs font-bold rounded-xl shadow-xs hover:shadow transition-all cursor-pointer shrink-0"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <SearchableSelect 
+                      label="City / Town *"
+                      badge="Town / City"
+                      value={formData.city}
+                      onChange={handleCityChange}
+                      options={availableTownsForDistrict}
+                      placeholder={formData.district ? `Select Town in ${formData.district}` : "Select City / Town"}
+                      searchPlaceholder={formData.district ? `Search town in ${formData.district} or type to add...` : "Search City / Town..."}
+                      allowCustom={true}
+                      customActionText="Add"
+                      onAddCustom={handleAddCustomTown}
+                    />
+                  )}
+
+                  {/* Helper row with town count & switch to manual typing */}
+                  <div className="flex items-center justify-between mt-1 px-0.5">
+                    <span className="text-[10px] text-slate-400 truncate max-w-[170px]">
+                      {formData.district 
+                        ? `${availableTownsForDistrict.length} towns in ${formData.district}` 
+                        : 'Select district for local towns'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomTownMode(!isCustomTownMode)}
+                      className="text-[10px] font-bold text-[#8C6D1F] hover:text-[#0B192C] hover:underline cursor-pointer inline-flex items-center gap-1 shrink-0"
+                    >
+                      {isCustomTownMode ? (
+                        <span>← Select from list</span>
+                      ) : (
+                        <>
+                          <Plus className="w-2.5 h-2.5 text-[#D4AF37]" />
+                          <span>Not in list? Type town</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Pincode */}
