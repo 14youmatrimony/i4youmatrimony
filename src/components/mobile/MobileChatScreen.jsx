@@ -11,8 +11,11 @@ import {
   MessageCircle,
   MessageSquareOff,
   Lock,
-  Crown
+  Crown,
+  Smile
 } from 'lucide-react';
+
+const POPULAR_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '😊', '🌺', '🌟', '💫', '🕊️', '❤️', '🌹'];
 import { sanitizeChatMessage } from '../../utils/security';
 import { getAppMode } from '../../config/appConfig';
 import { useTheme } from '../../context/ThemeContext';
@@ -39,6 +42,7 @@ export default function MobileChatScreen({
   const [inConversation, setInConversation] = useState(isDirectChatOpen);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
@@ -402,18 +406,52 @@ export default function MobileChatScreen({
           </div>
         ) : (
           <div 
-            className={`px-3 pt-2.5 pb-2.5 sm:pb-3 shrink-0 border-t transition-colors ${
+            className={`px-3 pt-2 pb-2 sm:pb-3 shrink-0 border-t transition-colors ${
               isDarkMode ? 'bg-[#0B192C] border-white/10' : 'bg-white border-slate-200'
             }`}
             style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}
           >
+            {/* Quick Emojis Drawer */}
+            {showEmojiPicker && (
+              <div className={`mb-2 p-1.5 rounded-xl border flex items-center gap-1 overflow-x-auto scrollbar-none animate-in fade-in ${
+                isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <span className="text-[10px] font-bold text-slate-400 pl-1 pr-1.5 shrink-0 flex items-center gap-0.5 select-none">
+                  <Smile className="w-3 h-3 text-[#DFB76C]" /> Emojis:
+                </span>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {POPULAR_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setInputText(prev => prev + emoji)}
+                      className="w-7 h-7 flex items-center justify-center text-sm rounded-lg hover:bg-white/10 active:scale-90 transition-all cursor-pointer select-none"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-1.5"
             >
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(prev => !prev)}
+                className={`p-2 rounded-xl transition-colors cursor-pointer shrink-0 ${
+                  showEmojiPicker ? 'bg-amber-400/20 text-[#DFB76C]' : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Add Emoji"
+              >
+                <Smile className="w-4 h-4" />
+              </button>
+
               <input 
                 type="text"
                 value={inputText}
@@ -428,7 +466,7 @@ export default function MobileChatScreen({
               <button
                 type="submit"
                 disabled={!inputText.trim()}
-                className="p-2.5 rounded-xl bg-[#D4AF37] text-[#0B192C] disabled:opacity-40 cursor-pointer active:scale-95 transition-transform"
+                className="p-2.5 rounded-xl bg-[#D4AF37] text-[#0B192C] disabled:opacity-40 cursor-pointer active:scale-95 transition-transform shrink-0"
                 style={{
                   backgroundColor: accent?.primary || '#D4AF37',
                   color: accent?.badgeText === 'text-white' ? '#FFFFFF' : '#0B192C'

@@ -7,8 +7,11 @@ import {
   ShieldCheck, 
   MessageSquare,
   Lock,
-  MapPin
+  MapPin,
+  Smile
 } from 'lucide-react';
+
+const POPULAR_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '😊', '🌺', '🌟', '💫', '🕊️', '❤️', '🌹'];
 
 export default function SendInterestModal({
   isOpen,
@@ -41,6 +44,29 @@ export default function SendInterestModal({
     if (!cleanMsg) return;
     onSendInterest(candidate.id, cleanMsg);
     onClose();
+  };
+
+  const handleAddEmoji = (emoji) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      if (message.length + emoji.length <= maxLength) {
+        setMessage((prev) => prev + emoji);
+      }
+      return;
+    }
+
+    const start = textarea.selectionStart ?? message.length;
+    const end = textarea.selectionEnd ?? message.length;
+    const newText = message.slice(0, start) + emoji + message.slice(end);
+
+    if (newText.length <= maxLength) {
+      setMessage(newText);
+      setTimeout(() => {
+        textarea.focus();
+        const nextPos = start + emoji.length;
+        textarea.setSelectionRange(nextPos, nextPos);
+      }, 10);
+    }
   };
 
   return (
@@ -128,6 +154,27 @@ export default function SendInterestModal({
               placeholder="Type your personal message here..."
               className="w-full p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#D4AF37] focus:ring-4 focus:ring-[#DFB76C]/20 shadow-inner leading-relaxed transition-all resize-none"
             />
+
+            {/* Quick Emoji Bar */}
+            <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-slate-100/90 border border-slate-200 overflow-x-auto scrollbar-none">
+              <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 pl-1.5 pr-2 border-r border-slate-300/80 shrink-0 select-none">
+                <Smile className="w-3.5 h-3.5 text-[#8C6D1F]" />
+                <span>Emojis:</span>
+              </div>
+              <div className="flex items-center gap-0.5 shrink-0">
+                {POPULAR_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => handleAddEmoji(emoji)}
+                    className="w-7 h-7 flex items-center justify-center text-sm rounded-lg hover:bg-white hover:shadow-xs active:scale-90 transition-all cursor-pointer hover:border hover:border-amber-200 select-none"
+                    title={`Add ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <p className="text-[11px] text-slate-500">
               Type what you'd like to share with {candidate.name} and their family.

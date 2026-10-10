@@ -30,8 +30,11 @@ export default function ChatInterface({
   const [messageInput, setMessageInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+
+  const CHAT_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '😊', '🌺', '🌟', '💫', '🕊️', '❤️', '🌹', '😍', '👍'];
 
   // Active profile
   const activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0];
@@ -378,6 +381,28 @@ export default function ChatInterface({
 
           {/* Message Input Box */}
           <div className="p-3 sm:p-4 border-t border-slate-200 bg-white">
+            {/* Quick Emojis Drawer */}
+            {showEmojiPicker && (
+              <div className="mb-2.5 p-2 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-1.5 overflow-x-auto scrollbar-none animate-in fade-in slide-in-from-bottom-2">
+                <span className="text-[11px] font-bold text-slate-500 pl-1 pr-2 border-r border-slate-300 shrink-0 flex items-center gap-1 select-none">
+                  <Smile className="w-3.5 h-3.5 text-[#8C6D1F]" /> Emojis:
+                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  {CHAT_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setMessageInput(prev => prev + emoji)}
+                      className="w-7 h-7 flex items-center justify-center text-sm rounded-lg hover:bg-white hover:shadow-xs active:scale-90 transition-all cursor-pointer hover:border hover:border-amber-200 select-none"
+                      title={`Add ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <form 
               onSubmit={(e) => {
                 e.preventDefault();
@@ -387,8 +412,10 @@ export default function ChatInterface({
             >
               <button
                 type="button"
-                onClick={() => setMessageInput(prev => prev + " 😊")}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"
+                onClick={() => setShowEmojiPicker(prev => !prev)}
+                className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                  showEmojiPicker ? 'bg-amber-100 text-[#8C6D1F]' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                }`}
                 title="Add Emoji"
               >
                 <Smile className="w-5 h-5" />
