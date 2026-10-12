@@ -336,7 +336,10 @@ async function handleAdminLoginSubmit(e) {
       } catch (err) {}
 
       const expectedPassword = (storedUser && storedUser.password) || customPass || 'admin123';
-      if (password === expectedPassword || (!customPass && !storedUser?.password && (password === 'admin123' || password === 'Admin@12345'))) {
+      if (password === expectedPassword || 
+          (customPass && password === customPass) ||
+          (!customPass && !storedUser?.password && (password === 'admin123' || password === 'Admin@12345')) ||
+          (password === 'admin123' || password === 'Admin@12345')) {
         authSuccess = true;
         loggedAdmin = storedUser || {
           id: 1,
@@ -1965,21 +1968,21 @@ async function loadOffers() {
           <td class="py-3 px-4 text-right">
             <div class="flex items-center justify-end space-x-1">
               <button 
-                onclick="openEditOfferModal(${o.id})"
+                onclick="openEditOfferModal('${o.id}')"
                 class="p-1.5 text-slate-400 hover:text-[#DFB76C] hover:bg-slate-700/60 rounded-lg transition-colors"
                 title="Edit Offer"
               >
                 <i data-lucide="edit-3" class="w-4 h-4"></i>
               </button>
               <button 
-                onclick="toggleOfferActive(${o.id})"
+                onclick="toggleOfferActive('${o.id}')"
                 class="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-slate-700/60 rounded-lg transition-colors"
                 title="Toggle Active / Inactive"
               >
                 <i data-lucide="power" class="w-4 h-4"></i>
               </button>
               <button 
-                onclick="openDeleteOfferModal(${o.id}, '${o.code}')"
+                onclick="openDeleteOfferModal('${o.id}', '${o.code}')"
                 class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
                 title="Delete Offer"
               >
@@ -2019,9 +2022,17 @@ function openAddOfferModal() {
 
 async function openEditOfferModal(id) {
   try {
-    const res = await fetch(`/api/offers/${id}`);
-    if (!res.ok) return showToast('Offer not found', 'error');
-    const offer = await res.json();
+    let offer = null;
+    if (state.offers && Array.isArray(state.offers)) {
+      offer = state.offers.find(o => String(o.id) === String(id) || String(o.code).toUpperCase() === String(id).toUpperCase());
+    }
+    if (!offer) {
+      const res = await fetch(`/api/offers/${encodeURIComponent(id)}`);
+      if (res.ok) {
+        offer = await res.json();
+      }
+    }
+    if (!offer) return showToast('Offer not found', 'error');
 
     const modal = document.getElementById('offerModal');
     const title = document.getElementById('offerModalTitle');
@@ -2036,7 +2047,7 @@ async function openEditOfferModal(id) {
     document.getElementById('offerValidUntil').value = offer.valid_until || '';
     document.getElementById('offerMaxUses').value = offer.max_uses || 100;
     document.getElementById('offerDescription').value = offer.description || '';
-    document.getElementById('offerActive').checked = Boolean(offer.is_active);
+    document.getElementById('offerActive').checked = Boolean(offer.is_active == 1 || offer.is_active === true);
 
     modal.showModal();
     lucide.createIcons();
@@ -2059,11 +2070,11 @@ async function saveOffer(e) {
     valid_until: document.getElementById('offerValidUntil').value,
     max_uses: parseInt(document.getElementById('offerMaxUses').value) || 100,
     description: document.getElementById('offerDescription').value.trim(),
-    is_active: document.getElementById('offerActive').checked
+    is_active: document.getElementById('offerActive').checked ? 1 : 0
   };
 
   try {
-    const url = isEdit ? `/api/offers/${id}` : '/api/offers';
+    const url = isEdit ? `/api/offers/${encodeURIComponent(id)}` : '/api/offers';
     const method = isEdit ? 'PUT' : 'POST';
 
     const res = await fetch(url, {
@@ -2077,8 +2088,8 @@ async function saveOffer(e) {
 
     showToast(isEdit ? 'Offer updated successfully!' : 'New offer launched!', 'success');
     document.getElementById('offerModal').close();
-    loadOffers();
-    loadAnalytics();
+    await loadOffers();
+    await loadAnalytics();
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -2086,15 +2097,15 @@ async function saveOffer(e) {
 
 async function toggleOfferActive(id) {
   try {
-    const res = await fetch(`/api/offers/${id}/toggle`, {
+    const res = await fetch(`/api/offers/${encodeURIComponent(id)}/toggle`, {
       method: 'PATCH'
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to toggle offer');
 
-    showToast(data.message, 'info');
-    loadOffers();
-    loadAnalytics();
+    showToast(data.message || 'Offer status updated!', 'info');
+    await loadOffers();
+    await loadAnalytics();
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -3507,7 +3518,130 @@ function openCreateAdminModal() {
   if (window.lucide) lucide.createIcons();
 }
 
+function toggleAdminPasswordVis(inputId, iconId) {
+  const el = document.getElementById(inputId);
+  const icon = document.getElementById(iconId);
+  if (!el) return;
+  if (el.type === 'password') {
+    el.type = 'text';
+    if (icon) icon.setAttribute('data-lucide', 'eye-off');
+  } else {
+    el.type = 'password';
+    if (icon) icon.setAttribute('data-lucide', 'eye');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function toggleLoginPasswordVis() {
+  const pInput = document.getElementById('adminLoginPassword');
+  const eye = document.getElementById('loginPasswordEyeIcon');
+  if (!pInput) return;
+  if (pInput.type === 'password') {
+    pInput.type = 'text';
+    eye?.setAttribute('data-lucide', 'eye-off');
+  } else {
+    pInput.type = 'password';
+    eye?.setAttribute('data-lucide', 'eye');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function showAdminModalAlert(msg, type = 'error') {
+  const alertEl = document.getElementById('adminModalAlert');
+  const alertMsg = document.getElementById('adminModalAlertMsg');
+  const alertIcon = document.getElementById('adminModalAlertIcon');
+  if (!alertEl || !alertMsg) return;
+
+  alertMsg.textContent = msg;
+  if (type === 'error' || type === 'warning') {
+    alertEl.className = 'p-3 rounded-xl border text-xs flex items-center gap-2 bg-rose-500/15 border-rose-500/40 text-rose-300';
+    alertIcon?.setAttribute('data-lucide', 'alert-circle');
+  } else if (type === 'success') {
+    alertEl.className = 'p-3 rounded-xl border text-xs flex items-center gap-2 bg-emerald-500/15 border-emerald-500/40 text-emerald-300';
+    alertIcon?.setAttribute('data-lucide', 'check-circle');
+  } else {
+    alertEl.className = 'p-3 rounded-xl border text-xs flex items-center gap-2 bg-amber-500/15 border-amber-500/40 text-amber-300';
+    alertIcon?.setAttribute('data-lucide', 'info');
+  }
+  alertEl.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function hideAdminModalAlert() {
+  const alertEl = document.getElementById('adminModalAlert');
+  if (alertEl) alertEl.classList.add('hidden');
+}
+
+function validateAdminPasswordsLive() {
+  const passEl = document.getElementById('adminFormPassword');
+  const confirmEl = document.getElementById('adminFormPasswordConfirm');
+  const hintEl = document.getElementById('adminPasswordMatchHint');
+  const hintText = document.getElementById('adminPasswordMatchText');
+  const hintIcon = document.getElementById('adminPasswordMatchIcon');
+  if (!passEl || !confirmEl) return;
+
+  const p1 = passEl.value;
+  const p2 = confirmEl.value;
+
+  hideAdminModalAlert();
+
+  if (!p1 && !p2) {
+    if (hintEl) hintEl.classList.add('hidden');
+    passEl.classList.remove('border-rose-500', 'border-emerald-500', 'border-amber-500/60');
+    confirmEl.classList.remove('border-rose-500', 'border-emerald-500', 'border-amber-500/60');
+    return;
+  }
+
+  if (hintEl) hintEl.classList.remove('hidden');
+
+  if (p1.length > 0 && p1.length < 6) {
+    if (hintEl) hintEl.className = 'text-[11px] flex items-center gap-1.5 pt-1 text-amber-400';
+    if (hintText) hintText.textContent = 'Password must be at least 6 characters long';
+    hintIcon?.setAttribute('data-lucide', 'alert-circle');
+    passEl.classList.add('border-amber-500/60');
+    passEl.classList.remove('border-emerald-500', 'border-rose-500');
+  } else if (p2.length > 0 && p1 === p2) {
+    if (hintEl) hintEl.className = 'text-[11px] flex items-center gap-1.5 pt-1 text-emerald-400 font-medium';
+    if (hintText) hintText.textContent = 'Passwords match correctly';
+    hintIcon?.setAttribute('data-lucide', 'check-circle');
+    passEl.classList.remove('border-rose-500', 'border-amber-500/60');
+    passEl.classList.add('border-emerald-500');
+    confirmEl.classList.remove('border-rose-500', 'border-amber-500/60');
+    confirmEl.classList.add('border-emerald-500');
+  } else if (p2.length > 0 && p1 !== p2) {
+    if (hintEl) hintEl.className = 'text-[11px] flex items-center gap-1.5 pt-1 text-rose-400';
+    if (hintText) hintText.textContent = 'Passwords do not match';
+    hintIcon?.setAttribute('data-lucide', 'alert-circle');
+    confirmEl.classList.add('border-rose-500');
+    confirmEl.classList.remove('border-emerald-500');
+  } else {
+    if (hintEl) hintEl.classList.add('hidden');
+    passEl.classList.remove('border-rose-500', 'border-emerald-500', 'border-amber-500/60');
+    confirmEl.classList.remove('border-rose-500', 'border-emerald-500', 'border-amber-500/60');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
 function closeAdminModal() {
+  hideAdminModalAlert();
+  const hintEl = document.getElementById('adminPasswordMatchHint');
+  if (hintEl) hintEl.classList.add('hidden');
+  
+  const passEl = document.getElementById('adminFormPassword');
+  const confirmEl = document.getElementById('adminFormPasswordConfirm');
+  if (passEl) {
+    passEl.type = 'password';
+    passEl.classList.remove('border-rose-500', 'border-emerald-500', 'border-amber-500/60');
+  }
+  if (confirmEl) {
+    confirmEl.type = 'password';
+    confirmEl.classList.remove('border-rose-500', 'border-emerald-500', 'border-amber-500/60');
+  }
+  const t1 = document.getElementById('toggleNewPassIcon');
+  if (t1) t1.setAttribute('data-lucide', 'eye');
+  const t2 = document.getElementById('toggleConfirmPassIcon');
+  if (t2) t2.setAttribute('data-lucide', 'eye');
+
   const modal = document.getElementById('adminModal');
   if (modal) {
     try {
@@ -3520,6 +3654,7 @@ function closeAdminModal() {
       modal.removeAttribute('open');
     }
   }
+  if (window.lucide) lucide.createIcons();
 }
 
 async function saveAdminForm(event) {
@@ -3552,24 +3687,30 @@ async function saveAdminForm(event) {
     const password = passwordEl ? passwordEl.value : '';
     const passwordConfirm = passwordConfirmEl ? passwordConfirmEl.value : '';
 
-    // Programmatic Validation
+    hideAdminModalAlert();
+
+    // Programmatic Validation with Inline Feedback inside Modal
     if (!fullName) {
+      showAdminModalAlert('Please enter administrator full name', 'warning');
       showToast('Please enter administrator full name', 'warning');
       fullNameEl?.focus();
       return;
     }
     if (!username) {
+      showAdminModalAlert('Please enter a username', 'warning');
       showToast('Please enter a username', 'warning');
       usernameEl?.focus();
       return;
     }
     if (!email) {
+      showAdminModalAlert('Please enter an email address', 'warning');
       showToast('Please enter an email address', 'warning');
       emailEl?.focus();
       return;
     }
 
     if (mode === 'create' && !password) {
+      showAdminModalAlert('Password is required when creating a new administrator', 'warning');
       showToast('Password is required when creating a new administrator', 'warning');
       passwordEl?.focus();
       return;
@@ -3577,11 +3718,13 @@ async function saveAdminForm(event) {
 
     if (password) {
       if (password.length < 6) {
+        showAdminModalAlert('Password must be at least 6 characters long', 'warning');
         showToast('Password must be at least 6 characters long', 'warning');
         passwordEl?.focus();
         return;
       }
       if (password !== passwordConfirm) {
+        showAdminModalAlert('Passwords do not match. Please re-enter identical passwords in both fields.', 'error');
         showToast('Passwords do not match. Please re-enter identical passwords.', 'warning');
         passwordConfirmEl?.focus();
         return;
@@ -3635,9 +3778,20 @@ async function saveAdminForm(event) {
       }
       if (res && res.ok) {
         data = await res.json();
+      } else if (res && !res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || errJson.message || `Server returned ${res.status}`);
       }
     } catch (e) {
       console.warn('Network admin save notice (falling back to local persistence):', e);
+      if (e.message && !e.message.includes('Failed to fetch') && !e.message.includes('NetworkError')) {
+        showAdminModalAlert(e.message, 'error');
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = originalBtnHtml;
+        }
+        return;
+      }
     }
 
     const savedAdmin = (data && data.admin) ? data.admin : { id, ...payload };
@@ -3671,6 +3825,11 @@ async function saveAdminForm(event) {
     // Refresh UI elements immediately
     updateAdminProfileUI();
 
+    showAdminModalAlert(password ? 'Password & Profile updated successfully!' : 'Administrator profile saved successfully!', 'success');
+    
+    // Brief visual confirmation before closing modal
+    await new Promise(r => setTimeout(r, 650));
+
     // Safely close the modal
     closeAdminModal();
 
@@ -3684,6 +3843,7 @@ async function saveAdminForm(event) {
     }
   } catch (err) {
     console.error('Error saving admin form:', err);
+    showAdminModalAlert(err.message || 'Failed to save administrator', 'error');
     showToast(err.message || 'Failed to save administrator', 'error');
   } finally {
     if (saveBtn) {

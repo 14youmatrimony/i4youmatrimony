@@ -88,6 +88,9 @@ export async function syncProfileToSupabase(userData) {
       verified: userData.verified ? 1 : 0,
       aadhaar_verified: userData.aadhaarVerified ? 1 : 0,
       govt_id_verified: userData.governmentIdVerified || userData.govt_id_verified ? 1 : 0,
+      selfie_verified: userData.selfieVerified ? 1 : 0,
+      selfie_photo: userData.selfiePhoto || null,
+      selfie_match_score: userData.selfieScore || null,
       aadhaar_status: userData.aadhaarStatus || userData.aadhaar_status || (userData.aadhaarVerified ? 'approved' : 'pending'),
       aadhaar_rejection_reason: userData.aadhaarRejectionReason || userData.aadhaar_rejection_reason || null,
       aadhaar_front_image: aadhaarFront || null,
@@ -104,10 +107,13 @@ export async function syncProfileToSupabase(userData) {
     };
 
     let { data, error } = await supabase.from('profiles').upsert([payload]);
-    if (error && (error.code === '42703' || error.message?.includes('register_id') || error.message?.includes('password'))) {
+    if (error && (error.code === '42703' || error.message?.includes('register_id') || error.message?.includes('password') || error.message?.includes('selfie'))) {
       console.warn('[Supabase Upsert] Custom column not yet in schema, retrying with standard columns:', error.message);
       delete payload.register_id;
       delete payload.password;
+      delete payload.selfie_verified;
+      delete payload.selfie_photo;
+      delete payload.selfie_match_score;
       const retryResult = await supabase.from('profiles').upsert([payload]);
       data = retryResult.data;
       error = retryResult.error;

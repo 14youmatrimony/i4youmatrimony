@@ -38,6 +38,7 @@ import DualRangeSlider from './common/DualRangeSlider';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '../utils/security';
 import { optimizeImageFile } from '../utils/imageOptimizer';
 import { registerWithRegisterId } from '../services/authService';
+import SelfieVerificationSection from './SelfieVerificationSection';
 import { STATES_AND_CITIES, getTownsForDistrict } from '../data/locationData';
 import { 
   ALL_INDIA_RELIGIONS, 
@@ -573,6 +574,9 @@ export default function RegistrationWizard({
       ? initialData.familyPhotos.slice(0, 2)
       : [],
     photo: initialData?.photo || '',
+    selfieVerified: initialData?.selfieVerified || false,
+    selfiePhoto: initialData?.selfiePhoto || '',
+    selfieScore: initialData?.selfieScore || null,
     governmentIdVerified: initialData?.governmentIdVerified ?? true
   });
 
@@ -800,8 +804,16 @@ export default function RegistrationWizard({
         setFormData(prev => ({
           ...prev,
           singlePhotos: updated,
-          photo: uploadedUrl
+          photo: uploadedUrl,
+          selfieVerified: false,
+          selfiePhoto: '',
+          selfieScore: null
         }));
+        setErrors(prev => {
+          const next = { ...prev };
+          delete next.selfie;
+          return next;
+        });
       }
     } catch (err) {
       console.error("Registration photo upload error:", err);
@@ -902,6 +914,13 @@ export default function RegistrationWizard({
     } else if (step === 3) {
       if (!formData.state) errs.state = 'State is required';
       if (!formData.city) errs.city = 'City is required';
+    } else if (step === 4) {
+      const hasPhoto = Boolean(formData.photo || (formData.singlePhotos && formData.singlePhotos.length > 0));
+      if (!hasPhoto) {
+        errs.photo = 'Please upload at least 1 portrait photo.';
+      } else if (!formData.selfieVerified) {
+        errs.selfie = 'Please complete AI Selfie Verification to confirm you are the authentic profile owner.';
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -1231,10 +1250,11 @@ export default function RegistrationWizard({
                 </div>
 
                 {/* Password */}
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Password * <span className="text-slate-400 font-normal">(Min 6 characters)</span>
-                  </label>
+                <div className="flex flex-col justify-start">
+                  <div className="flex items-center justify-between mb-1 h-5">
+                    <label className="font-semibold text-slate-700">Password *</label>
+                    <span className="text-slate-400 font-normal text-[10px] whitespace-nowrap">(Min 6 chars)</span>
+                  </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                       <Lock className="w-3.5 h-3.5 text-[#D4AF37]" />
@@ -1261,8 +1281,10 @@ export default function RegistrationWizard({
                 </div>
 
                 {/* Confirm Password */}
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Confirm Password *</label>
+                <div className="flex flex-col justify-start">
+                  <div className="flex items-center justify-between mb-1 h-5">
+                    <label className="font-semibold text-slate-700">Confirm Password *</label>
+                  </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                       <Lock className="w-3.5 h-3.5 text-[#D4AF37]" />
@@ -3207,6 +3229,44 @@ export default function RegistrationWizard({
                 </div>
               </div>
             </div>
+
+            {/* Photo Validation Error */}
+            {errors.photo && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-700 text-xs font-semibold">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{errors.photo}</span>
+              </div>
+            )}
+
+            {/* Card 4.5: AI Face & Selfie Verification */}
+            <SelfieVerificationSection
+              profilePhoto={formData.photo || (formData.singlePhotos && formData.singlePhotos[0])}
+              isVerified={formData.selfieVerified}
+              verifiedScore={formData.selfieScore}
+              verifiedSelfie={formData.selfiePhoto}
+              onVerificationComplete={({ verified, selfiePhoto, similarityScore }) => {
+                setFormData(prev => ({
+                  ...prev,
+                  selfieVerified: verified,
+                  selfiePhoto: selfiePhoto,
+                  selfieScore: similarityScore,
+                  governmentIdVerified: true
+                }));
+                setErrors(prev => {
+                  const next = { ...prev };
+                  delete next.selfie;
+                  return next;
+                });
+              }}
+            />
+
+            {/* Selfie Verification Validation Error */}
+            {errors.selfie && (
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-2 text-amber-900 text-xs font-semibold">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{errors.selfie}</span>
+              </div>
+            )}
 
             {/* Verification Trust Badge */}
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">

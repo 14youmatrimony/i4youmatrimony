@@ -121,6 +121,9 @@ export async function registerWithRegisterId(formData) {
     verified: 1,
     aadhaar_verified: 0,
     aadhaar_status: 'pending',
+    selfie_verified: formData.selfieVerified ? 1 : 0,
+    selfie_photo: formData.selfiePhoto || null,
+    selfie_match_score: formData.selfieScore || null,
     photo: publicPhotoUrl,
     photo_url: publicPhotoUrl,
     single_photos: Array.isArray(formData.singlePhotos) ? JSON.stringify(formData.singlePhotos) : (formData.single_photos || null),
@@ -180,6 +183,9 @@ export async function registerWithRegisterId(formData) {
     verified: true,
     mobileVerified: true,
     aadhaarVerified: false,
+    selfieVerified: Boolean(formData.selfieVerified),
+    selfiePhoto: formData.selfiePhoto || null,
+    selfieScore: formData.selfieScore || null,
     savedToSupabase
   };
 
