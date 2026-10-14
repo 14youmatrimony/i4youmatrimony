@@ -2,11 +2,11 @@
  * I 4 You Matrimonial - Real-time In-Browser Face Liveness Detection
  * 
  * Active Liveness Protocol:
- * 1. Center / Look Straight
- * 2. Turn Head Left ⬅️
- * 3. Turn Head Right ➡️
- * 4. Blink / Close Eyes 👁️‍🗨️
- * 5. Auto Capture Verified Frame 😊
+ * 1. Center / Look Straight (നേരെ നോക്കുക)
+ * 2. Turn Head Left (ഇടത്തോട്ട് തിരിക്കുക ⬅️)
+ * 3. Turn Head Right (വലത്തോട്ട് തിരിക്കുക ➡️)
+ * 4. Blink / Close Eyes (കണ്ണടച്ച് തുറക്കുക 👁️‍🗨️)
+ * 5. Auto Capture Verified Frame (സെൽഫി പകർത്തുന്നു 😊)
  * 
  * Zero-dependency, lightweight (160x160 processing at 15-20fps), cross-platform.
  */
@@ -16,45 +16,45 @@ export const LIVENESS_STEPS = [
     id: 'center',
     stepNumber: 1,
     titleEn: 'Look Straight',
-    titleMl: 'Look Straight',
+    titleMl: 'നേരെ നോക്കുക',
     instructionEn: 'Position your face in the oval and look straight ahead',
-    instructionMl: 'Position your face in the oval and look straight ahead',
+    instructionMl: 'മുഖം ഓവൽ ഫ്രെയിമിൽ വെച്ച് നേരെ നോക്കുക',
     minDurationMs: 800
   },
   {
     id: 'turn_left',
     stepNumber: 2,
     titleEn: 'Turn Face Left',
-    titleMl: 'Turn Face Left',
+    titleMl: 'ഇടത്തോട്ട് തിരിക്കുക',
     instructionEn: 'Turn your face slowly to the LEFT ⬅️',
-    instructionMl: 'Turn your face slowly to the LEFT ⬅️',
+    instructionMl: 'മുഖം പതുക്കെ ഇടത്തോട്ട് തിരിക്കുക ⬅️',
     minDurationMs: 400
   },
   {
     id: 'turn_right',
     stepNumber: 3,
     titleEn: 'Turn Face Right',
-    titleMl: 'Turn Face Right',
+    titleMl: 'വലത്തോട്ട് തിരിക്കുക',
     instructionEn: 'Turn your face slowly to the RIGHT ➡️',
-    instructionMl: 'Turn your face slowly to the RIGHT ➡️',
+    instructionMl: 'മുഖം പതുക്കെ വലത്തോട്ട് തിരിക്കുക ➡️',
     minDurationMs: 400
   },
   {
     id: 'blink',
     stepNumber: 4,
     titleEn: 'Blink / Close Eyes',
-    titleMl: 'Blink / Close Eyes',
+    titleMl: 'കണ്ണടച്ച് തുറക്കുക',
     instructionEn: 'Blink: Close your eyes and open them once 👁️‍🗨️',
-    instructionMl: 'Blink: Close your eyes and open them once 👁️‍🗨️',
+    instructionMl: 'കണ്ണുകൾ അടച്ച് തുറക്കുക 👁️‍🗨️',
     minDurationMs: 350
   },
   {
     id: 'capture',
     stepNumber: 5,
     titleEn: 'Capturing Selfie',
-    titleMl: 'Capturing Selfie',
+    titleMl: 'സെൽഫി പകർത്തുന്നു',
     instructionEn: 'Hold still, capturing authentic live selfie 😊',
-    instructionMl: 'Hold still, capturing authentic live selfie 😊',
+    instructionMl: 'അനങ്ങാതെ നിൽക്കുക, സെൽഫി പകർത്തുന്നു 😊',
     minDurationMs: 450
   }
 ];
@@ -93,8 +93,8 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
     return { 
       hasFace: false, 
       tracker, 
+      feedback: 'Waiting for camera feed...',
       feedbackEn: 'Waiting for camera feed...',
-      feedbackMl: 'Waiting for camera feed...',
       stepProgress: 0,
       completedSteps: tracker.completedSteps,
       isComplete: false
@@ -180,8 +180,8 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
     return {
       hasFace: false,
       tracker,
+      feedback: 'No face detected. Position yourself inside the oval.',
       feedbackEn: 'No face detected. Position yourself inside the oval.',
-      feedbackMl: 'No face detected. Position yourself inside the oval.',
       stepIndex: tracker.stepIndex,
       stepProgress: 0,
       completedSteps: tracker.completedSteps,
@@ -239,7 +239,6 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
   const timeInStep = now - tracker.stepStartTime;
   let stepJustFinished = false;
   let feedbackEn = currentStep.instructionEn;
-  let feedbackMl = currentStep.instructionMl;
 
   // -- STEP 1: Center & Look Straight
   if (currentStep.id === 'center') {
@@ -248,7 +247,6 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
       tracker.stableCenterFrames++;
       tracker.stepProgress = Math.min(100, Math.round((tracker.stableCenterFrames / 6) * 100));
       feedbackEn = 'Great! Looking straight...';
-      feedbackMl = 'Great! Looking straight...';
 
       if (tracker.stableCenterFrames >= 6 && timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
@@ -257,7 +255,6 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
       tracker.stableCenterFrames = Math.max(0, tracker.stableCenterFrames - 1);
       tracker.stepProgress = Math.max(0, tracker.stepProgress - 10);
       feedbackEn = 'Center your face inside the oval';
-      feedbackMl = 'Center your face inside the oval';
     }
   }
 
@@ -272,7 +269,6 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
       tracker.turnLeftFrames++;
       tracker.stepProgress = Math.min(100, Math.round((tracker.turnLeftFrames / 4) * 100));
       feedbackEn = 'Left turn confirmed! ✅';
-      feedbackMl = 'Left turn confirmed! ✅';
 
       if (tracker.turnLeftFrames >= 4 && timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
@@ -280,7 +276,6 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
     } else {
       tracker.stepProgress = Math.max(0, tracker.stepProgress - 6);
       feedbackEn = 'Turn your face slowly to the LEFT ⬅️';
-      feedbackMl = 'Turn your face slowly to the LEFT ⬅️';
     }
   }
 
@@ -295,7 +290,6 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
       tracker.turnRightFrames++;
       tracker.stepProgress = Math.min(100, Math.round((tracker.turnRightFrames / 4) * 100));
       feedbackEn = 'Right turn confirmed! ✅';
-      feedbackMl = 'Right turn confirmed! ✅';
 
       if (tracker.turnRightFrames >= 4 && timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
@@ -303,7 +297,6 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
     } else {
       tracker.stepProgress = Math.max(0, tracker.stepProgress - 6);
       feedbackEn = 'Turn your face slowly to the RIGHT ➡️';
-      feedbackMl = 'Turn your face slowly to the RIGHT ➡️';
     }
   }
 
@@ -321,22 +314,18 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
           tracker.blinkState = 'closed_detected';
           tracker.stepProgress = 50;
           feedbackEn = 'Eyes closed. Now open your eyes...';
-          feedbackMl = 'Eyes closed. Now open your eyes...';
         }
       } else {
         feedbackEn = 'Blink: Close your eyes and open them once 👁️‍🗨️';
-        feedbackMl = 'Blink: Close your eyes and open them once 👁️‍🗨️';
       }
     } else if (tracker.blinkState === 'closed_detected') {
       if (eyesAreOpen) {
         tracker.blinkState = 'opened_detected';
         tracker.stepProgress = 100;
         feedbackEn = 'Blink verified! ✅';
-        feedbackMl = 'Blink verified! ✅';
         stepJustFinished = true;
       } else {
         feedbackEn = 'Now open your eyes... 👁️';
-        feedbackMl = 'Now open your eyes... 👁️';
       }
     }
 
@@ -344,7 +333,6 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
     if (timeInStep > 5500 && tracker.blinkState === 'waiting_close') {
       stepJustFinished = true;
       feedbackEn = 'Eye check completed ✅';
-      feedbackMl = 'Eye check completed ✅';
     }
   }
 
@@ -354,7 +342,6 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
     if (isCentered) {
       tracker.stepProgress = 100;
       feedbackEn = 'Hold still, capturing selfie... 📸';
-      feedbackMl = 'Hold still, capturing selfie... 📸';
       if (timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
       }
@@ -385,7 +372,7 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
     stepProgress: tracker.stepProgress,
     completedSteps: new Set(tracker.completedSteps),
     isComplete: tracker.isComplete,
-    feedbackMl,
-    feedbackEn
+    feedback: feedbackEn,
+    feedbackEn: feedbackEn
   };
 }

@@ -17,17 +17,24 @@ export default class ErrorBoundary extends React.Component {
 
   handleReload = () => {
     this.setState({ hasError: false, error: null });
-    window.location.reload();
+    try {
+      if ('caches' in window) {
+        caches.keys().then(names => Promise.all(names.map(name => caches.delete(name))));
+      }
+    } catch (e) {}
+    window.location.href = `${window.location.origin}${window.location.pathname}?reload=${Date.now()}`;
   };
 
   handleResetApp = () => {
     try {
-      localStorage.removeItem('i4u_notifications');
-      localStorage.removeItem('i4u_conversations');
+      localStorage.clear();
       sessionStorage.clear();
+      if ('caches' in window) {
+        caches.keys().then(names => Promise.all(names.map(name => caches.delete(name))));
+      }
     } catch (e) {}
     this.setState({ hasError: false, error: null });
-    window.location.href = window.location.pathname;
+    window.location.href = `${window.location.origin}${window.location.pathname}?reset=${Date.now()}`;
   };
 
   render() {

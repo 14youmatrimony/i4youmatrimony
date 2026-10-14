@@ -180,10 +180,9 @@ export default function SelfieVerificationSection({
             const result = analyzeLivenessFrame(video, offscreenCanvasRef.current, prevTracker, isUserFacing);
 
             setFrameFeedback({
-              feedbackMl: result.feedbackMl || '',
-              feedbackEn: result.feedbackEn || '',
-              stepProgress: result.stepProgress || 0,
-              hasFace: Boolean(result.hasFace)
+              feedbackEn: result?.feedbackEn || result?.feedback || '',
+              stepProgress: result?.stepProgress || 0,
+              hasFace: Boolean(result?.hasFace)
             });
 
             // When all 4 challenges pass -> Capture frame!
