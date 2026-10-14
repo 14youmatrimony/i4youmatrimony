@@ -2926,10 +2926,22 @@ function openAddPlanModal() {
 
 async function openEditPlanModal(id) {
   try {
-    const res = await fetch(`/api/plans/${id}`);
-    if (!res.ok) return showToast('Plan not found', 'error');
-    const data = await res.json();
-    const plan = data.plan;
+    let plan = null;
+    try {
+      const res = await fetch(`/api/plans/${encodeURIComponent(id)}`);
+      if (res.ok) {
+        const data = await res.json();
+        plan = data.plan;
+      }
+    } catch (e) {
+      console.warn('[openEditPlanModal] API fetch notice, checking local state:', e);
+    }
+
+    if (!plan && Array.isArray(state.plans)) {
+      plan = state.plans.find(p => String(p.id).trim().toLowerCase() === String(id).trim().toLowerCase());
+    }
+
+    if (!plan) return showToast('Plan not found: ' + id, 'error');
 
     const modal = document.getElementById('planModal');
     const title = document.getElementById('planModalTitle');
@@ -2964,23 +2976,35 @@ async function openEditPlanModal(id) {
     document.getElementById('planSearchBoost').value = plan.search_boost || '1x Standard';
     document.getElementById('planPrivacyShield').value = plan.privacy_shield || 'Standard Public';
     document.getElementById('planSupportLevel').value = plan.support_level || 'Priority Chat & Email (24h)';
-    document.getElementById('planHasAdvisor').checked = Boolean(plan.has_advisor);
+    document.getElementById('planHasAdvisor').checked = Boolean(plan.has_advisor == 1 || plan.has_advisor === true);
 
     // Format features as line items (+ or -)
-    const features = plan.features_parsed || [];
-    const featureLines = features.map(f => {
-      const isInc = typeof f === 'object' ? f.included : true;
-      const text = typeof f === 'object' ? f.text : f;
+    let features = plan.features_parsed;
+    if (!features || !features.length) {
+      if (typeof plan.features === 'string') {
+        try { features = JSON.parse(plan.features); } catch (e) { features = []; }
+      } else if (Array.isArray(plan.features)) {
+        features = plan.features;
+      } else {
+        features = [];
+      }
+    }
+    const featureLines = (features || []).map(f => {
+      const isInc = typeof f === 'object' ? f.included !== false : true;
+      const text = typeof f === 'object' ? (f.text || '') : String(f);
       return `${isInc ? '+' : '-'} ${text}`;
     }).join('\n');
     document.getElementById('planFeatures').value = featureLines;
 
-    document.getElementById('planIsPopular').checked = Boolean(plan.is_popular);
-    document.getElementById('planActive').checked = Boolean(plan.is_active);
+    document.getElementById('planIsPopular').checked = Boolean(plan.is_popular == 1 || plan.is_popular === true);
+    document.getElementById('planActive').checked = Boolean(plan.is_active == 1 || plan.is_active === true);
 
     modal.showModal();
-    lucide.createIcons();
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      lucide.createIcons();
+    }
   } catch (err) {
+    console.error('Error in openEditPlanModal:', err);
     showToast('Failed to load plan details', 'error');
   }
 }
@@ -2988,7 +3012,12 @@ async function openEditPlanModal(id) {
 async function savePlan(e) {
   e.preventDefault();
   const isEdit = document.getElementById('planIsEdit').value === '1';
-  const planId = document.getElementById('planId').value.trim().toLowerCase().replace(/\s+/g, '_');
+  const idInput = document.getElementById('planId');
+  const planId = (idInput.value || '').trim().toLowerCase().replace(/\s+/g, '_');
+
+  if (!planId) {
+    return showToast('Plan identifier (key/slug) is required', 'error');
+  }
 
   // Parse feature lines
   const rawFeatures = document.getElementById('planFeatures').value.split('\n');
@@ -3007,16 +3036,16 @@ async function savePlan(e) {
     tagline: document.getElementById('planTagline').value.trim(),
     badge: document.getElementById('planBadge').value.trim() || null,
     color: document.getElementById('planColor').value,
-    contact_credits: parseInt(document.getElementById('planContactCredits').value) || 0,
-    sort_order: parseInt(document.getElementById('planSortOrder').value) || 1,
-    price_1m: parseInt(document.getElementById('planPrice1m').value) || 0,
-    offer_price_1m: parseInt(document.getElementById('planOfferPrice1m').value) || 0,
-    price_3m: parseInt(document.getElementById('planPrice3m').value) || 0,
-    offer_price_3m: parseInt(document.getElementById('planOfferPrice3m').value) || 0,
-    price_6m: parseInt(document.getElementById('planPrice6m').value) || 0,
-    offer_price_6m: parseInt(document.getElementById('planOfferPrice6m').value) || 0,
-    price_12m: parseInt(document.getElementById('planPrice12m').value) || 0,
-    offer_price_12m: parseInt(document.getElementById('planOfferPrice12m').value) || 0,
+    contact_credits: parseInt(document.getElementById('planContactCredits').value, 10) || 0,
+    sort_order: parseInt(document.getElementById('planSortOrder').value, 10) || 1,
+    price_1m: parseInt(document.getElementById('planPrice1m').value, 10) || 0,
+    offer_price_1m: parseInt(document.getElementById('planOfferPrice1m').value, 10) || 0,
+    price_3m: parseInt(document.getElementById('planPrice3m').value, 10) || 0,
+    offer_price_3m: parseInt(document.getElementById('planOfferPrice3m').value, 10) || 0,
+    price_6m: parseInt(document.getElementById('planPrice6m').value, 10) || 0,
+    offer_price_6m: parseInt(document.getElementById('planOfferPrice6m').value, 10) || 0,
+    price_12m: parseInt(document.getElementById('planPrice12m').value, 10) || 0,
+    offer_price_12m: parseInt(document.getElementById('planOfferPrice12m').value, 10) || 0,
     daily_interests: document.getElementById('planDailyInterests').value.trim() || 'Unlimited',
     kundali_reports: document.getElementById('planKundaliReports').value.trim() || 'Basic Ashtakoot',
     search_boost: document.getElementById('planSearchBoost').value,
@@ -3024,12 +3053,12 @@ async function savePlan(e) {
     support_level: document.getElementById('planSupportLevel').value,
     has_advisor: document.getElementById('planHasAdvisor').checked ? 1 : 0,
     features: features,
-    is_popular: document.getElementById('planIsPopular').checked,
-    is_active: document.getElementById('planActive').checked
+    is_popular: document.getElementById('planIsPopular').checked ? 1 : 0,
+    is_active: document.getElementById('planActive').checked ? 1 : 0
   };
 
   try {
-    const url = isEdit ? `/api/plans/${planId}` : '/api/plans';
+    const url = isEdit ? `/api/plans/${encodeURIComponent(planId)}` : '/api/plans';
     const method = isEdit ? 'PUT' : 'POST';
 
     const res = await fetch(url, {
@@ -3043,9 +3072,9 @@ async function savePlan(e) {
 
     showToast(isEdit ? 'Membership plan updated successfully!' : 'New membership plan created!', 'success');
     document.getElementById('planModal').close();
-    loadPlans();
+    await loadPlans();
   } catch (err) {
-    showToast(err.message, 'error');
+    showToast(err.message || 'Error saving membership plan', 'error');
   }
 }
 

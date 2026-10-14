@@ -835,18 +835,58 @@
     }
   }
 
+  function sanitizePlanForSupabase(obj) {
+    const clean = {};
+    if (obj.name !== undefined) clean.name = String(obj.name).trim();
+    if (obj.tagline !== undefined) clean.tagline = String(obj.tagline || '').trim();
+    if (obj.badge !== undefined) clean.badge = obj.badge ? String(obj.badge).trim() : null;
+    if (obj.color !== undefined) clean.color = String(obj.color || 'amber');
+    if (obj.contact_credits !== undefined) clean.contact_credits = parseInt(obj.contact_credits, 10) || 0;
+    if (obj.sort_order !== undefined) clean.sort_order = parseInt(obj.sort_order, 10) || 1;
+    if (obj.price_1m !== undefined) clean.price_1m = parseInt(obj.price_1m, 10) || 0;
+    if (obj.offer_price_1m !== undefined) clean.offer_price_1m = parseInt(obj.offer_price_1m, 10) || 0;
+    if (obj.price_3m !== undefined) clean.price_3m = parseInt(obj.price_3m, 10) || 0;
+    if (obj.offer_price_3m !== undefined) clean.offer_price_3m = parseInt(obj.offer_price_3m, 10) || 0;
+    if (obj.price_6m !== undefined) clean.price_6m = parseInt(obj.price_6m, 10) || 0;
+    if (obj.offer_price_6m !== undefined) clean.offer_price_6m = parseInt(obj.offer_price_6m, 10) || 0;
+    if (obj.price_12m !== undefined) clean.price_12m = parseInt(obj.price_12m, 10) || 0;
+    if (obj.offer_price_12m !== undefined) clean.offer_price_12m = parseInt(obj.offer_price_12m, 10) || 0;
+    if (obj.daily_interests !== undefined) clean.daily_interests = String(obj.daily_interests || 'Unlimited');
+    if (obj.kundali_reports !== undefined) clean.kundali_reports = String(obj.kundali_reports || 'Basic Ashtakoot');
+    if (obj.search_boost !== undefined) clean.search_boost = String(obj.search_boost || '1x Standard');
+    if (obj.privacy_shield !== undefined) clean.privacy_shield = String(obj.privacy_shield || 'Standard Public');
+    if (obj.support_level !== undefined) clean.support_level = String(obj.support_level || 'Priority Support');
+    if (obj.has_advisor !== undefined) clean.has_advisor = (obj.has_advisor === true || obj.has_advisor === 1 || obj.has_advisor === '1') ? 1 : 0;
+    if (obj.is_popular !== undefined) clean.is_popular = (obj.is_popular === true || obj.is_popular === 1 || obj.is_popular === '1') ? 1 : 0;
+    if (obj.is_active !== undefined) clean.is_active = (obj.is_active === true || obj.is_active === 1 || obj.is_active === '1') ? 1 : 0;
+    if (obj.features !== undefined) {
+      clean.features = typeof obj.features === 'string' ? obj.features : JSON.stringify(obj.features || []);
+    }
+    clean.updated_at = new Date().toISOString();
+    return clean;
+  }
+
   async function pushPlanInsertToSupabase(planObj) {
     try {
-      await originalFetch(SUPABASE_PLANS, {
+      const sanitized = sanitizePlanForSupabase(planObj);
+      sanitized.id = String(planObj.id || 'plan_' + Date.now()).trim().toLowerCase().replace(/\s+/g, '_');
+      sanitized.created_at = new Date().toISOString();
+      const res = await originalFetch(SUPABASE_PLANS, {
         method: 'POST',
         headers: {
           'apikey': SUPABASE_ANON,
           'Authorization': 'Bearer ' + SUPABASE_ANON,
           'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
+          'Prefer': 'return=representation'
         },
-        body: JSON.stringify(planObj)
+        body: JSON.stringify(sanitized)
       });
+      if (!res.ok) {
+        const txt = await res.text();
+        console.warn('[Admin Engine] Supabase plan insert error:', res.status, txt);
+      } else {
+        console.log('[Admin Engine] Supabase plan insert success:', sanitized.id);
+      }
     } catch (e) {
       console.warn('[Admin Engine] Supabase plan insert notice:', e);
     }
@@ -854,16 +894,24 @@
 
   async function pushPlanUpdateToSupabase(planId, patchObj) {
     try {
-      await originalFetch(`${SUPABASE_PLANS}?id=eq.${encodeURIComponent(planId)}`, {
+      const sanitized = sanitizePlanForSupabase(patchObj);
+      const cleanId = String(planId).trim().toLowerCase();
+      const res = await originalFetch(`${SUPABASE_PLANS}?id=eq.${encodeURIComponent(cleanId)}`, {
         method: 'PATCH',
         headers: {
           'apikey': SUPABASE_ANON,
           'Authorization': 'Bearer ' + SUPABASE_ANON,
           'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
+          'Prefer': 'return=representation'
         },
-        body: JSON.stringify(patchObj)
+        body: JSON.stringify(sanitized)
       });
+      if (!res.ok) {
+        const txt = await res.text();
+        console.warn('[Admin Engine] Supabase plan patch error:', res.status, txt);
+      } else {
+        console.log('[Admin Engine] Supabase plan patch success:', cleanId);
+      }
     } catch (e) {
       console.warn('[Admin Engine] Supabase plan patch notice:', e);
     }
@@ -871,13 +919,20 @@
 
   async function pushPlanDeleteToSupabase(planId) {
     try {
-      await originalFetch(`${SUPABASE_PLANS}?id=eq.${encodeURIComponent(planId)}`, {
+      const cleanId = String(planId).trim().toLowerCase();
+      const res = await originalFetch(`${SUPABASE_PLANS}?id=eq.${encodeURIComponent(cleanId)}`, {
         method: 'DELETE',
         headers: {
           'apikey': SUPABASE_ANON,
           'Authorization': 'Bearer ' + SUPABASE_ANON
         }
       });
+      if (!res.ok) {
+        const txt = await res.text();
+        console.warn('[Admin Engine] Supabase plan delete error:', res.status, txt);
+      } else {
+        console.log('[Admin Engine] Supabase plan delete success:', cleanId);
+      }
     } catch (e) {
       console.warn('[Admin Engine] Supabase plan delete notice:', e);
     }
@@ -945,7 +1000,18 @@
       if (res.ok) {
         const rows = await res.json();
         if (Array.isArray(rows) && rows.length > 0) {
-          store.plans = rows;
+          store.plans = rows.map(r => {
+            let features_parsed = [];
+            if (typeof r.features === 'string') {
+              try { features_parsed = JSON.parse(r.features); } catch (e) { features_parsed = []; }
+            } else if (Array.isArray(r.features)) {
+              features_parsed = r.features;
+            }
+            return {
+              ...r,
+              features_parsed
+            };
+          });
           saveStore(store);
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('i4u_admin_synced'));
@@ -1691,70 +1757,163 @@
       // 7. /api/plans
       if (pathname === '/api/plans') {
         if (method === 'GET') {
-          return jsonResponse({ success: true, plans: store.plans, total: store.plans.length });
+          if (!store.plans || store.plans.length === 0) {
+            await syncPlansFromSupabase();
+          }
+          const formattedPlans = (store.plans || []).map(p => {
+            if (!p.features_parsed) {
+              if (typeof p.features === 'string') {
+                try { p.features_parsed = JSON.parse(p.features); } catch (e) { p.features_parsed = []; }
+              } else if (Array.isArray(p.features)) {
+                p.features_parsed = p.features;
+              } else {
+                p.features_parsed = [];
+              }
+            }
+            return p;
+          });
+          return jsonResponse({ success: true, plans: formattedPlans, total: formattedPlans.length });
         }
         if (method === 'POST') {
           const body = init && init.body ? JSON.parse(init.body) : {};
+          const newPlanId = (body.id || 'plan_' + Date.now()).trim().toLowerCase().replace(/\s+/g, '_');
           const newPlan = {
-            id: body.id || 'plan_' + Date.now(),
+            id: newPlanId,
             name: body.name || 'New Membership Plan',
             tagline: body.tagline || '',
             badge: body.badge || '',
-            is_popular: body.is_popular ? 1 : 0,
-            color: body.color || '#D4AF37',
-            contact_credits: Number(body.contact_credits) || 50,
-            price_1m: Number(body.price_1m) || 999,
-            offer_price_1m: Number(body.offer_price_1m) || 799,
-            price_3m: Number(body.price_3m) || 2499,
-            offer_price_3m: Number(body.offer_price_3m) || 1999,
-            price_6m: Number(body.price_6m) || 4499,
-            offer_price_6m: Number(body.offer_price_6m) || 3499,
-            price_12m: Number(body.price_12m) || 7999,
-            offer_price_12m: Number(body.offer_price_12m) || 5999,
+            is_popular: (body.is_popular === true || body.is_popular === 1 || body.is_popular === '1') ? 1 : 0,
+            color: body.color || 'amber',
+            contact_credits: Number(body.contact_credits) || 30,
+            sort_order: Number(body.sort_order) || ((store.plans || []).length + 1),
+            price_1m: Number(body.price_1m) || 0,
+            offer_price_1m: Number(body.offer_price_1m) || 0,
+            price_3m: Number(body.price_3m) || 0,
+            offer_price_3m: Number(body.offer_price_3m) || 0,
+            price_6m: Number(body.price_6m) || 0,
+            offer_price_6m: Number(body.offer_price_6m) || 0,
+            price_12m: Number(body.price_12m) || 0,
+            offer_price_12m: Number(body.offer_price_12m) || 0,
+            daily_interests: body.daily_interests || 'Unlimited',
+            kundali_reports: body.kundali_reports || 'Basic Ashtakoot',
+            search_boost: body.search_boost || '1x Standard',
+            privacy_shield: body.privacy_shield || 'Standard Public',
+            support_level: body.support_level || 'Priority Support',
+            has_advisor: (body.has_advisor === true || body.has_advisor === 1 || body.has_advisor === '1') ? 1 : 0,
             features: typeof body.features === 'string' ? body.features : JSON.stringify(body.features || []),
-            is_active: 1,
-            sort_order: store.plans.length + 1,
+            features_parsed: Array.isArray(body.features) ? body.features : [],
+            is_active: (body.is_active === false || body.is_active === 0 || body.is_active === '0') ? 0 : 1,
             created_at: new Date().toISOString()
           };
+          if (!store.plans) store.plans = [];
           store.plans.push(newPlan);
           saveStore(store);
-          pushPlanInsertToSupabase(newPlan);
+          await pushPlanInsertToSupabase(newPlan);
           return jsonResponse({ success: true, plan: newPlan }, 201);
         }
       }
 
       const planMatch = pathname.match(/^\/api\/plans\/([^\/]+)(\/.*)?$/);
       if (planMatch) {
-        const planId = planMatch[1];
+        const planId = decodeURIComponent(planMatch[1]).trim().toLowerCase();
         const subRoute = planMatch[2] || '';
-        const idx = store.plans.findIndex(p => p.id === planId);
+        if (!store.plans) store.plans = [];
+        const idx = store.plans.findIndex(p => String(p.id).trim().toLowerCase() === planId);
+
+        // GET /api/plans/:id -> Return single plan for edit modal
+        if (method === 'GET' && !subRoute) {
+          let plan = idx !== -1 ? store.plans[idx] : null;
+          if (!plan) {
+            try {
+              const sbRes = await originalFetch(`${SUPABASE_PLANS}?id=eq.${encodeURIComponent(planId)}&select=*`, {
+                headers: {
+                  'apikey': SUPABASE_ANON,
+                  'Authorization': 'Bearer ' + SUPABASE_ANON
+                }
+              });
+              if (sbRes.ok) {
+                const sbData = await sbRes.json();
+                if (Array.isArray(sbData) && sbData.length > 0) {
+                  plan = sbData[0];
+                  store.plans.push(plan);
+                  saveStore(store);
+                }
+              }
+            } catch (e) {
+              console.warn('[Admin Engine] Supabase direct plan fetch notice:', e);
+            }
+          }
+
+          if (plan) {
+            const planCopy = { ...plan };
+            if (!planCopy.features_parsed) {
+              if (typeof planCopy.features === 'string') {
+                try { planCopy.features_parsed = JSON.parse(planCopy.features); } catch (e) { planCopy.features_parsed = []; }
+              } else if (Array.isArray(planCopy.features)) {
+                planCopy.features_parsed = planCopy.features;
+              } else {
+                planCopy.features_parsed = [];
+              }
+            }
+            return jsonResponse({ success: true, plan: planCopy });
+          }
+          return jsonResponse({ error: 'Plan not found' }, 404);
+        }
 
         if (subRoute === '/toggle' && method === 'PATCH') {
           if (idx !== -1) {
-            store.plans[idx].is_active = store.plans[idx].is_active == 1 ? 0 : 1;
+            const newActive = store.plans[idx].is_active == 1 ? 0 : 1;
+            store.plans[idx].is_active = newActive;
             saveStore(store);
-            pushPlanUpdateToSupabase(planId, { is_active: store.plans[idx].is_active });
-            return jsonResponse({ success: true, is_active: store.plans[idx].is_active });
+            await pushPlanUpdateToSupabase(planId, { is_active: newActive });
+            return jsonResponse({ success: true, is_active: newActive, plan: store.plans[idx] });
           }
           return jsonResponse({ error: 'Plan not found' }, 404);
         }
 
         if (method === 'PUT') {
           const body = init && init.body ? JSON.parse(init.body) : {};
+          const parsedFeatures = Array.isArray(body.features) 
+            ? body.features 
+            : (typeof body.features === 'string' ? (() => { try { return JSON.parse(body.features); } catch (e) { return []; } })() : []);
+
+          const updatedPlan = {
+            ...(idx !== -1 ? store.plans[idx] : {}),
+            ...body,
+            id: planId,
+            is_popular: (body.is_popular === true || body.is_popular === 1 || body.is_popular === '1') ? 1 : 0,
+            is_active: (body.is_active === true || body.is_active === 1 || body.is_active === '1') ? 1 : 0,
+            has_advisor: (body.has_advisor === true || body.has_advisor === 1 || body.has_advisor === '1') ? 1 : 0,
+            contact_credits: parseInt(body.contact_credits, 10) || 0,
+            sort_order: parseInt(body.sort_order, 10) || 1,
+            price_1m: parseInt(body.price_1m, 10) || 0,
+            offer_price_1m: parseInt(body.offer_price_1m, 10) || 0,
+            price_3m: parseInt(body.price_3m, 10) || 0,
+            offer_price_3m: parseInt(body.offer_price_3m, 10) || 0,
+            price_6m: parseInt(body.price_6m, 10) || 0,
+            offer_price_6m: parseInt(body.offer_price_6m, 10) || 0,
+            price_12m: parseInt(body.price_12m, 10) || 0,
+            offer_price_12m: parseInt(body.offer_price_12m, 10) || 0,
+            features: typeof body.features === 'string' ? body.features : JSON.stringify(body.features || []),
+            features_parsed: parsedFeatures,
+            updated_at: new Date().toISOString()
+          };
+
           if (idx !== -1) {
-            store.plans[idx] = { ...store.plans[idx], ...body, updated_at: new Date().toISOString() };
-            saveStore(store);
-            pushPlanUpdateToSupabase(planId, body);
-            return jsonResponse({ success: true, plan: store.plans[idx] });
+            store.plans[idx] = updatedPlan;
+          } else {
+            store.plans.push(updatedPlan);
           }
-          return jsonResponse({ error: 'Plan not found' }, 404);
+          saveStore(store);
+          await pushPlanUpdateToSupabase(planId, updatedPlan);
+          return jsonResponse({ success: true, plan: updatedPlan });
         }
 
         if (method === 'DELETE') {
           if (idx !== -1) {
             store.plans.splice(idx, 1);
             saveStore(store);
-            pushPlanDeleteToSupabase(planId);
+            await pushPlanDeleteToSupabase(planId);
             return jsonResponse({ success: true, message: 'Plan deleted' });
           }
           return jsonResponse({ error: 'Plan not found' }, 404);
