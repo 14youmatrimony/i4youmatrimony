@@ -1870,10 +1870,21 @@ async function syncLiveUpdates(silent = true) {
 
 function startLiveSyncPolling() {
   if (liveSyncTimer) clearInterval(liveSyncTimer);
-  // Auto-sync every 6 seconds seamlessly in the background
+  // Auto-sync gently every 60 seconds only when tab is actively viewed
   liveSyncTimer = setInterval(() => {
+    if (document.hidden) return; // Completely pause polling when tab is hidden
     syncLiveUpdates(true);
-  }, 6000);
+  }, 60000);
+
+  // Instant refresh when user switches back to this tab
+  if (!window._tabVisibilityListenerAttached) {
+    window._tabVisibilityListenerAttached = true;
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        syncLiveUpdates(true);
+      }
+    });
+  }
 }
 
 function triggerManualSync() {

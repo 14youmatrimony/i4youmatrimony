@@ -1423,7 +1423,14 @@
   const store = loadStore();
 
   const SUPABASE_BASE = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/profiles';
-  const SUPABASE_REST = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/profiles?select=*&order=created_at.desc';
+  const LIGHTWEIGHT_PROFILE_COLS = [
+    'id', 'register_id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'skin_colour',
+    'religion', 'caste', 'mother_tongue', 'state', 'city', 'district', 'native_address',
+    'education', 'education_category', 'profession', 'company', 'annual_income',
+    'marital_status', 'diet', 'body_type', 'verified', 'govt_id_verified', 'aadhaar_verified',
+    'aadhaar_status', 'aadhaar_rejection_reason', 'status', 'photo', 'photo_url', 'created_at', 'updated_at'
+  ].join(',');
+  const SUPABASE_REST = `https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/profiles?select=${LIGHTWEIGHT_PROFILE_COLS}&order=created_at.desc`;
   const SUPABASE_OFFERS = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/offers';
   const SUPABASE_PLANS = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/membership_plans';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqdGtyaWxobnRkYnNpYXZ1Z3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMjcyNjMsImV4cCI6MjEwNTkwMzI2M30.1B1llzakdq-Gyz_FGFr8A1xXmU1mT98FzkLaQG_GID8';
@@ -1686,11 +1693,17 @@
   syncProfilesFromSupabase();
   syncOffersFromSupabase();
   syncPlansFromSupabase();
+
+  // Bandwidth-optimized background sync: Every 60s cooldown, completely paused when browser tab is hidden
+  let lastSyncTimestamp = Date.now();
   setInterval(() => {
+    if (typeof document !== 'undefined' && document.hidden) return; // Tab in background, do not drain egress!
+    if (Date.now() - lastSyncTimestamp < 60000) return; // Minimum 60s cooldown
+    lastSyncTimestamp = Date.now();
     syncProfilesFromSupabase();
     syncOffersFromSupabase();
     syncPlansFromSupabase();
-  }, 5000);
+  }, 30000);
 
   const AADHAAR_FRONT_SVG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250' width='400' height='250'><rect width='400' height='250' rx='12' fill='%230B192C' stroke='%23D4AF37' stroke-width='2'/><rect width='133' height='10' fill='%23FF9933'/><rect x='133' width='134' height='10' fill='%23FFFFFF'/><rect x='267' width='133' height='10' fill='%23138808'/><text x='200' y='45' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23DFB76C' text-anchor='middle'>GOVERNMENT OF INDIA • UIDAI</text><text x='200' y='70' font-family='sans-serif' font-size='12' fill='%2394A3B8' text-anchor='middle'>Unique Identification Authority of India</text><rect x='30' y='90' width='90' height='110' rx='8' fill='%231E293B' stroke='%23334155'/><text x='75' y='150' font-family='sans-serif' font-size='24' fill='%23DFB76C' text-anchor='middle'>PHOTO</text><text x='140' y='110' font-family='sans-serif' font-size='13' font-weight='bold' fill='%23FFFFFF'>Name / പേര്:</text><text x='140' y='130' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23DFB76C'>Mattayi (Verified)</text><text x='140' y='155' font-family='sans-serif' font-size='12' fill='%2394A3B8'>DOB: 14/05/1999 | Male</text><text x='200' y='225' font-family='monospace' font-size='18' font-weight='bold' fill='%23DFB76C' text-anchor='middle'>XXXX  XXXX  5928</text></svg>";
 
@@ -2094,6 +2107,24 @@
         if (method === 'GET' && !subRoute) {
           if (userIndex !== -1) {
             const u = { ...store.profiles[userIndex] };
+            // On-demand fetch of Aadhaar scan & gallery images from Supabase if not yet loaded in memory
+            if (!u.aadhaar_front_image && !u.aadhaar_back_image) {
+              try {
+                const fullRes = await originalFetch(`${SUPABASE_BASE}?id=eq.${encodeURIComponent(u.id)}&select=aadhaar_front_image,aadhaar_back_image,single_photos,family_photos`, {
+                  headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + SUPABASE_ANON }
+                });
+                if (fullRes.ok) {
+                  const fullRows = await fullRes.json();
+                  if (fullRows && fullRows[0]) {
+                    if (fullRows[0].aadhaar_front_image) u.aadhaar_front_image = fullRows[0].aadhaar_front_image;
+                    if (fullRows[0].aadhaar_back_image) u.aadhaar_back_image = fullRows[0].aadhaar_back_image;
+                    if (fullRows[0].single_photos) u.single_photos = fullRows[0].single_photos;
+                    if (fullRows[0].family_photos) u.family_photos = fullRows[0].family_photos;
+                    store.profiles[userIndex] = { ...store.profiles[userIndex], ...fullRows[0] };
+                  }
+                }
+              } catch (e) {}
+            }
             u.aadhaar_front_image = u.aadhaar_front_image || AADHAAR_FRONT_SVG;
             u.aadhaar_back_image = u.aadhaar_back_image || AADHAAR_BACK_SVG;
             return jsonResponse(u);
