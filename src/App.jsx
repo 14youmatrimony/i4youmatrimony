@@ -59,138 +59,115 @@ import {
 } from './utils/genderMatch';
 import { Sparkles, Crown, ShieldCheck } from 'lucide-react';
 
-// Live sample notifications: Interest received, Profile shortlisted, Contact viewed, and Chat message (Tailored strictly to opposite gender)
-export const getNotificationsForUser = (user) => {
+// Live sample notifications: Interest received, Profile shortlisted, Contact viewed, and Chat message (Tailored strictly to opposite gender real candidates)
+export const getNotificationsForUser = (user, availableProfiles = []) => {
   const isMale = (user?.gender || '').toLowerCase() === 'male';
-  if (isMale) {
-    // Gent user: all incoming notifications are strictly from Women (Female candidates)
-    return [
-      {
-        id: 'notif-1',
-        type: 'interest_received',
-        profileId: 'p1', // Dr. Ananya Kulkarni (Female)
-        title: 'Dr. Ananya Kulkarni sent you an Interest! 💖',
-        message: 'Dr. Ananya reviewed your profile and shared family values. She expressed interest in taking things forward.',
-        quote: '“Namaste Rohan, I liked your profile and career aspirations. Our family in Nashik would love to connect with yours!”',
-        time: '12m ago',
-        isRead: false,
-        status: 'pending',
-        badge: '33/36 Gunas Match'
-      },
-      {
-        id: 'notif-2',
-        type: 'profile_shortlisted',
-        profileId: 'p3', // Meera Venkatraman (Female)
-        title: 'Meera Venkatraman shortlisted your profile! ⭐',
-        message: 'Meera added your profile to her private shortlist for family horoscope matching.',
-        quote: '“Profile shortlisted for weekend family discussion & astrology review.”',
-        time: '45m ago',
-        isRead: false,
-        status: 'pending',
-        badge: 'Finance Director • CA'
-      },
-      {
-        id: 'notif-3',
-        type: 'contact_viewed',
-        profileId: 'p5', // Priyanka Rathore (Female)
-        title: 'Contact Details Viewed 👁️',
-        message: 'Priyanka Rathore & family viewed your verified phone number & astrological horoscope.',
-        quote: 'Verified contact accessed via Aadhaar matrimonial authentication protocol.',
-        time: '2h ago',
-        isRead: false,
-        status: 'pending',
-        badge: 'Aadhaar Verified'
-      },
-      {
-        id: 'notif-4',
-        type: 'message_received',
-        profileId: 'p1', // Dr. Ananya Kulkarni (Female)
-        title: 'New Message from Dr. Ananya Kulkarni 💬',
-        message: 'Dr. Ananya sent you a direct message in matrimonial chat.',
-        quote: '“Namaste! My parents saw your details and would love to arrange a video call this Sunday.”',
-        time: '3h ago',
-        isRead: false,
-        status: 'pending',
-        badge: '1 Unread Message'
-      },
-      {
-        id: 'notif-5',
-        type: 'interest_received',
-        profileId: 'p7', // Dr. Zoya Farooqui (Female)
-        title: 'Dr. Zoya Farooqui sent you an Interest 💖',
-        message: 'Dr. Zoya expressed interest in connecting with you.',
-        quote: '“Liked your profile and shared interest in healthcare and travel!”',
-        time: 'Yesterday',
-        isRead: true,
-        status: 'accepted',
-        badge: 'Universal Match'
-      }
-    ];
-  } else {
-    // Woman user: all incoming notifications are strictly from Gents (Male candidates)
-    return [
-      {
-        id: 'notif-1',
-        type: 'interest_received',
-        profileId: 'p2', // Rohan Jayasimha (Male)
-        title: 'Rohan Jayasimha sent you an Interest! 💖',
-        message: 'Rohan reviewed your profile and career aspirations. He expressed interest in taking things forward.',
-        quote: '“Namaste Priya! Really liked your design profile and creative vision. Would love to connect!”',
-        time: '12m ago',
-        isRead: false,
-        status: 'pending',
-        badge: '32/36 Gunas Match'
-      },
-      {
-        id: 'notif-2',
-        type: 'profile_shortlisted',
-        profileId: 'p4', // Kabir Singh Sodhi (Male)
-        title: 'Kabir Singh Sodhi shortlisted your profile! ⭐',
-        message: 'Kabir added your profile to his private shortlist for family review.',
-        quote: '“Profile shortlisted for weekend family discussion & compatibility review.”',
-        time: '45m ago',
-        isRead: false,
-        status: 'pending',
-        badge: 'Director • Punjab'
-      },
-      {
-        id: 'notif-3',
-        type: 'contact_viewed',
-        profileId: 'p6', // Adv. Arjun Deshmukh (Male)
-        title: 'Contact Details Viewed 👁️',
-        message: 'Adv. Arjun Deshmukh & family viewed your verified phone number & horoscope.',
-        quote: 'Verified contact accessed via Aadhaar matrimonial authentication protocol.',
-        time: '2h ago',
-        isRead: false,
-        status: 'pending',
-        badge: 'Aadhaar Verified'
-      },
-      {
-        id: 'notif-4',
-        type: 'message_received',
-        profileId: 'p2', // Rohan Jayasimha (Male)
-        title: 'New Message from Rohan Jayasimha 💬',
-        message: 'Rohan sent you a direct message in matrimonial chat.',
-        quote: '“Namaste! My parents saw your details and would love to arrange a call this Sunday.”',
-        time: '3h ago',
-        isRead: false,
-        status: 'pending',
-        badge: '1 Unread Message'
-      },
-      {
-        id: 'notif-5',
-        type: 'interest_received',
-        profileId: 'p8', // Dr. Ashwin Nambiar (Male)
-        title: 'Dr. Ashwin Nambiar sent you an Interest 💖',
-        message: 'Dr. Ashwin expressed interest in connecting with you.',
-        quote: '“Liked your profile and shared values in health and lifestyle!”',
-        time: 'Yesterday',
-        isRead: true,
-        status: 'accepted',
-        badge: 'Universal Match'
-      }
-    ];
-  }
+  
+  const pool = (Array.isArray(availableProfiles) && availableProfiles.length > 0)
+    ? availableProfiles
+    : INITIAL_PROFILES;
+
+  const oppositeProfiles = (pool || []).filter(p => {
+    if (!p || !p.id) return false;
+    if (isSelfProfile(p, user)) return false;
+    const g = (p.gender || '').toLowerCase();
+    return isMale ? (g === 'female' || g === 'woman') : (g === 'male' || g === 'man');
+  });
+
+  const c1 = oppositeProfiles[0] || (isMale ? {
+    id: 'i4y1021_1791653762897',
+    name: 'Dr. Anu jose',
+    age: 28,
+    profession: 'Doctor (MBBS)',
+    city: 'Ernakulam'
+  } : {
+    id: 'i4y1020_1791653762896',
+    name: 'Arun Thomas',
+    age: 26,
+    profession: 'Software Engineer',
+    city: 'Kochi'
+  });
+
+  const c2 = oppositeProfiles[1] || (isMale ? {
+    id: 'i4y1009_1791653762899',
+    name: 'Rosemol',
+    age: 28,
+    profession: 'MSc Nursing',
+    city: 'Kottayam'
+  } : {
+    id: 'i4y1019_1791653762895',
+    name: 'Amal',
+    age: 25,
+    profession: 'Marketing Lead',
+    city: 'Thrissur'
+  });
+
+  const c3 = oppositeProfiles[2] || (isMale ? {
+    id: 'i4y1010_1791653762898',
+    name: 'Tinu',
+    age: 25,
+    profession: 'Fashion Designer',
+    city: 'Kochi'
+  } : {
+    id: 'i4y1007_1791653762894',
+    name: 'Arun Kumar',
+    age: 25,
+    profession: 'Civil Engineer',
+    city: 'Alappuzha'
+  });
+
+  const firstName = user?.name ? user.name.split(' ')[0] : 'there';
+
+  return [
+    {
+      id: 'notif-interest-' + c1.id,
+      type: 'interest_received',
+      profileId: c1.id,
+      title: `${c1.name} sent you an Interest! 💖`,
+      message: `${c1.name} reviewed your profile and shared family values. Expressed interest in taking things forward.`,
+      quote: `“Namaste ${firstName}! I liked your profile and career aspirations. Our family in ${c1.city || 'Kerala'} would love to connect with yours!”`,
+      time: '12m ago',
+      isRead: false,
+      status: 'pending',
+      badge: c1.profession || 'Universal Match'
+    },
+    {
+      id: 'notif-shortlist-' + c2.id,
+      type: 'profile_shortlisted',
+      profileId: c2.id,
+      title: `${c2.name} shortlisted your profile! ⭐`,
+      message: `${c2.name} added your profile to private shortlist for family horoscope matching.`,
+      quote: '“Profile shortlisted for weekend family discussion & astrology review.”',
+      time: '45m ago',
+      isRead: false,
+      status: 'pending',
+      badge: c2.profession || 'Shortlisted'
+    },
+    {
+      id: 'notif-contact-' + c3.id,
+      type: 'contact_viewed',
+      profileId: c3.id,
+      title: 'Contact Details Viewed 👁️',
+      message: `${c3.name} & family viewed your verified phone number & astrological horoscope.`,
+      quote: 'Verified contact accessed via Aadhaar matrimonial authentication protocol.',
+      time: '2h ago',
+      isRead: false,
+      status: 'pending',
+      badge: 'Aadhaar Verified'
+    },
+    {
+      id: 'notif-msg-' + c1.id,
+      type: 'message_received',
+      profileId: c1.id,
+      title: `New Message from ${c1.name} 💬`,
+      message: `${c1.name} sent you a direct message in matrimonial chat.`,
+      quote: '“Namaste! My parents saw your details and would love to arrange a video call this Sunday.”',
+      time: '3h ago',
+      isRead: false,
+      status: 'pending',
+      badge: '1 Unread Message'
+    }
+  ];
 };
 
 export const INITIAL_NOTIFICATIONS = [];
@@ -839,14 +816,39 @@ export default function App() {
       const saved = localStorage.getItem('i4u_notifications');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(n => n && typeof n === 'object' && n.type);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasOldDummy = parsed.some(n => n.profileId === 'p1' || n.profileId === 'p2' || (n.title && (n.title.includes('Ananya') || n.title.includes('Rohan Jayasimha'))));
+          if (!hasOldDummy) {
+            return parsed.filter(n => n && typeof n === 'object' && n.type);
+          }
         }
       }
+      return getNotificationsForUser(u, INITIAL_PROFILES);
     } catch (e) {}
     return [];
   });
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  // Synchronize notifications with real loaded profiles
+  useEffect(() => {
+    if (!currentUser) return;
+    setNotifications(prev => {
+      const hasOldDummy = (prev || []).some(n => n.profileId === 'p1' || n.profileId === 'p2' || (n.title && (n.title.includes('Ananya') || n.title.includes('Rohan Jayasimha'))));
+      if (!prev || prev.length === 0 || hasOldDummy) {
+        return getNotificationsForUser(currentUser, profiles);
+      }
+      return prev;
+    });
+  }, [profiles, currentUser]);
+
+  // Persist notifications to localStorage
+  useEffect(() => {
+    if (currentUser && Array.isArray(notifications)) {
+      try {
+        localStorage.setItem('i4u_notifications', JSON.stringify(notifications));
+      } catch (e) {}
+    }
+  }, [notifications, currentUser]);
 
   // Membership Plans, Offers & Payment Gateway State
   const [isOffersSheetOpen, setIsOffersSheetOpen] = useState(false);
@@ -1257,7 +1259,10 @@ export default function App() {
       handleOpenRegister();
       return;
     }
-    setSelectedProfile(profile);
+    const resolved = typeof profile === 'string'
+      ? profiles.find(p => p.id === profile || p.register_id === profile || p.registerId === profile)
+      : profile;
+    setSelectedProfile(resolved || profile);
   };
 
   // Toggle Interest (Connect)
@@ -1333,20 +1338,14 @@ export default function App() {
   };
 
   // Start chat directly with candidate
-  const handleStartChat = (profileId) => {
+  const handleStartChat = (profileId, initialMessage = null) => {
     if (!currentUser) {
       showToast('🔒 Please sign in first to chat with members');
       setCurrentScreen('login');
       return;
     }
 
-    const hasPaidPlan = Boolean(currentUser.membership && currentUser.membership !== 'free');
-    if (!hasPaidPlan) {
-      setPremiumPromptFeature('chat');
-      return;
-    }
-
-    const profile = profiles.find(p => p.id === profileId);
+    const profile = profiles.find(p => p.id === profileId || p.register_id === profileId || p.registerId === profileId);
     setActiveChatProfileId(profileId);
     setIsDirectChatOpen(true);
     setSelectedProfile(null);
@@ -1355,7 +1354,9 @@ export default function App() {
 
     // Ensure a conversation thread exists for this profile
     setConversations(prev => {
-      if (!prev.find(c => c.profileId === profileId)) {
+      const existing = prev.find(c => c.profileId === profileId);
+      const incomingText = initialMessage || `Namaste! Thank you for connecting. I reviewed your profile and our family values align wonderfully.`;
+      if (!existing) {
         return [...prev, {
           profileId,
           unreadCount: 0,
@@ -1363,7 +1364,7 @@ export default function App() {
             {
               id: 'init-' + Date.now(),
               sender: 'them',
-              text: `Namaste! Thank you for connecting. I reviewed your profile and our family values align wonderfully.`,
+              text: incomingText,
               time: 'Just now',
               status: 'read'
             }
@@ -1375,8 +1376,9 @@ export default function App() {
             `Wishing you and your family an auspicious day ahead!`
           ]
         }];
+      } else {
+        return prev.map(c => c.profileId === profileId ? { ...c, unreadCount: 0 } : c);
       }
-      return prev;
     });
   };
 
@@ -1822,11 +1824,11 @@ export default function App() {
       } catch (e) {}
 
       const isMale = (updated.gender || '').toLowerCase() === 'male';
-      setInterestsSent(isMale ? ['p1', 'p3', 'p5'] : ['p2', 'p4', 'p6']);
-      setShortlisted(isMale ? ['p1', 'p3', 'p5', 'p7'] : ['p2', 'p4', 'p6', 'p8']);
-      setConversations(isMale ? CONVERSATIONS_FOR_MALE : CONVERSATIONS_FOR_FEMALE);
-      setNotifications(getNotificationsForUser(updated));
-      setActiveChatProfileId(isMale ? 'p1' : 'p2');
+      setInterestsSent([]);
+      setShortlisted([]);
+      setConversations([]);
+      setNotifications(getNotificationsForUser(updated, profiles));
+      setActiveChatProfileId(null);
 
       // Immediately display profile in matches feed
       setProfiles(prevProfiles => [updated, ...prevProfiles.filter(p => p.id !== updated.id)]);
@@ -1905,11 +1907,11 @@ export default function App() {
       } catch (e) {}
 
       const isMale = (updated.gender || '').toLowerCase() === 'male';
-      setInterestsSent(isMale ? ['p1', 'p3', 'p5'] : ['p2', 'p4', 'p6']);
-      setShortlisted(isMale ? ['p1', 'p3', 'p5', 'p7'] : ['p2', 'p4', 'p6', 'p8']);
-      setConversations(isMale ? CONVERSATIONS_FOR_MALE : CONVERSATIONS_FOR_FEMALE);
-      setNotifications(getNotificationsForUser(updated));
-      setActiveChatProfileId(isMale ? 'p1' : 'p2');
+      setInterestsSent([]);
+      setShortlisted([]);
+      setConversations([]);
+      setNotifications(getNotificationsForUser(updated, profiles));
+      setActiveChatProfileId(null);
 
       // Immediately display profile in matches feed
       setProfiles(prevProfiles => [updated, ...prevProfiles.filter(p => p.id !== updated.id)]);
@@ -1950,11 +1952,11 @@ export default function App() {
       localStorage.setItem('i4u_auth_user', JSON.stringify(updatedUser));
     } catch (e) {}
     setCurrentUser(updatedUser);
-    setInterestsSent(updatedUser.interestsSent || (isMale ? ['p1', 'p3', 'p5'] : ['p2', 'p4', 'p6']));
-    setShortlisted(updatedUser.shortlisted || (isMale ? ['p1', 'p3', 'p5', 'p7'] : ['p2', 'p4', 'p6', 'p8']));
+    setInterestsSent(updatedUser.interestsSent || []);
+    setShortlisted(updatedUser.shortlisted || []);
     setConversations(getConversationsForUser(updatedUser));
-    setNotifications(getNotificationsForUser(updatedUser));
-    setActiveChatProfileId(isMale ? 'p1' : 'p2');
+    setNotifications(getNotificationsForUser(updatedUser, profiles));
+    setActiveChatProfileId(null);
     setCurrentScreen('app');
     setActiveTab('feed');
   };
@@ -1964,11 +1966,11 @@ export default function App() {
     const isMale = (targetGender || '').toLowerCase() === 'male';
     const persona = isMale ? DEMO_USER_MALE : DEMO_USER_FEMALE;
     setCurrentUser(persona);
-    setInterestsSent(persona.interestsSent || (isMale ? ['p1', 'p3', 'p5'] : ['p2', 'p4', 'p6']));
-    setShortlisted(persona.shortlisted || (isMale ? ['p1', 'p3', 'p5', 'p7'] : ['p2', 'p4', 'p6', 'p8']));
+    setInterestsSent(persona.interestsSent || []);
+    setShortlisted(persona.shortlisted || []);
     setConversations(getConversationsForUser(persona));
-    setNotifications(getNotificationsForUser(persona));
-    setActiveChatProfileId(isMale ? 'p1' : 'p2');
+    setNotifications(getNotificationsForUser(persona, profiles));
+    setActiveChatProfileId(null);
     try {
       localStorage.removeItem('i4u_logged_out');
       localStorage.setItem('i4u_auth_user', JSON.stringify(persona));
@@ -2575,9 +2577,9 @@ export default function App() {
               onAcceptInterest={handleAcceptInterestNotification}
               onDeclineInterest={handleDeclineInterestNotification}
               onSendInterest={handleToggleInterest}
-              onOpenChat={(profileId) => {
+              onOpenChat={(profileId, initialMsg) => {
                 setIsNotificationsOpen(false);
-                handleStartChat(profileId);
+                handleStartChat(profileId, initialMsg);
                 setViewMode('app');
                 setActiveTab('chat');
               }}
@@ -2963,9 +2965,9 @@ export default function App() {
                 onSendInterest={(profileId) => {
                   handleToggleInterest(profileId);
                 }}
-                onOpenChat={(profileId) => {
+                onOpenChat={(profileId, initialMsg) => {
                   setIsNotificationsOpen(false);
-                  handleStartChat(profileId);
+                  handleStartChat(profileId, initialMsg);
                 }}
                 onOpenProfile={(profile) => {
                   setIsNotificationsOpen(false);

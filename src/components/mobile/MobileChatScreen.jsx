@@ -76,20 +76,26 @@ export default function MobileChatScreen({
     return validProfiles.filter(p => conversations.some(c => c.profileId === p.id && c.messages?.length > 0));
   }, [validProfiles, conversations]);
 
-  const activeProfile = validProfiles.find(p => p.id === activeProfileId) || validProfiles[0] || {
-    id: 'placeholder',
-    name: 'Candidate',
-    city: 'India',
-    state: ''
-  };
+  const activeProfile = validProfiles.find(p => p.id === activeProfileId || p.register_id === activeProfileId || p.registerId === activeProfileId) 
+    || profiles.find(p => p.id === activeProfileId || p.register_id === activeProfileId || p.registerId === activeProfileId) 
+    || validProfiles[0] 
+    || {
+      id: activeProfileId || 'placeholder',
+      name: 'Candidate',
+      city: 'India',
+      state: ''
+    };
 
-  const existingConv = conversations.find(c => c.profileId === activeProfile.id);
+  const existingConv = conversations.find(c => c.profileId === activeProfile.id || c.profileId === activeProfileId);
   const activeConv = existingConv || {
     profileId: activeProfile.id,
     unreadCount: 0,
     messages: [],
     autoReplies: []
   };
+
+  const hasIncomingMessage = Boolean(activeConv?.messages?.some(m => m.sender === 'them'));
+  const canSendMessages = hasPaidPlan || hasIncomingMessage;
 
   // If user is not logged in, display the Login Required screen immediately
   if (!currentUser) {
@@ -142,7 +148,7 @@ export default function MobileChatScreen({
   }, [inConversation]);
 
   const handleSend = (textToSend) => {
-    if (!hasPaidPlan) {
+    if (!canSendMessages) {
       onOpenOffers?.();
       return;
     }
@@ -354,8 +360,8 @@ export default function MobileChatScreen({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Icebreakers (Subscribed Only) */}
-        {hasPaidPlan ? (
+        {/* Icebreakers (Subscribed Only or Inbound Message) */}
+        {canSendMessages ? (
           <div className={`px-3 py-1.5 border-t flex space-x-1.5 overflow-x-auto scrollbar-none shrink-0 ${
             isDarkMode ? 'bg-slate-900/80 border-white/10' : 'bg-slate-100/70 border-slate-200'
           }`}>
@@ -381,7 +387,7 @@ export default function MobileChatScreen({
         ) : null}
 
         {/* Bottom Input - Active Form or Subscribed Gate */}
-        {!hasPaidPlan ? (
+        {!canSendMessages ? (
           <div 
             className={`p-3.5 border-t text-center space-y-2 shrink-0 ${
               isDarkMode ? 'bg-[#0B192C] border-white/10' : 'bg-gradient-to-b from-amber-50/95 to-orange-50/95 border-amber-200'

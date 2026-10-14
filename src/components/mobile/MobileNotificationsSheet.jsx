@@ -127,8 +127,100 @@ export default function MobileNotificationsSheet({
     return true;
   });
 
-  const getProfile = (profileId) => {
-    return profiles.find(p => p.id === profileId) || null;
+  const getProfile = (profileId, notif = null) => {
+    if (!profileId && !notif) return null;
+
+    // 1. Direct ID match (check id, register_id, registerId)
+    if (profileId) {
+      const match = (profiles || []).find(p => 
+        p && (p.id === profileId || p.register_id === profileId || p.registerId === profileId)
+      );
+      if (match) return match;
+    }
+
+    // 2. Name search if not found by ID
+    const searchString = `${notif?.title || ''} ${notif?.message || ''}`.toLowerCase();
+    if (searchString.trim()) {
+      const nameMatch = (profiles || []).find(p => 
+        p && p.name && searchString.includes(p.name.toLowerCase().trim())
+      );
+      if (nameMatch) return nameMatch;
+    }
+
+    // 3. Match from profiles by opposite gender
+    const isUserMale = (currentUser?.gender || '').toLowerCase() === 'male';
+    const oppositeCandidates = (profiles || []).filter(p => {
+      if (!p || !p.id) return false;
+      const g = (p.gender || '').toLowerCase();
+      return isUserMale ? (g === 'female' || g === 'woman') : (g === 'male' || g === 'man');
+    });
+    if (oppositeCandidates.length > 0) {
+      if (notif?.type === 'profile_shortlisted' && oppositeCandidates.length > 1) {
+        return oppositeCandidates[1];
+      }
+      return oppositeCandidates[0];
+    }
+
+    // 4. Any available profile in list
+    if (profiles && profiles.length > 0 && profiles[0]?.id) {
+      return profiles[0];
+    }
+
+    // 5. Fallback candidate object so profile sheet / chat never fails
+    let candidateName = 'Member';
+    if (notif?.title) {
+      const extracted = notif.title.replace(/New Message from\s*/i, '').match(/^([^!💬💖⭐👁️]+?)(?:\s+sent|\s+shortlisted|\s+&|\s+viewed|'s|\s+profile|$)/i);
+      if (extracted && extracted[1]) {
+        candidateName = extracted[1].trim();
+      }
+    }
+
+    const defaultPhoto = isUserMale
+      ? 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
+      : 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653762896.jpg';
+
+    return {
+      id: profileId || notif?.id || 'candidate-profile',
+      name: candidateName,
+      age: 26,
+      gender: isUserMale ? 'Female' : 'Male',
+      profession: notif?.badge || 'Verified Candidate',
+      city: 'Kerala',
+      district: 'Ernakulam',
+      state: 'Kerala',
+      photo: defaultPhoto,
+      singlePhotos: [defaultPhoto],
+      about: notif?.quote || notif?.message || 'Authentic matrimony verified profile',
+      verified: true,
+      aadhaarVerified: true
+    };
+  };
+
+  const handleNotificationCardClick = (notif, profile) => {
+    if (!notif.isRead && onMarkAsRead) {
+      onMarkAsRead(notif.id);
+    }
+
+    if (notif?.type === 'message_received') {
+      if (onOpenChat) {
+        onOpenChat(profile?.id || notif.profileId, notif.quote || notif.message);
+      }
+    } else if (
+      notif?.type === 'interest_received' || 
+      notif?.type === 'contact_viewed' || 
+      notif?.type === 'profile_shortlisted' || 
+      notif?.type === 'profile_visitor'
+    ) {
+      if (onOpenProfile && profile) {
+        onOpenProfile(profile);
+      } else if (onOpenChat && (profile?.id || notif.profileId)) {
+        onOpenChat(profile?.id || notif.profileId);
+      }
+    } else {
+      if (profile && onOpenProfile) {
+        onOpenProfile(profile);
+      }
+    }
   };
 
   const getNotificationIcon = (type) => {
@@ -435,20 +527,21 @@ export default function MobileNotificationsSheet({
           </div>
         ) : (
           filteredNotifications.map((notif) => {
-            const profile = getProfile(notif.profileId);
+            const profile = getProfile(notif.profileId, notif);
             return (
               <div
                 key={notif.id}
-                onClick={() => {
-                  if (!notif.isRead && onMarkAsRead) {
-                    onMarkAsRead(notif.id);
-                  }
-                }}
-                className={`p-2 sm:p-2.5 rounded-xl border transition-all relative ${
+                onClick={() => handleNotificationCardClick(notif, profile)}
+                className={`p-2.5 sm:p-3 rounded-xl border transition-all relative cursor-pointer hover:border-[#DFB76C] hover:shadow-xs group ${
                   notif.isRead 
-                    ? 'bg-white border-slate-200/90 shadow-2xs' 
-                    : 'bg-gradient-to-r from-amber-50/30 via-white to-orange-50/20 border-[#DFB76C]/60 shadow-xs'
+                    ? 'bg-white border-slate-200/90 shadow-2xs hover:bg-slate-50/70' 
+                    : 'bg-gradient-to-r from-amber-50/30 via-white to-orange-50/20 border-[#DFB76C]/60 shadow-xs hover:border-[#D4AF37]'
                 }`}
+                title={
+                  notif.type === 'message_received' 
+                    ? 'Click to open chat and reply directly' 
+                    : 'Click to open candidate profile'
+                }
               >
                 {/* Unread Glowing Dot */}
                 {!notif.isRead && (
@@ -477,7 +570,7 @@ export default function MobileNotificationsSheet({
 
                 {/* Notification Content Body */}
                 <div className="space-y-1 pl-6 sm:pl-7">
-                  <h4 className="text-[11px] sm:text-[12px] font-bold text-slate-900 leading-snug">
+                  <h4 className="text-[11px] sm:text-[12px] font-bold text-slate-900 leading-snug group-hover:text-[#8C6D1F] transition-colors">
                     {notif.title}
                   </h4>
                   <p className="text-[10px] sm:text-[10.5px] text-slate-600 leading-normal">
@@ -487,10 +580,13 @@ export default function MobileNotificationsSheet({
                   {/* Candidate Mini Profile Card */}
                   {profile && (
                     <div 
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
                         if (onOpenProfile) onOpenProfile(profile);
                       }}
-                      className="my-1.5 p-1.5 bg-slate-50 hover:bg-slate-100/90 rounded-lg border border-slate-200 flex items-center justify-between gap-1.5 cursor-pointer transition-colors group"
+                      className="my-1.5 p-1.5 bg-slate-50 hover:bg-amber-50/70 rounded-lg border border-slate-200 hover:border-[#DFB76C]/70 flex items-center justify-between gap-1.5 cursor-pointer transition-colors group/card shadow-2xs"
+                      title="Click to view full candidate profile"
                     >
                       <div className="flex items-center space-x-1.5 min-w-0 flex-1">
                         <img 
@@ -501,11 +597,11 @@ export default function MobileNotificationsSheet({
                             triggerScreenshotBlock?.('right-click');
                           }}
                           draggable={false}
-                          className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full object-cover shrink-0 border border-slate-300 shadow-2xs select-none"
+                          className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 border border-slate-300 shadow-2xs select-none"
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center space-x-1">
-                            <span className="text-[10.5px] sm:text-[11.5px] font-bold text-slate-900 truncate group-hover:text-[#8C6D1F] transition-colors">
+                            <span className="text-[10.5px] sm:text-[11.5px] font-bold text-slate-900 truncate group-hover/card:text-[#8C6D1F] transition-colors">
                               {profile.name}
                             </span>
                             {profile.aadhaarVerified && (
@@ -526,9 +622,9 @@ export default function MobileNotificationsSheet({
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-0.5 text-[#8C6D1F] text-[9px] sm:text-[10px] font-semibold shrink-0 pr-0.5">
+                      <div className="flex items-center space-x-0.5 text-[#8C6D1F] text-[9px] sm:text-[10px] font-bold shrink-0 pr-1">
                         <span>Profile</span>
-                        <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 group-hover:translate-x-0.5 transition-transform" />
+                        <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 group-hover/card:translate-x-0.5 transition-transform" />
                       </div>
                     </div>
                   )}
@@ -546,7 +642,7 @@ export default function MobileNotificationsSheet({
                     {notif?.type === 'interest_received' && (
                       <>
                         {notif.status === 'accepted' ? (
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-1 flex-wrap gap-1">
                             <span className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300">
                               <Check className="w-2.5 h-2.5 stroke-[2.5]" /> Interest Accepted
                             </span>
@@ -555,11 +651,25 @@ export default function MobileNotificationsSheet({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
                                   onOpenChat(profile.id);
                                 }}
-                                className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-lg bg-[#0B192C] text-[#DFB76C] hover:bg-black transition-colors cursor-pointer flex items-center gap-1"
+                                className="text-[9px] sm:text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#0B192C] text-[#DFB76C] hover:bg-black transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                               >
                                 <MessageCircle className="w-2.5 h-2.5" /> Chat
+                              </button>
+                            )}
+                            {profile && onOpenProfile && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                                  onOpenProfile(profile);
+                                }}
+                                className="text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 transition-colors cursor-pointer"
+                              >
+                                View Profile
                               </button>
                             )}
                           </div>
@@ -573,9 +683,9 @@ export default function MobileNotificationsSheet({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (onAcceptInterest) onAcceptInterest(notif.id, notif.profileId);
+                                if (onAcceptInterest) onAcceptInterest(notif.id, profile?.id || notif.profileId);
                               }}
-                              className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-[9px] sm:text-[10px] shadow-2xs transition-all cursor-pointer flex items-center gap-0.5"
+                              className="px-2 sm:px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-[9px] sm:text-[10px] shadow-2xs transition-all cursor-pointer flex items-center gap-0.5"
                             >
                               <Check className="w-2.5 h-2.5 stroke-[2.5]" /> Accept Interest
                             </button>
@@ -585,7 +695,7 @@ export default function MobileNotificationsSheet({
                                 e.stopPropagation();
                                 if (onDeclineInterest) onDeclineInterest(notif.id);
                               }}
-                              className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-rose-300 bg-rose-50 text-rose-600 hover:text-rose-700 hover:bg-rose-100 text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer flex items-center gap-0.5 active:scale-95 shadow-2xs"
+                              className="px-2 sm:px-2.5 py-1 rounded-lg border border-rose-300 bg-rose-50 text-rose-600 hover:text-rose-700 hover:bg-rose-100 text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer flex items-center gap-0.5 active:scale-95 shadow-2xs"
                               title="Decline Interest"
                             >
                               <X className="w-2.5 h-2.5 stroke-[2.5]" />
@@ -596,11 +706,13 @@ export default function MobileNotificationsSheet({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
                                   onOpenProfile(profile);
                                 }}
-                                className="px-2 py-0.5 sm:py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-[9px] sm:text-[10px] font-semibold transition-colors cursor-pointer ml-auto"
+                                className="px-2.5 py-1 rounded-lg border border-[#DFB76C]/60 hover:border-[#D4AF37] bg-white text-slate-800 text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer ml-auto flex items-center gap-0.5 shadow-2xs"
                               >
-                                View Details
+                                <span>View Profile</span>
+                                <ChevronRight className="w-2.5 h-2.5" />
                               </button>
                             )}
                           </>
@@ -615,9 +727,9 @@ export default function MobileNotificationsSheet({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (onSendInterest) onSendInterest(notif.profileId);
+                            if (onSendInterest) onSendInterest(profile?.id || notif.profileId);
                           }}
-                          className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] font-bold text-[9px] sm:text-[10px] shadow-2xs hover:opacity-90 active:scale-95 transition-all cursor-pointer flex items-center gap-0.5"
+                          className="px-2 sm:px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] font-bold text-[9px] sm:text-[10px] shadow-2xs hover:opacity-90 active:scale-95 transition-all cursor-pointer flex items-center gap-0.5"
                         >
                           <Heart className="w-2.5 h-2.5 fill-[#0B192C]" /> Express Interest
                         </button>
@@ -626,9 +738,10 @@ export default function MobileNotificationsSheet({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
                               onOpenProfile(profile);
                             }}
-                            className="px-2 py-0.5 sm:py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-[9px] sm:text-[10px] font-semibold transition-colors cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer"
                           >
                             View Profile
                           </button>
@@ -638,9 +751,10 @@ export default function MobileNotificationsSheet({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
                               onOpenChat(profile.id);
                             }}
-                            className="px-2 py-0.5 sm:py-1 rounded-lg bg-slate-900 text-[#DFB76C] hover:bg-black font-bold text-[9px] sm:text-[10px] transition-colors cursor-pointer flex items-center gap-0.5"
+                            className="px-2.5 py-1 rounded-lg bg-slate-900 text-[#DFB76C] hover:bg-black font-bold text-[9px] sm:text-[10px] transition-colors cursor-pointer flex items-center gap-0.5"
                           >
                             <MessageCircle className="w-2.5 h-2.5" /> Chat
                           </button>
@@ -651,28 +765,30 @@ export default function MobileNotificationsSheet({
                     {/* Scenario 3: Contact Viewed */}
                     {notif?.type === 'contact_viewed' && (
                       <>
-                        {profile && onOpenChat && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenChat(profile.id);
-                            }}
-                            className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-[#0B192C] hover:bg-slate-900 text-[#DFB76C] font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-0.5"
-                          >
-                            <MessageCircle className="w-2.5 h-2.5" /> Start Chat
-                          </button>
-                        )}
                         {profile && onOpenProfile && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
                               onOpenProfile(profile);
                             }}
-                            className="px-2 py-0.5 sm:py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-[9px] sm:text-[10px] font-semibold transition-colors cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
                           >
-                            View Profile
+                            <Eye className="w-2.5 h-2.5" /> View Profile
+                          </button>
+                        )}
+                        {profile && onOpenChat && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                              onOpenChat(profile.id);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-[#0B192C] hover:bg-slate-900 text-[#DFB76C] font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                          >
+                            <MessageCircle className="w-2.5 h-2.5" /> Start Chat
                           </button>
                         )}
                       </>
@@ -686,9 +802,10 @@ export default function MobileNotificationsSheet({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onOpenChat(profile.id);
+                              if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                              onOpenChat(profile.id, notif.quote || notif.message);
                             }}
-                            className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-0.5"
+                            className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
                           >
                             <MessageCircle className="w-2.5 h-2.5 fill-white" /> Reply in Chat
                           </button>
@@ -698,9 +815,10 @@ export default function MobileNotificationsSheet({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
                               onOpenProfile(profile);
                             }}
-                            className="px-2 py-0.5 sm:py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-[9px] sm:text-[10px] font-semibold transition-colors cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer"
                           >
                             View Profile
                           </button>
