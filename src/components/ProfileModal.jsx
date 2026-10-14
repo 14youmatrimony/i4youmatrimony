@@ -137,8 +137,16 @@ export default function ProfileModal({
           <div className="absolute -bottom-6 left-6 flex items-end space-x-4">
             <div className="relative">
               <img 
-                src={profile.photo} 
+                src={profile.photo || (String(profile.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
                 alt={profile.name} 
+                onError={(e) => {
+                  const fallback = String(profile.gender).toLowerCase() === 'male'
+                    ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
+                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+                  if (e.currentTarget.src !== fallback) {
+                    e.currentTarget.src = fallback;
+                  }
+                }}
                 className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover ring-4 ring-white shadow-xl bg-slate-100"
               />
               {profile.verified && (

@@ -160,10 +160,18 @@ export default function MobileInterestsScreen({
                 <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 flex items-center justify-between gap-3 shadow-sm">
                   <div className="flex items-center space-x-3 min-w-0" onClick={() => onSelectProfile(p)}>
                     <img 
-                      src={p.photo} 
+                      src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
                       alt={p.name} 
                       draggable={false}
                       onDragStart={(e) => e.preventDefault()}
+                      onError={(e) => {
+                        const fallback = String(p.gender).toLowerCase() === 'male'
+                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
+                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+                        if (e.currentTarget.src !== fallback) {
+                          e.currentTarget.src = fallback;
+                        }
+                      }}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         if (screenshotRestricted) triggerScreenshotBlock('right-click');
@@ -215,10 +223,18 @@ export default function MobileInterestsScreen({
                 <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-3 shadow-sm transition-all">
                   <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onSelectProfile(p)}>
                     <img 
-                      src={p.photo} 
+                      src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
                       alt={p.name} 
                       draggable={false}
                       onDragStart={(e) => e.preventDefault()}
+                      onError={(e) => {
+                        const fallback = String(p.gender).toLowerCase() === 'male'
+                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
+                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+                        if (e.currentTarget.src !== fallback) {
+                          e.currentTarget.src = fallback;
+                        }
+                      }}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         if (screenshotRestricted) triggerScreenshotBlock('right-click');
@@ -315,10 +331,18 @@ export default function MobileInterestsScreen({
                 <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 flex items-center justify-between gap-3 shadow-sm">
                   <div className="flex items-center space-x-3 min-w-0" onClick={() => onSelectProfile(p)}>
                     <img 
-                      src={p.photo} 
+                      src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
                       alt={p.name} 
                       draggable={false}
                       onDragStart={(e) => e.preventDefault()}
+                      onError={(e) => {
+                        const fallback = String(p.gender).toLowerCase() === 'male'
+                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
+                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+                        if (e.currentTarget.src !== fallback) {
+                          e.currentTarget.src = fallback;
+                        }
+                      }}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         if (screenshotRestricted) triggerScreenshotBlock('right-click');

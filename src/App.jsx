@@ -390,18 +390,41 @@ export default function App() {
 
   // Application Data & State (Initialized with cached candidates or authentic INITIAL_PROFILES)
   const [profiles, setProfiles] = useState(() => {
+    const sanitizeProfilePhotos = (p) => {
+      if (!p) return p;
+      const defaultMale = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800';
+      const defaultFemale = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+      const fallback = String(p.gender).toLowerCase() === 'male' ? defaultMale : defaultFemale;
+      const fixUrl = (url) => {
+        if (!url || typeof url !== 'string' || !url.trim() || url === 'null') return fallback;
+        if (url.includes('ejtkrilhntdbsiavugta.supabase.co') || url.includes('pheqzsfrwhjxspaaroea.supabase.co')) {
+          return url.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://kzvdzospvgzlfkkptadl.supabase.co');
+        }
+        return url;
+      };
+      const fixedPhoto = fixUrl(p.photo || p.photo_url);
+      return {
+        ...p,
+        photo: fixedPhoto,
+        photo_url: fixedPhoto,
+        singlePhotos: Array.isArray(p.singlePhotos) && p.singlePhotos.length > 0 
+          ? p.singlePhotos.map(fixUrl) 
+          : [fixedPhoto]
+      };
+    };
+
     try {
       const cached = localStorage.getItem('i4u_cached_profiles');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const valid = parsed.filter(p => !isDemoProfile(p));
+          const valid = parsed.filter(p => !isDemoProfile(p)).map(sanitizeProfilePhotos);
           if (valid.length > 0) return valid;
         }
       }
     } catch (e) {}
     return Array.isArray(INITIAL_PROFILES) && INITIAL_PROFILES.length > 0 
-      ? INITIAL_PROFILES.filter(p => !isDemoProfile(p)) 
+      ? INITIAL_PROFILES.filter(p => !isDemoProfile(p)).map(sanitizeProfilePhotos) 
       : [];
   });
 

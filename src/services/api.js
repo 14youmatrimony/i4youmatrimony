@@ -186,20 +186,41 @@ export async function safeFetchJson(url, options = {}, timeoutMs = 1500) {
 export function mapSupabaseRowToProfile(r) {
   if (!r) return null;
 
+  const defaultMale = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800';
+  const defaultFemale = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+  const defaultFallback = String(r.gender).toLowerCase() === 'male' ? defaultMale : defaultFemale;
+
+  const sanitizeUrl = (u) => {
+    if (!u || typeof u !== 'string') return null;
+    let str = u.trim();
+    if (!str || str === 'null' || str === 'undefined') return null;
+    if (str.includes('ejtkrilhntdbsiavugta.supabase.co') || str.includes('pheqzsfrwhjxspaaroea.supabase.co')) {
+      str = str.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://kzvdzospvgzlfkkptadl.supabase.co');
+    }
+    return str;
+  };
+
   let singlePhotos = [];
   try {
     if (r.single_photos) {
-      singlePhotos = typeof r.single_photos === 'string' ? JSON.parse(r.single_photos) : r.single_photos;
+      const parsed = typeof r.single_photos === 'string' ? JSON.parse(r.single_photos) : r.single_photos;
+      if (Array.isArray(parsed)) {
+        singlePhotos = parsed.map(sanitizeUrl).filter(Boolean);
+      }
     }
   } catch (e) {
-    singlePhotos = [r.photo].filter(Boolean);
+    const s = sanitizeUrl(r.photo);
+    singlePhotos = s ? [s] : [];
   }
   if (!Array.isArray(singlePhotos)) singlePhotos = [];
 
   let familyPhotos = [];
   try {
     if (r.family_photos) {
-      familyPhotos = typeof r.family_photos === 'string' ? JSON.parse(r.family_photos) : r.family_photos;
+      const parsed = typeof r.family_photos === 'string' ? JSON.parse(r.family_photos) : r.family_photos;
+      if (Array.isArray(parsed)) {
+        familyPhotos = parsed.map(sanitizeUrl).filter(Boolean);
+      }
     }
   } catch (e) {
     familyPhotos = ['https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800'];
@@ -211,24 +232,17 @@ export function mapSupabaseRowToProfile(r) {
   const isSentBack = r.aadhaar_status === 'sent_back';
   const isApproved = r.aadhaar_status === 'approved' || (Boolean(r.aadhaar_verified) && !isSentBack);
 
-  const defaultMale = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800';
-  const defaultFemale = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-  const defaultFallback = String(r.gender).toLowerCase() === 'male' ? defaultMale : defaultFemale;
+  const cleanPhoto = sanitizeUrl(r.photo);
+  const cleanPhotoUrl = sanitizeUrl(r.photo_url);
 
-  const isCustomSingle = singlePhotos.length > 0 && !singlePhotos[0].includes('images.unsplash.com');
-  const isCustomPhoto = r.photo && !r.photo.includes('images.unsplash.com');
-  const isCustomPhotoUrl = r.photo_url && !r.photo_url.includes('images.unsplash.com');
-
-  const resolvedPhoto = (isCustomSingle ? singlePhotos[0] : null) || 
-                        (isCustomPhoto ? r.photo : null) || 
-                        (isCustomPhotoUrl ? r.photo_url : null) || 
-                        r.photo || 
-                        r.photo_url || 
+  const resolvedPhoto = (singlePhotos.length > 0 ? singlePhotos[0] : null) || 
+                        cleanPhoto || 
+                        cleanPhotoUrl || 
                         defaultFallback;
 
   if (singlePhotos.length === 0) {
     singlePhotos = [resolvedPhoto];
-  } else if (singlePhotos[0] !== resolvedPhoto && !singlePhotos[0].includes('images.unsplash.com')) {
+  } else if (singlePhotos[0] !== resolvedPhoto) {
     singlePhotos = [resolvedPhoto, ...singlePhotos.filter(p => p !== resolvedPhoto)].slice(0, 5);
   }
 

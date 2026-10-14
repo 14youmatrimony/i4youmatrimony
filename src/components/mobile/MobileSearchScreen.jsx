@@ -231,10 +231,18 @@ export default function MobileSearchScreen({
                 }}
               >
                 <img 
-                  src={profile.photo} 
+                  src={profile.photo || (String(profile.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
                   alt={profile.name}
                   draggable={false}
                   onDragStart={(e) => e.preventDefault()}
+                  onError={(e) => {
+                    const fallback = String(profile.gender).toLowerCase() === 'male'
+                      ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
+                      : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+                    if (e.currentTarget.src !== fallback) {
+                      e.currentTarget.src = fallback;
+                    }
+                  }}
                   className="w-full h-full object-cover select-none pointer-events-none" 
                 />
                 <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded-full text-[8px] font-bold bg-[#D4AF37] text-[#0B192C]">

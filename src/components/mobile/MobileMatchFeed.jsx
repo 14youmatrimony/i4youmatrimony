@@ -584,10 +584,18 @@ export default function MobileMatchFeed({
                     }}
                   >
                     <img 
-                      src={profile.photo} 
+                      src={profile.photo || (String(profile.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
                       alt={profile.name}
                       draggable={false}
                       onDragStart={(e) => e.preventDefault()}
+                      onError={(e) => {
+                        const fallback = String(profile.gender).toLowerCase() === 'male'
+                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
+                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+                        if (e.currentTarget.src !== fallback) {
+                          e.currentTarget.src = fallback;
+                        }
+                      }}
                       className={`w-full h-full object-cover select-none pointer-events-none transition-transform duration-300 group-hover:scale-105 ${
                         profile.hidePhotos
                           ? 'blur-2xl scale-125 opacity-30 grayscale'
@@ -762,10 +770,18 @@ export default function MobileMatchFeed({
                     }}
                   >
                     <img 
-                      src={profile.photo} 
+                      src={profile.photo || (String(profile.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
                       alt={profile.name}
                       draggable={false}
                       onDragStart={(e) => e.preventDefault()}
+                      onError={(e) => {
+                        const fallback = String(profile.gender).toLowerCase() === 'male'
+                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
+                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+                        if (e.currentTarget.src !== fallback) {
+                          e.currentTarget.src = fallback;
+                        }
+                      }}
                       className={`w-full h-full object-cover select-none pointer-events-none transition-transform duration-300 group-hover:scale-102 ${
                         profile.hidePhotos
                           ? 'blur-2xl scale-125 opacity-30 grayscale'
