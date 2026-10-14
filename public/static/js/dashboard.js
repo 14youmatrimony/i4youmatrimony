@@ -2944,39 +2944,55 @@ async function openEditPlanModal(id) {
     if (!plan) return showToast('Plan not found: ' + id, 'error');
 
     const modal = document.getElementById('planModal');
+    if (!modal) {
+      console.error('[openEditPlanModal] planModal element not found');
+      return showToast('Plan modal not found in DOM', 'error');
+    }
+
     const title = document.getElementById('planModalTitle');
     const isEdit = document.getElementById('planIsEdit');
     const idInput = document.getElementById('planId');
 
-    title.textContent = `Edit Membership Plan: ${plan.name}`;
-    isEdit.value = '1';
+    if (title) title.textContent = `Edit Membership Plan: ${plan.name || id}`;
+    if (isEdit) isEdit.value = '1';
 
-    idInput.value = plan.id;
-    idInput.disabled = true;
-    idInput.classList.add('opacity-50', 'cursor-not-allowed');
+    if (idInput) {
+      idInput.value = plan.id;
+      idInput.disabled = true;
+      idInput.classList.add('opacity-50', 'cursor-not-allowed');
+    }
 
-    document.getElementById('planName').value = plan.name || '';
-    document.getElementById('planTagline').value = plan.tagline || '';
-    document.getElementById('planBadge').value = plan.badge || '';
-    document.getElementById('planColor').value = plan.color || 'amber';
-    document.getElementById('planContactCredits').value = plan.contact_credits !== undefined ? plan.contact_credits : 30;
-    document.getElementById('planSortOrder').value = plan.sort_order || 1;
+    const setVal = (elId, val) => {
+      const el = document.getElementById(elId);
+      if (el) el.value = (val !== undefined && val !== null) ? val : '';
+    };
+    const setChecked = (elId, val) => {
+      const el = document.getElementById(elId);
+      if (el) el.checked = Boolean(val == 1 || val === true);
+    };
 
-    document.getElementById('planPrice1m').value = plan.price_1m !== undefined ? plan.price_1m : 0;
-    document.getElementById('planOfferPrice1m').value = plan.offer_price_1m !== undefined ? plan.offer_price_1m : 0;
-    document.getElementById('planPrice3m').value = plan.price_3m !== undefined ? plan.price_3m : 0;
-    document.getElementById('planOfferPrice3m').value = plan.offer_price_3m !== undefined ? plan.offer_price_3m : 0;
-    document.getElementById('planPrice6m').value = plan.price_6m !== undefined ? plan.price_6m : 0;
-    document.getElementById('planOfferPrice6m').value = plan.offer_price_6m !== undefined ? plan.offer_price_6m : 0;
-    document.getElementById('planPrice12m').value = plan.price_12m !== undefined ? plan.price_12m : 0;
-    document.getElementById('planOfferPrice12m').value = plan.offer_price_12m !== undefined ? plan.offer_price_12m : 0;
+    setVal('planName', plan.name);
+    setVal('planTagline', plan.tagline);
+    setVal('planBadge', plan.badge);
+    setVal('planColor', plan.color || 'amber');
+    setVal('planContactCredits', plan.contact_credits !== undefined ? plan.contact_credits : 30);
+    setVal('planSortOrder', plan.sort_order || 1);
 
-    document.getElementById('planDailyInterests').value = plan.daily_interests || 'Unlimited';
-    document.getElementById('planKundaliReports').value = plan.kundali_reports || 'Basic Ashtakoot';
-    document.getElementById('planSearchBoost').value = plan.search_boost || '1x Standard';
-    document.getElementById('planPrivacyShield').value = plan.privacy_shield || 'Standard Public';
-    document.getElementById('planSupportLevel').value = plan.support_level || 'Priority Chat & Email (24h)';
-    document.getElementById('planHasAdvisor').checked = Boolean(plan.has_advisor == 1 || plan.has_advisor === true);
+    setVal('planPrice1m', plan.price_1m !== undefined ? plan.price_1m : 0);
+    setVal('planOfferPrice1m', plan.offer_price_1m !== undefined ? plan.offer_price_1m : 0);
+    setVal('planPrice3m', plan.price_3m !== undefined ? plan.price_3m : 0);
+    setVal('planOfferPrice3m', plan.offer_price_3m !== undefined ? plan.offer_price_3m : 0);
+    setVal('planPrice6m', plan.price_6m !== undefined ? plan.price_6m : 0);
+    setVal('planOfferPrice6m', plan.offer_price_6m !== undefined ? plan.offer_price_6m : 0);
+    setVal('planPrice12m', plan.price_12m !== undefined ? plan.price_12m : 0);
+    setVal('planOfferPrice12m', plan.offer_price_12m !== undefined ? plan.offer_price_12m : 0);
+
+    setVal('planDailyInterests', plan.daily_interests || 'Unlimited');
+    setVal('planKundaliReports', plan.kundali_reports || 'Basic Ashtakoot');
+    setVal('planSearchBoost', plan.search_boost || '1x Standard');
+    setVal('planPrivacyShield', plan.privacy_shield || 'Standard Public');
+    setVal('planSupportLevel', plan.support_level || 'Priority Chat & Email (24h)');
+    setChecked('planHasAdvisor', plan.has_advisor);
 
     // Format features as line items (+ or -)
     let features = plan.features_parsed;
@@ -2994,18 +3010,26 @@ async function openEditPlanModal(id) {
       const text = typeof f === 'object' ? (f.text || '') : String(f);
       return `${isInc ? '+' : '-'} ${text}`;
     }).join('\n');
-    document.getElementById('planFeatures').value = featureLines;
+    setVal('planFeatures', featureLines);
 
-    document.getElementById('planIsPopular').checked = Boolean(plan.is_popular == 1 || plan.is_popular === true);
-    document.getElementById('planActive').checked = Boolean(plan.is_active == 1 || plan.is_active === true);
+    setChecked('planIsPopular', plan.is_popular);
+    setChecked('planActive', plan.is_active);
 
-    modal.showModal();
+    if (modal.open) {
+      try { modal.close(); } catch (e) {}
+    }
+    if (typeof modal.showModal === 'function') {
+      modal.showModal();
+    } else {
+      modal.setAttribute('open', '');
+    }
+
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       lucide.createIcons();
     }
   } catch (err) {
-    console.error('Error in openEditPlanModal:', err);
-    showToast('Failed to load plan details', 'error');
+    console.error('[openEditPlanModal Error]:', err);
+    showToast('Failed to load plan details: ' + (err.message || ''), 'error');
   }
 }
 
@@ -3020,7 +3044,7 @@ async function savePlan(e) {
   }
 
   // Parse feature lines
-  const rawFeatures = document.getElementById('planFeatures').value.split('\n');
+  const rawFeatures = (document.getElementById('planFeatures').value || '').split('\n');
   const features = rawFeatures
     .map(line => line.trim())
     .filter(line => line.length > 0)
@@ -3032,10 +3056,10 @@ async function savePlan(e) {
 
   const payload = {
     id: planId,
-    name: document.getElementById('planName').value.trim(),
-    tagline: document.getElementById('planTagline').value.trim(),
-    badge: document.getElementById('planBadge').value.trim() || null,
-    color: document.getElementById('planColor').value,
+    name: (document.getElementById('planName').value || '').trim(),
+    tagline: (document.getElementById('planTagline').value || '').trim(),
+    badge: (document.getElementById('planBadge').value || '').trim() || null,
+    color: document.getElementById('planColor').value || 'amber',
     contact_credits: parseInt(document.getElementById('planContactCredits').value, 10) || 0,
     sort_order: parseInt(document.getElementById('planSortOrder').value, 10) || 1,
     price_1m: parseInt(document.getElementById('planPrice1m').value, 10) || 0,
@@ -3046,8 +3070,8 @@ async function savePlan(e) {
     offer_price_6m: parseInt(document.getElementById('planOfferPrice6m').value, 10) || 0,
     price_12m: parseInt(document.getElementById('planPrice12m').value, 10) || 0,
     offer_price_12m: parseInt(document.getElementById('planOfferPrice12m').value, 10) || 0,
-    daily_interests: document.getElementById('planDailyInterests').value.trim() || 'Unlimited',
-    kundali_reports: document.getElementById('planKundaliReports').value.trim() || 'Basic Ashtakoot',
+    daily_interests: (document.getElementById('planDailyInterests').value || '').trim() || 'Unlimited',
+    kundali_reports: (document.getElementById('planKundaliReports').value || '').trim() || 'Basic Ashtakoot',
     search_boost: document.getElementById('planSearchBoost').value,
     privacy_shield: document.getElementById('planPrivacyShield').value,
     support_level: document.getElementById('planSupportLevel').value,
@@ -3071,7 +3095,11 @@ async function savePlan(e) {
     if (!res.ok) throw new Error(data.error || 'Failed to save membership plan');
 
     showToast(isEdit ? 'Membership plan updated successfully!' : 'New membership plan created!', 'success');
-    document.getElementById('planModal').close();
+    const modal = document.getElementById('planModal');
+    if (modal) {
+      if (typeof modal.close === 'function') modal.close();
+      else modal.removeAttribute('open');
+    }
     await loadPlans();
   } catch (err) {
     showToast(err.message || 'Error saving membership plan', 'error');
@@ -3080,33 +3108,36 @@ async function savePlan(e) {
 
 function syncPlanToggleUI(id, isActive) {
   const isAct = (isActive === 1 || isActive === true || isActive === '1');
-  document.querySelectorAll(`input[data-plan-toggle="${id}"]`).forEach(cb => {
-    cb.checked = isAct;
-  });
-  document.querySelectorAll(`[data-plan-status-text="${id}"]`).forEach(span => {
-    if (span.classList.contains('comp-status-text')) {
-      span.textContent = isAct ? '✓ Active (Live)' : '✕ Inactive';
-    } else if (span.classList.contains('text-[10px]')) {
-      span.textContent = isAct ? 'Active' : 'Off';
-    } else if (span.classList.contains('font-semibold')) {
-      span.textContent = isAct ? 'Active' : 'Inactive';
-    } else {
-      span.textContent = isAct ? 'Active' : 'Draft';
+  const cleanId = String(id).trim().toLowerCase();
+  document.querySelectorAll('input[data-plan-toggle]').forEach(cb => {
+    if (String(cb.getAttribute('data-plan-toggle')).trim().toLowerCase() === cleanId) {
+      cb.checked = isAct;
     }
-    if (isAct) {
-      span.classList.add('text-emerald-400');
-      span.classList.remove('text-slate-400');
-    } else {
-      span.classList.remove('text-emerald-400');
-      span.classList.add('text-slate-400');
+  });
+  document.querySelectorAll('[data-plan-status-text]').forEach(span => {
+    if (String(span.getAttribute('data-plan-status-text')).trim().toLowerCase() === cleanId) {
+      if (span.classList.contains('comp-status-text')) {
+        span.textContent = isAct ? '✓ Active (Live)' : '✕ Inactive';
+      } else if (span.classList.contains('text-[10px]')) {
+        span.textContent = isAct ? 'Active' : 'Off';
+      } else if (span.classList.contains('font-semibold')) {
+        span.textContent = isAct ? 'Active' : 'Inactive';
+      } else {
+        span.textContent = isAct ? 'Active' : 'Draft';
+      }
+      if (isAct) {
+        span.classList.add('text-emerald-400');
+        span.classList.remove('text-slate-400');
+      } else {
+        span.classList.remove('text-emerald-400');
+        span.classList.add('text-slate-400');
+      }
     }
   });
   const activeCountEl = document.getElementById('activePlansCount');
-  if (activeCountEl) {
-    activeCountEl.textContent = (state.plans || []).filter(p => p.is_active === 1 || p.is_active === true).length;
+  if (activeCountEl && Array.isArray(state.plans)) {
+    activeCountEl.textContent = state.plans.filter(p => p.is_active === 1 || p.is_active === true).length;
   }
-  const workspaceEl = document.getElementById('mainWorkspace');
-  if (workspaceEl) workspaceEl.scrollTop = 0;
 }
 
 let isTogglingPlan = false;
@@ -3114,24 +3145,29 @@ async function togglePlanActive(id, inputEl) {
   if (isTogglingPlan) return;
   isTogglingPlan = true;
 
-  const workspaceEl = document.getElementById('mainWorkspace');
-  if (workspaceEl) workspaceEl.scrollTop = 0;
-
-  const plan = (state.plans || []).find(p => p.id === id);
-  const oldActive = plan ? (plan.is_active === 1 || plan.is_active === true) : false;
-  const newActive = oldActive ? 0 : 1;
+  const cleanId = String(id).trim().toLowerCase();
+  const plan = (state.plans || []).find(p => String(p.id).trim().toLowerCase() === cleanId);
+  
+  let newActive;
+  if (inputEl && typeof inputEl.checked === 'boolean') {
+    newActive = inputEl.checked ? 1 : 0;
+  } else {
+    const oldActive = plan ? (plan.is_active === 1 || plan.is_active === true) : false;
+    newActive = oldActive ? 0 : 1;
+  }
 
   if (plan) {
     plan.is_active = newActive;
   }
 
   // Optimistic UI synchronization across cards, summary table, and comparison matrix
-  syncPlanToggleUI(id, newActive);
+  syncPlanToggleUI(cleanId, newActive);
 
   try {
-    const res = await fetch(`/api/plans/${id}/toggle`, { 
+    const res = await fetch(`/api/plans/${encodeURIComponent(cleanId)}/toggle`, { 
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: newActive })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to toggle plan status');
@@ -3144,19 +3180,28 @@ async function togglePlanActive(id, inputEl) {
       try { plan.features_parsed = JSON.parse(plan.features); } catch (e) { plan.features_parsed = []; }
     }
 
-    const finalActive = plan ? (plan.is_active === 1 || plan.is_active === true ? 1 : 0) : newActive;
-    syncPlanToggleUI(id, finalActive);
-    showToast(data.message || 'Plan status updated successfully', 'success');
+    const finalActive = (data.is_active !== undefined) ? (data.is_active ? 1 : 0) : newActive;
+    if (plan) plan.is_active = finalActive;
+    syncPlanToggleUI(cleanId, finalActive);
+    showToast(data.message || `Plan status updated to ${finalActive ? 'Active' : 'Draft'}`, 'success');
   } catch (err) {
+    const revertActive = newActive ? 0 : 1;
     if (plan) {
-      plan.is_active = oldActive ? 1 : 0;
-      syncPlanToggleUI(id, plan.is_active);
+      plan.is_active = revertActive;
     }
+    syncPlanToggleUI(cleanId, revertActive);
     showToast(err.message || 'Error toggling plan status', 'error');
   } finally {
     isTogglingPlan = false;
   }
 }
+
+// Explicit window attachments for robust HTML inline onclick access
+window.openEditPlanModal = openEditPlanModal;
+window.savePlan = savePlan;
+window.openAddPlanModal = openAddPlanModal;
+window.togglePlanActive = togglePlanActive;
+window.syncPlanToggleUI = syncPlanToggleUI;
 
 function openDeletePlanModal(id, name) {
   state.pendingDelete = { type: 'plan', id, name: name || id };

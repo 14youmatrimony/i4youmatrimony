@@ -1696,168 +1696,32 @@
 
         // 2. PATCH toggle status (/api/offers/:id/toggle)
         if (subRoute === '/toggle' && method === 'PATCH') {
+          const body = init && init.body ? JSON.parse(init.body) : {};
+          let newActive;
           if (idx !== -1) {
-            const currentOffer = store.offers[idx];
-            const newActive = (currentOffer.is_active == 1 || currentOffer.is_active === true) ? 0 : 1;
-            store.offers[idx].is_active = newActive;
+            if (body.is_active !== undefined) {
+              newActive = (body.is_active === true || body.is_active === 1 || body.is_active === '1') ? 1 : 0;
+            } else {
+              newActive = store.plans[idx].is_active == 1 ? 0 : 1;
+            }
+            store.plans[idx].is_active = newActive;
             saveStore(store);
-            pushOfferUpdateToSupabase(currentOffer.id, { is_active: newActive });
-            const statusStr = newActive === 1 ? 'activated' : 'deactivated';
+            await pushPlanUpdateToSupabase(planId, { is_active: newActive });
             return jsonResponse({ 
               success: true, 
               is_active: newActive, 
-              message: `Offer '${currentOffer.code}' ${statusStr} successfully!` 
+              message: `Plan ${newActive ? 'activated' : 'deactivated'} successfully`,
+              plan: store.plans[idx] 
             });
           }
-          return jsonResponse({ error: 'Offer not found' }, 404);
-        }
-
-        // 3. DELETE offer (/api/offers/:id)
-        if (method === 'DELETE') {
-          if (idx !== -1) {
-            const deletedOffer = store.offers[idx];
-            store.offers.splice(idx, 1);
-            saveStore(store);
-            pushOfferDeleteToSupabase(deletedOffer.id);
-            return jsonResponse({ success: true, message: `Offer '${deletedOffer.code}' deleted successfully` });
-          }
-          return jsonResponse({ error: 'Offer not found' }, 404);
-        }
-
-        // 4. PUT update offer (/api/offers/:id)
-        if (method === 'PUT') {
-          const body = init && init.body ? JSON.parse(init.body) : {};
-          if (idx !== -1) {
-            const currentOffer = store.offers[idx];
-            const sanitizedUpdate = { ...body };
-            if ('is_active' in sanitizedUpdate) {
-              sanitizedUpdate.is_active = (sanitizedUpdate.is_active == 1 || sanitizedUpdate.is_active === true) ? 1 : 0;
-            }
-            if ('discount_percent' in sanitizedUpdate) {
-              sanitizedUpdate.discount_percent = Number(sanitizedUpdate.discount_percent) || 0;
-            }
-            if ('max_uses' in sanitizedUpdate) {
-              sanitizedUpdate.max_uses = Number(sanitizedUpdate.max_uses) || 100;
-            }
-            delete sanitizedUpdate.id;
-
-            store.offers[idx] = { ...currentOffer, ...sanitizedUpdate };
-            saveStore(store);
-            pushOfferUpdateToSupabase(currentOffer.id, sanitizedUpdate);
-            return jsonResponse({ 
-              success: true, 
-              message: `Offer '${store.offers[idx].code}' updated successfully!`, 
-              offer: store.offers[idx] 
-            });
-          }
-          return jsonResponse({ error: 'Offer not found' }, 404);
-        }
-      }
-
-      // 7. /api/plans
-      if (pathname === '/api/plans') {
-        if (method === 'GET') {
-          if (!store.plans || store.plans.length === 0) {
-            await syncPlansFromSupabase();
-          }
-          const formattedPlans = (store.plans || []).map(p => {
-            if (!p.features_parsed) {
-              if (typeof p.features === 'string') {
-                try { p.features_parsed = JSON.parse(p.features); } catch (e) { p.features_parsed = []; }
-              } else if (Array.isArray(p.features)) {
-                p.features_parsed = p.features;
-              } else {
-                p.features_parsed = [];
-              }
-            }
-            return p;
+          newActive = body.is_active !== undefined ? (body.is_active ? 1 : 0) : 1;
+          await pushPlanUpdateToSupabase(planId, { is_active: newActive });
+          return jsonResponse({ 
+            success: true, 
+            is_active: newActive, 
+            message: 'Plan status updated successfully',
+            plan: { id: planId, is_active: newActive } 
           });
-          return jsonResponse({ success: true, plans: formattedPlans, total: formattedPlans.length });
-        }
-        if (method === 'POST') {
-          const body = init && init.body ? JSON.parse(init.body) : {};
-          const newPlanId = (body.id || 'plan_' + Date.now()).trim().toLowerCase().replace(/\s+/g, '_');
-          const newPlan = {
-            id: newPlanId,
-            name: body.name || 'New Membership Plan',
-            tagline: body.tagline || '',
-            badge: body.badge || '',
-            is_popular: (body.is_popular === true || body.is_popular === 1 || body.is_popular === '1') ? 1 : 0,
-            color: body.color || 'amber',
-            contact_credits: Number(body.contact_credits) || 30,
-            sort_order: Number(body.sort_order) || ((store.plans || []).length + 1),
-            price_1m: Number(body.price_1m) || 0,
-            offer_price_1m: Number(body.offer_price_1m) || 0,
-            price_3m: Number(body.price_3m) || 0,
-            offer_price_3m: Number(body.offer_price_3m) || 0,
-            price_6m: Number(body.price_6m) || 0,
-            offer_price_6m: Number(body.offer_price_6m) || 0,
-            price_12m: Number(body.price_12m) || 0,
-            offer_price_12m: Number(body.offer_price_12m) || 0,
-            daily_interests: body.daily_interests || 'Unlimited',
-            kundali_reports: body.kundali_reports || 'Basic Ashtakoot',
-            search_boost: body.search_boost || '1x Standard',
-            privacy_shield: body.privacy_shield || 'Standard Public',
-            support_level: body.support_level || 'Priority Support',
-            has_advisor: (body.has_advisor === true || body.has_advisor === 1 || body.has_advisor === '1') ? 1 : 0,
-            features: typeof body.features === 'string' ? body.features : JSON.stringify(body.features || []),
-            features_parsed: Array.isArray(body.features) ? body.features : [],
-            is_active: (body.is_active === false || body.is_active === 0 || body.is_active === '0') ? 0 : 1,
-            created_at: new Date().toISOString()
-          };
-          if (!store.plans) store.plans = [];
-          store.plans.push(newPlan);
-          saveStore(store);
-          await pushPlanInsertToSupabase(newPlan);
-          return jsonResponse({ success: true, plan: newPlan }, 201);
-        }
-      }
-
-      const planMatch = pathname.match(/^\/api\/plans\/([^\/]+)(\/.*)?$/);
-      if (planMatch) {
-        const planId = decodeURIComponent(planMatch[1]).trim().toLowerCase();
-        const subRoute = planMatch[2] || '';
-        if (!store.plans) store.plans = [];
-        const idx = store.plans.findIndex(p => String(p.id).trim().toLowerCase() === planId);
-
-        // GET /api/plans/:id -> Return single plan for edit modal
-        if (method === 'GET' && !subRoute) {
-          let plan = idx !== -1 ? store.plans[idx] : null;
-          if (!plan) {
-            try {
-              const sbRes = await originalFetch(`${SUPABASE_PLANS}?id=eq.${encodeURIComponent(planId)}&select=*`, {
-                headers: {
-                  'apikey': SUPABASE_ANON,
-                  'Authorization': 'Bearer ' + SUPABASE_ANON
-                }
-              });
-              if (sbRes.ok) {
-                const sbData = await sbRes.json();
-                if (Array.isArray(sbData) && sbData.length > 0) {
-                  plan = sbData[0];
-                  store.plans.push(plan);
-                  saveStore(store);
-                }
-              }
-            } catch (e) {
-              console.warn('[Admin Engine] Supabase direct plan fetch notice:', e);
-            }
-          }
-
-          if (plan) {
-            const planCopy = { ...plan };
-            if (!planCopy.features_parsed) {
-              if (typeof planCopy.features === 'string') {
-                try { planCopy.features_parsed = JSON.parse(planCopy.features); } catch (e) { planCopy.features_parsed = []; }
-              } else if (Array.isArray(planCopy.features)) {
-                planCopy.features_parsed = planCopy.features;
-              } else {
-                planCopy.features_parsed = [];
-              }
-            }
-            return jsonResponse({ success: true, plan: planCopy });
-          }
-          return jsonResponse({ error: 'Plan not found' }, 404);
         }
 
         if (subRoute === '/toggle' && method === 'PATCH') {
