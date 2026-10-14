@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, updateLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile } from './services/api';
 import { supabase, isSupabaseConfigured } from './services/supabase';
 import { uploadProfilePhoto } from './services/storageService';
@@ -406,7 +406,13 @@ export default function App() {
   });
 
   // Synchronize candidate profiles from Supabase Cloud & Python Admin Backend
-  const syncLiveProfiles = useCallback(async () => {
+  const lastProfilesSyncRef = useRef(0);
+  const syncLiveProfiles = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastProfilesSyncRef.current < 60000) {
+      return; // Cooldown: skip redundant fetch within 60 seconds
+    }
+    lastProfilesSyncRef.current = now;
     try {
       const liveList = await fetchLiveProfiles();
       if (Array.isArray(liveList) && liveList.length > 0) {
@@ -426,18 +432,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    syncLiveProfiles();
+    syncLiveProfiles(true);
 
-    // Auto-refresh when user/admin switches window or tab gains focus
-    const handleFocus = () => syncLiveProfiles();
+    // Auto-refresh when user/admin switches window or tab gains focus (throttled)
+    const handleFocus = () => syncLiveProfiles(false);
     window.addEventListener('focus', handleFocus);
     const handleVisibility = () => {
-      if (!document.hidden) syncLiveProfiles();
+      if (!document.hidden) syncLiveProfiles(false);
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
-    // Periodic background sync every 30s to keep profiles fresh across devices
-    const interval = setInterval(syncLiveProfiles, 30000);
+    // Periodic background sync every 120s to conserve bandwidth and prevent egress spikes
+    const interval = setInterval(() => syncLiveProfiles(true), 120000);
 
     return () => {
       window.removeEventListener('focus', handleFocus);
@@ -476,7 +482,13 @@ export default function App() {
   const [membershipPlans, setMembershipPlans] = useState(MEMBERSHIP_PLANS);
   const [activeOffers, setActiveOffers] = useState([]);
 
-  const syncPlansAndOffers = useCallback(async () => {
+  const lastPlansSyncRef = useRef(0);
+  const syncPlansAndOffers = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastPlansSyncRef.current < 60000) {
+      return; // Cooldown: skip redundant fetch within 60 seconds
+    }
+    lastPlansSyncRef.current = now;
     try {
       const [livePlans, liveOffers] = await Promise.all([
         fetchLivePlans(),
@@ -592,20 +604,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    syncPlansAndOffers();
+    syncPlansAndOffers(true);
 
-    // Auto-refresh when user/admin switches tabs or window gains focus
+    // Auto-refresh when user/admin switches tabs or window gains focus (throttled)
     const handleFocus = () => {
-      syncPlansAndOffers();
+      syncPlansAndOffers(false);
     };
     window.addEventListener('focus', handleFocus);
     const handleVisibility = () => {
-      if (!document.hidden) syncPlansAndOffers();
+      if (!document.hidden) syncPlansAndOffers(false);
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
-    // Fast background sync every 1500ms to immediately reflect admin changes on app screen
-    const interval = setInterval(syncPlansAndOffers, 1500);
+    // Background sync every 120s to reflect admin updates without network thrashing
+    const interval = setInterval(() => syncPlansAndOffers(true), 120000);
 
     return () => {
       window.removeEventListener('focus', handleFocus);

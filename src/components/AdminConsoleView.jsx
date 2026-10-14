@@ -37,10 +37,19 @@ export default function AdminConsoleView() {
     }
 
     try {
+      const ADMIN_PROFILE_COLUMNS = [
+        'id', 'register_id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'skin_colour',
+        'religion', 'caste', 'mother_tongue', 'state', 'city', 'district', 'native_address',
+        'education', 'education_category', 'profession', 'company', 'annual_income',
+        'marital_status', 'diet', 'body_type', 'verified', 'govt_id_verified', 'aadhaar_verified',
+        'aadhaar_status', 'aadhaar_rejection_reason', 'status', 'photo', 'photo_url', 'created_at', 'updated_at'
+      ].join(',');
+
       let query = supabase
         .from('profiles')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false });
+        .select(ADMIN_PROFILE_COLUMNS, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);

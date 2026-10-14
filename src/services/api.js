@@ -445,6 +445,16 @@ export const CANDIDATE_FEED_COLUMNS = [
   'created_at'
 ].join(',');
 
+export const PROFILE_DETAIL_COLUMNS = [
+  'id', 'register_id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'skin_colour',
+  'photo', 'photo_url', 'single_photos', 'family_photos', 'religion', 'caste', 'mother_tongue',
+  'state', 'city', 'district', 'native_address', 'education', 'education_category', 'profession',
+  'company', 'annual_income', 'diet', 'marital_status', 'body_type', 'smoking', 'drinking',
+  'hobbies', 'about', 'partner_expectations', 'family_details', 'verified', 'govt_id_verified',
+  'aadhaar_verified', 'aadhaar_status', 'aadhaar_rejection_reason', 'selfie_verified', 'selfie_photo',
+  'selfie_match_score', 'match_score', 'manglik', 'status', 'created_at', 'updated_at'
+].join(',');
+
 /**
  * Fetch all active profiles from Supabase first, with fallback to Flask backend & offline cache
  * Excludes all demo profiles - returns only real registered candidates.
@@ -457,7 +467,8 @@ export async function fetchLiveProfiles() {
         .from('profiles')
         .select(CANDIDATE_FEED_COLUMNS)
         .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       // 8-second timeout guard to prevent UI stalling on slow connections
       const timeoutPromise = new Promise((_, reject) =>
@@ -984,7 +995,7 @@ export async function fetchLiveUserProfile(userId) {
       const cleanId = String(userId).trim();
       const isRegId = cleanId.toUpperCase().startsWith('I4Y');
 
-      let query = supabase.from('profiles').select('*');
+      let query = supabase.from('profiles').select(PROFILE_DETAIL_COLUMNS);
       if (isRegId) {
         query = query.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
       } else {

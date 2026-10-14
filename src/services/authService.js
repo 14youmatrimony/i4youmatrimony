@@ -249,11 +249,20 @@ export async function loginWithRegisterId(registerIdInput, passwordInput) {
 
       let member = null;
 
+const AUTH_PROFILE_COLUMNS = [
+  'id', 'register_id', 'password', 'name', 'email', 'phone', 'age', 'gender',
+  'height', 'skin_colour', 'photo', 'photo_url', 'religion', 'caste', 'mother_tongue',
+  'state', 'city', 'district', 'native_address', 'education', 'profession', 'company',
+  'annual_income', 'marital_status', 'diet', 'body_type', 'about', 'verified',
+  'govt_id_verified', 'aadhaar_verified', 'aadhaar_status', 'aadhaar_rejection_reason',
+  'selfie_verified', 'selfie_photo', 'selfie_match_score', 'status', 'created_at', 'updated_at'
+].join(',');
+
       // A. Phone number search
       if (isPhone) {
         const { data: phoneMatches, error: phoneErr } = await supabase
           .from('profiles')
-          .select('*')
+          .select(AUTH_PROFILE_COLUMNS)
           .ilike('phone', `%${cleanDigits}%`)
           .limit(1);
         if (!phoneErr && phoneMatches && phoneMatches.length > 0) {
@@ -266,7 +275,7 @@ export async function loginWithRegisterId(registerIdInput, passwordInput) {
         try {
           const { data: regMatches, error: regErr } = await supabase
             .from('profiles')
-            .select('*')
+            .select(AUTH_PROFILE_COLUMNS)
             .ilike('register_id', cleanRegisterId)
             .limit(1);
           if (!regErr && regMatches && regMatches.length > 0) {
@@ -279,7 +288,7 @@ export async function loginWithRegisterId(registerIdInput, passwordInput) {
       if (!member) {
         const { data: idMatches, error: idErr } = await supabase
           .from('profiles')
-          .select('*')
+          .select(AUTH_PROFILE_COLUMNS)
           .or(`id.ilike.%${cleanRegisterId.toLowerCase()}%,id.ilike.%${cleanInput}%`)
           .limit(1);
         if (!idErr && idMatches && idMatches.length > 0) {
@@ -353,7 +362,7 @@ export async function loginWithMobileOtpSuccess(phoneNumber) {
     try {
       const { data: phoneMatches, error: phoneErr } = await supabase
         .from('profiles')
-        .select('*')
+        .select(AUTH_PROFILE_COLUMNS)
         .ilike('phone', `%${cleanDigits}%`)
         .limit(1);
 
