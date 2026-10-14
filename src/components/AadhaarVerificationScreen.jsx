@@ -52,7 +52,7 @@ export function generateCandidateAadhaarFront(name, aadhaarNo, dob, gender, phot
   const formattedNo = `${safeNo.slice(0, 4)} ${safeNo.slice(4, 8)} ${safeNo.slice(8, 12)}`;
   const resolvedDob = dob || '15/08/1998';
   const resolvedGender = String(gender || 'FEMALE').toUpperCase();
-  const genderMl = resolvedGender.includes('FEMALE') ? 'സ്ത്രീ / FEMALE' : 'പുരുഷൻ / MALE';
+  const genderText = resolvedGender.includes('FEMALE') ? 'FEMALE' : 'MALE';
   const safePhoto = photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 440" width="700" height="440">
@@ -75,14 +75,14 @@ export function generateCandidateAadhaarFront(name, aadhaarNo, dob, gender, phot
   <g transform="translate(25, 26)">
     <circle cx="24" cy="24" r="22" fill="#DFB76C" opacity="0.25" stroke="#B8860B" stroke-width="1.2"/>
     <text x="24" y="29" font-family="serif" font-size="13" font-weight="bold" fill="#78350F" text-anchor="middle">सत्यमेव</text>
-    <text x="58" y="22" font-family="sans-serif" font-size="16" font-weight="900" fill="#0F172A">ഭാരത സർക്കാർ</text>
-    <text x="58" y="40" font-family="sans-serif" font-size="13" font-weight="800" fill="#334155" letter-spacing="1">GOVERNMENT OF INDIA</text>
+    <text x="58" y="24" font-family="sans-serif" font-size="16" font-weight="900" fill="#0F172A">GOVERNMENT OF INDIA</text>
+    <text x="58" y="40" font-family="sans-serif" font-size="12" font-weight="800" fill="#334155" letter-spacing="1">UNIQUE IDENTIFICATION AUTHORITY OF INDIA</text>
   </g>
   <g transform="translate(560, 24)">
     <rect width="112" height="48" rx="10" fill="#FFF1F2" stroke="#FECDD3" stroke-width="1.2"/>
     <circle cx="24" cy="24" r="14" fill="#E11D48"/>
     <text x="24" y="30" font-family="sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">🔥</text>
-    <text x="46" y="24" font-family="sans-serif" font-size="14" font-weight="900" fill="#BE123C">ആധാർ</text>
+    <text x="46" y="24" font-family="sans-serif" font-size="14" font-weight="900" fill="#BE123C">UIDAI</text>
     <text x="46" y="39" font-family="sans-serif" font-size="10" font-weight="800" fill="#64748B" letter-spacing="1.5">AADHAAR</text>
   </g>
   <line x1="25" y1="84" x2="675" y2="84" stroke="#CBD5E1" stroke-width="1.5"/>
@@ -95,21 +95,21 @@ export function generateCandidateAadhaarFront(name, aadhaarNo, dob, gender, phot
     <text x="75" y="181" font-family="sans-serif" font-size="9" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="1">UIDAI AUTHENTICATED</text>
   </g>
   <g transform="translate(210, 106)">
-    <text y="14" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748B">പേര് / Full Name</text>
+    <text y="14" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748B">Full Name</text>
     <text y="42" font-family="sans-serif" font-size="20" font-weight="900" fill="#0F172A">${name}</text>
     <line x1="0" y1="76" x2="465" y2="76" stroke="#E2E8F0" stroke-width="1"/>
-    <text y="100" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748B">ജനന തീയതി / Date of Birth</text>
+    <text y="100" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748B">Date of Birth</text>
     <text y="122" font-family="sans-serif" font-size="15" font-weight="800" fill="#0F172A">${resolvedDob}</text>
-    <text x="240" y="100" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748B">ലിംഗം / Gender</text>
-    <text x="240" y="122" font-family="sans-serif" font-size="14" font-weight="800" fill="#0F172A">${genderMl}</text>
+    <text x="240" y="100" font-family="sans-serif" font-size="11" font-weight="700" fill="#64748B">Gender</text>
+    <text x="240" y="122" font-family="sans-serif" font-size="14" font-weight="800" fill="#0F172A">${genderText}</text>
     <rect y="146" width="380" height="28" rx="8" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="1.2"/>
-    <text x="14" y="164" font-family="sans-serif" font-size="11.5" font-weight="800" fill="#065F46">✓ ഔദ്യോഗിക തിരിച്ചറിയൽ രേഖ (Verified Live ID Document)</text>
+    <text x="14" y="164" font-family="sans-serif" font-size="11.5" font-weight="800" fill="#065F46">✓ Verified Official ID Document (UIDAI Authenticated)</text>
   </g>
   <g transform="translate(35, 308)">
     <rect width="630" height="64" rx="14" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.5"/>
     <text x="315" y="42" font-family="monospace, sans-serif" font-size="28" font-weight="900" fill="#0F172A" text-anchor="middle" letter-spacing="6">${formattedNo}</text>
   </g>
-  <text x="350" y="396" font-family="sans-serif" font-size="13" font-weight="800" fill="#B45309" text-anchor="middle">എന്റെ ആധാർ, എന്റെ തിരിച്ചറിയൽ രേഖ • Mera Aadhaar, Meri Pehchan</text>
+  <text x="350" y="396" font-family="sans-serif" font-size="13" font-weight="800" fill="#B45309" text-anchor="middle">My Aadhaar, My Identity • Mera Aadhaar, Meri Pehchan</text>
   <rect x="4" y="424" width="230" height="12" rx="4" fill="#138808"/>
   <rect x="234" y="424" width="232" height="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="0.5"/>
   <rect x="466" y="424" width="230" height="12" rx="4" fill="#FF9933"/>
@@ -143,7 +143,7 @@ export function generateCandidateAadhaarBack(name, aadhaarNo, district, state, p
   <rect x="234" y="4" width="232" height="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="0.5"/>
   <rect x="466" y="4" width="230" height="12" rx="4" fill="#138808"/>
   <g transform="translate(35, 35)">
-    <text font-family="sans-serif" font-size="12" font-weight="800" fill="#64748B" letter-spacing="1">വിലാസം / ADDRESS:</text>
+    <text font-family="sans-serif" font-size="12" font-weight="800" fill="#64748B" letter-spacing="1">ADDRESS:</text>
     <text x="0" y="35" font-family="sans-serif" font-size="14" font-weight="700" fill="#1E293B">D/O or S/O ${name} Family</text>
     <text x="0" y="58" font-family="sans-serif" font-size="14" font-weight="700" fill="#1E293B">Near Post Office, ${distName}</text>
     <text x="0" y="80" font-family="sans-serif" font-size="14" font-weight="700" fill="#1E293B">${stateName} - PIN: ${pin}</text>
@@ -179,10 +179,10 @@ export function generateCandidateAadhaarBack(name, aadhaarNo, district, state, p
   <g transform="translate(35, 345)">
     <rect width="630" height="50" rx="10" fill="#F1F5F9" stroke="#E2E8F0" stroke-width="1"/>
     <text x="315" y="22" font-family="sans-serif" font-size="11.5" font-weight="800" fill="#334155" text-anchor="middle">
-      സഹായവാണി / Help Line: 1947 • ഇ-മെയിൽ / Email: help@uidai.gov.in • വെബ്സൈറ്റ്: www.uidai.gov.in
+      Help Line: 1947 • Email: help@uidai.gov.in • Website: www.uidai.gov.in
     </text>
     <text x="315" y="38" font-family="sans-serif" font-size="10" font-weight="700" fill="#64748B" text-anchor="middle">
-      UIDAI Unique Identification Authority of India • ഭാരതീയ വിശിഷ്ട തിരിച്ചറിയൽ അതോറിറ്റി
+      UIDAI • Unique Identification Authority of India
     </text>
   </g>
   <rect x="4" y="424" width="230" height="12" rx="4" fill="#138808"/>
@@ -1429,10 +1429,10 @@ export default function AadhaarVerificationScreen({
             {/* Explanation why real SMS was not coming */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-xs space-y-2 mb-4">
               <p className="text-amber-300 font-bold flex items-center gap-1 text-[11.5px]">
-                <span>❓ എന്തുകൊണ്ടാണ് ഫോണിൽ SMS വരാതിരുന്നത്?</span>
+                <span>❓ Why didn't I receive an SMS on my phone?</span>
               </p>
               <p className="text-slate-300 text-[11px] leading-relaxed">
-                ആധാർ OTP അയക്കുന്നത് കേന്ദ്ര സർക്കാരിന്റെ <strong>UIDAI</strong> ആണ്. ഒരു വെബ്‌സൈറ്റിനും സാധാരണ SMS ഗേറ്റ്‌വേകൾ (Fast2SMS/Twilio) വഴി ആധാർ OTP അയക്കാൻ സാധിക്കില്ല. ഗവൺമെന്റ് അംഗീകൃത <strong>Sandbox.co.in</strong> അല്ലെങ്കിൽ <strong>Surepass.io</strong> അക്കൗണ്ട് കണക്ട് ചെയ്താൽ മാത്രമേ ഉപയോക്താവിന്റെ ഫോണിലേക്ക് യഥാർത്ഥ UIDAI SMS വരികയുള്ളൂ.
+                Aadhaar OTP is dispatched directly by the Government of India's <strong>UIDAI</strong>. Standard SMS gateways (Fast2SMS/Twilio) cannot generate Aadhaar OTPs. Only government-authorized <strong>Sandbox.co.in</strong> or <strong>Surepass.io</strong> accounts can deliver official UIDAI SMS to your linked phone.
               </p>
             </div>
 
@@ -1484,14 +1484,14 @@ export default function AadhaarVerificationScreen({
                     rel="noopener noreferrer"
                     className="w-full py-2 text-center text-xs text-amber-300 hover:text-white underline"
                   >
-                    Free Sandbox.co.in Account എടുക്കാൻ ഇവിടെ ക്ലിക്ക് ചെയ്യുക ➔
+                    Click here to get a Free Sandbox.co.in Account ➔
                   </a>
                 </div>
               </form>
             )}
 
             <div className="mt-4 pt-3 border-t border-white/10 text-[10px] text-slate-400 leading-normal">
-              💡 <em>Key നൽകിയില്ലെങ്കിലും ആപ്പ് ഫീച്ചറുകൾ സുഗമമായി പരീക്ഷിക്കാൻ <strong>739201</strong> എന്ന ഡെമോ OTP ഉപയോഗിക്കാം.</em>
+              💡 <em>Even without an API Key, you can use the test OTP <strong>739201</strong> to test app features smoothly.</em>
             </div>
 
           </div>

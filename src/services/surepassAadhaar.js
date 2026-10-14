@@ -68,32 +68,32 @@ export const formatAadhaarDisplay = (val) => {
 export const formatAadhaar = formatAadhaarDisplay;
 
 /**
- * Translates Surepass / UIDAI error codes to user-friendly Malayalam & English
+ * Translates Surepass / UIDAI error codes to user-friendly English
  */
 export const getFriendlyAadhaarError = (err) => {
   const msg = err?.message || String(err || '');
   const lower = msg.toLowerCase();
 
   if (lower.includes('invalid aadhaar') || lower.includes('invalid_aadhaar') || lower.includes('invalid_id_number')) {
-    return 'അസാധുവായ ആധാർ നമ്പർ. ദയവായി 12 അക്ക നമ്പർ ശരിയായി നൽകുക. (Invalid 12-digit Aadhaar number)';
+    return 'Invalid 12-digit Aadhaar number. Please enter a valid number.';
   }
   if (lower.includes('otp expired') || lower.includes('expired_otp')) {
-    return 'UIDAI OTP കാലാവധി കഴിഞ്ഞു. പുതിയ OTP ലഭിക്കാൻ Resend അമർത്തുക. (UIDAI OTP expired. Please resend.)';
+    return 'UIDAI OTP expired. Please tap Resend to get a new OTP.';
   }
   if (lower.includes('invalid otp') || lower.includes('incorrect_otp') || lower.includes('wrong_otp')) {
-    return 'നൽകിയ ആധാർ OTP തെറ്റാണ്. ദയവായി പരിശോധിച്ചു വീണ്ടും നൽകുക. (Incorrect Aadhaar OTP entered.)';
+    return 'Incorrect Aadhaar OTP entered. Please check and try again.';
   }
   if (lower.includes('too many attempts') || lower.includes('limit exceeded')) {
-    return 'നിരവധി തവണ OTP തെറ്റായി നൽകി. അല്പം കഴിഞ്ഞ് ശ്രമിക്കുക. (Too many attempts. Please try later.)';
+    return 'Too many incorrect attempts. Please try again later.';
   }
   if (lower.includes('uidai server') || lower.includes('service unavailable')) {
-    return 'UIDAI സെർവർ തിരക്കിലാണ്. ദയവായി അല്പം കഴിഞ്ഞ് ശ്രമിക്കുക. (UIDAI server busy. Please retry shortly.)';
+    return 'UIDAI server is currently busy. Please retry shortly.';
   }
   if (lower.includes('token is missing') || lower.includes('unauthorized') || lower.includes('missing_token')) {
-    return 'Surepass API Token നൽകിയിട്ടില്ല. .env ഫയലിൽ VITE_SUREPASS_API_TOKEN ചേർക്കുക. (Surepass API Token is missing in .env)';
+    return 'Surepass API Token is missing in .env configuration.';
   }
 
-  return msg || 'ആധാർ വെരിഫിക്കേഷനിൽ ഒരു തടസ്സമുണ്ടായി. വീണ്ടും ശ്രമിക്കുക. (Aadhaar verification failed. Please retry.)';
+  return msg || 'Aadhaar verification failed. Please try again.';
 };
 
 /**
@@ -105,7 +105,7 @@ export const generateAadhaarOtp = async (aadhaarNumber) => {
   if (cleanAadhaar.length !== 12) {
     return {
       success: false,
-      error: 'ദയവായി 12 അക്ക ആധാർ നമ്പർ നൽകുക. (Please enter a valid 12-digit Aadhaar number)'
+      error: 'Please enter a valid 12-digit Aadhaar number.'
     };
   }
 
@@ -173,7 +173,7 @@ export const submitAadhaarOtp = async (clientId, enteredOtp, fallbackAadhaar = '
   if (cleanOtp.length !== 6) {
     return {
       success: false,
-      error: 'ദയവായി 6 അക്ക UIDAI OTP കൃത്യമായി നൽകുക. (Please enter 6-digit UIDAI OTP)'
+      error: 'Please enter a valid 6-digit UIDAI OTP.'
     };
   }
 

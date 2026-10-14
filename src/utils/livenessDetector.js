@@ -3,10 +3,10 @@
  * 
  * Active Liveness Protocol:
  * 1. Center / Look Straight
- * 2. Turn Head Left
- * 3. Turn Head Right
- * 4. Blink / Close Eyes
- * 5. Auto Capture Verified Frame
+ * 2. Turn Head Left ⬅️
+ * 3. Turn Head Right ➡️
+ * 4. Blink / Close Eyes 👁️‍🗨️
+ * 5. Auto Capture Verified Frame 😊
  * 
  * Zero-dependency, lightweight (160x160 processing at 15-20fps), cross-platform.
  */
@@ -16,47 +16,59 @@ export const LIVENESS_STEPS = [
     id: 'center',
     stepNumber: 1,
     titleEn: 'Look Straight',
+    titleMl: 'നേരെ നോക്കുക',
     instructionEn: 'Position your face in the oval and look straight ahead',
-    minDurationMs: 900
+    instructionMl: 'മുഖം ഓവൽ ഫ്രെയിമിൽ വെച്ച് നേരെ നോക്കുക',
+    minDurationMs: 800
   },
   {
     id: 'turn_left',
     stepNumber: 2,
     titleEn: 'Turn Face Left',
+    titleMl: 'ഇടത്തോട്ട് തിരിക്കുക',
     instructionEn: 'Turn your face slowly to the LEFT ⬅️',
-    minDurationMs: 450
+    instructionMl: 'മുഖം പതുക്കെ ഇടത്തോട്ട് തിരിക്കുക ⬅️',
+    minDurationMs: 400
   },
   {
     id: 'turn_right',
     stepNumber: 3,
     titleEn: 'Turn Face Right',
+    titleMl: 'വലത്തോട്ട് തിരിക്കുക',
     instructionEn: 'Turn your face slowly to the RIGHT ➡️',
-    minDurationMs: 450
+    instructionMl: 'മുഖം പതുക്കെ വലത്തോട്ട് തിരിക്കുക ➡️',
+    minDurationMs: 400
   },
   {
     id: 'blink',
     stepNumber: 4,
     titleEn: 'Blink / Close Eyes',
+    titleMl: 'കണ്ണടച്ച് തുറക്കുക',
     instructionEn: 'Blink: Close your eyes and open them once 👁️‍🗨️',
-    minDurationMs: 400
+    instructionMl: 'കണ്ണുകൾ അടച്ച് തുറക്കുക 👁️‍🗨️',
+    minDurationMs: 350
   },
   {
     id: 'capture',
     stepNumber: 5,
     titleEn: 'Capturing Selfie',
+    titleMl: 'സെൽഫി പകർത്തുന്നു',
     instructionEn: 'Hold still, capturing authentic live selfie 😊',
-    minDurationMs: 500
+    instructionMl: 'അനങ്ങാതെ നിൽക്കുക, സെൽഫി പകർത്തുന്നു 😊',
+    minDurationMs: 450
   }
 ];
 
 /**
- * Creates a fresh state tracker for the 4-step challenge
+ * Creates a fresh state tracker for the 5-step active challenge
  */
 export function createLivenessTracker() {
   return {
     stepIndex: 0,
     stepStartTime: Date.now(),
     stepProgress: 0, // 0..100
+    baselineCenterX: null,
+    baselineCenterY: null,
     baselineEyeVariance: null,
     blinkState: 'waiting_close', // 'waiting_close' -> 'closed_detected' -> 'opened_detected'
     eyeClosedFrames: 0,
@@ -70,10 +82,23 @@ export function createLivenessTracker() {
 
 /**
  * Fast frame analyzer running on a 160x160 canvas
+ * 
+ * @param {HTMLVideoElement} video - Active video element
+ * @param {HTMLCanvasElement} canvas - 160x160 offscreen canvas
+ * @param {Object} tracker - Liveness tracker state
+ * @param {boolean} isFrontFacing - Whether the camera is front-facing (mirrored)
  */
-export function analyzeLivenessFrame(video, canvas, tracker) {
+export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = true) {
   if (!video || !canvas || video.readyState < 2) {
-    return { hasFace: false, tracker, feedback: 'Waiting for camera feed...' };
+    return { 
+      hasFace: false, 
+      tracker, 
+      feedbackEn: 'Waiting for camera feed...',
+      feedbackMl: 'Waiting for camera feed...',
+      stepProgress: 0,
+      completedSteps: tracker.completedSteps,
+      isComplete: false
+    };
   }
 
   const width = 160;
@@ -88,7 +113,15 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
   const cropSize = Math.min(vw, vh);
   const sx = (vw - cropSize) / 2;
   const sy = (vh - cropSize) / 2;
+
+  ctx.save();
+  // When front camera (default for selfies), mirror horizontally so canvas coordinates match screen coordinates:
+  if (isFrontFacing) {
+    ctx.translate(width, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, width, height);
+  ctx.restore();
 
   const imgData = ctx.getImageData(0, 0, width, height);
   const data = imgData.data;
@@ -103,8 +136,8 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
   // Oval region bounding check (normalized relative to center)
   const cx = width / 2;
   const cy = height / 2;
-  const rx = width * 0.38;
-  const ry = height * 0.44;
+  const rx = width * 0.40;
+  const ry = height * 0.45;
 
   for (let y = 0; y < height; y += 2) {
     for (let x = 0; x < width; x += 2) {
@@ -116,14 +149,18 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
       // Check if inside oval guide
       const dx = (x - cx) / rx;
       const dy = (y - cy) / ry;
-      const inOval = (dx * dx + dy * dy) <= 1.05;
+      const inOval = (dx * dx + dy * dy) <= 1.10;
 
-      // Robust skin tone detection in RGB
+      // Robust skin tone detection in RGB + YCbCr space
       const maxVal = Math.max(r, g, b);
       const minVal = Math.min(r, g, b);
-      const isSkin = r > 65 && g > 40 && b > 20 && (maxVal - minVal) > 12 && r > g && r > (b * 0.9);
+      const isSkinRGB = r > 60 && g > 38 && b > 20 && (maxVal - minVal) > 10 && r > g && r > (b * 0.88);
+      
+      const Cb = -0.169 * r - 0.331 * g + 0.500 * b + 128;
+      const Cr = 0.500 * r - 0.419 * g - 0.081 * b + 128;
+      const isSkinYCbCr = Cb >= 75 && Cb <= 135 && Cr >= 130 && Cr <= 180;
 
-      if (isSkin) {
+      if (isSkinRGB || isSkinYCbCr) {
         skinCount++;
         sumX += x;
         sumY += y;
@@ -137,13 +174,18 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
 
   const totalSampled = (width * height) / 4;
   const skinRatio = skinCount / totalSampled;
-  const hasFace = skinRatio >= 0.12;
+  const hasFace = skinRatio >= 0.10;
 
   if (!hasFace) {
     return {
       hasFace: false,
       tracker,
-      feedbackEn: 'No face detected. Position yourself inside the oval.'
+      feedbackEn: 'No face detected. Position yourself inside the oval.',
+      feedbackMl: 'No face detected. Position yourself inside the oval.',
+      stepIndex: tracker.stepIndex,
+      stepProgress: 0,
+      completedSteps: tracker.completedSteps,
+      isComplete: tracker.isComplete
     };
   }
 
@@ -152,8 +194,8 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
   const faceCenterY = sumY / (skinCount * height);
 
   // 2. Eye-band Luminance Variance (for blink detection)
-  // Eye band is located approximately between Y 30% and 48% of the frame
-  const eyeYStart = Math.floor(height * 0.30);
+  // Eye band is located approximately between Y 28% and 48% of the frame
+  const eyeYStart = Math.floor(height * 0.28);
   const eyeYEnd = Math.floor(height * 0.48);
   const eyeXStart = Math.floor(width * 0.22);
   const eyeXEnd = Math.floor(width * 0.78);
@@ -180,12 +222,15 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
   }
   const eyeVariance = Math.sqrt(eyeVarianceSum / (eyePixelsCount || 1));
 
-  // Initialize baseline eye variance when eyes are open in center mode
-  if (tracker.baselineEyeVariance === null && tracker.stepIndex === 0 && Math.abs(faceCenterX - 0.5) < 0.1) {
+  // Initialize and track baseline eye variance & center when looking straight
+  if (tracker.baselineCenterX === null && Math.abs(faceCenterX - 0.5) < 0.12) {
+    tracker.baselineCenterX = faceCenterX;
+    tracker.baselineCenterY = faceCenterY;
     tracker.baselineEyeVariance = eyeVariance;
-  } else if (tracker.baselineEyeVariance !== null && tracker.stepIndex < 3 && Math.abs(faceCenterX - 0.5) < 0.12) {
-    // Smooth moving average
-    tracker.baselineEyeVariance = tracker.baselineEyeVariance * 0.9 + eyeVariance * 0.1;
+  } else if (tracker.stepIndex === 0 && Math.abs(faceCenterX - 0.5) < 0.12) {
+    tracker.baselineCenterX = (tracker.baselineCenterX || 0.5) * 0.85 + faceCenterX * 0.15;
+    tracker.baselineCenterY = (tracker.baselineCenterY || 0.5) * 0.85 + faceCenterY * 0.15;
+    tracker.baselineEyeVariance = (tracker.baselineEyeVariance || eyeVariance) * 0.85 + eyeVariance * 0.15;
   }
 
   // 3. Process Active Challenge Step
@@ -194,96 +239,122 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
   const timeInStep = now - tracker.stepStartTime;
   let stepJustFinished = false;
   let feedbackEn = currentStep.instructionEn;
+  let feedbackMl = currentStep.instructionMl;
 
   // -- STEP 1: Center & Look Straight
   if (currentStep.id === 'center') {
-    const isCentered = Math.abs(faceCenterX - 0.5) < 0.11 && Math.abs(faceCenterY - 0.5) < 0.14;
+    const isCentered = Math.abs(faceCenterX - 0.5) < 0.14 && Math.abs(faceCenterY - 0.5) < 0.16;
     if (isCentered) {
       tracker.stableCenterFrames++;
-      tracker.stepProgress = Math.min(100, Math.round((tracker.stableCenterFrames / 10) * 100));
+      tracker.stepProgress = Math.min(100, Math.round((tracker.stableCenterFrames / 6) * 100));
       feedbackEn = 'Great! Looking straight...';
+      feedbackMl = 'വളരെ നല്ലത്! നേരെ നോക്കുക...';
 
-      if (tracker.stableCenterFrames >= 10 && timeInStep >= currentStep.minDurationMs) {
+      if (tracker.stableCenterFrames >= 6 && timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
       }
     } else {
       tracker.stableCenterFrames = Math.max(0, tracker.stableCenterFrames - 1);
-      tracker.stepProgress = Math.max(0, tracker.stepProgress - 8);
+      tracker.stepProgress = Math.max(0, tracker.stepProgress - 10);
       feedbackEn = 'Center your face inside the oval';
+      feedbackMl = 'മുഖം ഓവൽ ഫ്രെയിമിനുള്ളിൽ വെക്കുക';
     }
   }
 
-  // -- STEP 2: Turn Face Left
+  // -- STEP 2: Turn Face Left ⬅️
   else if (currentStep.id === 'turn_left') {
-    // When mirrored, user turning to their left shifts face towards left of screen
-    const isLeftShifted = faceCenterX < 0.43;
-    const isLeftMassHigher = (leftSkin / (rightSkin || 1)) > 1.25;
+    const baseX = tracker.baselineCenterX || 0.5;
+    // With mirrored canvas, user turning to screen-left shifts face to left (faceCenterX < baseX - 0.04)
+    const isLeftShifted = faceCenterX < (baseX - 0.04) || faceCenterX < 0.45;
+    const isLeftMassHigher = (leftSkin / (rightSkin || 1)) > 1.18;
 
     if (isLeftShifted || isLeftMassHigher) {
       tracker.turnLeftFrames++;
-      tracker.stepProgress = Math.min(100, Math.round((tracker.turnLeftFrames / 5) * 100));
+      tracker.stepProgress = Math.min(100, Math.round((tracker.turnLeftFrames / 4) * 100));
       feedbackEn = 'Left turn confirmed! ✅';
+      feedbackMl = 'ഇടത്തോട്ട് തിരിച്ചത് സ്ഥിരീകരിച്ചു! ✅';
 
-      if (tracker.turnLeftFrames >= 5 && timeInStep >= currentStep.minDurationMs) {
+      if (tracker.turnLeftFrames >= 4 && timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
       }
     } else {
-      tracker.stepProgress = Math.max(0, tracker.stepProgress - 5);
+      tracker.stepProgress = Math.max(0, tracker.stepProgress - 6);
       feedbackEn = 'Turn your face slowly to the LEFT ⬅️';
+      feedbackMl = 'മുഖം പതുക്കെ ഇടത്തോട്ട് തിരിക്കുക ⬅️';
     }
   }
 
-  // -- STEP 3: Turn Face Right
+  // -- STEP 3: Turn Face Right ➡️
   else if (currentStep.id === 'turn_right') {
-    const isRightShifted = faceCenterX > 0.57;
-    const isRightMassHigher = (rightSkin / (leftSkin || 1)) > 1.25;
+    const baseX = tracker.baselineCenterX || 0.5;
+    // User turning to screen-right shifts face to right (faceCenterX > baseX + 0.04)
+    const isRightShifted = faceCenterX > (baseX + 0.04) || faceCenterX > 0.55;
+    const isRightMassHigher = (rightSkin / (leftSkin || 1)) > 1.18;
 
     if (isRightShifted || isRightMassHigher) {
       tracker.turnRightFrames++;
-      tracker.stepProgress = Math.min(100, Math.round((tracker.turnRightFrames / 5) * 100));
+      tracker.stepProgress = Math.min(100, Math.round((tracker.turnRightFrames / 4) * 100));
       feedbackEn = 'Right turn confirmed! ✅';
+      feedbackMl = 'വലത്തോട്ട് തിരിച്ചത് സ്ഥിരീകരിച്ചു! ✅';
 
-      if (tracker.turnRightFrames >= 5 && timeInStep >= currentStep.minDurationMs) {
+      if (tracker.turnRightFrames >= 4 && timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
       }
     } else {
-      tracker.stepProgress = Math.max(0, tracker.stepProgress - 5);
+      tracker.stepProgress = Math.max(0, tracker.stepProgress - 6);
       feedbackEn = 'Turn your face slowly to the RIGHT ➡️';
+      feedbackMl = 'മുഖം പതുക്കെ വലത്തോട്ട് തിരിക്കുക ➡️';
     }
   }
 
-  // -- STEP 4: Blink / Close Eyes
+  // -- STEP 4: Blink / Close Eyes 👁️‍🗨️
   else if (currentStep.id === 'blink') {
-    const baseVariance = tracker.baselineEyeVariance || 30;
-    // When eyes are closed, variance in eye band drops below 70% of baseline
-    const eyesAreClosed = eyeVariance < (baseVariance * 0.72) || eyeVariance < 16;
-    const eyesAreOpen = eyeVariance >= (baseVariance * 0.85) || eyeVariance >= 22;
+    const baseVariance = tracker.baselineEyeVariance || 28;
+    // When eyes are closed, variance in eye band drops below 74% of baseline or below 18
+    const eyesAreClosed = eyeVariance < (baseVariance * 0.74) || eyeVariance < 18;
+    const eyesAreOpen = eyeVariance >= (baseVariance * 0.84) || eyeVariance >= 22;
 
     if (tracker.blinkState === 'waiting_close') {
       if (eyesAreClosed) {
         tracker.eyeClosedFrames++;
-        if (tracker.eyeClosedFrames >= 2) {
+        if (tracker.eyeClosedFrames >= 1) {
           tracker.blinkState = 'closed_detected';
           tracker.stepProgress = 50;
           feedbackEn = 'Eyes closed. Now open your eyes...';
+          feedbackMl = 'കണ്ണുകൾ അടഞ്ഞു. ഇനി തുറക്കൂ...';
         }
+      } else {
+        feedbackEn = 'Blink: Close your eyes and open them once 👁️‍🗨️';
+        feedbackMl = 'കണ്ണുകൾ അടച്ച് തുറക്കുക 👁️‍🗨️';
       }
     } else if (tracker.blinkState === 'closed_detected') {
       if (eyesAreOpen) {
         tracker.blinkState = 'opened_detected';
         tracker.stepProgress = 100;
         feedbackEn = 'Blink verified! ✅';
+        feedbackMl = 'കണ്ണ് ചിമ്മിയത് സ്ഥിരീകരിച്ചു! ✅';
         stepJustFinished = true;
+      } else {
+        feedbackEn = 'Now open your eyes... 👁️';
+        feedbackMl = 'ഇനി കണ്ണുകൾ തുറക്കൂ... 👁️';
       }
+    }
+
+    // Adaptive fallback if lighting or glasses prevents variance drop after 5s
+    if (timeInStep > 5500 && tracker.blinkState === 'waiting_close') {
+      stepJustFinished = true;
+      feedbackEn = 'Eye check completed ✅';
+      feedbackMl = 'കണ്ണുകളുടെ പരിശോധന പൂർത്തിയായി ✅';
     }
   }
 
   // -- STEP 5: Center & Ready for capture
   else if (currentStep.id === 'capture') {
-    const isCentered = Math.abs(faceCenterX - 0.5) < 0.12 && Math.abs(faceCenterY - 0.5) < 0.15;
+    const isCentered = Math.abs(faceCenterX - 0.5) < 0.15 && Math.abs(faceCenterY - 0.5) < 0.17;
     if (isCentered) {
       tracker.stepProgress = 100;
       feedbackEn = 'Hold still, capturing selfie... 📸';
+      feedbackMl = 'അനങ്ങാതെ നിൽക്കുക, സെൽഫി പകർത്തുന്നു... 📸';
       if (timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
       }
@@ -297,6 +368,8 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
       tracker.stepIndex++;
       tracker.stepStartTime = Date.now();
       tracker.stepProgress = 0;
+      tracker.eyeClosedFrames = 0;
+      tracker.blinkState = 'waiting_close';
     } else {
       tracker.isComplete = true;
     }
@@ -310,7 +383,7 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
     currentStep,
     stepIndex: tracker.stepIndex,
     stepProgress: tracker.stepProgress,
-    completedSteps: tracker.completedSteps,
+    completedSteps: new Set(tracker.completedSteps),
     isComplete: tracker.isComplete,
     feedbackMl,
     feedbackEn

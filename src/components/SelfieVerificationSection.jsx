@@ -157,47 +157,65 @@ export default function SelfieVerificationSection({
     }
   }, [profilePhoto, onVerificationComplete]);
 
+  const lastAnalyzedTimeRef = useRef(0);
+
   // Live video frame processing loop
   const processFrameLoop = useCallback(() => {
     if (!videoRef.current || !cameraActive) return;
 
-    if (!offscreenCanvasRef.current) {
-      offscreenCanvasRef.current = document.createElement('canvas');
-    }
+    const now = Date.now();
+    // Throttle frame processing to ~20 fps (50ms interval) for smooth responsiveness without freezing UI
+    if (now - lastAnalyzedTimeRef.current >= 50) {
+      lastAnalyzedTimeRef.current = now;
 
-    const video = videoRef.current;
-    if (video.readyState >= 2) {
-      setTrackerState(prevTracker => {
-        const result = analyzeLivenessFrame(video, offscreenCanvasRef.current, prevTracker);
+      if (!offscreenCanvasRef.current) {
+        offscreenCanvasRef.current = document.createElement('canvas');
+      }
 
-        setFrameFeedback({
-          feedbackMl: result.feedbackMl || '',
-          feedbackEn: result.feedbackEn || '',
-          stepProgress: result.stepProgress || 0,
-          hasFace: Boolean(result.hasFace)
-        });
+      const video = videoRef.current;
+      if (video.readyState >= 2) {
+        setTrackerState(prevTracker => {
+          try {
+            const isUserFacing = facingMode === 'user';
+            const result = analyzeLivenessFrame(video, offscreenCanvasRef.current, prevTracker, isUserFacing);
 
-        // When all 4 challenges pass -> Capture frame!
-        if (result.isComplete && !capturedSelfie && !isCapturingRef.current) {
-          const snapshot = capturePhotoFromVideo();
-          if (snapshot) {
-            stopCamera();
-            setCapturedSelfie(snapshot);
-            executeAiVerification(snapshot);
+            setFrameFeedback({
+              feedbackMl: result.feedbackMl || '',
+              feedbackEn: result.feedbackEn || '',
+              stepProgress: result.stepProgress || 0,
+              hasFace: Boolean(result.hasFace)
+            });
+
+            // When all 4 challenges pass -> Capture frame!
+            if (result.isComplete && !capturedSelfie && !isCapturingRef.current) {
+              const snapshot = capturePhotoFromVideo();
+              if (snapshot) {
+                stopCamera();
+                setCapturedSelfie(snapshot);
+                executeAiVerification(snapshot);
+              }
+            }
+
+            return {
+              ...prevTracker,
+              completedSteps: new Set(prevTracker.completedSteps)
+            };
+          } catch (err) {
+            console.warn('[LivenessFrame] Frame analysis error:', err);
+            return prevTracker;
           }
-        }
-
-        return prevTracker;
-      });
+        });
+      }
     }
 
     animationFrameRef.current = requestAnimationFrame(processFrameLoop);
-  }, [cameraActive, capturedSelfie, capturePhotoFromVideo, stopCamera, executeAiVerification]);
+  }, [cameraActive, facingMode, capturedSelfie, capturePhotoFromVideo, stopCamera, executeAiVerification]);
 
   // Start WebRTC Camera
   const startCamera = useCallback(async (mode = facingMode) => {
     setCameraError(null);
     stopCamera();
+    lastAnalyzedTimeRef.current = 0;
     setTrackerState(createLivenessTracker());
 
     try {
@@ -555,6 +573,28 @@ export default function SelfieVerificationSection({
                   </div>
                 )}
               </div>
+
+              {/* Manual Snap Option & Instruction */}
+              {cameraActive && !capturedSelfie && (
+                <div className="flex items-center justify-between px-1 text-[11px] text-slate-500">
+                  <span>Follow prompts to auto-capture</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const snapshot = capturePhotoFromVideo();
+                      if (snapshot) {
+                        stopCamera();
+                        setCapturedSelfie(snapshot);
+                        executeAiVerification(snapshot);
+                      }
+                    }}
+                    className="text-[#8C6D1F] hover:text-[#0B192C] font-bold underline cursor-pointer flex items-center gap-1"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Snap Now & Verify</span>
+                  </button>
+                </div>
+              )}
 
               {/* Liveness Steps Progress Bar */}
               {cameraActive && !capturedSelfie && (

@@ -772,7 +772,10 @@ export default function RegistrationWizard({
     setFormData(prev => ({
       ...prev,
       singlePhotos: updated,
-      photo: updated[0] || ''
+      photo: updated[0] || '',
+      selfieVerified: false,
+      selfiePhoto: '',
+      selfieScore: null
     }));
   };
 
@@ -784,7 +787,10 @@ export default function RegistrationWizard({
     setFormData(prev => ({
       ...prev,
       singlePhotos: updated,
-      photo: selected
+      photo: selected,
+      selfieVerified: false,
+      selfiePhoto: '',
+      selfieScore: null
     }));
   };
 

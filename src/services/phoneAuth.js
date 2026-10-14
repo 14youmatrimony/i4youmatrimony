@@ -140,7 +140,7 @@ export const verifyPhoneOtp = async (confirmationResult, enteredOtp, isSimulated
   if (!cleanOtp || cleanOtp.length !== 6) {
     return {
       success: false,
-      error: 'ദയവായി 6 അക്ക OTP കൃത്യമായി നൽകുക. (Please enter 6-digit OTP)'
+      error: 'Please enter a valid 6-digit OTP.'
     };
   }
 
@@ -165,7 +165,7 @@ export const verifyPhoneOtp = async (confirmationResult, enteredOtp, isSimulated
     } else {
       return {
         success: false,
-        error: fastVerify.error || 'നൽകിയ OTP തെറ്റാണ്. (Incorrect OTP entered.)'
+        error: fastVerify.error || 'Incorrect OTP entered. Please try again.'
       };
     }
   }
@@ -218,7 +218,7 @@ export const verifyPhoneOtp = async (confirmationResult, enteredOtp, isSimulated
 
   return {
     success: false,
-    error: 'നൽകിയ OTP തെറ്റാണ്. ദയവായി പരിശോധിച്ച് വീണ്ടും നൽകുക. (Incorrect OTP entered)'
+    error: 'Incorrect OTP entered. Please check and try again.'
   };
 };
 

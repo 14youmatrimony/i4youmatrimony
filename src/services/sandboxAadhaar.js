@@ -68,32 +68,32 @@ export const formatAadhaarDisplay = (val) => {
 };
 
 /**
- * Translate Sandbox.co.in / UIDAI error messages to user-friendly Malayalam & English
+ * Translate Sandbox.co.in / UIDAI error messages to user-friendly English
  */
 export const getFriendlySandboxError = (err) => {
   const msg = err?.message || String(err || '');
   const lower = msg.toLowerCase();
 
   if (lower.includes('invalid aadhaar') || lower.includes('invalid_aadhaar') || lower.includes('invalid id') || lower.includes('12-digit')) {
-    return 'അസാധുവായ ആധാർ നമ്പർ. ദയവായി 12 അക്ക നമ്പർ ശരിയായി നൽകുക. (Invalid 12-digit Aadhaar number)';
+    return 'Invalid 12-digit Aadhaar number. Please enter a valid number.';
   }
   if (lower.includes('otp expired') || lower.includes('expired_otp') || lower.includes('time out')) {
-    return 'UIDAI OTP കാലാവധി കഴിഞ്ഞു. പുതിയ OTP ലഭിക്കാൻ Resend അമർത്തുക. (UIDAI OTP expired. Please resend.)';
+    return 'UIDAI OTP expired. Please tap Resend to get a new OTP.';
   }
   if (lower.includes('invalid otp') || lower.includes('incorrect_otp') || lower.includes('wrong otp')) {
-    return 'നൽകിയ ആധാർ OTP തെറ്റാണ്. ദയവായി പരിശോധിച്ചു വീണ്ടും നൽകുക. (Incorrect Aadhaar OTP entered.)';
+    return 'Incorrect Aadhaar OTP entered. Please check and try again.';
   }
   if (lower.includes('too many attempts') || lower.includes('limit exceeded') || lower.includes('rate limit')) {
-    return 'നിരവധി തവണ OTP തെറ്റായി നൽകി. അല്പം കഴിഞ്ഞ് ശ്രമിക്കുക. (Too many attempts. Please try later.)';
+    return 'Too many incorrect attempts. Please try again later.';
   }
   if (lower.includes('uidai') || lower.includes('service unavailable') || lower.includes('server busy')) {
-    return 'UIDAI സെർവർ തിരക്കിലാണ്. ദയവായി അല്പം കഴിഞ്ഞ് ശ്രമിക്കുക. (UIDAI server busy. Please retry shortly.)';
+    return 'UIDAI server is currently busy. Please retry shortly.';
   }
   if (lower.includes('insufficient privilege') || lower.includes('unauthorized') || lower.includes('403') || lower.includes('401')) {
-    return 'Sandbox.co.in API Key അല്ലെങ്കിൽ Secret തെറ്റാണ്. .env പരിശോധിക്കുക. (Sandbox.co.in credentials unauthorized)';
+    return 'Sandbox.co.in API credentials unauthorized. Please verify your API Key and Secret.';
   }
 
-  return msg || 'ആധാർ വെരിഫിക്കേഷനിൽ ഒരു തടസ്സമുണ്ടായി. വീണ്ടും ശ്രമിക്കുക. (Aadhaar verification failed. Please retry.)';
+  return msg || 'Aadhaar verification failed. Please try again.';
 };
 
 /**
@@ -153,7 +153,7 @@ export const generateSandboxOtp = async (aadhaarNumber) => {
   if (cleanAadhaar.length !== 12) {
     return {
       success: false,
-      error: 'ദയവായി 12 അക്ക ആധാർ നമ്പർ നൽകുക. (Please enter a valid 12-digit Aadhaar number)'
+      error: 'Please enter a valid 12-digit Aadhaar number.'
     };
   }
 
@@ -211,7 +211,7 @@ export const verifySandboxOtp = async (referenceId, enteredOtp, fallbackAadhaar 
   if (cleanOtp.length !== 6) {
     return {
       success: false,
-      error: 'ദയവായി 6 അക്ക UIDAI OTP കൃത്യമായി നൽകുക. (Please enter 6-digit UIDAI OTP)'
+      error: 'Please enter a valid 6-digit UIDAI OTP.'
     };
   }
 

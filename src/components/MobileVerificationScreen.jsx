@@ -431,24 +431,24 @@ export default function MobileVerificationScreen({
                       Supabase & Indian SMS Gateway Notice
                     </p>
                     <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
-                      Firebase പൂർണ്ണമായി ഒഴിവാക്കി പകരം <strong>Supabase Auth & Fast2SMS</strong> ലേക്ക് മാറ്റിയിരിക്കുന്നു.
+                      Updated to <strong>Supabase Auth & Fast2SMS</strong> for fast and secure Indian SMS delivery.
                     </p>
                   </div>
                 </div>
 
                 <div className="bg-white/90 p-2.5 rounded-xl border border-amber-200 text-[10.5px] space-y-1.5 text-slate-700 font-medium">
-                  <p className="font-bold text-amber-900">മൊബൈലിലേക്ക് റിയൽ SMS ലൈവായി വരാൻ:</p>
+                  <p className="font-bold text-amber-900">To receive real live SMS on your mobile:</p>
                   <ol className="list-decimal list-inside space-y-1">
                     <li>
-                      <strong>Fast2SMS Gateway:</strong> Fast2SMS API Key നൽകി ഇന്ത്യയിലെ ഏത് നമ്പറിലേക്കും തത്സമയം യഥാർത്ഥ SMS അയക്കാം.
+                      <strong>Fast2SMS Gateway:</strong> Configure Fast2SMS API Key to send real SMS instantly to any mobile number across India.
                     </li>
                     <li>
-                      <strong>Supabase Phone Auth:</strong> Supabase Dashboard-ൽ Phone Auth പ്രൊവൈഡർ കോൺഫിഗർ ചെയ്യാവുന്നതാണ്.
+                      <strong>Supabase Phone Auth:</strong> You can also configure the Phone Auth provider directly in the Supabase Dashboard.
                     </li>
                   </ol>
                   <div className="mt-2 pt-1 border-t border-amber-200/80">
                     <p className="text-[10px] text-amber-800">
-                      💡 <strong>ഉടൻ വെരിഫൈ ചെയ്യാൻ:</strong> താഴെയുള്ള <strong>"Continue with Test OTP (482916)"</strong> ക്ലിക്ക് ചെയ്യുക.
+                      💡 <strong>Instant Testing:</strong> Click <strong>"Continue with Test OTP (482916)"</strong> below to proceed immediately.
                     </p>
                   </div>
                 </div>
