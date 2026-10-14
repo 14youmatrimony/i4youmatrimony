@@ -1422,7 +1422,7 @@
 
   const store = loadStore();
 
-  const SUPABASE_BASE = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/profiles';
+  const SUPABASE_BASE = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/profiles';
   const LIGHTWEIGHT_PROFILE_COLS = [
     'id', 'register_id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'skin_colour',
     'religion', 'caste', 'mother_tongue', 'state', 'city', 'district', 'native_address',
@@ -1430,10 +1430,10 @@
     'marital_status', 'diet', 'body_type', 'verified', 'govt_id_verified', 'aadhaar_verified',
     'aadhaar_status', 'aadhaar_rejection_reason', 'status', 'photo', 'photo_url', 'created_at', 'updated_at'
   ].join(',');
-  const SUPABASE_REST = `https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/profiles?select=${LIGHTWEIGHT_PROFILE_COLS}&order=created_at.desc`;
-  const SUPABASE_OFFERS = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/offers';
-  const SUPABASE_PLANS = 'https://ejtkrilhntdbsiavugta.supabase.co/rest/v1/membership_plans';
-  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqdGtyaWxobnRkYnNpYXZ1Z3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMjcyNjMsImV4cCI6MjEwNTkwMzI2M30.1B1llzakdq-Gyz_FGFr8A1xXmU1mT98FzkLaQG_GID8';
+  const SUPABASE_REST = `https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/profiles?select=${LIGHTWEIGHT_PROFILE_COLS}&order=created_at.desc`;
+  const SUPABASE_OFFERS = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/offers';
+  const SUPABASE_PLANS = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/membership_plans';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
 
   const VALID_PROFILE_COLS = new Set([
     'id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'skin_colour',

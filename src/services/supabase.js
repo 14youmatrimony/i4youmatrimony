@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ejtkrilhntdbsiavugta.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqdGtyaWxobnRkYnNpYXZ1Z3RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMjcyNjMsImV4cCI6MjEwNTkwMzI2M30.1B1llzakdq-Gyz_FGFr8A1xXmU1mT98FzkLaQG_GID8';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://kzvdzospvgzlfkkptadl.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
 
 /**
  * Checks whether valid Supabase configuration is present.
@@ -28,7 +28,7 @@ export const supabase = createClient(
 
 if (!isSupabaseConfigured()) {
   console.warn(
-    '[Supabase] Connected to project https://ejtkrilhntdbsiavugta.supabase.co, but VITE_SUPABASE_ANON_KEY is not yet set in .env. Please add your anon public key from the Supabase Dashboard.'
+    '[Supabase] Connected to project https://kzvdzospvgzlfkkptadl.supabase.co, but VITE_SUPABASE_ANON_KEY is not yet set in .env. Please add your anon public key from the Supabase Dashboard.'
   );
 }
 

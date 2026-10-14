@@ -10,10 +10,10 @@ export const INITIAL_PROFILES = [
     gender: 'Female',
     height: "5'4\"",
     skinColour: 'Fair',
-    photo: 'https://ejtkrilhntdbsiavugta.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
-    photo_url: 'https://ejtkrilhntdbsiavugta.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
+    photo: 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
+    photo_url: 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
     singlePhotos: [
-      'https://ejtkrilhntdbsiavugta.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
+      'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
     ],
     familyPhotos: [
       'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800'
@@ -52,10 +52,10 @@ export const INITIAL_PROFILES = [
     gender: 'Male',
     height: "5'8\"",
     skinColour: 'Fair',
-    photo: 'https://ejtkrilhntdbsiavugta.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653471074.jpg',
-    photo_url: 'https://ejtkrilhntdbsiavugta.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653471074.jpg',
+    photo: 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653471074.jpg',
+    photo_url: 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653471074.jpg',
     singlePhotos: [
-      'https://ejtkrilhntdbsiavugta.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653471074.jpg'
+      'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653471074.jpg'
     ],
     familyPhotos: [
       'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800'
@@ -94,10 +94,10 @@ export const INITIAL_PROFILES = [
     gender: 'Male',
     height: "5'9\"",
     skinColour: 'Wheatish',
-    photo: 'https://ejtkrilhntdbsiavugta.supabase.co/storage/v1/object/public/avatars/profile_i4y1003_1791565753630.jpg',
-    photo_url: 'https://ejtkrilhntdbsiavugta.supabase.co/storage/v1/object/public/avatars/profile_i4y1003_1791565753630.jpg',
+    photo: 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1003_1791565753630.jpg',
+    photo_url: 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1003_1791565753630.jpg',
     singlePhotos: [
-      'https://ejtkrilhntdbsiavugta.supabase.co/storage/v1/object/public/avatars/profile_i4y1003_1791565753630.jpg'
+      'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1003_1791565753630.jpg'
     ],
     familyPhotos: [
       'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800'
