@@ -454,7 +454,7 @@ export default function App() {
     };
   }, [syncLiveProfiles, isProduction]);
 
-  // Proactively sync existing locally registered profile to Supabase cloud if needed
+  // Proactively sync existing logged-in profile to Supabase cloud if needed (without generating duplicate rows)
   useEffect(() => {
     try {
       const savedUserStr = localStorage.getItem('i4u_auth_user');
@@ -463,6 +463,8 @@ export default function App() {
         const nameLower = String(savedUser?.name || '').toLowerCase().trim();
         if (
           savedUser && 
+          savedUser.id &&
+          !savedUser.id.startsWith('demo_') &&
           savedUser.name && 
           !isDemoProfile(savedUser) && 
           !savedUser.isDraft &&
@@ -470,11 +472,7 @@ export default function App() {
           !nameLower.includes('verified profile') &&
           (savedUser.mobile || savedUser.phone)
         ) {
-          const profileWithId = {
-            ...savedUser,
-            id: savedUser.id || `p_${Date.now()}`
-          };
-          registerLiveProfile(profileWithId).catch(() => {});
+          syncProfileToSupabase(savedUser).catch(() => {});
         }
       }
     } catch (e) {}
@@ -2089,20 +2087,41 @@ export default function App() {
 
   const filteredProfiles = useMemo(() => {
     const targetGender = getTargetCandidateGender(currentUser, guestLookingFor);
+    const seenIds = new Set();
+    const seenPhones = new Set();
+    const seenKeys = new Set();
 
     return profiles
       .filter(p => !isDemoProfile(p))
       .filter(p => {
+        if (!p || !p.id) return false;
+
+        // Deduplicate profiles so identical candidates never repeat in the feed
+        if (seenIds.has(p.id)) return false;
+        seenIds.add(p.id);
+
+        const phoneDigits = String(p.phone || p.mobile || '').replace(/\D/g, '');
+        if (phoneDigits && phoneDigits.length >= 10) {
+          if (seenPhones.has(phoneDigits)) return false;
+          seenPhones.add(phoneDigits);
+        }
+
+        const nameKey = `${String(p.name || '').trim().toLowerCase()}_${String(p.gender || '').toLowerCase()}`;
+        if (nameKey && nameKey.length > 3) {
+          if (seenKeys.has(nameKey)) return false;
+          seenKeys.add(nameKey);
+        }
+
         // 0. Exclude current user's own profile (by ID, Name, and Phone)
         if (isSelfProfile(p, currentUser)) return false;
 
-      // 0.1 Strict Opposite Gender Matchmaking Rule:
-      // Male users can ONLY see Female profiles (Brides)
-      // Female users can ONLY see Male profiles (Grooms)
-      // Guests strictly see candidates matching guestLookingFor
-      if (!isCandidateMatchingTarget(p, targetGender)) {
-        return false;
-      }
+        // 0.1 Strict Opposite Gender Matchmaking Rule:
+        // Male users can ONLY see Female profiles (Brides)
+        // Female users can ONLY see Male profiles (Grooms)
+        // Guests strictly see candidates matching guestLookingFor
+        if (!isCandidateMatchingTarget(p, targetGender)) {
+          return false;
+        }
 
       // 1. State
       if (selectedState !== 'All States' && p.state !== selectedState) return false;

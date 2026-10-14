@@ -29,9 +29,29 @@ export async function compressBase64Image(dataUrl, maxDim = 1200, quality = 0.84
  */
 export async function syncProfileToSupabase(userData) {
   if (!userData) return null;
-  const profileId = userData.id || userData.userId || `p_${Date.now()}`;
-  userData.id = profileId;
   if (!isSupabaseConfigured()) return null;
+
+  let profileId = userData.id || userData.userId;
+  if (!profileId && (userData.phone || userData.mobile)) {
+    const rawPhone = String(userData.phone || userData.mobile).replace(/\D/g, '');
+    if (rawPhone.length >= 10) {
+      try {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('phone', rawPhone)
+          .limit(1);
+        if (existing && existing.length > 0 && existing[0].id) {
+          profileId = existing[0].id;
+        }
+      } catch (e) {}
+    }
+  }
+
+  if (!profileId) {
+    profileId = `p_${Date.now()}`;
+  }
+  userData.id = profileId;
   try {
     let photo = await compressBase64Image(userData.photo, 800, 0.8);
     if (photo && (photo.startsWith('data:') || photo.startsWith('blob:'))) {
@@ -478,6 +498,35 @@ export const PROFILE_DETAIL_COLUMNS = [
 ].join(',');
 
 /**
+ * Deduplicates a list of profiles by ID, normalized Phone, and Name+Gender
+ */
+export function deduplicateProfiles(list) {
+  if (!Array.isArray(list)) return [];
+  const seenIds = new Set();
+  const seenPhones = new Set();
+  const seenKeys = new Set();
+
+  return list.filter(p => {
+    if (!p || !p.id) return false;
+    if (seenIds.has(p.id)) return false;
+    seenIds.add(p.id);
+
+    const phoneDigits = String(p.phone || p.mobile || '').replace(/\D/g, '');
+    if (phoneDigits && phoneDigits.length >= 10) {
+      if (seenPhones.has(phoneDigits)) return false;
+      seenPhones.add(phoneDigits);
+    }
+
+    const nameKey = `${String(p.name || '').trim().toLowerCase()}_${String(p.gender || '').toLowerCase()}`;
+    if (nameKey && nameKey.length > 3) {
+      if (seenKeys.has(nameKey)) return false;
+      seenKeys.add(nameKey);
+    }
+    return true;
+  });
+}
+
+/**
  * Fetch all active profiles from Supabase first, with fallback to Flask backend & offline cache
  * Excludes all demo profiles - returns only real registered candidates.
  */
@@ -500,9 +549,10 @@ export async function fetchLiveProfiles() {
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (!error && Array.isArray(data) && data.length > 0) {
-        const liveList = data
+        const rawList = data
           .map(mapSupabaseRowToProfile)
           .filter(p => !isDemoProfile(p));
+        const liveList = deduplicateProfiles(rawList);
 
         if (liveList.length > 0) {
           try {
@@ -520,7 +570,7 @@ export async function fetchLiveProfiles() {
   try {
     const data = await safeFetchJson(`${API_BASE}/public/profiles`, {}, 1500);
     if (data && data.success && Array.isArray(data.profiles) && data.profiles.length > 0) {
-      const liveList = data.profiles
+      const rawList = data.profiles
         .filter(p => !isDemoProfile(p))
         .map(p => ({
           ...p,
@@ -533,6 +583,7 @@ export async function fetchLiveProfiles() {
             siblings: p.siblingsDetails || '1 Sibling'
           }
         }));
+      const liveList = deduplicateProfiles(rawList);
       if (liveList.length > 0) {
         try {
           localStorage.setItem('i4u_cached_profiles', JSON.stringify(liveList));
@@ -550,7 +601,7 @@ export async function fetchLiveProfiles() {
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const validCached = parsed.filter(p => !isDemoProfile(p));
+        const validCached = deduplicateProfiles(parsed.filter(p => !isDemoProfile(p)));
         if (validCached.length > 0) return validCached;
       }
     }
@@ -558,7 +609,7 @@ export async function fetchLiveProfiles() {
 
   // 4. Default authentic fallback profiles
   if (Array.isArray(INITIAL_PROFILES) && INITIAL_PROFILES.length > 0) {
-    return INITIAL_PROFILES.filter(p => !isDemoProfile(p));
+    return deduplicateProfiles(INITIAL_PROFILES.filter(p => !isDemoProfile(p)));
   }
 
   return [];
@@ -638,8 +689,6 @@ export async function fetchLivePlans() {
  */
 export async function registerLiveProfile(userData) {
   if (!userData) return { success: false, error: 'Empty user data' };
-  const profileId = userData.id || userData.userId || `p_${Date.now()}`;
-  userData.id = profileId;
   if (!userData.name && userData.fullName) {
     userData.name = userData.fullName;
   }
@@ -649,6 +698,28 @@ export async function registerLiveProfile(userData) {
   if (!userData.mobile && userData.phone) {
     userData.mobile = userData.phone;
   }
+
+  let profileId = userData.id || userData.userId;
+  if (!profileId && (userData.phone || userData.mobile) && isSupabaseConfigured()) {
+    const rawPhone = String(userData.phone || userData.mobile).replace(/\D/g, '');
+    if (rawPhone.length >= 10) {
+      try {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('phone', rawPhone)
+          .limit(1);
+        if (existing && existing.length > 0 && existing[0].id) {
+          profileId = existing[0].id;
+        }
+      } catch (e) {}
+    }
+  }
+
+  if (!profileId) {
+    profileId = `p_${Date.now()}`;
+  }
+  userData.id = profileId;
 
   // 1. Direct real-time sync with Supabase
   let sbResult = null;

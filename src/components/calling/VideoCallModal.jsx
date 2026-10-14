@@ -31,12 +31,36 @@ export default function VideoCallModal({
   const localVideoRef = useRef(null);
   const streamRef = useRef(null);
   const timerRef = useRef(null);
+  const audioContextRef = useRef(null);
+
+  // Play video chime
+  const playVideoChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = audioContextRef.current || new AudioCtx();
+      audioContextRef.current = ctx;
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const notes = [440, 554.37, 659.25, 880]; // A4, C#5, E5, A5
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        const startTime = ctx.currentTime + (idx * 0.09);
+        gain.gain.setValueAtTime(0.05, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + 0.35);
+      });
+    } catch (e) {}
+  };
 
   // Initialize WebRTC User Media Camera
   useEffect(() => {
     if (!isOpen) return;
-
-    let currentStream = null;
 
     async function initCamera() {
       try {
@@ -45,7 +69,6 @@ export default function VideoCallModal({
             video: { facingMode },
             audio: true
           });
-          currentStream = stream;
           streamRef.current = stream;
           setHasCameraPermission(true);
           if (localVideoRef.current) {
@@ -70,6 +93,7 @@ export default function VideoCallModal({
 
     const connectTimer = setTimeout(() => {
       setCallStatus('connected');
+      playVideoChime();
     }, 3800);
 
     return () => {
@@ -79,6 +103,9 @@ export default function VideoCallModal({
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        try { audioContextRef.current.close(); } catch (e) {}
       }
     };
   }, [isOpen, facingMode]);
@@ -159,7 +186,7 @@ export default function VideoCallModal({
 
           {/* Top Info Bar */}
           <div className="absolute top-4 inset-x-4 flex items-center justify-between text-white z-20">
-            <div className="flex items-center space-x-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10">
+            <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
               <div>
                 <h4 className="font-serif font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
@@ -167,21 +194,20 @@ export default function VideoCallModal({
                   {candidate.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
                 </h4>
                 <p className="text-[10px] text-slate-300">
-                  {callStatus === 'connected' ? `Live • ${formatDuration(callDuration)}` : (callStatus === 'ringing' ? 'Ringing candidate...' : 'Connecting...')}
+                  {callStatus === 'connected' ? `ലൈവ് Video Call • ${formatDuration(callDuration)}` : (callStatus === 'ringing' ? 'റിംഗ് ചെയ്യുന്നു... (Ringing)' : 'കണക്ട് ചെയ്യുന്നു...')}
                 </p>
               </div>
             </div>
 
             <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold shadow-md">
               <Lock className="w-3 h-3 text-emerald-400" />
-              <span className="hidden sm:inline">256-Bit Encrypted Video</span>
-              <span className="sm:hidden">Encrypted</span>
+              <span>256-Bit Encrypted HD Video</span>
             </div>
           </div>
 
           {/* Connection Status Central Banner */}
           {callStatus !== 'connected' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/40 backdrop-blur-xs">
+            <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/50 backdrop-blur-xs">
               <div className="relative">
                 <div className="w-24 h-24 rounded-full border-4 border-[#D4AF37] overflow-hidden shadow-2xl">
                   <img src={candidate.photo} alt={candidate.name} className="w-full h-full object-cover" />
@@ -192,9 +218,9 @@ export default function VideoCallModal({
               <div className="text-center text-white space-y-1">
                 <h3 className="font-serif font-bold text-lg">{candidate.name}</h3>
                 <p className="text-xs text-[#DFB76C] font-semibold animate-pulse">
-                  {callStatus === 'calling' && 'Initiating Private Video Line...'}
-                  {callStatus === 'ringing' && 'Candidate Phone Ringing...'}
-                  {callStatus === 'ended' && 'Call Ended'}
+                  {callStatus === 'calling' && 'ലൈവ് വീഡിയോ കോൾ ആരംഭിക്കുന്നു... (Initiating Video Meet)'}
+                  {callStatus === 'ringing' && 'മറുപടി കാക്കുന്നു... (Candidate Phone Ringing)'}
+                  {callStatus === 'ended' && 'കോൾ അവസാനിച്ചു • Video Meeting Ended'}
                 </p>
               </div>
             </div>
@@ -215,19 +241,20 @@ export default function VideoCallModal({
                 <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-[#DFB76C] font-bold">
                   {currentUser?.name?.[0] || 'You'}
                 </div>
-                <span className="text-[10px] text-slate-400">{isCameraOff ? 'Camera Off' : 'Connecting'}</span>
+                <span className="text-[10px] text-slate-400">{isCameraOff ? 'Camera Off' : 'Camera Active'}</span>
               </div>
             )}
             
-            <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white backdrop-blur-xs">
-              You
+            <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white backdrop-blur-xs flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>You</span>
             </div>
           </div>
 
           {/* Bottom Watermark Security Banner */}
-          <div className="absolute bottom-20 left-4 text-[10px] text-slate-400/80 bg-black/50 px-2.5 py-1 rounded-lg backdrop-blur-xs hidden sm:flex items-center space-x-1">
+          <div className="absolute bottom-20 left-4 text-[10px] text-slate-400/90 bg-black/60 px-2.5 py-1 rounded-lg backdrop-blur-xs hidden sm:flex items-center space-x-1 border border-white/5">
             <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            <span>Protected Matrimonial Video Meet • Recording Restricted</span>
+            <span>Protected Matrimonial Video Meet • 100% Privacy</span>
           </div>
 
         </div>
@@ -244,7 +271,7 @@ export default function VideoCallModal({
                 ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30' 
                 : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
             }`}
-            title={isMicMuted ? 'Unmute' : 'Mute'}
+            title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
           >
             {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
@@ -281,7 +308,7 @@ export default function VideoCallModal({
             title="End Video Meeting"
           >
             <PhoneOff className="w-5 h-5" />
-            <span>End Call</span>
+            <span>End Meeting</span>
           </button>
 
         </div>

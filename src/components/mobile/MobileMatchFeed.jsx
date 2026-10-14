@@ -77,9 +77,29 @@ export default function MobileMatchFeed({
     return getTargetCandidateGender(currentUser);
   }, [currentUser]);
 
-  // Defense-in-depth: Ensure displayed profiles strictly match opposite gender and exclude own profile
+  // Defense-in-depth: Ensure displayed profiles strictly match opposite gender, exclude own profile, and deduplicate
   const filteredProfiles = useMemo(() => {
+    const seenIds = new Set();
+    const seenPhones = new Set();
+    const seenKeys = new Set();
+
     return (profiles || []).filter(p => {
+      if (!p || !p.id) return false;
+      if (seenIds.has(p.id)) return false;
+      seenIds.add(p.id);
+
+      const phoneDigits = String(p.phone || p.mobile || '').replace(/\D/g, '');
+      if (phoneDigits && phoneDigits.length >= 10) {
+        if (seenPhones.has(phoneDigits)) return false;
+        seenPhones.add(phoneDigits);
+      }
+
+      const nameKey = `${String(p.name || '').trim().toLowerCase()}_${String(p.gender || '').toLowerCase()}`;
+      if (nameKey && nameKey.length > 3) {
+        if (seenKeys.has(nameKey)) return false;
+        seenKeys.add(nameKey);
+      }
+
       if (isSelfProfile(p, currentUser)) return false;
       return isCandidateMatchingTarget(p, targetCandidateGender);
     });

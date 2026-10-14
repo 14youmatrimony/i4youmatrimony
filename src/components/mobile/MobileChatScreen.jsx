@@ -95,7 +95,8 @@ export default function MobileChatScreen({
   };
 
   const hasIncomingMessage = Boolean(activeConv?.messages?.some(m => m.sender === 'them'));
-  const canSendMessages = hasPaidPlan || hasIncomingMessage;
+  // Live Message is fully active for matrimonial connections
+  const canSendMessages = true;
 
   // If user is not logged in, display the Login Required screen immediately
   if (!currentUser) {
@@ -278,13 +279,17 @@ export default function MobileChatScreen({
             </div>
 
             <div className="min-w-0" onClick={() => onSelectProfile(activeProfile)}>
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-1.5">
                 <h3 className="font-serif font-bold text-xs sm:text-sm text-white truncate">
                   {activeProfile.name}
                 </h3>
                 {activeProfile.verified && (
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 )}
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.2 rounded-full border border-emerald-500/30 shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Live
+                </span>
               </div>
               <p className="text-[10px] text-slate-300 truncate">
                 Online • {activeProfile.district || activeProfile.city}
@@ -294,18 +299,20 @@ export default function MobileChatScreen({
 
           <div className="flex items-center space-x-1 shrink-0">
             <button
-              onClick={() => onStartAudioCall ? onStartAudioCall(activeProfile) : alert(`Audio calling ${activeProfile.name}...`)}
-              className="p-2 text-slate-300 hover:text-emerald-400 cursor-pointer active:scale-90 transition-transform"
-              title="Voice Call"
+              type="button"
+              onClick={() => onStartAudioCall ? onStartAudioCall(activeProfile) : null}
+              className="p-2 rounded-xl text-slate-300 hover:text-emerald-400 hover:bg-white/10 cursor-pointer active:scale-90 transition-all"
+              title="ലൈവ് Call (Voice Call)"
             >
-              <Phone className="w-4 h-4" />
+              <Phone className="w-4 h-4 text-emerald-400" />
             </button>
             <button
-              onClick={() => onStartVideoCall ? onStartVideoCall(activeProfile) : alert(`Video calling ${activeProfile.name}...`)}
-              className="p-2 text-slate-300 hover:text-blue-400 cursor-pointer active:scale-90 transition-transform"
-              title="Family Video Meeting"
+              type="button"
+              onClick={() => onStartVideoCall ? onStartVideoCall(activeProfile) : null}
+              className="p-2 rounded-xl text-slate-300 hover:text-blue-400 hover:bg-white/10 cursor-pointer active:scale-90 transition-all"
+              title="ലൈവ് Video Call (Family Video Meeting)"
             >
-              <Video className="w-4 h-4" />
+              <Video className="w-4 h-4 text-blue-400" />
             </button>
           </div>
         </div>
