@@ -17,7 +17,8 @@ import {
   Laptop,
   Wine,
   Cigarette,
-  Crown
+  Crown,
+  Phone
 } from 'lucide-react';
 import { STATES_AND_CITIES, getDistrictsForState } from '../../data/locationData';
 import { RELIGION_COMMUNITIES } from '../../data/religionData';

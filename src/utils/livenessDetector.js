@@ -2,10 +2,10 @@
  * I 4 You Matrimonial - Real-time In-Browser Face Liveness Detection
  * 
  * Active Liveness Protocol:
- * 1. Center / Look Straight (മുഖം നേരെ വെയ്ക്കുക)
- * 2. Turn Head Left (മുഖം ഇടത്തോട്ട് തിരിക്കുക ⬅️)
- * 3. Turn Head Right (മുഖം വലത്തോട്ട് തിരിക്കുക ➡️)
- * 4. Blink / Close Eyes (കണ്ണുകൾ അടച്ച് തുറക്കുക 👁️‍🗨️)
+ * 1. Center / Look Straight
+ * 2. Turn Head Left
+ * 3. Turn Head Right
+ * 4. Blink / Close Eyes
  * 5. Auto Capture Verified Frame
  * 
  * Zero-dependency, lightweight (160x160 processing at 15-20fps), cross-platform.
@@ -15,45 +15,35 @@ export const LIVENESS_STEPS = [
   {
     id: 'center',
     stepNumber: 1,
-    titleMl: 'മുഖം നേരെ വെയ്ക്കുക',
     titleEn: 'Look Straight',
-    instructionMl: 'മുഖം കൃത്യമായി ഓവലിനുള്ളിൽ വെച്ച് നേരെ നോക്കുക',
     instructionEn: 'Position your face in the oval and look straight ahead',
     minDurationMs: 900
   },
   {
     id: 'turn_left',
     stepNumber: 2,
-    titleMl: 'മുഖം ഇടത്തോട്ട് തിരിക്കുക',
     titleEn: 'Turn Face Left',
-    instructionMl: 'മുഖം സാവധാനം നിങ്ങളുടെ ഇടത്തോട്ട് തിരിക്കുക ⬅️',
     instructionEn: 'Turn your face slowly to the LEFT ⬅️',
     minDurationMs: 450
   },
   {
     id: 'turn_right',
     stepNumber: 3,
-    titleMl: 'മുഖം വലത്തോട്ട് തിരിക്കുക',
     titleEn: 'Turn Face Right',
-    instructionMl: 'മുഖം സാവധാനം നിങ്ങളുടെ വലത്തോട്ട് തിരിക്കുക ➡️',
     instructionEn: 'Turn your face slowly to the RIGHT ➡️',
     minDurationMs: 450
   },
   {
     id: 'blink',
     stepNumber: 4,
-    titleMl: 'കണ്ണുകൾ അടയ്ക്കുക',
     titleEn: 'Blink / Close Eyes',
-    instructionMl: 'കണ്ണുകൾ ഒരു തവണ സാവധാനം അടച്ച് തുറക്കുക 👁️‍🗨️',
     instructionEn: 'Blink: Close your eyes and open them once 👁️‍🗨️',
     minDurationMs: 400
   },
   {
     id: 'capture',
     stepNumber: 5,
-    titleMl: 'സെൽഫി പകർത്തുന്നു',
     titleEn: 'Capturing Selfie',
-    instructionMl: 'മുഖം നേരെ വെയ്ക്കുക, ഒരു പുഞ്ചിരി നൽകുക 😊',
     instructionEn: 'Hold still, capturing authentic live selfie 😊',
     minDurationMs: 500
   }
@@ -153,7 +143,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
     return {
       hasFace: false,
       tracker,
-      feedbackMl: 'മുഖം ക്യാമറയ്ക്ക് നേരെ പിടിക്കുക',
       feedbackEn: 'No face detected. Position yourself inside the oval.'
     };
   }
@@ -204,7 +193,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
   const now = Date.now();
   const timeInStep = now - tracker.stepStartTime;
   let stepJustFinished = false;
-  let feedbackMl = currentStep.instructionMl;
   let feedbackEn = currentStep.instructionEn;
 
   // -- STEP 1: Center & Look Straight
@@ -213,7 +201,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
     if (isCentered) {
       tracker.stableCenterFrames++;
       tracker.stepProgress = Math.min(100, Math.round((tracker.stableCenterFrames / 10) * 100));
-      feedbackMl = 'വളരെ നല്ലത്! നേരെ നോക്കുക...';
       feedbackEn = 'Great! Looking straight...';
 
       if (tracker.stableCenterFrames >= 10 && timeInStep >= currentStep.minDurationMs) {
@@ -222,7 +209,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
     } else {
       tracker.stableCenterFrames = Math.max(0, tracker.stableCenterFrames - 1);
       tracker.stepProgress = Math.max(0, tracker.stepProgress - 8);
-      feedbackMl = 'മുഖം കൃത്യമായി ഓവലിന്റെ നടുവിൽ വെക്കുക';
       feedbackEn = 'Center your face inside the oval';
     }
   }
@@ -236,7 +222,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
     if (isLeftShifted || isLeftMassHigher) {
       tracker.turnLeftFrames++;
       tracker.stepProgress = Math.min(100, Math.round((tracker.turnLeftFrames / 5) * 100));
-      feedbackMl = 'ഇടത്തോട്ട് തിരിഞ്ഞത് സ്ഥിരീകരിച്ചു! ✅';
       feedbackEn = 'Left turn confirmed! ✅';
 
       if (tracker.turnLeftFrames >= 5 && timeInStep >= currentStep.minDurationMs) {
@@ -244,7 +229,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
       }
     } else {
       tracker.stepProgress = Math.max(0, tracker.stepProgress - 5);
-      feedbackMl = 'മുഖം സാവധാനം ഇടത്തോട്ട് തിരിക്കുക ⬅️';
       feedbackEn = 'Turn your face slowly to the LEFT ⬅️';
     }
   }
@@ -257,7 +241,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
     if (isRightShifted || isRightMassHigher) {
       tracker.turnRightFrames++;
       tracker.stepProgress = Math.min(100, Math.round((tracker.turnRightFrames / 5) * 100));
-      feedbackMl = 'വലത്തോട്ട് തിരിഞ്ഞത് സ്ഥിരീകരിച്ചു! ✅';
       feedbackEn = 'Right turn confirmed! ✅';
 
       if (tracker.turnRightFrames >= 5 && timeInStep >= currentStep.minDurationMs) {
@@ -265,7 +248,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
       }
     } else {
       tracker.stepProgress = Math.max(0, tracker.stepProgress - 5);
-      feedbackMl = 'മുഖം സാവധാനം വലത്തോട്ട് തിരിക്കുക ➡️';
       feedbackEn = 'Turn your face slowly to the RIGHT ➡️';
     }
   }
@@ -283,7 +265,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
         if (tracker.eyeClosedFrames >= 2) {
           tracker.blinkState = 'closed_detected';
           tracker.stepProgress = 50;
-          feedbackMl = 'കണ്ണുകൾ തുറക്കുക...';
           feedbackEn = 'Eyes closed. Now open your eyes...';
         }
       }
@@ -291,7 +272,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
       if (eyesAreOpen) {
         tracker.blinkState = 'opened_detected';
         tracker.stepProgress = 100;
-        feedbackMl = 'കണ്ണടച്ചത് സ്ഥിരീകരിച്ചു! ✅';
         feedbackEn = 'Blink verified! ✅';
         stepJustFinished = true;
       }
@@ -303,7 +283,6 @@ export function analyzeLivenessFrame(video, canvas, tracker) {
     const isCentered = Math.abs(faceCenterX - 0.5) < 0.12 && Math.abs(faceCenterY - 0.5) < 0.15;
     if (isCentered) {
       tracker.stepProgress = 100;
-      feedbackMl = 'സെൽഫി പകർത്തുന്നു... 📸';
       feedbackEn = 'Hold still, capturing selfie... 📸';
       if (timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;

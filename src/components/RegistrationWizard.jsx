@@ -31,7 +31,8 @@ import {
   Copy,
   CheckCircle2,
   Mail,
-  Info
+  Info,
+  AlertCircle
 } from 'lucide-react';
 import SearchableSelect from './common/SearchableSelect';
 import DualRangeSlider from './common/DualRangeSlider';

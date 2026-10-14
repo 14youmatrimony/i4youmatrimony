@@ -57,7 +57,6 @@ export default function SelfieVerificationSection({
   // Active Liveness Challenge State
   const [trackerState, setTrackerState] = useState(() => createLivenessTracker());
   const [frameFeedback, setFrameFeedback] = useState({
-    feedbackMl: 'ക്യാമറ ആരംഭിക്കുന്നു...',
     feedbackEn: 'Starting camera...',
     stepProgress: 0,
     hasFace: false
@@ -151,8 +150,7 @@ export default function SelfieVerificationSection({
         isMatch: false,
         similarityScore: 0,
         status: 'error',
-        message: 'Verification encountered an error. Please retake the selfie in clear lighting.',
-        messageMl: 'പരിശോധനയിൽ തടസ്സം നേരിട്ടു. നല്ല വെളിച്ചത്തിൽ വീണ്ടും ശ്രമിക്കുക.'
+        message: 'Verification encountered an error. Please retake the selfie in clear lighting.'
       });
     } finally {
       setIsVerifying(false);
@@ -310,7 +308,7 @@ export default function SelfieVerificationSection({
               </span>
             </div>
             <p className="text-[11px] text-slate-500">
-              ലൈവ് സെൽഫി വഴി ഐഡന്റിറ്റി സ്ഥിരീകരിച്ച് Verified ബാഡ്ജ് നേടുക.
+              Verify your identity via live selfie to receive the official Verified Badge.
             </p>
           </div>
         </div>
@@ -334,7 +332,7 @@ export default function SelfieVerificationSection({
         // State 1: No Portrait uploaded yet
         <div className="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center space-y-1">
           <p className="text-xs font-medium text-slate-600">
-            മുകളിൽ നൽകിയിട്ടുള്ള സെക്ഷനിൽ നിങ്ങളുടെ പ്രൊഫൈൽ ഫോട്ടോ അപ്‌ലോഡ് ചെയ്യുക.
+            Please upload your portrait photo in the section above.
           </p>
           <p className="text-[10px] text-slate-400">
             Upload your portrait photo above to unlock active AI selfie verification.
@@ -360,7 +358,7 @@ export default function SelfieVerificationSection({
                 <span>Identity Confirmed ({verifyResult.similarityScore}%)</span>
               </div>
               <p className="text-[10px] text-emerald-700 truncate mt-0.5">
-                സെൽഫി പ്രൊഫൈൽ ഫോട്ടോയുമായി ഒത്തുപോയി. പ്രൊഫൈൽ യഥാർത്ഥമാണെന്ന് സ്ഥിരീകരിച്ചു.
+                Live selfie matched your profile portrait. Identity confirmed.
               </p>
             </div>
           </div>
@@ -385,7 +383,7 @@ export default function SelfieVerificationSection({
                 Active Liveness Face Match
               </h4>
               <p className="text-[11px] text-slate-600 leading-relaxed">
-                ക്യാമറയിൽ മുഖം ഇടത്തോട്ടും വലത്തോട്ടും തിരിക്കുകയും കണ്ണടയ്ക്കുകയും ചെയ്ത് വെരിഫിക്കേഷൻ പൂർത്തിയാക്കുക.
+                Follow simple camera instructions (turn head left, right, and blink) to verify your live identity.
               </p>
             </div>
           </div>
@@ -504,12 +502,12 @@ export default function SelfieVerificationSection({
                       </div>
                       
                       {/* Dynamic Live Instruction Pill */}
-                      <div className="absolute bottom-2.5 bg-[#0B192C]/85 backdrop-blur-md px-3.5 py-1.5 rounded-full text-center border border-[#D4AF37]/40 shadow-lg max-w-[85%]">
-                        <p className="text-[11px] font-bold text-amber-300">
-                          {frameFeedback.feedbackMl || currentChallenge.instructionMl}
+                      <div className="absolute bottom-2.5 bg-[#0B192C]/90 backdrop-blur-md px-4 py-2 rounded-full text-center border border-[#D4AF37]/40 shadow-lg max-w-[90%]">
+                        <p className="text-xs font-bold text-amber-300">
+                          {currentChallenge.instructionMl}
                         </p>
-                        <p className="text-[9px] text-slate-300">
-                          {currentChallenge.instructionEn}
+                        <p className="text-[10px] text-slate-300">
+                          {frameFeedback.feedbackEn || currentChallenge.instructionEn}
                         </p>
                       </div>
                     </div>
@@ -635,7 +633,7 @@ export default function SelfieVerificationSection({
                     <span>Identity Verified: {verifyResult.similarityScore}% Biometric Match!</span>
                   </div>
                   <p className="text-[11px] text-emerald-700 leading-relaxed">
-                    {verifyResult.messageMl || 'സെൽഫിയും പ്രൊഫൈൽ ഫോട്ടോയും വിജയകരമായി ഒത്തുപോയി. നിങ്ങൾ യഥാർത്ഥ കാൻഡിഡേറ്റാണെന്ന് സ്ഥിരീകരിച്ചു.'}
+                    {verifyResult.message || 'Live selfie and profile photo matched successfully. Real candidate identity confirmed.'}
                   </p>
                 </div>
               )}
@@ -645,10 +643,10 @@ export default function SelfieVerificationSection({
                 <div className="p-3.5 bg-rose-50 border border-rose-300 rounded-2xl space-y-2 animate-in zoom-in-95">
                   <div className="flex items-center gap-2 text-rose-800 font-bold text-xs">
                     <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>Face Mismatch: ഫോട്ടോകൾ ഒത്തുപോകുന്നില്ല</span>
+                    <span>Face Mismatch: Photos do not match</span>
                   </div>
                   <p className="text-[11px] text-rose-700 leading-relaxed">
-                    {verifyResult?.messageMl || 'സെൽഫിയും നിങ്ങളുടെ പ്രൊഫൈൽ ഫോട്ടോയും തമ്മിൽ പൊരുത്തക്കേട് കണ്ടെത്തി. ഒരേ വ്യക്തിയുടെ യഥാർത്ഥ പ്രൊഫൈൽ ഫോട്ടോ തന്നെയാണെന്ന് ഉറപ്പാക്കി വീണ്ടും ശ്രമിക്കുക.'}
+                    {verifyResult?.message || 'Face mismatch detected between your live selfie and profile portrait. Please ensure clear lighting and try again.'}
                   </p>
                 </div>
               )}
@@ -720,7 +718,7 @@ export default function SelfieVerificationSection({
                     className="flex-2 py-2 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] hover:brightness-105 text-[#0B192C] font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <RefreshCw className="w-4 h-4" />
-                    <span>Try Again (വീണ്ടും ശ്രമിക്കുക)</span>
+                    <span>Try Again</span>
                   </button>
                 </div>
               )}
