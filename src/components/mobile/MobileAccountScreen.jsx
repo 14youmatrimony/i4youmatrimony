@@ -30,7 +30,8 @@ import {
   FileText,
   Tag,
   Palette,
-  Scale
+  Scale,
+  Scan
 } from 'lucide-react';
 import TermsAndConditionsModal from '../common/TermsAndConditionsModal';
 import LoginScreen from '../LoginScreen';
@@ -39,7 +40,8 @@ import MobileVerificationScreen from '../MobileVerificationScreen';
 import AadhaarVerificationScreen from '../AadhaarVerificationScreen';
 import MobilePhotoManagerSheet from './MobilePhotoManagerSheet';
 import EditProfileModal from '../EditProfileModal';
-import { updateLiveUserProfile } from '../../services/api';
+import SelfieVerificationSection from '../SelfieVerificationSection';
+import { updateLiveUserProfile, syncProfileToSupabase } from '../../services/api';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { useTheme } from '../../context/ThemeContext';
 import { isKundaliApplicableReligion } from '../../data/religionData';
@@ -95,6 +97,7 @@ export default function MobileAccountScreen({
   const [isSavingKundali, setIsSavingKundali] = useState(false);
   const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showSelfieModal, setShowSelfieModal] = useState(false);
 
   // Photo Privacy Context State
   const { 
@@ -1190,6 +1193,54 @@ export default function MobileAccountScreen({
               );
             })()}
 
+            {/* Active AI Selfie Liveness Verification Menu Item */}
+            {(() => {
+              const isUserLoggedIn = Boolean(
+                currentUser && 
+                (currentUser.id || currentUser.mobile || currentUser.phone || currentUser.email) && 
+                !currentUser.isGuest &&
+                currentUser.isLoggedIn !== false
+              );
+              if (!isUserLoggedIn) return null;
+
+              const isSelfieVerified = Boolean(
+                currentUser?.selfieVerified || 
+                currentUser?.selfie_verified === 1 || 
+                currentUser?.selfie_verified === true
+              );
+
+              return (
+                <div 
+                  onClick={() => setShowSelfieModal(true)}
+                  className="p-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Scan className={`w-4 h-4 ${isSelfieVerified ? 'text-emerald-600' : 'text-amber-600'}`} />
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold">Active AI Selfie Verification</span>
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
+                          Liveness
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-normal text-slate-400">
+                        {isSelfieVerified
+                          ? `✅ Identity Confirmed (${currentUser?.selfieScore || currentUser?.selfie_match_score || 92}% Biometric Match)`
+                          : 'Head turn & blink verification to confirm genuine profile owner'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
+                    isSelfieVerified
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : 'bg-amber-100 text-amber-800 border-amber-300'
+                  }`}>
+                    {isSelfieVerified ? 'Verified ✓' : 'Verify Selfie'}
+                  </span>
+                </div>
+              );
+            })()}
+
             {/* Privacy & Contact Security Settings */}
             <div 
               onClick={() => setSubView('privacy_settings')}
@@ -1727,6 +1778,63 @@ export default function MobileAccountScreen({
             onRegistrationComplete?.(updated);
           }}
         />
+      )}
+
+      {/* Active AI Selfie Verification Modal */}
+      {showSelfieModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-4 overflow-hidden shadow-2xl border border-[#D4AF37]/50 relative animate-in zoom-in-95 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#DFB76C]">
+                  <Scan className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-serif font-bold text-sm text-[#0B192C]">AI Selfie Identity Verification</h4>
+                  <p className="text-[10px] text-slate-500">Live head turn & blink check</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowSelfieModal(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <SelfieVerificationSection
+              profilePhoto={currentUser?.photo || (currentUser?.singlePhotos && currentUser?.singlePhotos[0])}
+              isVerified={Boolean(currentUser?.selfieVerified || currentUser?.selfie_verified)}
+              verifiedScore={currentUser?.selfieScore || currentUser?.selfie_match_score}
+              verifiedSelfie={currentUser?.selfiePhoto || currentUser?.selfie_photo}
+              onVerificationComplete={async ({ verified, selfiePhoto, similarityScore }) => {
+                const updatedUser = {
+                  ...currentUser,
+                  selfieVerified: verified,
+                  selfie_verified: 1,
+                  selfiePhoto: selfiePhoto,
+                  selfie_photo: selfiePhoto,
+                  selfieScore: similarityScore,
+                  selfie_match_score: similarityScore,
+                  verified: true
+                };
+                try {
+                  localStorage.setItem('i4u_auth_user', JSON.stringify(updatedUser));
+                } catch (e) {}
+                if (onUpdatePhotos) {
+                  onUpdatePhotos(updatedUser);
+                } else if (onRegistrationComplete) {
+                  onRegistrationComplete(updatedUser);
+                }
+                if (currentUser?.id) {
+                  syncProfileToSupabase(updatedUser).catch(() => {});
+                }
+                setShowSelfieModal(false);
+              }}
+            />
+          </div>
+        </div>
       )}
 
     </div>

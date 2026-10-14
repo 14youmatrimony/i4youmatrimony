@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Camera, 
   CheckCircle2, 
@@ -9,19 +9,32 @@ import {
   Scan, 
   X, 
   Smile, 
-  Upload, 
   Check, 
   Zap, 
-  Lock 
+  Lock,
+  ArrowLeft,
+  ArrowRight,
+  Eye,
+  ShieldCheck,
+  UserCheck,
+  ChevronRight
 } from 'lucide-react';
 import { verifyFaceMatch } from '../services/faceVerificationService';
-import { optimizeImageFile } from '../utils/imageOptimizer';
+import { 
+  LIVENESS_STEPS, 
+  createLivenessTracker, 
+  analyzeLivenessFrame 
+} from '../utils/livenessDetector';
 
 /**
  * SelfieVerificationSection
  * 
- * Provides live camera selfie capture and AI face verification comparing
- * the user's primary uploaded profile portrait with their live camera selfie.
+ * Provides interactive active liveness verification:
+ * 1. Center / Look straight into the camera
+ * 2. Turn face to the LEFT ⬅️
+ * 3. Turn face to the RIGHT ➡️
+ * 4. Blink / Close eyes 👁️‍🗨️
+ * 5. Automatic live frame capture and biometric face matching against uploaded profile photo.
  */
 export default function SelfieVerificationSection({
   profilePhoto,
@@ -35,96 +48,57 @@ export default function SelfieVerificationSection({
   const [facingMode, setFacingMode] = useState('user'); // 'user' | 'environment'
   const [capturedSelfie, setCapturedSelfie] = useState(verifiedSelfie || null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationStep, setVerificationStep] = useState(0); // 0..3
+  const [verificationStep, setVerificationStep] = useState(0); // 0..3 matching steps
   const [verifyResult, setVerifyResult] = useState(
-    isVerified ? { isMatch: true, similarityScore: verifiedScore || 94, status: 'verified' } : null
+    isVerified ? { isMatch: true, similarityScore: verifiedScore || 92, status: 'verified' } : null
   );
   const [cameraError, setCameraError] = useState(null);
 
+  // Active Liveness Challenge State
+  const [trackerState, setTrackerState] = useState(() => createLivenessTracker());
+  const [frameFeedback, setFrameFeedback] = useState({
+    feedbackMl: 'ക്യാമറ ആരംഭിക്കുന്നു...',
+    feedbackEn: 'Starting camera...',
+    stepProgress: 0,
+    hasFace: false
+  });
+
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const offscreenCanvasRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const isCapturingRef = useRef(false);
 
   // Stop camera stream safely
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     setCameraActive(false);
-  };
-
-  // Start WebRTC Camera
-  const startCamera = async (mode = facingMode) => {
-    setCameraError(null);
-    stopCamera();
-
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera access is not supported by your browser. Please use photo upload.');
-      }
-
-      const constraints = {
-        video: {
-          facingMode: mode,
-          width: { ideal: 640 },
-          height: { ideal: 640 }
-        },
-        audio: false
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setCameraActive(true);
-    } catch (err) {
-      console.warn('[SelfieCamera] Camera access notice:', err);
-      setCameraError('Camera access unavailable. You can use your device camera or upload a clear selfie.');
-      setCameraActive(false);
-    }
-  };
-
-  // Clean up stream on unmount
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
   }, []);
 
-  // Update video element when camera becomes active
-  useEffect(() => {
-    if (cameraActive && streamRef.current && videoRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-    }
-  }, [cameraActive]);
+  // Capture high-resolution photo from video element
+  const capturePhotoFromVideo = useCallback(() => {
+    if (!videoRef.current || isCapturingRef.current) return null;
+    isCapturingRef.current = true;
 
-  // Handle Switch Camera (Front/Back)
-  const toggleCameraFacing = () => {
-    const nextMode = facingMode === 'user' ? 'environment' : 'user';
-    setFacingMode(nextMode);
-    if (cameraActive) {
-      startCamera(nextMode);
-    }
-  };
-
-  // Take Snapshot from Video Stream
-  const capturePhoto = () => {
-    if (!videoRef.current) return;
     try {
       const video = videoRef.current;
       const canvas = document.createElement('canvas');
-      const size = Math.min(video.videoWidth || 480, video.videoHeight || 480);
+      const size = Math.min(video.videoWidth || 640, video.videoHeight || 640);
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d');
 
-      // Crop center square
       const sx = ((video.videoWidth || size) - size) / 2;
       const sy = ((video.videoHeight || size) - size) / 2;
 
-      // If front camera, mirror image back to natural orientation
+      // Un-mirror front camera for natural portrait orientation
       if (facingMode === 'user') {
         ctx.translate(size, 0);
         ctx.scale(-1, 1);
@@ -132,52 +106,27 @@ export default function SelfieVerificationSection({
 
       ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-
-      stopCamera();
-      setCapturedSelfie(dataUrl);
-      executeAiVerification(dataUrl);
+      return dataUrl;
     } catch (err) {
-      console.error('[SelfieCamera] Capture error:', err);
-      alert('Could not capture selfie. Please try again.');
-    }
-  };
-
-  // Fallback: Device Native Camera / File Input
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const result = await optimizeImageFile(file, {
-        maxDimension: 800,
-        targetMaxKB: 180,
-        initialQuality: 0.85
-      });
-      if (result?.dataUrl) {
-        stopCamera();
-        setCapturedSelfie(result.dataUrl);
-        executeAiVerification(result.dataUrl);
-      }
-    } catch (err) {
-      console.error('[SelfieCamera] Upload error:', err);
-      alert('Error processing selfie image.');
+      console.error('[SelfieCapture] Capture error:', err);
+      return null;
     } finally {
-      e.target.value = '';
+      isCapturingRef.current = false;
     }
-  };
+  }, [facingMode]);
 
-  // Execute AI Face Verification
-  const executeAiVerification = async (selfieImage) => {
+  // Execute AI Face Verification against profile photo
+  const executeAiVerification = useCallback(async (selfieImage) => {
     if (!profilePhoto) {
-      alert('Please upload your primary portrait photo above first.');
+      alert('Please upload your primary portrait photo first.');
       return;
     }
 
     setIsVerifying(true);
     setVerificationStep(1);
 
-    const stepTimer1 = setTimeout(() => setVerificationStep(2), 600);
-    const stepTimer2 = setTimeout(() => setVerificationStep(3), 1200);
+    const stepTimer1 = setTimeout(() => setVerificationStep(2), 500);
+    const stepTimer2 = setTimeout(() => setVerificationStep(3), 1000);
 
     try {
       const result = await verifyFaceMatch(profilePhoto, selfieImage);
@@ -202,17 +151,123 @@ export default function SelfieVerificationSection({
         isMatch: false,
         similarityScore: 0,
         status: 'error',
-        message: 'AI verification encountered an error. Please retake the selfie.'
+        message: 'Verification encountered an error. Please retake the selfie in clear lighting.',
+        messageMl: 'പരിശോധനയിൽ തടസ്സം നേരിട്ടു. നല്ല വെളിച്ചത്തിൽ വീണ്ടും ശ്രമിക്കുക.'
       });
     } finally {
       setIsVerifying(false);
+    }
+  }, [profilePhoto, onVerificationComplete]);
+
+  // Live video frame processing loop
+  const processFrameLoop = useCallback(() => {
+    if (!videoRef.current || !cameraActive) return;
+
+    if (!offscreenCanvasRef.current) {
+      offscreenCanvasRef.current = document.createElement('canvas');
+    }
+
+    const video = videoRef.current;
+    if (video.readyState >= 2) {
+      setTrackerState(prevTracker => {
+        const result = analyzeLivenessFrame(video, offscreenCanvasRef.current, prevTracker);
+
+        setFrameFeedback({
+          feedbackMl: result.feedbackMl || '',
+          feedbackEn: result.feedbackEn || '',
+          stepProgress: result.stepProgress || 0,
+          hasFace: Boolean(result.hasFace)
+        });
+
+        // When all 4 challenges pass -> Capture frame!
+        if (result.isComplete && !capturedSelfie && !isCapturingRef.current) {
+          const snapshot = capturePhotoFromVideo();
+          if (snapshot) {
+            stopCamera();
+            setCapturedSelfie(snapshot);
+            executeAiVerification(snapshot);
+          }
+        }
+
+        return prevTracker;
+      });
+    }
+
+    animationFrameRef.current = requestAnimationFrame(processFrameLoop);
+  }, [cameraActive, capturedSelfie, capturePhotoFromVideo, stopCamera, executeAiVerification]);
+
+  // Start WebRTC Camera
+  const startCamera = useCallback(async (mode = facingMode) => {
+    setCameraError(null);
+    stopCamera();
+    setTrackerState(createLivenessTracker());
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera access is not supported by your browser.');
+      }
+
+      const constraints = {
+        video: {
+          facingMode: mode,
+          width: { ideal: 640 },
+          height: { ideal: 640 }
+        },
+        audio: false
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setCameraActive(true);
+    } catch (err) {
+      console.warn('[SelfieCamera] Camera access notice:', err);
+      setCameraError('Camera access unavailable. Please grant camera permission in your browser to complete live verification.');
+      setCameraActive(false);
+    }
+  }, [facingMode, stopCamera]);
+
+  // Start frame loop when camera is active
+  useEffect(() => {
+    if (cameraActive) {
+      animationFrameRef.current = requestAnimationFrame(processFrameLoop);
+    }
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [cameraActive, processFrameLoop]);
+
+  // Clean up stream on unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [stopCamera]);
+
+  // Update video element when camera becomes active
+  useEffect(() => {
+    if (cameraActive && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [cameraActive]);
+
+  // Handle Switch Camera (Front/Back)
+  const toggleCameraFacing = () => {
+    const nextMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(nextMode);
+    if (cameraActive) {
+      startCamera(nextMode);
     }
   };
 
   // Open Selfie Modal
   const handleOpenModal = () => {
     if (!profilePhoto) {
-      alert('Please upload your primary portrait photo first.');
+      alert('Please upload your primary portrait photo above first.');
       return;
     }
     setIsModalOpen(true);
@@ -231,8 +286,11 @@ export default function SelfieVerificationSection({
   const handleRetake = () => {
     setCapturedSelfie(null);
     setVerifyResult(null);
+    setTrackerState(createLivenessTracker());
     startCamera();
   };
+
+  const currentChallenge = LIVENESS_STEPS[trackerState.stepIndex] || LIVENESS_STEPS[0];
 
   return (
     <div className="bg-gradient-to-br from-white via-amber-50/20 to-white rounded-2xl p-4 border border-[#D4AF37]/40 shadow-xs space-y-3">
@@ -243,64 +301,66 @@ export default function SelfieVerificationSection({
             <Scan className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              AI Selfie Verification 
-              <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200 font-semibold normal-case">
-                Anti-Catfish AI
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-serif font-bold text-sm text-[#0B192C]">
+                Active AI Selfie Verification
+              </h3>
+              <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                Liveness
               </span>
-            </h3>
+            </div>
             <p className="text-[11px] text-slate-500">
-              Verify your identity with live selfie to earn the Verified Member badge.
+              ലൈവ് സെൽഫി വഴി ഐഡന്റിറ്റി സ്ഥിരീകരിച്ച് Verified ബാഡ്ജ് നേടുക.
             </p>
           </div>
         </div>
 
-        {/* Verification Status Badge */}
-        {verifyResult?.isMatch || isVerified ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+        {/* Verification Status Pill */}
+        {verifyResult?.isMatch ? (
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 text-xs font-bold animate-in fade-in">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            Verified ({verifyResult?.similarityScore || verifiedScore || 94}%)
-          </span>
+            <span>Verified ({verifyResult.similarityScore || 92}%)</span>
+          </div>
         ) : (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-            <Sparkles className="w-3 h-3 text-[#D4AF37]" />
-            Required
-          </span>
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-[#8C6D1F] border border-amber-300 text-[10px] font-semibold">
+            <Sparkles className="w-3 h-3 text-[#DFB76C]" />
+            <span>Mandatory</span>
+          </div>
         )}
       </div>
 
-      {/* Main Card Content */}
+      {/* Body States */}
       {!profilePhoto ? (
-        // State 0: No portrait uploaded yet
-        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-slate-500">
-          <Lock className="w-4 h-4 text-slate-400 shrink-0" />
-          <span className="text-xs">
-            Upload your portrait photo in the section above to unlock AI selfie verification.
-          </span>
+        // State 1: No Portrait uploaded yet
+        <div className="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center space-y-1">
+          <p className="text-xs font-medium text-slate-600">
+            മുകളിൽ നൽകിയിട്ടുള്ള സെക്ഷനിൽ നിങ്ങളുടെ പ്രൊഫൈൽ ഫോട്ടോ അപ്‌ലോഡ് ചെയ്യുക.
+          </p>
+          <p className="text-[10px] text-slate-400">
+            Upload your portrait photo above to unlock active AI selfie verification.
+          </p>
         </div>
-      ) : verifyResult?.isMatch || isVerified ? (
-        // State 1: Verified Successfully!
-        <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="relative">
+      ) : verifyResult?.isMatch ? (
+        // State 2: Verification Passed
+        <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden border-2 border-emerald-500 shrink-0">
               <img 
                 src={capturedSelfie || verifiedSelfie || profilePhoto} 
                 alt="Verified Selfie" 
-                className="w-12 h-12 rounded-xl object-cover border-2 border-emerald-500 shadow-xs" 
+                className="w-full h-full object-cover" 
               />
-              <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white p-0.5 rounded-full ring-2 ring-white">
-                <Check className="w-3 h-3 stroke-[3]" />
+              <div className="absolute bottom-0 right-0 p-0.5 bg-emerald-600 rounded-tl-md text-white">
+                <Check className="w-2.5 h-2.5" />
               </div>
             </div>
-            <div>
-              <div className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                Identity Verified with AI
-                <span className="text-[10px] bg-emerald-200 text-emerald-800 font-bold px-1.5 py-0.2 rounded">
-                  {verifyResult?.similarityScore || verifiedScore || 94}% Face Match
-                </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1 text-xs font-bold text-emerald-800">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>Identity Confirmed ({verifyResult.similarityScore}%)</span>
               </div>
-              <p className="text-[11px] text-emerald-800/90 mt-0.5 leading-tight">
-                Selfie matches your portrait. Your account is confirmed as genuine and authentic.
+              <p className="text-[10px] text-emerald-700 truncate mt-0.5">
+                സെൽഫി പ്രൊഫൈൽ ഫോട്ടോയുമായി ഒത്തുപോയി. പ്രൊഫൈൽ യഥാർത്ഥമാണെന്ന് സ്ഥിരീകരിച്ചു.
               </p>
             </div>
           </div>
@@ -308,32 +368,24 @@ export default function SelfieVerificationSection({
           <button
             type="button"
             onClick={handleOpenModal}
-            className="px-2.5 py-1.5 text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-300 cursor-pointer shrink-0"
+            className="px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-800 text-[11px] font-bold shrink-0 transition-colors cursor-pointer"
           >
             Retake
           </button>
         </div>
       ) : (
-        // State 2: Portrait uploaded, waiting for selfie
-        <div className="p-3.5 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="relative shrink-0">
-              <img 
-                src={profilePhoto} 
-                alt="Portrait" 
-                className="w-12 h-12 rounded-xl object-cover border-2 border-[#D4AF37] shadow-xs" 
-              />
-              <span className="absolute -bottom-1 -right-1 bg-[#D4AF37] text-[#0B192C] text-[8px] font-bold px-1 rounded shadow">
-                Ref
-              </span>
+        // State 3: Ready for active liveness verification
+        <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-400/40 text-[#8C6D1F] flex items-center justify-center shrink-0">
+              <Scan className="w-5 h-5 text-[#8C6D1F]" />
             </div>
-            <div>
-              <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                Take a quick live selfie
-                <Zap className="w-3 h-3 text-[#D4AF37] fill-[#D4AF37]" />
-              </div>
-              <p className="text-[11px] text-slate-500 leading-snug">
-                AI will verify if the person creating the profile matches this portrait photo.
+            <div className="space-y-0.5 min-w-0">
+              <h4 className="text-xs font-bold text-[#0B192C]">
+                Active Liveness Face Match
+              </h4>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                ക്യാമറയിൽ മുഖം ഇടത്തോട്ടും വലത്തോട്ടും തിരിക്കുകയും കണ്ണടയ്ക്കുകയും ചെയ്ത് വെരിഫിക്കേഷൻ പൂർത്തിയാക്കുക.
               </p>
             </div>
           </div>
@@ -341,28 +393,19 @@ export default function SelfieVerificationSection({
           <button
             type="button"
             onClick={handleOpenModal}
-            className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+            className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:brightness-105 active:scale-[0.99] text-[#0B192C] font-extrabold text-xs shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Camera className="w-4 h-4" />
-            <span>Verify Selfie with AI</span>
+            <span>Start Active Liveness Selfie</span>
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Hidden File Input for Native Mobile Camera Fallback */}
-      <input 
-        type="file" 
-        accept="image/*" 
-        capture="user" 
-        ref={fileInputRef} 
-        onChange={handleFileUpload} 
-        className="hidden" 
-      />
-
-      {/* Interactive AI Selfie Camera Modal */}
+      {/* Interactive Active Liveness Camera Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-[#D4AF37]/50 relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-[#D4AF37]/50 relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[94vh]">
             
             {/* Modal Header */}
             <div className="bg-[#0B192C] text-white px-4 py-3 flex items-center justify-between border-b border-[#D4AF37]/30">
@@ -372,10 +415,10 @@ export default function SelfieVerificationSection({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold tracking-wide text-white uppercase flex items-center gap-1">
-                    AI Face Verification
+                    AI Active Liveness Verification
                   </h4>
                   <p className="text-[10px] text-slate-300">
-                    Live selfie vs uploaded portrait check
+                    Turn Left • Turn Right • Blink • Face Match
                   </p>
                 </div>
               </div>
@@ -391,30 +434,30 @@ export default function SelfieVerificationSection({
             </div>
 
             {/* Modal Body */}
-            <div className="p-4 overflow-y-auto space-y-4">
+            <div className="p-4 overflow-y-auto space-y-3.5">
               
-              {/* Reference Portrait Reminder */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50/60 border border-amber-200">
-                <div className="flex items-center gap-2.5">
+              {/* Reference Portrait Reminder Bar */}
+              <div className="flex items-center justify-between p-2 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                <div className="flex items-center gap-2">
                   <img 
                     src={profilePhoto} 
                     alt="Target Portrait" 
-                    className="w-10 h-10 rounded-lg object-cover border border-[#D4AF37]" 
+                    className="w-8 h-8 rounded-lg object-cover border border-[#D4AF37]" 
                   />
                   <div>
-                    <div className="text-[11px] font-bold text-slate-800">Uploaded Profile Portrait</div>
-                    <div className="text-[10px] text-slate-500">Target image to verify against</div>
+                    <div className="text-[10px] font-bold text-slate-800">Reference Portrait</div>
+                    <div className="text-[9px] text-slate-500">Target photo to match against</div>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#D4AF37]/20 text-[#8C6D1F]">
-                  Reference Face
+                <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md bg-[#D4AF37]/20 text-[#8C6D1F]">
+                  Profile Face
                 </span>
               </div>
 
               {/* Viewfinder Container */}
-              <div className="relative aspect-square max-h-[340px] mx-auto rounded-2xl overflow-hidden bg-slate-900 border-2 border-slate-700 shadow-inner flex items-center justify-center">
+              <div className="relative aspect-square max-h-[320px] mx-auto rounded-2xl overflow-hidden bg-slate-900 border-2 border-slate-700 shadow-inner flex items-center justify-center">
                 
-                {/* 1. Live Video Viewfinder */}
+                {/* 1. Live Video Viewfinder with Liveness Overlay */}
                 {cameraActive && !capturedSelfie && (
                   <>
                     <video
@@ -425,37 +468,71 @@ export default function SelfieVerificationSection({
                       className={`w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
                     />
 
-                    {/* Biometric Oval Mask Overlay */}
+                    {/* Liveness Oval Guide */}
                     <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                      <div className="w-[72%] h-[80%] rounded-[50%] border-2 border-dashed border-[#DFB76C] shadow-[0_0_0_9999px_rgba(11,25,44,0.45)] relative animate-pulse">
-                        {/* Biometric crosshairs */}
-                        <div className="absolute top-1/3 left-0 right-0 h-px bg-[#DFB76C]/30" />
-                        <div className="absolute top-1/2 left-0 right-0 h-px bg-[#DFB76C]/20" />
-                        <div className="absolute top-0 bottom-0 left-1/2 w-px bg-[#DFB76C]/30" />
+                      <div className={`w-[72%] h-[80%] rounded-[50%] border-2 relative transition-all duration-300 ${
+                        currentChallenge.id === 'turn_left'
+                          ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.5)]'
+                          : currentChallenge.id === 'turn_right'
+                          ? 'border-purple-400 shadow-[0_0_20px_rgba(192,132,252,0.5)]'
+                          : currentChallenge.id === 'blink'
+                          ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.5)]'
+                          : 'border-[#DFB76C] border-dashed shadow-[0_0_0_9999px_rgba(11,25,44,0.45)]'
+                      }`}>
+                        {/* Directional Turn Left Arrow Overlay */}
+                        {currentChallenge.id === 'turn_left' && (
+                          <div className="absolute left-[-22px] top-1/2 -translate-y-1/2 p-2 rounded-full bg-cyan-500 text-white shadow-lg animate-bounce">
+                            <ArrowLeft className="w-5 h-5 stroke-[3]" />
+                          </div>
+                        )}
+
+                        {/* Directional Turn Right Arrow Overlay */}
+                        {currentChallenge.id === 'turn_right' && (
+                          <div className="absolute right-[-22px] top-1/2 -translate-y-1/2 p-2 rounded-full bg-purple-500 text-white shadow-lg animate-bounce">
+                            <ArrowRight className="w-5 h-5 stroke-[3]" />
+                          </div>
+                        )}
+
+                        {/* Blink Eye Icon Overlay */}
+                        {currentChallenge.id === 'blink' && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="p-3 rounded-full bg-amber-500/80 text-white shadow-xl animate-pulse">
+                              <Eye className="w-8 h-8 stroke-[2.5]" />
+                            </div>
+                          </div>
+                        )}
                       </div>
                       
-                      <div className="absolute bottom-3 bg-[#0B192C]/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-medium text-amber-200 border border-[#D4AF37]/30 flex items-center gap-1.5">
-                        <Smile className="w-3.5 h-3.5 text-[#DFB76C]" />
-                        <span>Position face in the oval & look straight</span>
+                      {/* Dynamic Live Instruction Pill */}
+                      <div className="absolute bottom-2.5 bg-[#0B192C]/85 backdrop-blur-md px-3.5 py-1.5 rounded-full text-center border border-[#D4AF37]/40 shadow-lg max-w-[85%]">
+                        <p className="text-[11px] font-bold text-amber-300">
+                          {frameFeedback.feedbackMl || currentChallenge.instructionMl}
+                        </p>
+                        <p className="text-[9px] text-slate-300">
+                          {currentChallenge.instructionEn}
+                        </p>
                       </div>
                     </div>
                   </>
                 )}
 
-                {/* 2. Captured Image View (During or after verification) */}
+                {/* 2. Captured Image View (During Face Verification) */}
                 {capturedSelfie && (
                   <div className="relative w-full h-full">
                     <img 
                       src={capturedSelfie} 
-                      alt="Captured Selfie" 
+                      alt="Captured Live Selfie" 
                       className="w-full h-full object-cover" 
                     />
 
-                    {/* AI Scanning Laser Overlay */}
+                    {/* AI Scanning Overlay */}
                     {isVerifying && (
                       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                        <div className="w-full h-1 bg-gradient-to-r from-transparent via-[#DFB76C] to-transparent shadow-[0_0_15px_#DFB76C] animate-bounce" />
+                        <div className="w-full h-1 bg-gradient-to-r from-transparent via-[#DFB76C] to-transparent shadow-[0_0_20px_#DFB76C] animate-bounce" />
                         <div className="absolute inset-0 bg-[#D4AF37]/10 backdrop-contrast-125" />
+                        <div className="absolute bottom-3 inset-x-3 bg-black/75 backdrop-blur-md p-2 rounded-xl text-center text-white text-xs font-bold border border-amber-400/40">
+                          <span>Biometric Face Matching in progress...</span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -468,161 +545,186 @@ export default function SelfieVerificationSection({
                       <Camera className="w-6 h-6" />
                     </div>
                     <div className="text-xs font-semibold text-slate-300">
-                      {cameraError || 'Camera inactive'}
+                      {cameraError || 'Camera stream is stopped.'}
                     </div>
-                    <div className="flex flex-col gap-2 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => startCamera()}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#D4AF37] text-[#0B192C] hover:bg-[#dfb76c] transition-colors"
-                      >
-                        Retry Camera
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition-colors"
-                      >
-                        Upload Selfie from Device
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => startCamera()}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#D4AF37] text-[#0B192C] font-bold text-xs"
+                    >
+                      Start Camera
+                    </button>
                   </div>
                 )}
-
               </div>
 
-              {/* AI Verification Progress State */}
-              {isVerifying && (
-                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-amber-950">
+              {/* Liveness Steps Progress Bar */}
+              {cameraActive && !capturedSelfie && (
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
                     <span className="flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-[#D4AF37] animate-spin" />
-                      AI Facial Analysis Running...
+                      <span className="w-4 h-4 rounded-full bg-[#D4AF37] text-[#0B192C] text-[9px] flex items-center justify-center font-extrabold">
+                        {currentChallenge.stepNumber}
+                      </span>
+                      <span>{currentChallenge.titleMl} ({currentChallenge.titleEn})</span>
                     </span>
-                    <span className="text-[10px] text-amber-700 font-mono">
-                      Step {verificationStep}/3
-                    </span>
+                    <span className="text-[#8C6D1F] font-mono">{trackerState.stepProgress}%</span>
                   </div>
 
-                  <div className="w-full bg-amber-200/60 rounded-full h-1.5 overflow-hidden">
+                  {/* Progress bar line */}
+                  <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                     <div 
-                      className="bg-[#D4AF37] h-full transition-all duration-300 rounded-full" 
-                      style={{ width: `${(verificationStep / 3) * 100}%` }}
+                      className="h-full bg-gradient-to-r from-[#D4AF37] to-emerald-500 transition-all duration-150"
+                      style={{ width: `${trackerState.stepProgress}%` }}
                     />
                   </div>
 
-                  <p className="text-[11px] text-amber-800 font-medium">
-                    {verificationStep === 1 && '1. Scanning portrait and selfie landmarks...'}
-                    {verificationStep === 2 && '2. Comparing facial contours, eyes, nose & jawline...'}
-                    {verificationStep === 3 && '3. Calculating AI similarity & anti-spoofing confidence...'}
+                  {/* Step indicators */}
+                  <div className="grid grid-cols-4 gap-1 pt-1 text-[9px] font-semibold text-center">
+                    <div className={`p-1 rounded-md ${trackerState.completedSteps.has('center') ? 'bg-emerald-100 text-emerald-800 font-bold' : trackerState.stepIndex === 0 ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-slate-100 text-slate-400'}`}>
+                      1. Straight {trackerState.completedSteps.has('center') && '✓'}
+                    </div>
+                    <div className={`p-1 rounded-md ${trackerState.completedSteps.has('turn_left') ? 'bg-emerald-100 text-emerald-800 font-bold' : trackerState.stepIndex === 1 ? 'bg-cyan-100 text-cyan-800 font-bold' : 'bg-slate-100 text-slate-400'}`}>
+                      2. Left ⬅️ {trackerState.completedSteps.has('turn_left') && '✓'}
+                    </div>
+                    <div className={`p-1 rounded-md ${trackerState.completedSteps.has('turn_right') ? 'bg-emerald-100 text-emerald-800 font-bold' : trackerState.stepIndex === 2 ? 'bg-purple-100 text-purple-800 font-bold' : 'bg-slate-100 text-slate-400'}`}>
+                      3. Right ➡️ {trackerState.completedSteps.has('turn_right') && '✓'}
+                    </div>
+                    <div className={`p-1 rounded-md ${trackerState.completedSteps.has('blink') ? 'bg-emerald-100 text-emerald-800 font-bold' : trackerState.stepIndex === 3 ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-slate-100 text-slate-400'}`}>
+                      4. Blink 👁️ {trackerState.completedSteps.has('blink') && '✓'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Match Verification Progress Details */}
+              {isVerifying && (
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2 animate-in fade-in">
+                  <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                    <span>Biometric Face Analysis</span>
+                    <RefreshCw className="w-3.5 h-3.5 text-[#DFB76C] animate-spin" />
+                  </div>
+                  <div className="space-y-1.5 text-[10px] text-slate-600">
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] ${verificationStep >= 1 ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
+                        {verificationStep >= 1 ? '✓' : '1'}
+                      </div>
+                      <span>Extracting 16-zone facial contours & proportions</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] ${verificationStep >= 2 ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
+                        {verificationStep >= 2 ? '✓' : '2'}
+                      </div>
+                      <span>Skin chrominance (YCbCr) & texture correlation</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] ${verificationStep >= 3 ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
+                        {verificationStep >= 3 ? '✓' : '3'}
+                      </div>
+                      <span>Comparing profile portrait with verified live selfie</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Verification Result: Match Success */}
+              {capturedSelfie && verifyResult?.isMatch && !isVerifying && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl space-y-2 animate-in zoom-in-95">
+                  <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Identity Verified: {verifyResult.similarityScore}% Biometric Match!</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700 leading-relaxed">
+                    {verifyResult.messageMl || 'സെൽഫിയും പ്രൊഫൈൽ ഫോട്ടോയും വിജയകരമായി ഒത്തുപോയി. നിങ്ങൾ യഥാർത്ഥ കാൻഡിഡേറ്റാണെന്ന് സ്ഥിരീകരിച്ചു.'}
                   </p>
                 </div>
               )}
 
-              {/* Verification Results Display */}
-              {verifyResult && !isVerifying && (
-                <div className={`p-4 rounded-2xl border ${verifyResult.isMatch ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-red-50 border-red-300 text-red-950'} space-y-2.5`}>
-                  <div className="flex items-center gap-2">
-                    {verifyResult.isMatch ? (
-                      <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                        <CheckCircle2 className="w-4 h-4" />
-                      </div>
-                    ) : (
-                      <div className="w-7 h-7 rounded-full bg-red-600 text-white flex items-center justify-center shrink-0">
-                        <AlertCircle className="w-4 h-4" />
-                      </div>
-                    )}
-                    <div>
-                      <div className="text-xs font-bold flex items-center gap-1.5">
-                        {verifyResult.isMatch ? 'Identity Verified Successfully!' : 'Face Mismatch Detected'}
-                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${verifyResult.isMatch ? 'bg-emerald-200 text-emerald-800' : 'bg-red-200 text-red-800'}`}>
-                          {verifyResult.similarityScore}% Match
-                        </span>
-                      </div>
-                      <div className="text-[11px] opacity-90 leading-tight">
-                        {verifyResult.message}
-                      </div>
-                    </div>
+              {/* Verification Result: Mismatch Failure */}
+              {capturedSelfie && !verifyResult?.isMatch && !isVerifying && (
+                <div className="p-3.5 bg-rose-50 border border-rose-300 rounded-2xl space-y-2 animate-in zoom-in-95">
+                  <div className="flex items-center gap-2 text-rose-800 font-bold text-xs">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Face Mismatch: ഫോട്ടോകൾ ഒത്തുപോകുന്നില്ല</span>
                   </div>
-
-                  {verifyResult.details?.reason && (
-                    <div className="text-[10px] pt-1.5 border-t border-black/10 font-medium opacity-80">
-                      ℹ️ {verifyResult.details.reason}
-                    </div>
-                  )}
+                  <p className="text-[11px] text-rose-700 leading-relaxed">
+                    {verifyResult?.messageMl || 'സെൽഫിയും നിങ്ങളുടെ പ്രൊഫൈൽ ഫോട്ടോയും തമ്മിൽ പൊരുത്തക്കേട് കണ്ടെത്തി. ഒരേ വ്യക്തിയുടെ യഥാർത്ഥ പ്രൊഫൈൽ ഫോട്ടോ തന്നെയാണെന്ന് ഉറപ്പാക്കി വീണ്ടും ശ്രമിക്കുക.'}
+                  </p>
                 </div>
               )}
-
             </div>
 
-            {/* Modal Bottom Controls */}
-            <div className="bg-slate-50 border-t border-slate-200 px-4 py-3 flex items-center justify-between gap-2">
-              {/* If camera is active: Capture Controls */}
+            {/* Modal Footer Controls */}
+            <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
+              {/* When camera is active: switch camera & cancel */}
               {cameraActive && !capturedSelfie && (
                 <>
                   <button
                     type="button"
                     onClick={toggleCameraFacing}
-                    className="p-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
-                    title="Switch Front/Back Camera"
+                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                    title="Switch Camera"
                   >
                     <SwitchCamera className="w-4 h-4" />
+                    <span className="hidden sm:inline">Flip</span>
                   </button>
+
+                  <div className="text-[10px] text-slate-500 font-medium text-center">
+                    Follow on-screen movements
+                  </div>
 
                   <button
                     type="button"
-                    onClick={capturePhoto}
-                    className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                    onClick={handleCloseModal}
+                    className="px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
                   >
-                    <Camera className="w-4 h-4" />
-                    <span>Capture Live Selfie</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
-                    title="Upload Selfie file instead"
-                  >
-                    <Upload className="w-4 h-4" />
+                    Cancel
                   </button>
                 </>
               )}
 
               {/* If selfie was taken and verification passed: Accept */}
               {capturedSelfie && verifyResult?.isMatch && !isVerifying && (
-                <>
+                <div className="w-full flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleRetake}
-                    className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100 transition-colors cursor-pointer"
+                    className="flex-1 py-2 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer"
                   >
                     Retake
                   </button>
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-2 py-2 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:brightness-105 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <Check className="w-4 h-4" />
-                    <span>Confirm & Continue Registration</span>
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>Confirm & Save</span>
                   </button>
-                </>
+                </div>
               )}
 
               {/* If selfie was taken and verification failed: Retake */}
               {capturedSelfie && !verifyResult?.isMatch && !isVerifying && (
-                <button
-                  type="button"
-                  onClick={handleRetake}
-                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-slate-800 bg-amber-400 hover:bg-amber-500 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Try Again with Clearer Selfie</span>
-                </button>
+                <div className="w-full flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="flex-1 py-2 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRetake}
+                    className="flex-2 py-2 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] hover:brightness-105 text-[#0B192C] font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Try Again (വീണ്ടും ശ്രമിക്കുക)</span>
+                  </button>
+                </div>
               )}
             </div>
-
           </div>
         </div>
       )}

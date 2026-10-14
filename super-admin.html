@@ -289,7 +289,7 @@
               </p>
             </div>
             <div class="flex items-center gap-3">
-              <button onclick="loadAnalytics(); showToast('Telemetry synchronized!', 'info');" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-slate-700 text-xs font-semibold flex items-center gap-2 transition-all">
+              <button onclick="syncAllTelemetry(event)" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-slate-700 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer">
                 <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sync Data
               </button>
             </div>
@@ -2583,7 +2583,7 @@
   </div>
 
   <!-- Main JavaScript App Controller -->
-  <script src="/admin-assets/js/api_mock.js?v=15"></script>
-  <script src="/admin-assets/js/dashboard.js?v=15"></script>
+  <script src="/admin-assets/js/api_mock.js?v=16"></script>
+  <script src="/admin-assets/js/dashboard.js?v=16"></script>
 </body>
 </html>
