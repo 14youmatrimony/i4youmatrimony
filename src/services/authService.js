@@ -422,8 +422,35 @@ export function persistUserSession(user) {
   try {
     localStorage.removeItem('i4u_logged_out');
     localStorage.setItem('i4u_auth_user', JSON.stringify(user));
+    if (user?.id) localStorage.setItem('i4u_current_user_id', user.id);
+    if (user?.registerId || user?.register_id) localStorage.setItem('i4u_register_id', user.registerId || user.register_id);
+    if (typeof window !== 'undefined' && user?.id) {
+      window.__currentUserId = user.id;
+    }
   } catch (e) {
     console.warn('[authService] localStorage write error:', e);
+  }
+}
+
+/**
+ * Completely terminates user session and clears all authentication artifacts from storage
+ */
+export function logoutUser() {
+  try {
+    localStorage.removeItem('i4u_auth_user');
+    localStorage.removeItem('i4u_current_user_id');
+    localStorage.removeItem('i4u_register_id');
+    localStorage.removeItem('i4u_saved_google_user');
+    localStorage.removeItem('i4u_aadhaar_verified');
+    localStorage.removeItem('i4u_my_status');
+    localStorage.removeItem('i4u_conversations');
+    localStorage.removeItem('i4u_notifications');
+    localStorage.setItem('i4u_logged_out', 'true');
+    if (typeof window !== 'undefined') {
+      window.__currentUserId = null;
+    }
+  } catch (e) {
+    console.warn('[authService] Logout storage cleanup error:', e);
   }
 }
 

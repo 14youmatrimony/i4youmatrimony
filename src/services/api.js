@@ -325,6 +325,9 @@ export function isDemoProfile(p) {
     id.startsWith('demo_') ||
     id === 'demo' ||
     id.startsWith('test_') ||
+    id === 'p_1790420920023' ||
+    id === 'p_1790423415609' ||
+    id === 'p_1791044984217' ||
     id === 'p_1790963054403' ||
     id === 'p_1790182902571' ||
     id === 'p_1790585472737' ||
@@ -337,6 +340,9 @@ export function isDemoProfile(p) {
 
   // Match demo candidate names
   const demoNames = [
+    'mattayi',
+    'chakku',
+    'arjun',
     'priya sharma',
     'priya sharma (archived)',
     'dr. ananya kulkarni',
@@ -400,12 +406,14 @@ export async function purgeDemoProfilesFromSupabase() {
       'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10',
       'p11', 'p12', 'p13', 'p14', 'p15',
       'demo-priya', 'demo-rohan', 'demo_user',
+      'p_1790420920023', 'p_1790423415609', 'p_1791044984217',
       'p_1790182902571', 'p_1790585472737', 'p_1790963054403', 'p_1791395066352', 'p_1791395066369',
       'i4y1008_1791482054640',
       'test_sdk_1791097509591', 'test_sync_1791098620388', 'test_anon_1791369041', 'test_probe_1791394020373', 'test_payload_1'
     ];
     await supabase.from('profiles').delete().in('id', demoIds);
     await supabase.from('profiles').delete().in('name', [
+      'Mattayi', 'Chakku', 'arjun',
       'Priya Sharma', 'Priya Sharma (Archived)', 'Dr. Ananya Kulkarni', 'Aditya Sengupta', 
       'Meera Nambiar', 'Meera Venkatraman', 'Kabir Oberoi', 'Kabir Singh Sodhi',
       'Priyanka Rathore', 'Dr. Siddharth Nair', 'Tanvi Deshmukh', 

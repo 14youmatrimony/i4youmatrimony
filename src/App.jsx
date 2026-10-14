@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, updateLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile } from './services/api';
 import { supabase, isSupabaseConfigured } from './services/supabase';
 import { uploadProfilePhoto } from './services/storageService';
+import { logoutUser } from './services/authService';
+import { signOutGoogleAuth } from './services/googleAuth';
 import DeviceFrameSimulator from './components/mobile/DeviceFrameSimulator';
 import MobileAppShell from './components/mobile/MobileAppShell';
 import MobileMatchFeed from './components/mobile/MobileMatchFeed';
@@ -533,17 +535,31 @@ export default function App() {
       }
 
       // Synchronize logged-in user profile status & latest profile edits from Supabase
+      if (localStorage.getItem('i4u_logged_out') === 'true') {
+        return; // User has logged out: strictly do NOT auto-login or synchronize
+      }
+
       let targetUserId = null;
       try {
         const s = localStorage.getItem('i4u_auth_user');
         if (s) {
           const parsed = JSON.parse(s);
-          targetUserId = parsed?.id || parsed?.registerId || parsed?.register_id;
+          if (
+            parsed &&
+            parsed.id &&
+            parsed.id !== 'demo-priya' &&
+            parsed.id !== 'demo-rohan' &&
+            parsed.id !== 'demo_user' &&
+            !parsed.isDemo
+          ) {
+            targetUserId = parsed.id || parsed.registerId || parsed.register_id;
+          }
         }
       } catch (e) {}
 
+      // ONLY synchronize if user has an active session (never auto-login logged out users)
       if (!targetUserId) {
-        targetUserId = localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id') || window.__currentUserId || null;
+        return;
       }
 
       if (targetUserId) {
@@ -748,6 +764,8 @@ export default function App() {
   useEffect(() => {
     if (currentUser?.id) {
       window.__currentUserId = currentUser.id;
+    } else {
+      window.__currentUserId = null;
     }
   }, [currentUser?.id]);
   const [toastMessage, setToastMessage] = useState('');
@@ -896,11 +914,11 @@ export default function App() {
 
   // Logout handler
   const handleLogout = () => {
-    try {
-      localStorage.removeItem('i4u_auth_user');
-      localStorage.setItem('i4u_logged_out', 'true');
-      localStorage.removeItem('i4u_aadhaar_verified');
-    } catch (e) {}
+    logoutUser();
+    signOutGoogleAuth().catch(() => {});
+    if (isSupabaseConfigured() && supabase) {
+      supabase.auth.signOut().catch(() => {});
+    }
     setCurrentUser(null);
     setSelectedProfile(null);
     setConversations([]);
@@ -1969,9 +1987,11 @@ export default function App() {
         phone: currentUser?.phone || currentUser?.mobile,
         userName: currentUser?.name
       });
-      try {
-        localStorage.removeItem('i4u_auth_user');
-      } catch (e) {}
+      logoutUser();
+      signOutGoogleAuth().catch(() => {});
+      if (isSupabaseConfigured() && supabase) {
+        supabase.auth.signOut().catch(() => {});
+      }
       setCurrentUser(null);
       if (isProduction) {
         setConversations([]);
@@ -1988,9 +2008,11 @@ export default function App() {
       }, 1000);
     } catch (err) {
       console.error('Account deletion error:', err);
-      try {
-        localStorage.removeItem('i4u_auth_user');
-      } catch (e) {}
+      logoutUser();
+      signOutGoogleAuth().catch(() => {});
+      if (isSupabaseConfigured() && supabase) {
+        supabase.auth.signOut().catch(() => {});
+      }
       setCurrentUser(null);
       showToast('Account deleted locally.');
       setCurrentScreen('login');
