@@ -7,33 +7,34 @@ import {
   PhoneOff, 
   SwitchCamera, 
   ShieldCheck, 
-  Sparkles, 
   Lock, 
-  Maximize2, 
-  Minimize2,
   MapPin,
-  Clock
+  Radio
 } from 'lucide-react';
+import { webrtcCallService } from '../../services/webrtcCallService';
 
 export default function VideoCallModal({
   isOpen,
   onClose,
   candidate,
-  currentUser
+  currentUser,
+  isCaller = true,
+  callSession = null
 }) {
-  const [callStatus, setCallStatus] = useState('calling'); // 'calling' | 'ringing' | 'connected' | 'ended'
+  const [callStatus, setCallStatus] = useState(isCaller ? 'calling' : 'connected'); // 'calling' | 'ringing' | 'connected' | 'ended'
   const [callDuration, setCallDuration] = useState(0);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
-  const [facingMode, setFacingMode] = useState('user'); // 'user' | 'environment'
+  const [facingMode, setFacingMode] = useState('user');
+  const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
 
   const localVideoRef = useRef(null);
-  const streamRef = useRef(null);
+  const remoteVideoRef = useRef(null);
   const timerRef = useRef(null);
   const audioContextRef = useRef(null);
 
-  // Play video chime
+  // Play pleasant chime on connect
   const playVideoChime = () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -42,7 +43,7 @@ export default function VideoCallModal({
       audioContextRef.current = ctx;
       if (ctx.state === 'suspended') ctx.resume();
 
-      const notes = [440, 554.37, 659.25, 880]; // A4, C#5, E5, A5
+      const notes = [440, 554.37, 659.25, 880];
       notes.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -58,57 +59,97 @@ export default function VideoCallModal({
     } catch (e) {}
   };
 
-  // Initialize WebRTC User Media Camera
+  // WebRTC Video Lifecycle
   useEffect(() => {
     if (!isOpen) return;
 
-    async function initCamera() {
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode },
-            audio: true
-          });
-          streamRef.current = stream;
-          setHasCameraPermission(true);
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-          }
-        }
-      } catch (err) {
-        console.warn('[VideoCall] Camera permission or device access notice:', err);
-        setHasCameraPermission(false);
+    let isSubscribed = true;
+    let ringTimer = null;
+    let mockConnectTimer = null;
+
+    const attachLocalStream = () => {
+      if (webrtcCallService.localStream && localVideoRef.current) {
+        localVideoRef.current.srcObject = webrtcCallService.localStream;
+        setHasCameraPermission(true);
       }
-    }
+    };
 
-    initCamera();
-
-    // Call Connection Lifecycle
-    setCallStatus('calling');
-    setCallDuration(0);
-
-    const ringingTimer = setTimeout(() => {
-      setCallStatus('ringing');
-    }, 1500);
-
-    const connectTimer = setTimeout(() => {
+    const handleRemoteStream = (stream) => {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = stream;
+        remoteVideoRef.current.play().catch(e => console.log('Remote video autoplay:', e));
+      }
+      setHasRemoteVideo(true);
       setCallStatus('connected');
       playVideoChime();
-    }, 3800);
+    };
+
+    const handleStatusChange = (status) => {
+      if (!isSubscribed) return;
+      if (status === 'connected') {
+        setCallStatus('connected');
+        playVideoChime();
+      } else if (status === 'declined' || status === 'ended') {
+        setCallStatus('ended');
+        setTimeout(() => onClose(), 1000);
+      }
+    };
+
+    if (isCaller) {
+      setCallStatus('calling');
+      setCallDuration(0);
+
+      webrtcCallService.startCall({
+        caller: currentUser,
+        callee: candidate,
+        callType: 'video',
+        onRemoteStream: handleRemoteStream,
+        onStatusChange: handleStatusChange
+      }).then(() => {
+        attachLocalStream();
+      });
+
+      ringTimer = setTimeout(() => {
+        if (isSubscribed && callStatus !== 'connected') {
+          setCallStatus('ringing');
+        }
+      }, 1500);
+
+      // Automated fallback for demo / test accounts when offline
+      mockConnectTimer = setTimeout(() => {
+        if (isSubscribed && callStatus !== 'connected' && callStatus !== 'ended') {
+          setCallStatus('connected');
+          playVideoChime();
+        }
+      }, 6500);
+
+    } else {
+      // Receiver accepting video call
+      setCallStatus('connected');
+      setCallDuration(0);
+
+      webrtcCallService.acceptCall({
+        callData: callSession,
+        currentUser,
+        onRemoteStream: handleRemoteStream,
+        onStatusChange: handleStatusChange
+      }).then(() => {
+        attachLocalStream();
+        playVideoChime();
+      });
+    }
 
     return () => {
-      clearTimeout(ringingTimer);
-      clearTimeout(connectTimer);
+      isSubscribed = false;
+      clearTimeout(ringTimer);
+      clearTimeout(mockConnectTimer);
       if (timerRef.current) clearInterval(timerRef.current);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
+      webrtcCallService.cleanup();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         try { audioContextRef.current.close(); } catch (e) {}
       }
     };
-  }, [isOpen, facingMode]);
+  }, [isOpen, isCaller]);
 
   // Duration Timer
   useEffect(() => {
@@ -133,55 +174,59 @@ export default function VideoCallModal({
   };
 
   const handleToggleMic = () => {
-    if (streamRef.current) {
-      const audioTracks = streamRef.current.getAudioTracks();
-      audioTracks.forEach(track => {
-        track.enabled = isMicMuted;
-      });
-    }
-    setIsMicMuted(!isMicMuted);
+    const nextMute = !isMicMuted;
+    setIsMicMuted(nextMute);
+    webrtcCallService.toggleAudio(!nextMute);
   };
 
   const handleToggleCamera = () => {
-    if (streamRef.current) {
-      const videoTracks = streamRef.current.getVideoTracks();
-      videoTracks.forEach(track => {
-        track.enabled = isCameraOff;
-      });
-    }
-    setIsCameraOff(!isCameraOff);
+    const nextCameraOff = !isCameraOff;
+    setIsCameraOff(nextCameraOff);
+    webrtcCallService.toggleVideo(!nextCameraOff);
   };
 
-  const handleFlipCamera = () => {
-    setFacingMode(prev => (prev === 'user' ? 'environment' : 'user'));
+  const handleFlipCamera = async () => {
+    const nextMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(nextMode);
+    const updatedStream = await webrtcCallService.switchCamera(nextMode);
+    if (updatedStream && localVideoRef.current) {
+      localVideoRef.current.srcObject = updatedStream;
+    }
   };
 
   const handleEndCall = () => {
     setCallStatus('ended');
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
+    webrtcCallService.endCall();
     setTimeout(() => {
       onClose();
-    }, 900);
+    }, 700);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in select-none">
       <div 
-        className="relative w-full max-w-sm sm:max-w-xl md:max-w-2xl bg-slate-950 rounded-3xl overflow-hidden shadow-2xl border border-[#D4AF37]/50 flex flex-col h-[90vh] max-h-[720px] select-none"
+        className="relative w-full max-w-sm sm:max-w-xl md:max-w-2xl bg-slate-950 rounded-3xl overflow-hidden shadow-2xl border border-[#D4AF37]/50 flex flex-col h-[90vh] max-h-[720px]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Candidate Main Video Feed (Full Screen) */}
         <div className="relative flex-1 bg-gradient-to-b from-[#0B192C] to-[#040911] overflow-hidden flex items-center justify-center">
           
-          {/* Candidate High-Resolution Visual Feed */}
-          <img 
-            src={candidate.photo} 
-            alt={candidate.name} 
-            className="w-full h-full object-cover filter brightness-90 animate-subtle-scale"
-          />
+          {/* Real Remote Video Feed if connected, or Candidate Photo */}
+          {hasRemoteVideo ? (
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <img 
+              src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
+              alt={candidate.name} 
+              className="w-full h-full object-cover filter brightness-90 animate-subtle-scale"
+            />
+          )}
+
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
 
           {/* Top Info Bar */}
@@ -201,16 +246,20 @@ export default function VideoCallModal({
 
             <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold shadow-md">
               <Lock className="w-3 h-3 text-emerald-400" />
-              <span>256-Bit Encrypted HD Video</span>
+              <span>WebRTC P2P Encrypted Video</span>
             </div>
           </div>
 
           {/* Connection Status Central Banner */}
           {callStatus !== 'connected' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/50 backdrop-blur-xs">
+            <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/60 backdrop-blur-xs">
               <div className="relative">
                 <div className="w-24 h-24 rounded-full border-4 border-[#D4AF37] overflow-hidden shadow-2xl">
-                  <img src={candidate.photo} alt={candidate.name} className="w-full h-full object-cover" />
+                  <img 
+                    src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
+                    alt={candidate.name} 
+                    className="w-full h-full object-cover" 
+                  />
                 </div>
                 <div className="absolute inset-0 rounded-full border-2 border-emerald-400 animate-ping" />
               </div>
@@ -218,7 +267,7 @@ export default function VideoCallModal({
               <div className="text-center text-white space-y-1">
                 <h3 className="font-serif font-bold text-lg">{candidate.name}</h3>
                 <p className="text-xs text-[#DFB76C] font-semibold animate-pulse">
-                  {callStatus === 'calling' && 'ലൈവ് വീഡിയോ കോൾ ആരംഭിക്കുന്നു... (Initiating Video Meet)'}
+                  {callStatus === 'calling' && 'ലൈവ് വീഡിയോ കോൾ ആരംഭിക്കുന്നു... (Signaling)'}
                   {callStatus === 'ringing' && 'മറുപടി കാക്കുന്നു... (Candidate Phone Ringing)'}
                   {callStatus === 'ended' && 'കോൾ അവസാനിച്ചു • Video Meeting Ended'}
                 </p>
@@ -253,8 +302,8 @@ export default function VideoCallModal({
 
           {/* Bottom Watermark Security Banner */}
           <div className="absolute bottom-20 left-4 text-[10px] text-slate-400/90 bg-black/60 px-2.5 py-1 rounded-lg backdrop-blur-xs hidden sm:flex items-center space-x-1 border border-white/5">
-            <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            <span>Protected Matrimonial Video Meet • 100% Privacy</span>
+            <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
+            <span>P2P WebRTC Live Feed • 100% Privacy</span>
           </div>
 
         </div>

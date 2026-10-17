@@ -98,6 +98,32 @@ export default function MobileChatScreen({
   // Live Message is fully active for matrimonial connections
   const canSendMessages = true;
 
+  const scrollToBottom = (behavior = 'smooth') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser) return;
+    scrollToBottom('smooth');
+  }, [activeConv?.messages, isTyping, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (inConversation) {
+      const timer = setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [inConversation, currentUser]);
+
   // If user is not logged in, display the Login Required screen immediately
   if (!currentUser) {
     return (
@@ -123,30 +149,6 @@ export default function MobileChatScreen({
       </div>
     );
   }
-
-  const scrollToBottom = (behavior = 'smooth') => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTo({
-        top: messagesContainerRef.current.scrollHeight,
-        behavior
-      });
-    }
-  };
-
-  useEffect(() => {
-    scrollToBottom('smooth');
-  }, [activeConv?.messages, isTyping]);
-
-  useEffect(() => {
-    if (inConversation) {
-      const timer = setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [inConversation]);
 
   const handleSend = (textToSend) => {
     if (!canSendMessages) {
@@ -367,63 +369,42 @@ export default function MobileChatScreen({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Icebreakers (Subscribed Only or Inbound Message) */}
-        {canSendMessages ? (
-          <div className={`px-3 py-1.5 border-t flex space-x-1.5 overflow-x-auto scrollbar-none shrink-0 ${
-            isDarkMode ? 'bg-slate-900/80 border-white/10' : 'bg-slate-100/70 border-slate-200'
-          }`}>
-            {[
-              "Namaste! Delighted to connect.",
-              "Loved your profile & background!",
-              "Are you open to a weekend call?",
-              "Discuss horoscope with family?"
-            ].map((prompt, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSend(prompt)}
-                className={`text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap cursor-pointer transition-colors ${
-                  isDarkMode 
-                    ? 'bg-slate-800 border border-slate-700 text-slate-200 hover:border-[#D4AF37]' 
-                    : 'bg-white border border-slate-200 text-slate-700 hover:border-[#D4AF37]'
-                }`}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        {/* Bottom Input - Active Form or Subscribed Gate */}
-        {!canSendMessages ? (
-          <div 
-            className={`p-3.5 border-t text-center space-y-2 shrink-0 ${
-              isDarkMode ? 'bg-[#0B192C] border-white/10' : 'bg-gradient-to-b from-amber-50/95 to-orange-50/95 border-amber-200'
-            }`}
-            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-          >
-            <div className="flex items-center justify-center space-x-1.5 text-xs font-bold text-amber-900">
-              <Lock className="w-4 h-4 text-[#8C6D1F]" />
-              <span>Direct Matrimonial Chat Requires an Active Subscription</span>
-            </div>
-            <p className="text-[11px] text-slate-600 max-w-xs mx-auto leading-relaxed">
-              Upgrade to send unlimited direct messages and coordinate family video meetings with verified candidates.
-            </p>
+        {/* Live Instant Message Starters (Malayalam & English) */}
+        <div className={`px-3 py-1.5 border-t flex space-x-1.5 overflow-x-auto scrollbar-none shrink-0 ${
+          isDarkMode ? 'bg-slate-900/80 border-white/10' : 'bg-slate-100/70 border-slate-200'
+        }`}>
+          <span className="text-[10px] font-bold text-[#DFB76C] flex items-center gap-1 shrink-0 px-1">
+            ⚡ Instant:
+          </span>
+          {[
+            "നമസ്കാരം! 🙏",
+            "കുടുംബവിശേഷങ്ങൾ പങ്കുവെക്കാമോ? 😊",
+            "വിവാഹാലോചന മുന്നോട്ട് കൊണ്ടുപോകാമോ?",
+            "Loved your profile & background! ✨",
+            "Can we schedule a quick call? 📞"
+          ].map((prompt, idx) => (
             <button
+              key={idx}
               type="button"
-              onClick={() => onOpenOffers?.()}
-              className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] text-[#0B192C] font-extrabold text-xs shadow-md hover:brightness-105 cursor-pointer flex items-center justify-center space-x-1.5 mx-auto"
+              onClick={() => handleSend(prompt)}
+              className={`text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap cursor-pointer transition-colors active:scale-95 ${
+                isDarkMode 
+                  ? 'bg-slate-800 border border-slate-700 text-slate-200 hover:border-[#D4AF37]' 
+                  : 'bg-white border border-slate-200 text-slate-700 hover:border-[#D4AF37] hover:text-[#0B192C]'
+              }`}
             >
-              <Crown className="w-4 h-4 text-[#0B192C]" />
-              <span>View Plans & Unlock Chat (50% OFF)</span>
+              {prompt}
             </button>
-          </div>
-        ) : (
-          <div 
-            className={`px-3 pt-2 pb-2 sm:pb-3 shrink-0 border-t transition-colors ${
-              isDarkMode ? 'bg-[#0B192C] border-white/10' : 'bg-white border-slate-200'
-            }`}
-            style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}
-          >
+          ))}
+        </div>
+
+        {/* Bottom Input - Always Active Live Chat Form */}
+        <div 
+          className={`px-3 pt-2 pb-2 sm:pb-3 shrink-0 border-t transition-colors ${
+            isDarkMode ? 'bg-[#0B192C] border-white/10' : 'bg-white border-slate-200'
+          }`}
+          style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}
+        >
             {/* Quick Emojis Drawer */}
             {showEmojiPicker && (
               <div className={`mb-2 p-1.5 rounded-xl border flex items-center gap-1 overflow-x-auto scrollbar-none animate-in fade-in ${
@@ -489,7 +470,6 @@ export default function MobileChatScreen({
               </button>
             </form>
           </div>
-        )}
 
       </div>
     );

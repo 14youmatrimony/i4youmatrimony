@@ -275,6 +275,10 @@ export default function ChatInterface({
                   {activeProfile.verified && (
                     <ShieldCheck className="w-4 h-4 text-emerald-600" title="Verified Profile" />
                   )}
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Live Chat Active
+                  </span>
                 </div>
                 <p className="text-[11px] text-slate-500 flex items-center gap-1">
                   <span>{activeProfile.profession}</span>
@@ -284,28 +288,30 @@ export default function ChatInterface({
               </div>
             </div>
 
-            {/* Quick Mock Actions in Header */}
+            {/* Quick Actions in Header */}
             <div className="flex items-center space-x-1 sm:space-x-2">
               <button 
                 onClick={() => onSelectProfile(activeProfile)}
-                className="p-2 rounded-xl text-slate-600 hover:bg-white hover:shadow-sm transition-all"
+                className="p-2 rounded-xl text-slate-600 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
                 title="View Full Matrimonial Profile"
               >
                 <Eye className="w-4 h-4" />
               </button>
 
               <button 
-                onClick={() => onStartAudioCall ? onStartAudioCall(activeProfile) : alert(`Simulating safe matrimony audio call with ${activeProfile.name}...`)}
-                className="p-2 rounded-xl text-slate-600 hover:bg-white hover:text-emerald-600 hover:shadow-sm transition-all cursor-pointer active:scale-95"
-                title="Voice Call"
+                type="button"
+                onClick={() => onStartAudioCall ? onStartAudioCall(activeProfile) : null}
+                className="p-2 rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:shadow-sm transition-all cursor-pointer active:scale-95 border border-emerald-200"
+                title="ലൈവ് Call (Voice Call)"
               >
                 <Phone className="w-4 h-4" />
               </button>
 
               <button 
-                onClick={() => onStartVideoCall ? onStartVideoCall(activeProfile) : alert(`Simulating safe family video meeting with ${activeProfile.name}...`)}
-                className="p-2 rounded-xl text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm transition-all cursor-pointer active:scale-95"
-                title="Video Call"
+                type="button"
+                onClick={() => onStartVideoCall ? onStartVideoCall(activeProfile) : null}
+                className="p-2 rounded-xl text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:shadow-sm transition-all cursor-pointer active:scale-95 border border-indigo-200"
+                title="ലൈവ് Video Call"
               >
                 <Video className="w-4 h-4" />
               </button>

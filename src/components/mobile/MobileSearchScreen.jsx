@@ -213,8 +213,16 @@ export default function MobileSearchScreen({
       {/* Profile Mini Cards for Search */}
       <div className="space-y-3">
         {filteredProfiles.map(profile => {
-          const isInterested = interestsSent.includes(profile.id);
-          const isShortlisted = shortlisted.includes(profile.id);
+          const isInterested = Boolean(
+            interestsSent.includes(profile.id) ||
+            (profile.registerId && interestsSent.includes(profile.registerId)) ||
+            (profile.register_id && interestsSent.includes(profile.register_id))
+          );
+          const isShortlisted = Boolean(
+            shortlisted.includes(profile.id) ||
+            (profile.registerId && shortlisted.includes(profile.registerId)) ||
+            (profile.register_id && shortlisted.includes(profile.register_id))
+          );
           const locMatch = calculateLocationMatch(currentUser, profile);
 
           return (

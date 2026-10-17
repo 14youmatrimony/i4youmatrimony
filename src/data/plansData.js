@@ -82,12 +82,12 @@ export const MEMBERSHIP_PLANS = [
     supportLevel: 'Basic Email (48-72h)',
     features: [
       { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
-      { text: 'Send up to 5 Interests per day', included: true },
+      { text: 'Live 1-to-1 Messages & Chat', included: true },
+      { text: 'Live Instant Message Delivery', included: true },
+      { text: 'Live Matrimonial Voice Calls (Active)', included: true },
+      { text: 'Live HD Family Video Meetings (Active)', included: true },
       { text: 'Basic Ashtakoot Milan Summary', included: true },
       { text: 'View Verified Contact Numbers (Subscription Required)', included: false },
-      { text: 'Direct WhatsApp & Phone Connect', included: false },
-      { text: 'Unlimited Chat & Messages', included: false },
-      { text: '3x Search Visibility Profile Boost', included: false },
       { text: 'Personal Matchmaking Advisor', included: false }
     ]
   },
@@ -115,10 +115,13 @@ export const MEMBERSHIP_PLANS = [
     supportLevel: 'Priority Chat & Email (24h)',
     features: [
       { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Live 1-to-1 Messages & Direct Chat', included: true },
+      { text: 'Live Instant Message Delivery', included: true },
+      { text: 'Live Matrimonial Voice Calls (Active)', included: true },
+      { text: 'Live HD Family Video Meetings (Active)', included: true },
       { text: 'Send Unlimited Interests & Shortlists', included: true },
       { text: 'View 10 Verified Mobile Numbers & Addresses', included: true },
       { text: 'Full 36 Gunas Vedic Horoscope & Dosha Analysis', included: true },
-      { text: 'Unlimited Direct Matrimonial Chat', included: true },
       { text: 'Instant WhatsApp Family Connect Link', included: true },
       { text: 'Personal Matchmaking Advisor', included: false }
     ]
@@ -147,10 +150,13 @@ export const MEMBERSHIP_PLANS = [
     supportLevel: 'Priority Chat & Email (24h)',
     features: [
       { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Live 1-to-1 Messages & Direct Chat', included: true },
+      { text: 'Live Instant Message Delivery', included: true },
+      { text: 'Live Matrimonial Voice Calls (Active)', included: true },
+      { text: 'Live HD Family Video Meetings (Active)', included: true },
       { text: 'Send Unlimited Interests & Shortlists', included: true },
       { text: 'View 30 Verified Mobile Numbers & Addresses', included: true },
       { text: 'Full 36 Gunas Ashtakoot Astrological Dossier', included: true },
-      { text: 'Unlimited Direct Matrimonial Chat', included: true },
       { text: 'Instant WhatsApp Family Connect Link', included: true },
       { text: '3x Search Visibility Profile Boost', included: false },
       { text: 'Personal Matchmaking Advisor', included: false }
@@ -180,10 +186,12 @@ export const MEMBERSHIP_PLANS = [
     supportLevel: 'Priority Phone & WhatsApp (12h)',
     features: [
       { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Live 1-to-1 Direct Messages & Priority Chat Badge', included: true },
+      { text: 'Live Instant Message Delivery', included: true },
+      { text: 'Live Matrimonial Voice Calls & HD Video Meetings (Active)', included: true },
       { text: 'Send Unlimited Interests & Follow-ups', included: true },
       { text: 'View 75 Verified Contact Numbers + Parents Contacts', included: true },
       { text: 'Full 36 Gunas Vedic Horoscope & Dosha Analysis', included: true },
-      { text: 'Priority Chat Badge & Read Receipts', included: true },
       { text: 'Instant WhatsApp Connect & Family Contact Access', included: true },
       { text: '3x Search Visibility & Spotlight in Match Feed', included: true },
       { text: 'VIP Aadhaar Golden Shield on Profile', included: true },

@@ -36,6 +36,8 @@ import EditProfileModal from './components/EditProfileModal';
 import SendInterestModal from './components/SendInterestModal';
 import AudioCallModal from './components/calling/AudioCallModal';
 import VideoCallModal from './components/calling/VideoCallModal';
+import IncomingCallModal from './components/calling/IncomingCallModal';
+import { webrtcCallService } from './services/webrtcCallService';
 import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePromptModal';
 import { getAppMode, setAppMode, APP_CONFIG } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
@@ -564,6 +566,13 @@ export default function App() {
               contactCredits: base.contactCredits !== undefined ? base.contactCredits : (liveUser.contactCredits || 0),
               planExpiry: base.planExpiry || liveUser.planExpiry || null,
               paymentHistory: (base.paymentHistory && base.paymentHistory.length > 0) ? base.paymentHistory : (liveUser.paymentHistory || []),
+              // Retain active client preferences and user activity so background sync never wipes interests or shortlists
+              interestsSent: (Array.isArray(base.interestsSent) && base.interestsSent.length > 0)
+                ? base.interestsSent
+                : (Array.isArray(liveUser.interestsSent) && liveUser.interestsSent.length > 0 ? liveUser.interestsSent : (base.interestsSent || [])),
+              shortlisted: (Array.isArray(base.shortlisted) && base.shortlisted.length > 0)
+                ? base.shortlisted
+                : (Array.isArray(liveUser.shortlisted) && liveUser.shortlisted.length > 0 ? liveUser.shortlisted : (base.shortlisted || [])),
               // Retain active client preferences if present
               aadhaar_status: isSentBack ? 'sent_back' : (isAadhaarApproved ? 'approved' : 'pending'),
               aadhaarStatus: isSentBack ? 'sent_back' : (isAadhaarApproved ? 'approved' : 'pending'),
@@ -642,33 +651,115 @@ export default function App() {
 
   const [interestsSent, setInterestsSent] = useState(() => {
     try {
-      const saved = localStorage.getItem('i4u_auth_user');
-      if (saved) {
-        const u = JSON.parse(saved);
-        if (u.id === 'demo-priya' || u.id === 'demo-rohan' || u.id === 'demo_user' || u.name === 'Priya Sharma' || u.mobile === '9876543210' || u.isDemo) return [];
-        return u.interestsSent || [];
+      const savedUserStr = localStorage.getItem('i4u_auth_user');
+      let userId = null;
+      let userObj = null;
+      if (savedUserStr) {
+        userObj = JSON.parse(savedUserStr);
+        if (
+          userObj?.id === 'demo-priya' || 
+          userObj?.id === 'demo-rohan' || 
+          userObj?.id === 'demo_user' || 
+          userObj?.name === 'Priya Sharma' || 
+          userObj?.mobile === '9876543210' || 
+          userObj?.isDemo
+        ) {
+          return [];
+        }
+        userId = userObj?.id || userObj?.registerId || userObj?.register_id;
+      }
+      
+      // 1. Check user-scoped interests first
+      if (userId) {
+        const userSpecific = localStorage.getItem(`i4u_interests_sent_${userId}`);
+        if (userSpecific) {
+          const parsed = JSON.parse(userSpecific);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+      
+      // 2. Check general interests sent
+      const savedInterests = localStorage.getItem('i4u_interests_sent');
+      if (savedInterests) {
+        const parsed = JSON.parse(savedInterests);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      
+      // 3. Fallback to auth_user object
+      if (userObj && Array.isArray(userObj.interestsSent) && userObj.interestsSent.length > 0) {
+        return userObj.interestsSent;
       }
     } catch (e) {}
     return [];
   });
   const [shortlisted, setShortlisted] = useState(() => {
     try {
-      const saved = localStorage.getItem('i4u_auth_user');
-      if (saved) {
-        const u = JSON.parse(saved);
-        if (u.id === 'demo-priya' || u.id === 'demo-rohan' || u.id === 'demo_user' || u.name === 'Priya Sharma' || u.mobile === '9876543210' || u.isDemo) return [];
-        return u.shortlisted || [];
+      const savedUserStr = localStorage.getItem('i4u_auth_user');
+      let userId = null;
+      let userObj = null;
+      if (savedUserStr) {
+        userObj = JSON.parse(savedUserStr);
+        if (
+          userObj?.id === 'demo-priya' || 
+          userObj?.id === 'demo-rohan' || 
+          userObj?.id === 'demo_user' || 
+          userObj?.name === 'Priya Sharma' || 
+          userObj?.mobile === '9876543210' || 
+          userObj?.isDemo
+        ) {
+          return [];
+        }
+        userId = userObj?.id || userObj?.registerId || userObj?.register_id;
+      }
+      
+      // 1. Check user-scoped shortlisted first
+      if (userId) {
+        const userSpecific = localStorage.getItem(`i4u_shortlisted_${userId}`);
+        if (userSpecific) {
+          const parsed = JSON.parse(userSpecific);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+      
+      // 2. Check general shortlisted
+      const savedShortlist = localStorage.getItem('i4u_shortlisted');
+      if (savedShortlist) {
+        const parsed = JSON.parse(savedShortlist);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      
+      // 3. Fallback to auth_user object
+      if (userObj && Array.isArray(userObj.shortlisted) && userObj.shortlisted.length > 0) {
+        return userObj.shortlisted;
       }
     } catch (e) {}
     return [];
   });
-  const [declinedReceivedIds, setDeclinedReceivedIds] = useState([]);
+  const [declinedReceivedIds, setDeclinedReceivedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('i4u_declined_received_ids');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
   const [conversations, setConversations] = useState(() => {
     try {
       const savedUser = localStorage.getItem('i4u_auth_user');
       if (!savedUser) return [];
       const u = JSON.parse(savedUser);
       if (u.id === 'demo-priya' || u.id === 'demo-rohan' || u.id === 'demo_user' || u.name === 'Priya Sharma' || u.mobile === '9876543210' || u.isDemo) return [];
+      
+      const userId = u.id || u.registerId || u.register_id;
+      if (userId) {
+        const userSpecific = localStorage.getItem(`i4u_conversations_${userId}`);
+        if (userSpecific) {
+          const parsed = JSON.parse(userSpecific);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
       const saved = localStorage.getItem('i4u_conversations');
       return saved ? JSON.parse(saved) : [];
     } catch (e) {
@@ -726,6 +817,8 @@ export default function App() {
           localStorage.removeItem('i4u_auth_user');
           localStorage.removeItem('i4u_conversations');
           localStorage.removeItem('i4u_notifications');
+          localStorage.removeItem('i4u_interests_sent');
+          localStorage.removeItem('i4u_shortlisted');
           setCurrentUser(null);
           setConversations([]);
           setNotifications([]);
@@ -743,6 +836,96 @@ export default function App() {
       window.__currentUserId = null;
     }
   }, [currentUser?.id]);
+
+  // Persist interestsSent to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('i4u_interests_sent', JSON.stringify(interestsSent));
+      const uid = currentUser?.id || localStorage.getItem('i4u_current_user_id');
+      if (uid) {
+        localStorage.setItem(`i4u_interests_sent_${uid}`, JSON.stringify(interestsSent));
+      }
+      const savedUser = localStorage.getItem('i4u_auth_user');
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        if (JSON.stringify(parsed.interestsSent) !== JSON.stringify(interestsSent)) {
+          parsed.interestsSent = interestsSent;
+          localStorage.setItem('i4u_auth_user', JSON.stringify(parsed));
+        }
+      }
+    } catch (e) {}
+  }, [interestsSent, currentUser?.id]);
+
+  // Persist shortlisted to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('i4u_shortlisted', JSON.stringify(shortlisted));
+      const uid = currentUser?.id || localStorage.getItem('i4u_current_user_id');
+      if (uid) {
+        localStorage.setItem(`i4u_shortlisted_${uid}`, JSON.stringify(shortlisted));
+      }
+      const savedUser = localStorage.getItem('i4u_auth_user');
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        if (JSON.stringify(parsed.shortlisted) !== JSON.stringify(shortlisted)) {
+          parsed.shortlisted = shortlisted;
+          localStorage.setItem('i4u_auth_user', JSON.stringify(parsed));
+        }
+      }
+    } catch (e) {}
+  }, [shortlisted, currentUser?.id]);
+
+  // Persist conversations to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (Array.isArray(conversations) && conversations.length > 0) {
+        localStorage.setItem('i4u_conversations', JSON.stringify(conversations));
+        const uid = currentUser?.id || localStorage.getItem('i4u_current_user_id');
+        if (uid) {
+          localStorage.setItem(`i4u_conversations_${uid}`, JSON.stringify(conversations));
+        }
+      }
+    } catch (e) {}
+  }, [conversations, currentUser?.id]);
+
+  // Persist declinedReceivedIds to storage
+  useEffect(() => {
+    try {
+      localStorage.setItem('i4u_declined_received_ids', JSON.stringify(declinedReceivedIds));
+    } catch (e) {}
+  }, [declinedReceivedIds]);
+
+  // Helper to reliably check if a candidate profile has received user interest
+  const isProfileInterested = useCallback((profileOrId) => {
+    if (!profileOrId) return false;
+    const p = typeof profileOrId === 'object' 
+      ? profileOrId 
+      : profiles.find(item => item.id === profileOrId || item.registerId === profileOrId || item.register_id === profileOrId);
+    const targetId = typeof profileOrId === 'string' ? profileOrId : (p?.id || profileOrId?.id);
+    const regId = p?.registerId || p?.register_id || profileOrId?.registerId || profileOrId?.register_id;
+    const candidateId = p?.id || profileOrId?.id;
+    return Boolean(
+      (targetId && interestsSent.includes(targetId)) ||
+      (candidateId && interestsSent.includes(candidateId)) ||
+      (regId && interestsSent.includes(regId))
+    );
+  }, [interestsSent, profiles]);
+
+  // Helper to reliably check if a candidate profile has been shortlisted
+  const isProfileShortlisted = useCallback((profileOrId) => {
+    if (!profileOrId) return false;
+    const p = typeof profileOrId === 'object' 
+      ? profileOrId 
+      : profiles.find(item => item.id === profileOrId || item.registerId === profileOrId || item.register_id === profileOrId);
+    const targetId = typeof profileOrId === 'string' ? profileOrId : (p?.id || profileOrId?.id);
+    const regId = p?.registerId || p?.register_id || profileOrId?.registerId || profileOrId?.register_id;
+    const candidateId = p?.id || profileOrId?.id;
+    return Boolean(
+      (targetId && shortlisted.includes(targetId)) ||
+      (candidateId && shortlisted.includes(candidateId)) ||
+      (regId && shortlisted.includes(regId))
+    );
+  }, [shortlisted, profiles]);
   const [toastMessage, setToastMessage] = useState('');
   const [pendingRegistration, setPendingRegistration] = useState(null);
   const [registeredVerifiedPhone, setRegisteredVerifiedPhone] = useState(null);
@@ -856,11 +1039,26 @@ export default function App() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [activeInvoice, setActiveInvoice] = useState(null);
 
-  // Matrimonial Interest Composer & Calling State
+  // Matrimonial Interest Composer & Calling State (WebRTC P2P + Supabase Realtime)
   const [interestModalCandidate, setInterestModalCandidate] = useState(null);
   const [activeAudioCallCandidate, setActiveAudioCallCandidate] = useState(null);
   const [activeVideoCallCandidate, setActiveVideoCallCandidate] = useState(null);
+  const [incomingCallSession, setIncomingCallSession] = useState(null);
+  const [activeCallSession, setActiveCallSession] = useState(null);
+  const [isCallCaller, setIsCallCaller] = useState(true);
   const [premiumPromptFeature, setPremiumPromptFeature] = useState(null); // 'chat' | 'call' | 'video'
+
+  // Subscribe to real-time WebRTC incoming calls via Supabase Realtime Broadcast
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    webrtcCallService.subscribeToUserInbox(currentUser.id, (callData) => {
+      console.log('[App] Realtime incoming call received:', callData);
+      setIncomingCallSession(callData);
+    });
+    return () => {
+      webrtcCallService.unsubscribeUserInbox();
+    };
+  }, [currentUser?.id]);
 
   const unreadNotificationsCount = currentUser ? (notifications || []).filter(n => n && !n.isRead).length : 0;
 
@@ -914,11 +1112,22 @@ export default function App() {
 
   // Logout handler
   const handleLogout = () => {
+    const uid = currentUser?.id || localStorage.getItem('i4u_current_user_id');
     logoutUser();
     signOutGoogleAuth().catch(() => {});
     if (isSupabaseConfigured() && supabase) {
       supabase.auth.signOut().catch(() => {});
     }
+    try {
+      localStorage.removeItem('i4u_interests_sent');
+      localStorage.removeItem('i4u_shortlisted');
+      localStorage.removeItem('i4u_declined_received_ids');
+      if (uid) {
+        localStorage.removeItem(`i4u_interests_sent_${uid}`);
+        localStorage.removeItem(`i4u_shortlisted_${uid}`);
+        localStorage.removeItem(`i4u_conversations_${uid}`);
+      }
+    } catch (e) {}
     setCurrentUser(null);
     setSelectedProfile(null);
     setConversations([]);
@@ -1084,16 +1293,21 @@ export default function App() {
   };
 
   const handleAcceptInterestNotification = (notifId, profileId) => {
-    const profile = profiles.find(p => p.id === profileId);
-    setDeclinedReceivedIds(prev => prev.filter(id => id !== profileId));
+    const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId);
+    const targetId = profile?.id || profileId;
+    const targetRegId = profile?.registerId || profile?.register_id;
+    setDeclinedReceivedIds(prev => prev.filter(id => id !== targetId && id !== targetRegId));
     setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true, status: 'accepted' } : n));
-    if (!interestsSent.includes(profileId)) {
-      setInterestsSent(prev => [...prev, profileId]);
-    }
+    setInterestsSent(prev => {
+      if (prev.includes(targetId) || (targetRegId && prev.includes(targetRegId))) {
+        return prev;
+      }
+      return [...prev, targetId];
+    });
     setConversations(prev => {
-      if (!prev.find(c => c.profileId === profileId)) {
+      if (!prev.find(c => c.profileId === targetId || (targetRegId && c.profileId === targetRegId))) {
         return [...prev, {
-          profileId,
+          profileId: targetId,
           unreadCount: 0,
           messages: [
             {
@@ -1121,32 +1335,39 @@ export default function App() {
   };
 
   const handleDeclineReceivedInterest = (profileId) => {
-    const profile = profiles.find(p => p.id === profileId);
-    setDeclinedReceivedIds(prev => (prev.includes(profileId) ? prev : [...prev, profileId]));
-    setNotifications(prev => prev.map(n => n.profileId === profileId ? { ...n, isRead: true, status: 'declined' } : n));
+    const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId);
+    const targetId = profile?.id || profileId;
+    setDeclinedReceivedIds(prev => (prev.includes(targetId) ? prev : [...prev, targetId]));
+    setNotifications(prev => prev.map(n => (n.profileId === targetId || n.profileId === profileId) ? { ...n, isRead: true, status: 'declined' } : n));
     showToast(`Politely declined interest from ${profile?.name || 'candidate'}`);
   };
 
   const handleUndoDeclineReceivedInterest = (profileId) => {
-    const profile = profiles.find(p => p.id === profileId);
-    setDeclinedReceivedIds(prev => prev.filter(id => id !== profileId));
-    setNotifications(prev => prev.map(n => n.profileId === profileId ? { ...n, status: 'pending' } : n));
+    const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId);
+    const targetId = profile?.id || profileId;
+    setDeclinedReceivedIds(prev => prev.filter(id => id !== targetId && id !== profileId));
+    setNotifications(prev => prev.map(n => (n.profileId === targetId || n.profileId === profileId) ? { ...n, status: 'pending' } : n));
     showToast(`Reconsidered interest from ${profile?.name || 'candidate'} ✨`);
   };
 
   const handleAcceptReceivedInterest = (profileId) => {
-    const profile = profiles.find(p => p.id === profileId);
-    setDeclinedReceivedIds(prev => prev.filter(id => id !== profileId));
-    if (!interestsSent.includes(profileId)) {
-      setInterestsSent(prev => [...prev, profileId]);
-    }
-    setNotifications(prev => prev.map(n => n.profileId === profileId ? { ...n, isRead: true, status: 'accepted' } : n));
+    const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId);
+    const targetId = profile?.id || profileId;
+    const targetRegId = profile?.registerId || profile?.register_id;
+    setDeclinedReceivedIds(prev => prev.filter(id => id !== targetId && id !== targetRegId));
+    setInterestsSent(prev => {
+      if (prev.includes(targetId) || (targetRegId && prev.includes(targetRegId))) {
+        return prev;
+      }
+      return [...prev, targetId];
+    });
+    setNotifications(prev => prev.map(n => (n.profileId === targetId || n.profileId === profileId) ? { ...n, isRead: true, status: 'accepted' } : n));
     
     // Ensure chat conversation thread exists
     setConversations(prev => {
-      if (!prev.find(c => c.profileId === profileId)) {
+      if (!prev.find(c => c.profileId === targetId || (targetRegId && c.profileId === targetRegId))) {
         return [...prev, {
-          profileId,
+          profileId: targetId,
           unreadCount: 0,
           messages: [
             {
@@ -1163,7 +1384,7 @@ export default function App() {
     });
 
     showToast(`Accepted interest from ${profile?.name || 'candidate'}! ✨ Chat unlocked.`);
-    handleStartChat(profileId);
+    handleStartChat(targetId);
   };
 
   const handleSimulateNotification = (type) => {
@@ -1270,18 +1491,29 @@ export default function App() {
       handleOpenRegister();
       return;
     }
-    const profile = profiles.find(p => p.id === profileId);
-    if (interestsSent.includes(profileId)) {
-      setInterestsSent(prev => prev.filter(id => id !== profileId));
+    const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId);
+    const targetId = profile?.id || profileId;
+    const targetRegId = profile?.registerId || profile?.register_id;
+
+    const isAlready = Boolean(
+      interestsSent.includes(targetId) ||
+      (targetRegId && interestsSent.includes(targetRegId))
+    );
+
+    if (isAlready) {
+      setInterestsSent(prev => prev.filter(id => id !== targetId && id !== targetRegId));
       showToast(`Interest withdrawn`);
     } else {
-      setInterestsSent(prev => [...prev, profileId]);
+      setInterestsSent(prev => {
+        const cleaned = prev.filter(id => id !== targetId && id !== targetRegId);
+        return [...cleaned, targetId];
+      });
       showToast(`Interest sent to ${profile?.name || 'profile'}! ✨`);
 
       // Dispatch automated email alert to candidate's registered email
       if (profile?.email) {
         sendInAppNotificationWithEmail({
-          recipientId: profile.id,
+          recipientId: targetId,
           recipientEmail: profile.email,
           type: 'interest_received',
           title: `💖 New Matrimonial Interest from ${currentUser?.name || 'A Verified Member'}!`,
@@ -1294,9 +1526,9 @@ export default function App() {
 
       // Ensure a conversation thread exists
       setConversations(prev => {
-        if (!prev.find(c => c.profileId === profileId)) {
+        if (!prev.find(c => c.profileId === targetId || (targetRegId && c.profileId === targetRegId))) {
           return [...prev, {
-            profileId,
+            profileId: targetId,
             unreadCount: 0,
             messages: [
               {
@@ -1325,13 +1557,24 @@ export default function App() {
       handleOpenRegister();
       return;
     }
-    const profile = profiles.find(p => p.id === profileId);
-    if (shortlisted.includes(profileId)) {
-      setShortlisted(prev => prev.filter(id => id !== profileId));
+    const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId);
+    const targetId = profile?.id || profileId;
+    const targetRegId = profile?.registerId || profile?.register_id;
+
+    const isAlready = Boolean(
+      shortlisted.includes(targetId) ||
+      (targetRegId && shortlisted.includes(targetRegId))
+    );
+
+    if (isAlready) {
+      setShortlisted(prev => prev.filter(id => id !== targetId && id !== targetRegId));
       showToast(`Removed from shortlist`);
     } else {
-      setShortlisted(prev => [...prev, profileId]);
-      showToast(`Added ${profile?.name?.split(' ')[0]} to shortlist ❤️`);
+      setShortlisted(prev => {
+        const cleaned = prev.filter(id => id !== targetId && id !== targetRegId);
+        return [...cleaned, targetId];
+      });
+      showToast(`Added ${profile?.name?.split(' ')[0] || 'profile'} to shortlist ❤️`);
     }
   };
 
@@ -1387,9 +1630,16 @@ export default function App() {
       handleOpenRegister();
       return;
     }
-    const candidate = typeof profileOrId === 'object' ? profileOrId : profiles.find(p => p.id === profileOrId);
+    const candidate = typeof profileOrId === 'object' 
+      ? profileOrId 
+      : profiles.find(p => p.id === profileOrId || p.registerId === profileOrId || p.register_id === profileOrId);
     if (!candidate) return;
-    if (interestsSent.includes(candidate.id)) {
+    const isAlready = Boolean(
+      interestsSent.includes(candidate.id) || 
+      (candidate.registerId && interestsSent.includes(candidate.registerId)) ||
+      (candidate.register_id && interestsSent.includes(candidate.register_id))
+    );
+    if (isAlready) {
       handleToggleInterest(candidate.id);
       return;
     }
@@ -1398,17 +1648,21 @@ export default function App() {
 
   // Confirm sending interest with chosen/customized Malayalam or English message
   const handleConfirmSendInterest = (profileId, customMessage) => {
-    const profile = profiles.find(p => p.id === profileId) || interestModalCandidate;
-    if (!interestsSent.includes(profileId)) {
-      setInterestsSent(prev => [...prev, profileId]);
-    }
+    const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId) || interestModalCandidate;
+    const targetId = profile?.id || profileId;
+    const targetRegId = profile?.registerId || profile?.register_id;
+
+    setInterestsSent(prev => {
+      const cleaned = prev.filter(id => id !== targetId && id !== targetRegId);
+      return [...cleaned, targetId];
+    });
     setInterestModalCandidate(null);
     showToast(`💖 Interest & message sent to ${profile?.name || 'candidate'}! ✨`);
 
     // Dispatch automated email alert to candidate's registered email
     if (profile?.email) {
       sendInAppNotificationWithEmail({
-        recipientId: profile.id,
+        recipientId: targetId,
         recipientEmail: profile.email,
         type: 'interest_received',
         title: `💖 Matrimonial Interest from ${currentUser?.name || 'A Verified Member'}!`,
@@ -1451,38 +1705,44 @@ export default function App() {
     });
   };
 
-  // Start direct Audio Call with candidate (strictly for paid members)
+  // Start direct Audio Call with candidate (Active for all users via WebRTC)
   const handleStartAudioCall = (candidateOrId) => {
-    if (!currentUser) {
-      showToast('🔒 Please sign in first to make audio calls');
-      setCurrentScreen('login');
-      return;
-    }
-    const hasPaidPlan = Boolean(currentUser.membership && currentUser.membership !== 'free');
-    if (!hasPaidPlan) {
-      setPremiumPromptFeature('call');
-      return;
-    }
     const candidate = typeof candidateOrId === 'object' ? candidateOrId : profiles.find(p => p.id === candidateOrId);
     if (!candidate) return;
+    setIsCallCaller(true);
+    setActiveCallSession(null);
     setActiveAudioCallCandidate(candidate);
+    showToast(`📞 ലൈവ് Call: Initiating encrypted audio line with ${candidate.name}...`);
   };
 
-  // Start live Video Call with candidate (strictly for paid members)
+  // Start live Video Call with candidate (Active for all users via WebRTC)
   const handleStartVideoCall = (candidateOrId) => {
-    if (!currentUser) {
-      showToast('🔒 Please sign in first to make video calls');
-      setCurrentScreen('login');
-      return;
-    }
-    const hasPaidPlan = Boolean(currentUser.membership && currentUser.membership !== 'free');
-    if (!hasPaidPlan) {
-      setPremiumPromptFeature('video');
-      return;
-    }
     const candidate = typeof candidateOrId === 'object' ? candidateOrId : profiles.find(p => p.id === candidateOrId);
     if (!candidate) return;
+    setIsCallCaller(true);
+    setActiveCallSession(null);
     setActiveVideoCallCandidate(candidate);
+    showToast(`🎥 ലൈവ് Video Call: Initiating HD video meeting with ${candidate.name}...`);
+  };
+
+  // Incoming Call Handlers (WebRTC P2P via Supabase Realtime)
+  const handleAcceptIncomingCall = (callData) => {
+    setIsCallCaller(false);
+    setActiveCallSession(callData);
+    setIncomingCallSession(null);
+    if (callData.callType === 'video') {
+      setActiveAudioCallCandidate(null);
+      setActiveVideoCallCandidate(callData.caller);
+    } else {
+      setActiveVideoCallCandidate(null);
+      setActiveAudioCallCandidate(callData.caller);
+    }
+  };
+
+  const handleDeclineIncomingCall = (callData, reason) => {
+    webrtcCallService.declineCall({ callData, reason });
+    setIncomingCallSession(null);
+    showToast('കോൾ നിരസിച്ചു (Call declined)');
   };
 
   // WhatsApp Status Management Handlers
@@ -2527,9 +2787,9 @@ export default function App() {
                 currentUser={currentUser}
                 onClose={() => setSelectedProfile(null)}
                 onToggleInterest={handleToggleInterest}
-                isInterested={interestsSent.includes(selectedProfile.id)}
+                isInterested={isProfileInterested(selectedProfile)}
                 onToggleShortlist={handleToggleShortlist}
-                isShortlisted={shortlisted.includes(selectedProfile.id)}
+                isShortlisted={isProfileShortlisted(selectedProfile)}
                 onOpenAadhaarVerification={() => {
                   setAadhaarOrigin('app');
                   setCurrentScreen('verify-aadhaar');
@@ -2575,7 +2835,7 @@ export default function App() {
                 setActiveTab('chat');
               }}
               onToggleInterest={handleToggleInterest}
-              isInterested={interestsSent.includes(activeStoryViewer?.profile?.id)}
+              isInterested={isProfileInterested(activeStoryViewer?.profile)}
             />
 
             {/* Mobile Notifications Center Sheet */}
@@ -3002,9 +3262,9 @@ export default function App() {
                   currentUser={currentUser}
                   onClose={() => setSelectedProfile(null)}
                   onToggleInterest={handleToggleInterest}
-                  isInterested={interestsSent.includes(selectedProfile.id)}
+                  isInterested={isProfileInterested(selectedProfile)}
                   onToggleShortlist={handleToggleShortlist}
-                  isShortlisted={shortlisted.includes(selectedProfile.id)}
+                  isShortlisted={isProfileShortlisted(selectedProfile)}
                   onStartChat={handleStartChat}
                   onRequestSendInterest={handleOpenSendInterest}
                   onStartAudioCall={handleStartAudioCall}
@@ -3091,7 +3351,7 @@ export default function App() {
                 onOpenProfile={handleSelectProfile}
                 onOpenChat={(pid) => handleStartChat(pid)}
                 onToggleInterest={handleToggleInterest}
-                isInterested={interestsSent.includes(activeStoryViewer?.profile?.id)}
+                isInterested={isProfileInterested(activeStoryViewer?.profile)}
               />
 
               {/* Mobile Photo Management Bottom Sheet (Confined to mobile device frame) */}
@@ -3170,6 +3430,9 @@ export default function App() {
               onToggleShortlist={handleToggleShortlist}
               onSelectProfile={handleSelectProfile}
               onStartChat={handleStartChat}
+              onStartAudioCall={handleStartAudioCall}
+              onStartVideoCall={handleStartVideoCall}
+              onRequestSendInterest={handleOpenSendInterest}
               onOpenFilter={() => setIsFilterSheetOpen(true)}
               onOpenOffers={handleOpenOffers}
               offers={activeOffers}
@@ -3305,9 +3568,18 @@ export default function App() {
         isOpen={Boolean(interestModalCandidate)}
         candidate={interestModalCandidate}
         currentUser={currentUser}
-        isAlreadyInterested={interestsSent.includes(interestModalCandidate.id)}
+        isAlreadyInterested={isProfileInterested(interestModalCandidate)}
         onSendInterest={handleConfirmSendInterest}
         onClose={() => setInterestModalCandidate(null)}
+      />
+    )}
+
+    {/* Realtime WebRTC Incoming Call Overlay */}
+    {incomingCallSession && (
+      <IncomingCallModal 
+        incomingCall={incomingCallSession}
+        onAccept={handleAcceptIncomingCall}
+        onDecline={handleDeclineIncomingCall}
       />
     )}
 
@@ -3317,7 +3589,12 @@ export default function App() {
         isOpen={Boolean(activeAudioCallCandidate)}
         candidate={activeAudioCallCandidate}
         currentUser={currentUser}
-        onClose={() => setActiveAudioCallCandidate(null)}
+        isCaller={isCallCaller}
+        callSession={activeCallSession}
+        onClose={() => {
+          setActiveAudioCallCandidate(null);
+          setActiveCallSession(null);
+        }}
       />
     )}
 
@@ -3327,7 +3604,12 @@ export default function App() {
         isOpen={Boolean(activeVideoCallCandidate)}
         candidate={activeVideoCallCandidate}
         currentUser={currentUser}
-        onClose={() => setActiveVideoCallCandidate(null)}
+        isCaller={isCallCaller}
+        callSession={activeCallSession}
+        onClose={() => {
+          setActiveVideoCallCandidate(null);
+          setActiveCallSession(null);
+        }}
       />
     )}
 

@@ -445,6 +445,9 @@ export function logoutUser() {
     localStorage.removeItem('i4u_my_status');
     localStorage.removeItem('i4u_conversations');
     localStorage.removeItem('i4u_notifications');
+    localStorage.removeItem('i4u_interests_sent');
+    localStorage.removeItem('i4u_shortlisted');
+    localStorage.removeItem('i4u_declined_received_ids');
     localStorage.setItem('i4u_logged_out', 'true');
     if (typeof window !== 'undefined') {
       window.__currentUserId = null;

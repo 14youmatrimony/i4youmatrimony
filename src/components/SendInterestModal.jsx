@@ -5,13 +5,38 @@ import {
   X, 
   Sparkles, 
   ShieldCheck, 
-  MessageSquare,
-  Lock,
-  MapPin,
-  Smile
+  MessageSquare, 
+  Lock, 
+  MapPin, 
+  Smile, 
+  Zap, 
+  CheckCheck 
 } from 'lucide-react';
 
 const POPULAR_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '😊', '🌺', '🌟', '💫', '🕊️', '❤️', '🌹'];
+
+const INSTANT_TEMPLATES = [
+  {
+    lang: 'മലയാളം',
+    label: 'കുടുംബ പൊരുത്തം',
+    text: 'നമസ്കാരം! നിങ്ങളുടെ പ്രൊഫൈൽ വളരെ ഇഷ്ടപ്പെട്ടു. കുടുംബവിശേഷങ്ങൾ പങ്കുവെക്കാൻ താല്പര്യപ്പെടുന്നു.'
+  },
+  {
+    lang: 'മലയാളം',
+    label: 'ജാതക പൊരുത്തം',
+    text: 'നമസ്കാരം, നമ്മുടെ ജാതകപ്പൊരുത്തവും മൂല്യങ്ങളും നന്നായി ചേരുന്നുണ്ട്. നമുക്ക് ബന്ധപ്പെടാം.'
+  },
+  {
+    lang: 'English',
+    label: 'Family Values',
+    text: 'Namaste! I reviewed your profile and our family values align wonderfully. Would love to connect.'
+  },
+  {
+    lang: 'English',
+    label: 'Connect Call',
+    text: 'Hello! Our family is keen on this auspicious proposal. Let us schedule a friendly voice or video call.'
+  }
+];
 
 export default function SendInterestModal({
   isOpen,
@@ -46,6 +71,13 @@ export default function SendInterestModal({
     onClose();
   };
 
+  const handleSelectTemplate = (text) => {
+    setMessage(text);
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 50);
+  };
+
   const handleAddEmoji = (emoji) => {
     const textarea = textareaRef.current;
     if (!textarea) {
@@ -71,11 +103,11 @@ export default function SendInterestModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in"
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]"
+        className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200 flex flex-col max-h-[94vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Ribbon */}
@@ -90,12 +122,12 @@ export default function SendInterestModal({
           </button>
 
           <div className="flex items-center space-x-1.5 text-xs text-[#DFB76C] font-bold uppercase tracking-wider mb-1">
-            <Sparkles className="w-3.5 h-3.5 fill-[#DFB76C]" />
-            <span>Express Interest</span>
+            <Zap className="w-3.5 h-3.5 fill-[#DFB76C] text-[#DFB76C]" />
+            <span>Live Instant Message • ലൈവ് ഇൻസ്റ്റൻ്റ് മെസ്സേജ്</span>
           </div>
 
           <h3 className="font-serif font-bold text-lg sm:text-xl text-white">
-            Send Interest to {candidate.name}
+            Instant Message to {candidate.name}
           </h3>
 
           {/* Candidate Mini Card */}
@@ -131,13 +163,41 @@ export default function SendInterestModal({
         </div>
 
         {/* Message Input Form */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4 text-left">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3.5 text-left overflow-y-auto">
           
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
+            
+            {/* Quick 1-Tap Instant Message Presets */}
+            <div>
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <label className="font-bold text-slate-700 flex items-center space-x-1">
+                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  <span>1-Tap Instant Templates:</span>
+                </label>
+                <span className="text-[10px] text-slate-400">Click to fill</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {INSTANT_TEMPLATES.map((tmpl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectTemplate(tmpl.text)}
+                    className="p-2 text-left rounded-xl border border-slate-200 bg-slate-50 hover:bg-amber-50/70 hover:border-[#D4AF37] text-[11px] transition-all cursor-pointer active:scale-98 group"
+                  >
+                    <div className="flex items-center justify-between font-bold text-[10px] text-[#0B192C] group-hover:text-[#8C6D1F]">
+                      <span>{tmpl.label}</span>
+                      <span className="text-[9px] text-slate-400">{tmpl.lang}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-600 line-clamp-1 mt-0.5">{tmpl.text}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs pt-1">
               <label className="font-bold text-slate-700 flex items-center space-x-1.5">
                 <MessageSquare className="w-4 h-4 text-[#8C6D1F]" />
-                <span>Your Message</span>
+                <span>Your Live Message</span>
               </label>
               <span className={`text-[10px] font-semibold ${
                 message.length >= maxLength ? 'text-rose-500 font-bold' : 'text-slate-400'
@@ -150,8 +210,8 @@ export default function SendInterestModal({
               ref={textareaRef}
               value={message}
               onChange={(e) => setMessage(e.target.value.slice(0, maxLength))}
-              rows={5}
-              placeholder="Type your personal message here..."
+              rows={4}
+              placeholder="Type your personal message here or tap an instant template above..."
               className="w-full p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#D4AF37] focus:ring-4 focus:ring-[#DFB76C]/20 shadow-inner leading-relaxed transition-all resize-none"
             />
 
@@ -175,10 +235,6 @@ export default function SendInterestModal({
                 ))}
               </div>
             </div>
-
-            <p className="text-[11px] text-slate-500">
-              Type what you'd like to share with {candidate.name} and their family.
-            </p>
           </div>
 
           {/* Privacy Note */}
@@ -187,12 +243,12 @@ export default function SendInterestModal({
               <Lock className="w-3 h-3 text-[#8C6D1F]" />
             </div>
             <p className="leading-relaxed text-slate-600">
-              <strong className="text-[#0B192C] font-semibold">100% Privacy Protected:</strong> Your phone number is never shared without consent. This message will be sent directly to {candidate.name}.
+              <strong className="text-[#0B192C] font-semibold">100% Instant Delivery:</strong> This message will appear directly in {candidate.name}'s chat inbox and dispatch an instant notification.
             </p>
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -206,8 +262,8 @@ export default function SendInterestModal({
               disabled={!message.trim()}
               className="flex-1 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F3E5AB] via-45% to-[#D4AF37] hover:from-[#dfb76c] hover:via-[#faebd7] hover:to-[#b89228] text-[#0B192C] font-extrabold text-xs sm:text-sm shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border border-[#D4AF37]/50"
             >
-              <Heart className="w-4 h-4 fill-[#0B192C]" />
-              <span>{isAlreadyInterested ? 'Update Message' : 'Send Interest'}</span>
+              <Zap className="w-4 h-4 fill-[#0B192C] text-[#0B192C]" />
+              <span>⚡ Send Live Instant Message</span>
             </button>
           </div>
 

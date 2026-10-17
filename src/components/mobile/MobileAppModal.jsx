@@ -465,9 +465,9 @@ export default function MobileAppModal({
                           onClose={() => setSelectedProfile(null)}
                           onToggleInterest={onToggleInterest}
                           onRequestSendInterest={onRequestSendInterest}
-                          isInterested={interestsSent.includes(selectedProfile.id)}
+                          isInterested={Boolean(selectedProfile && (interestsSent.includes(selectedProfile.id) || (selectedProfile.registerId && interestsSent.includes(selectedProfile.registerId)) || (selectedProfile.register_id && interestsSent.includes(selectedProfile.register_id))))}
                           onToggleShortlist={onToggleShortlist}
-                          isShortlisted={shortlisted.includes(selectedProfile.id)}
+                          isShortlisted={Boolean(selectedProfile && (shortlisted.includes(selectedProfile.id) || (selectedProfile.registerId && shortlisted.includes(selectedProfile.registerId)) || (selectedProfile.register_id && shortlisted.includes(selectedProfile.register_id))))}
                           onStartChat={handleStartChat}
                           onStartAudioCall={onStartAudioCall}
                           onStartVideoCall={onStartVideoCall}
@@ -550,7 +550,7 @@ export default function MobileAppModal({
                         onOpenProfile={onSelectProfile}
                         onOpenChat={(pid) => handleStartChat(pid)}
                         onToggleInterest={onToggleInterest}
-                        isInterested={interestsSent.includes(activeStoryViewer?.profile?.id)}
+                        isInterested={Boolean(activeStoryViewer?.profile && (interestsSent.includes(activeStoryViewer.profile.id) || (activeStoryViewer.profile.registerId && interestsSent.includes(activeStoryViewer.profile.registerId)) || (activeStoryViewer.profile.register_id && interestsSent.includes(activeStoryViewer.profile.register_id))))}
                       />
 
                       {/* Photo Manager Sheet */}
@@ -635,6 +635,9 @@ export default function MobileAppModal({
                       onToggleShortlist={onToggleShortlist}
                       onSelectProfile={onSelectProfile}
                       onStartChat={handleStartChat}
+                      onStartAudioCall={onStartAudioCall}
+                      onStartVideoCall={onStartVideoCall}
+                      onRequestSendInterest={onRequestSendInterest}
                       onOpenFilter={() => setIsFilterSheetOpen(true)}
                       onOpenOffers={onOpenOffers}
                       myStatus={myStatus}

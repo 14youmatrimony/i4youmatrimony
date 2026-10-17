@@ -113,8 +113,16 @@ export default function MatchFeed({
       {/* Profile Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredProfiles.map((profile) => {
-          const isInterested = interestsSent.includes(profile.id);
-          const isShortlisted = shortlisted.includes(profile.id);
+          const isInterested = Boolean(
+            interestsSent.includes(profile.id) ||
+            (profile.registerId && interestsSent.includes(profile.registerId)) ||
+            (profile.register_id && interestsSent.includes(profile.register_id))
+          );
+          const isShortlisted = Boolean(
+            shortlisted.includes(profile.id) ||
+            (profile.registerId && shortlisted.includes(profile.registerId)) ||
+            (profile.register_id && shortlisted.includes(profile.register_id))
+          );
 
           return (
             <div 

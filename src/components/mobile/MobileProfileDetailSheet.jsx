@@ -369,6 +369,74 @@ export default function MobileProfileDetailSheet({
           </div>
         </div>
 
+        {/* Live Active Communication Suite (Direct 1-Tap Access) */}
+        <div className="mx-3 my-2 p-2.5 rounded-2xl bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C] border border-[#D4AF37]/40 shadow-sm text-white">
+          <div className="flex items-center justify-between mb-1.5 px-0.5">
+            <span className="text-[10px] font-extrabold text-[#DFB76C] uppercase tracking-wider flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-[#DFB76C] fill-current" />
+              <span>Live Matrimonial Suite • സജീവം</span>
+            </span>
+            <span className="text-[9px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">
+              ● All Features Active
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+            {/* 1. Live Audio Call */}
+            <button
+              type="button"
+              onClick={() => {
+                if (onStartAudioCall) onStartAudioCall(profile);
+              }}
+              className="py-2 px-1 rounded-xl bg-white/10 hover:bg-emerald-600/30 active:scale-95 border border-white/10 hover:border-emerald-400 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+            >
+              <Phone className="w-4 h-4 text-emerald-400" />
+              <span className="text-[9.5px] font-bold text-white">ലൈവ് Call</span>
+            </button>
+
+            {/* 2. Live Video Call */}
+            <button
+              type="button"
+              onClick={() => {
+                if (onStartVideoCall) onStartVideoCall(profile);
+              }}
+              className="py-2 px-1 rounded-xl bg-white/10 hover:bg-indigo-600/30 active:scale-95 border border-white/10 hover:border-indigo-400 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+            >
+              <Video className="w-4 h-4 text-indigo-400" />
+              <span className="text-[9.5px] font-bold text-white">Video Call</span>
+            </button>
+
+            {/* 3. Live Message */}
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onStartChat(profile.id);
+              }}
+              className="py-2 px-1 rounded-xl bg-white/10 hover:bg-blue-600/30 active:scale-95 border border-white/10 hover:border-blue-400 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+            >
+              <MessageCircle className="w-4 h-4 text-blue-400" />
+              <span className="text-[9.5px] font-bold text-white">Live Msg</span>
+            </button>
+
+            {/* 4. Live Instant Message */}
+            <button
+              type="button"
+              onClick={() => {
+                if (onRequestSendInterest) {
+                  onRequestSendInterest(profile);
+                } else {
+                  onToggleInterest(profile.id);
+                }
+              }}
+              className="py-2 px-1 rounded-xl bg-gradient-to-tr from-[#D4AF37]/30 to-[#DFB76C]/30 hover:from-[#D4AF37]/50 hover:to-[#DFB76C]/50 active:scale-95 border border-[#D4AF37]/60 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+            >
+              <Zap className="w-4 h-4 text-[#DFB76C] fill-current" />
+              <span className="text-[9.5px] font-bold text-[#DFB76C]">Instant Msg</span>
+            </button>
+          </div>
+        </div>
+
         {/* Tab Navigation Bar */}
         <div className="sticky top-0 z-20 bg-white border-y border-slate-200 px-3 flex space-x-2 overflow-x-auto scrollbar-none shadow-xs">
           {[
@@ -1360,7 +1428,7 @@ export default function MobileProfileDetailSheet({
             if (onStartAudioCall) onStartAudioCall(profile);
           }}
           className="p-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
-          title="Direct Matrimonial Audio Call"
+          title="ലൈവ് Call (Voice Call)"
         >
           <Phone className="w-5 h-5" />
         </button>
@@ -1371,7 +1439,7 @@ export default function MobileProfileDetailSheet({
             if (onStartVideoCall) onStartVideoCall(profile);
           }}
           className="p-2.5 rounded-2xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
-          title="Live Matrimonial Video Meeting"
+          title="ലൈവ് Video Call"
         >
           <Video className="w-5 h-5" />
         </button>
@@ -1383,12 +1451,12 @@ export default function MobileProfileDetailSheet({
             onStartChat(profile.id);
           }}
           className="p-2.5 rounded-2xl border border-blue-200 bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
-          title="Message Candidate"
+          title="Live Message"
         >
           <MessageCircle className="w-5 h-5" />
         </button>
 
-        {/* Connect / Send Interest Button */}
+        {/* Connect / Live Instant Message Button */}
         <button
           onClick={() => {
             if (isInterested) {
@@ -1412,8 +1480,8 @@ export default function MobileProfileDetailSheet({
             </>
           ) : (
             <>
-              <Send className="w-4 h-4" />
-              <span className="truncate">Connect / Send Interest</span>
+              <Zap className="w-4 h-4 fill-[#0B192C]" />
+              <span className="truncate">⚡ Live Instant Message</span>
             </>
           )}
         </button>

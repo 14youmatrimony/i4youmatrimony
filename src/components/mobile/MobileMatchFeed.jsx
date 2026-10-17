@@ -28,7 +28,9 @@ import {
   FileCheck2,
   ShieldAlert,
   LayoutGrid,
-  Square
+  Square,
+  Phone,
+  Zap
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { calculateLocationMatch } from '../../data/locationData';
@@ -51,6 +53,9 @@ export default function MobileMatchFeed({
   onToggleShortlist,
   onSelectProfile,
   onStartChat,
+  onStartAudioCall,
+  onStartVideoCall,
+  onRequestSendInterest,
   onOpenFilter,
   myStatus,
   candidateStatuses = {},
@@ -317,7 +322,11 @@ export default function MobileMatchFeed({
 
           {/* 2. Candidate Status Bubbles */}
           {storyProfiles.map(p => {
-            const isInterested = interestsSent.includes(p.id);
+            const isInterested = Boolean(
+              interestsSent.includes(p.id) ||
+              (p.registerId && interestsSent.includes(p.registerId)) ||
+              (p.register_id && interestsSent.includes(p.register_id))
+            );
             const locMatch = calculateLocationMatch(currentUser, p);
             const status = candidateStatuses[p.id];
             const hasStatus = !!status;
@@ -586,8 +595,16 @@ export default function MobileMatchFeed({
           /* ── 4-Profile Grid View (2x2 Layout - 4 Profiles at a time) ────────── */
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {filteredProfiles.map((profile) => {
-              const isInterested = interestsSent.includes(profile.id);
-              const isShortlisted = shortlisted.includes(profile.id);
+              const isInterested = Boolean(
+                interestsSent.includes(profile.id) ||
+                (profile.registerId && interestsSent.includes(profile.registerId)) ||
+                (profile.register_id && interestsSent.includes(profile.register_id))
+              );
+              const isShortlisted = Boolean(
+                shortlisted.includes(profile.id) ||
+                (profile.registerId && shortlisted.includes(profile.registerId)) ||
+                (profile.register_id && shortlisted.includes(profile.register_id))
+              );
 
               return (
                 <div 
@@ -704,7 +721,7 @@ export default function MobileMatchFeed({
                       )}
                     </div>
 
-                    {/* Compact Action Buttons */}
+                    {/* Compact Action Buttons - Full Live Communication Suite */}
                     <div className="pt-1.5 flex items-center justify-between gap-1 border-t border-slate-100">
                       {/* Shortlist */}
                       <button
@@ -723,32 +740,64 @@ export default function MobileMatchFeed({
                         <Heart className={`w-3.5 h-3.5 ${isShortlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
                       </button>
 
-                      {/* Direct Chat */}
+                      {/* Live Audio Call */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onStartAudioCall) onStartAudioCall(profile);
+                        }}
+                        className="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition-all"
+                        title="ലൈവ് Call (Audio Call)"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Live Video Call */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onStartVideoCall) onStartVideoCall(profile);
+                        }}
+                        className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition-all"
+                        title="ലൈവ് Video Call"
+                      >
+                        <Video className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Live Message (Direct Chat) */}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           onStartChat(profile.id);
                         }}
-                        className="w-7 h-7 rounded-full bg-blue-50 border border-blue-200 text-[#1E3A8A] flex items-center justify-center shrink-0 cursor-pointer"
-                        title="Chat"
+                        className="w-7 h-7 rounded-full bg-blue-50 border border-blue-200 text-[#1E3A8A] hover:bg-blue-100 flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition-all"
+                        title="Live Message"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
                       </button>
 
-                      {/* Connect / Send Interest */}
+                      {/* Live Instant Message / Connect */}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onToggleInterest(profile.id);
+                          if (isInterested) {
+                            onToggleInterest(profile.id);
+                          } else if (onRequestSendInterest) {
+                            onRequestSendInterest(profile);
+                          } else {
+                            onToggleInterest(profile.id);
+                          }
                         }}
-                        className={`flex-1 h-7 rounded-full text-[10px] font-bold transition-all flex items-center justify-center space-x-1 shadow-2xs truncate cursor-pointer ${
+                        className={`flex-1 h-7 rounded-full text-[10px] font-bold transition-all flex items-center justify-center space-x-1 shadow-2xs truncate cursor-pointer active:scale-95 ${
                           isInterested 
                             ? 'bg-emerald-600 text-white' 
                             : 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C]'
                         }`}
-                        title={isInterested ? "Interest Sent" : "Send Interest"}
+                        title={isInterested ? "Interest Sent" : "Connect"}
                       >
                         {isInterested ? (
                           <>
@@ -772,8 +821,16 @@ export default function MobileMatchFeed({
           /* ── Single Full Card View (1 Profile at a time - Classic) ─────────── */
           <div className="space-y-4">
             {filteredProfiles.map((profile) => {
-              const isInterested = interestsSent.includes(profile.id);
-              const isShortlisted = shortlisted.includes(profile.id);
+              const isInterested = Boolean(
+                interestsSent.includes(profile.id) ||
+                (profile.registerId && interestsSent.includes(profile.registerId)) ||
+                (profile.register_id && interestsSent.includes(profile.register_id))
+              );
+              const isShortlisted = Boolean(
+                shortlisted.includes(profile.id) ||
+                (profile.registerId && shortlisted.includes(profile.registerId)) ||
+                (profile.register_id && shortlisted.includes(profile.register_id))
+              );
 
               return (
                 <div 
@@ -921,48 +978,79 @@ export default function MobileMatchFeed({
                       )}
                     </div>
 
-                    {/* Mobile Action Controls */}
-                    <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-100">
+                    {/* Mobile Action Controls - Full Live Communication Suite */}
+                    <div className="pt-2 flex items-center justify-between gap-1.5 border-t border-slate-100">
                       {/* Shortlist Heart */}
                       <button
                         onClick={() => onToggleShortlist(profile.id)}
-                        className={`p-2.5 rounded-full border transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs ${
+                        className={`p-2.5 rounded-full border transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs shrink-0 ${
                           isShortlisted 
                             ? 'bg-rose-50 border-rose-200 text-rose-600' 
                             : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-rose-600 hover:bg-rose-50/50'
                         }`}
                         title="Shortlist"
                       >
-                        <Heart className={`w-5 h-5 ${isShortlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
+                        <Heart className={`w-4 h-4 ${isShortlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
                       </button>
 
-                      {/* Direct Chat */}
+                      {/* Live Audio Call */}
+                      <button
+                        onClick={() => {
+                          if (onStartAudioCall) onStartAudioCall(profile);
+                        }}
+                        className="p-2.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-emerald-100 shrink-0"
+                        title="ലൈവ് Call (Voice Call)"
+                      >
+                        <Phone className="w-4 h-4" />
+                      </button>
+
+                      {/* Live Video Call */}
+                      <button
+                        onClick={() => {
+                          if (onStartVideoCall) onStartVideoCall(profile);
+                        }}
+                        className="p-2.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-indigo-100 shrink-0"
+                        title="ലൈവ് Video Call"
+                      >
+                        <Video className="w-4 h-4" />
+                      </button>
+
+                      {/* Live Message (Chat) */}
                       <button
                         onClick={() => onStartChat(profile.id)}
-                        className="p-2.5 rounded-full bg-blue-50 border border-blue-200 text-[#1E3A8A] transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-[#0B192C] hover:text-[#DFB76C]"
-                        title="Chat"
+                        className="p-2.5 rounded-full bg-blue-50 border border-blue-200 text-[#1E3A8A] transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-[#0B192C] hover:text-[#DFB76C] shrink-0"
+                        title="Live Message"
                       >
-                        <MessageCircle className="w-5 h-5" />
+                        <MessageCircle className="w-4 h-4" />
                       </button>
 
-                      {/* Connect / Send Interest */}
+                      {/* Live Instant Message / Connect */}
                       <button
-                        onClick={() => onToggleInterest(profile.id)}
-                        className={`flex-1 py-2.5 px-4 rounded-full text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 ${
+                        onClick={() => {
+                          if (isInterested) {
+                            onToggleInterest(profile.id);
+                          } else if (onRequestSendInterest) {
+                            onRequestSendInterest(profile);
+                          } else {
+                            onToggleInterest(profile.id);
+                          }
+                        }}
+                        className={`flex-1 py-2.5 px-3 rounded-full text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 ${
                           isInterested 
                             ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
                             : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] text-[#0B192C] shadow-[#D4AF37]/30 hover:brightness-105 btn-luxury-shimmer'
                         }`}
+                        title={isInterested ? "Interest Sent" : "Connect"}
                       >
                         {isInterested ? (
                           <>
                             <Check className="w-4 h-4 stroke-[3]" />
-                            <span>Interest Sent</span>
+                            <span className="truncate">Sent</span>
                           </>
                         ) : (
                           <>
-                            <Send className="w-4 h-4" />
-                            <span>Send Interest</span>
+                            <Send className="w-3.5 h-3.5" />
+                            <span className="truncate">Connect</span>
                           </>
                         )}
                       </button>

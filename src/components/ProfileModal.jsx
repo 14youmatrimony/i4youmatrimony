@@ -22,7 +22,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Crown,
-  AlertCircle
+  AlertCircle,
+  Zap
 } from 'lucide-react';
 import { isKundaliApplicableReligion } from '../data/religionData';
 
@@ -899,45 +900,43 @@ export default function ProfileModal({
           </button>
 
           <div className="flex items-center space-x-2">
-            {/* Audio Call Button */}
+            {/* Live Audio Call Button */}
             <button
               type="button"
               onClick={() => onStartAudioCall ? onStartAudioCall(profile) : alert(`Audio calling ${profile.name}...`)}
-              className="p-2.5 rounded-xl border border-slate-300 bg-white hover:bg-emerald-50 text-emerald-600 transition-colors cursor-pointer shadow-xs active:scale-95"
-              title="Private Matrimony Voice Call"
+              className="p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors cursor-pointer shadow-xs active:scale-95"
+              title="ലൈവ് Call (Voice Call)"
             >
               <Phone className="w-4 h-4" />
             </button>
 
-            {/* Video Call Button */}
+            {/* Live Video Call Button */}
             <button
               type="button"
               onClick={() => onStartVideoCall ? onStartVideoCall(profile) : alert(`Video calling ${profile.name}...`)}
-              className="p-2.5 rounded-xl border border-slate-300 bg-white hover:bg-blue-50 text-indigo-600 transition-colors cursor-pointer shadow-xs active:scale-95"
-              title="Family Video Meeting"
+              className="p-2.5 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer shadow-xs active:scale-95"
+              title="ലൈവ് Video Call"
             >
               <Video className="w-4 h-4" />
             </button>
 
-            {/* Message Button */}
+            {/* Live Message Button */}
             <button
+              type="button"
               onClick={() => {
-                if (!hasPaidPlan) {
-                  onClose();
-                  onOpenOffers?.();
-                  return;
-                }
                 onClose();
                 onStartChat(profile.id);
               }}
-              className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 hover:bg-slate-100 font-semibold text-xs flex items-center space-x-1.5 transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 font-semibold text-xs flex items-center space-x-1.5 transition-colors cursor-pointer active:scale-95 shadow-xs"
+              title="Live Message"
             >
-              {!hasPaidPlan ? <Lock className="w-3.5 h-3.5 text-amber-600" /> : <MessageCircle className="w-4 h-4 text-[#1E3A8A]" />}
-              <span>{hasPaidPlan ? 'Message' : 'Message (Locked)'}</span>
+              <MessageCircle className="w-4 h-4 text-[#1E3A8A]" />
+              <span>Live Message</span>
             </button>
 
-            {/* Express Interest Button */}
+            {/* Live Instant Message / Express Interest Button */}
             <button
+              type="button"
               onClick={() => {
                 if (isInterested) {
                   onToggleInterest(profile.id);
@@ -960,8 +959,8 @@ export default function ProfileModal({
                 </>
               ) : (
                 <>
-                  <Send className="w-4 h-4" />
-                  <span>Connect / Send Interest</span>
+                  <Zap className="w-4 h-4 fill-[#0B192C]" />
+                  <span>⚡ Live Instant Message</span>
                 </>
               )}
             </button>

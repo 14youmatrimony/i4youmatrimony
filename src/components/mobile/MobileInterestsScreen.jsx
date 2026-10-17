@@ -87,12 +87,21 @@ export default function MobileInterestsScreen({
     return isCandidateMatchingTarget(p.gender, targetCandidateGender);
   });
 
-  const sentProfiles = oppositeGenderProfiles.filter(p => interestsSent.includes(p.id));
-  const shortlistedProfiles = oppositeGenderProfiles.filter(p => shortlisted.includes(p.id));
+  const isProfileInList = (p, list) => {
+    if (!p || !Array.isArray(list)) return false;
+    return Boolean(
+      (p.id && list.includes(p.id)) ||
+      (p.registerId && list.includes(p.registerId)) ||
+      (p.register_id && list.includes(p.register_id))
+    );
+  };
+
+  const sentProfiles = oppositeGenderProfiles.filter(p => isProfileInList(p, interestsSent));
+  const shortlistedProfiles = oppositeGenderProfiles.filter(p => isProfileInList(p, shortlisted));
   const receivedProfiles = oppositeGenderProfiles.filter(p => 
-    initialReceivedCandidateIds.includes(p.id) &&
-    !effectiveDeclinedIds.includes(p.id) &&
-    !interestsSent.includes(p.id)
+    (initialReceivedCandidateIds.includes(p.id) || (p.registerId && initialReceivedCandidateIds.includes(p.registerId))) &&
+    !isProfileInList(p, effectiveDeclinedIds) &&
+    !isProfileInList(p, interestsSent)
   );
   const declinedProfiles = oppositeGenderProfiles.filter(p => effectiveDeclinedIds.includes(p.id));
 
