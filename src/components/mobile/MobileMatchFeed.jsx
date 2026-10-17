@@ -748,7 +748,7 @@ export default function MobileMatchFeed({
                           if (onStartAudioCall) onStartAudioCall(profile);
                         }}
                         className="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition-all"
-                        title="ലൈവ് Call (Audio Call)"
+                        title="Live Call (Audio Call)"
                       >
                         <Phone className="w-3.5 h-3.5" />
                       </button>
@@ -761,7 +761,7 @@ export default function MobileMatchFeed({
                           if (onStartVideoCall) onStartVideoCall(profile);
                         }}
                         className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition-all"
-                        title="ലൈവ് Video Call"
+                        title="Live Video Call"
                       >
                         <Video className="w-3.5 h-3.5" />
                       </button>
@@ -999,7 +999,7 @@ export default function MobileMatchFeed({
                           if (onStartAudioCall) onStartAudioCall(profile);
                         }}
                         className="p-2.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-emerald-100 shrink-0"
-                        title="ലൈവ് Call (Voice Call)"
+                        title="Live Call (Voice Call)"
                       >
                         <Phone className="w-4 h-4" />
                       </button>
@@ -1010,7 +1010,7 @@ export default function MobileMatchFeed({
                           if (onStartVideoCall) onStartVideoCall(profile);
                         }}
                         className="p-2.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-indigo-100 shrink-0"
-                        title="ലൈവ് Video Call"
+                        title="Live Video Call"
                       >
                         <Video className="w-4 h-4" />
                       </button>

@@ -905,7 +905,7 @@ export default function ProfileModal({
               type="button"
               onClick={() => onStartAudioCall ? onStartAudioCall(profile) : alert(`Audio calling ${profile.name}...`)}
               className="p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors cursor-pointer shadow-xs active:scale-95"
-              title="ലൈവ് Call (Voice Call)"
+              title="Live Call (Voice Call)"
             >
               <Phone className="w-4 h-4" />
             </button>
@@ -915,7 +915,7 @@ export default function ProfileModal({
               type="button"
               onClick={() => onStartVideoCall ? onStartVideoCall(profile) : alert(`Video calling ${profile.name}...`)}
               className="p-2.5 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer shadow-xs active:scale-95"
-              title="ലൈവ് Video Call"
+              title="Live Video Call"
             >
               <Video className="w-4 h-4" />
             </button>

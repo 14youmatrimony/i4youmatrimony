@@ -239,7 +239,7 @@ export default function VideoCallModal({
                   {candidate.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
                 </h4>
                 <p className="text-[10px] text-slate-300">
-                  {callStatus === 'connected' ? `ലൈവ് Video Call • ${formatDuration(callDuration)}` : (callStatus === 'ringing' ? 'റിംഗ് ചെയ്യുന്നു... (Ringing)' : 'കണക്ട് ചെയ്യുന്നു...')}
+                  {callStatus === 'connected' ? `Live Video Call • ${formatDuration(callDuration)}` : (callStatus === 'ringing' ? 'Ringing candidate...' : 'Connecting...')}
                 </p>
               </div>
             </div>
@@ -267,9 +267,9 @@ export default function VideoCallModal({
               <div className="text-center text-white space-y-1">
                 <h3 className="font-serif font-bold text-lg">{candidate.name}</h3>
                 <p className="text-xs text-[#DFB76C] font-semibold animate-pulse">
-                  {callStatus === 'calling' && 'ലൈവ് വീഡിയോ കോൾ ആരംഭിക്കുന്നു... (Signaling)'}
-                  {callStatus === 'ringing' && 'മറുപടി കാക്കുന്നു... (Candidate Phone Ringing)'}
-                  {callStatus === 'ended' && 'കോൾ അവസാനിച്ചു • Video Meeting Ended'}
+                  {callStatus === 'calling' && 'Starting Live Video Call... (Signaling)'}
+                  {callStatus === 'ringing' && 'Awaiting response... (Candidate device ringing)'}
+                  {callStatus === 'ended' && 'Video Meeting Ended'}
                 </p>
               </div>
             </div>

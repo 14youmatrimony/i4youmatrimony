@@ -302,7 +302,7 @@ export default function ChatInterface({
                 type="button"
                 onClick={() => onStartAudioCall ? onStartAudioCall(activeProfile) : null}
                 className="p-2 rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:shadow-sm transition-all cursor-pointer active:scale-95 border border-emerald-200"
-                title="ലൈവ് Call (Voice Call)"
+                title="Live Call (Voice Call)"
               >
                 <Phone className="w-4 h-4" />
               </button>
@@ -311,7 +311,7 @@ export default function ChatInterface({
                 type="button"
                 onClick={() => onStartVideoCall ? onStartVideoCall(activeProfile) : null}
                 className="p-2 rounded-xl text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:shadow-sm transition-all cursor-pointer active:scale-95 border border-indigo-200"
-                title="ലൈവ് Video Call"
+                title="Live Video Call"
               >
                 <Video className="w-4 h-4" />
               </button>

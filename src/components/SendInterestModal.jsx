@@ -17,24 +17,24 @@ const POPULAR_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '
 
 const INSTANT_TEMPLATES = [
   {
-    lang: 'മലയാളം',
-    label: 'കുടുംബ പൊരുത്തം',
-    text: 'നമസ്കാരം! നിങ്ങളുടെ പ്രൊഫൈൽ വളരെ ഇഷ്ടപ്പെട്ടു. കുടുംബവിശേഷങ്ങൾ പങ്കുവെക്കാൻ താല്പര്യപ്പെടുന്നു.'
-  },
-  {
-    lang: 'മലയാളം',
-    label: 'ജാതക പൊരുത്തം',
-    text: 'നമസ്കാരം, നമ്മുടെ ജാതകപ്പൊരുത്തവും മൂല്യങ്ങളും നന്നായി ചേരുന്നുണ്ട്. നമുക്ക് ബന്ധപ്പെടാം.'
-  },
-  {
     lang: 'English',
-    label: 'Family Values',
+    label: 'Family Match',
     text: 'Namaste! I reviewed your profile and our family values align wonderfully. Would love to connect.'
   },
   {
     lang: 'English',
+    label: 'Horoscope & Values',
+    text: 'Hello, our horoscope, background, and cultural values match well. Looking forward to connecting.'
+  },
+  {
+    lang: 'English',
+    label: 'Mutual Interest',
+    text: 'Hi! I found your profile very interesting and would love to take this proposal forward.'
+  },
+  {
+    lang: 'English',
     label: 'Connect Call',
-    text: 'Hello! Our family is keen on this auspicious proposal. Let us schedule a friendly voice or video call.'
+    text: 'Hello! Our family is keen on this proposal. Let us schedule a friendly voice or video call.'
   }
 ];
 
@@ -123,7 +123,7 @@ export default function SendInterestModal({
 
           <div className="flex items-center space-x-1.5 text-xs text-[#DFB76C] font-bold uppercase tracking-wider mb-1">
             <Zap className="w-3.5 h-3.5 fill-[#DFB76C] text-[#DFB76C]" />
-            <span>Live Instant Message • ലൈവ് ഇൻസ്റ്റൻ്റ് മെസ്സേജ്</span>
+            <span>Live Instant Message • Express Interest</span>
           </div>
 
           <h3 className="font-serif font-bold text-lg sm:text-xl text-white">

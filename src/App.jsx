@@ -1712,7 +1712,7 @@ export default function App() {
     setIsCallCaller(true);
     setActiveCallSession(null);
     setActiveAudioCallCandidate(candidate);
-    showToast(`📞 ലൈവ് Call: Initiating encrypted audio line with ${candidate.name}...`);
+    showToast(`📞 Live Call: Initiating encrypted audio line with ${candidate.name}...`);
   };
 
   // Start live Video Call with candidate (Active for all users via WebRTC)
@@ -1722,7 +1722,7 @@ export default function App() {
     setIsCallCaller(true);
     setActiveCallSession(null);
     setActiveVideoCallCandidate(candidate);
-    showToast(`🎥 ലൈവ് Video Call: Initiating HD video meeting with ${candidate.name}...`);
+    showToast(`🎥 Live Video Call: Initiating HD video meeting with ${candidate.name}...`);
   };
 
   // Incoming Call Handlers (WebRTC P2P via Supabase Realtime)
@@ -1742,7 +1742,7 @@ export default function App() {
   const handleDeclineIncomingCall = (callData, reason) => {
     webrtcCallService.declineCall({ callData, reason });
     setIncomingCallSession(null);
-    showToast('കോൾ നിരസിച്ചു (Call declined)');
+    showToast('Call declined');
   };
 
   // WhatsApp Status Management Handlers

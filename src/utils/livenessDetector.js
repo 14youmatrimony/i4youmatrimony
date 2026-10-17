@@ -2,11 +2,11 @@
  * I 4 You Matrimonial - Real-time In-Browser Face Liveness Detection
  * 
  * Active Liveness Protocol:
- * 1. Center / Look Straight (നേരെ നോക്കുക)
- * 2. Turn Head Left (ഇടത്തോട്ട് തിരിക്കുക ⬅️)
- * 3. Turn Head Right (വലത്തോട്ട് തിരിക്കുക ➡️)
- * 4. Blink / Close Eyes (കണ്ണടച്ച് തുറക്കുക 👁️‍🗨️)
- * 5. Auto Capture Verified Frame (സെൽഫി പകർത്തുന്നു 😊)
+ * 1. Center / Look Straight
+ * 2. Turn Head Left (⬅️)
+ * 3. Turn Head Right (➡️)
+ * 4. Blink / Close Eyes (👁️‍🗨️)
+ * 5. Auto Capture Verified Frame (😊)
  * 
  * Zero-dependency, lightweight (160x160 processing at 15-20fps), cross-platform.
  */
@@ -16,45 +16,45 @@ export const LIVENESS_STEPS = [
     id: 'center',
     stepNumber: 1,
     titleEn: 'Look Straight',
-    titleMl: 'നേരെ നോക്കുക',
+    titleMl: 'Look Straight',
     instructionEn: 'Position your face in the oval and look straight ahead',
-    instructionMl: 'മുഖം ഓവൽ ഫ്രെയിമിൽ വെച്ച് നേരെ നോക്കുക',
+    instructionMl: 'Position your face in the oval and look straight ahead',
     minDurationMs: 800
   },
   {
     id: 'turn_left',
     stepNumber: 2,
     titleEn: 'Turn Face Left',
-    titleMl: 'ഇടത്തോട്ട് തിരിക്കുക',
+    titleMl: 'Turn Face Left',
     instructionEn: 'Turn your face slowly to the LEFT ⬅️',
-    instructionMl: 'മുഖം പതുക്കെ ഇടത്തോട്ട് തിരിക്കുക ⬅️',
+    instructionMl: 'Turn your face slowly to the LEFT ⬅️',
     minDurationMs: 400
   },
   {
     id: 'turn_right',
     stepNumber: 3,
     titleEn: 'Turn Face Right',
-    titleMl: 'വലത്തോട്ട് തിരിക്കുക',
+    titleMl: 'Turn Face Right',
     instructionEn: 'Turn your face slowly to the RIGHT ➡️',
-    instructionMl: 'മുഖം പതുക്കെ വലത്തോട്ട് തിരിക്കുക ➡️',
+    instructionMl: 'Turn your face slowly to the RIGHT ➡️',
     minDurationMs: 400
   },
   {
     id: 'blink',
     stepNumber: 4,
     titleEn: 'Blink / Close Eyes',
-    titleMl: 'കണ്ണടച്ച് തുറക്കുക',
+    titleMl: 'Blink / Close Eyes',
     instructionEn: 'Blink: Close your eyes and open them once 👁️‍🗨️',
-    instructionMl: 'കണ്ണുകൾ അടച്ച് തുറക്കുക 👁️‍🗨️',
+    instructionMl: 'Blink: Close your eyes and open them once 👁️‍🗨️',
     minDurationMs: 350
   },
   {
     id: 'capture',
     stepNumber: 5,
     titleEn: 'Capturing Selfie',
-    titleMl: 'സെൽഫി പകർത്തുന്നു',
+    titleMl: 'Capturing Selfie',
     instructionEn: 'Hold still, capturing authentic live selfie 😊',
-    instructionMl: 'അനങ്ങാതെ നിൽക്കുക, സെൽഫി പകർത്തുന്നു 😊',
+    instructionMl: 'Hold still, capturing authentic live selfie 😊',
     minDurationMs: 450
   }
 ];

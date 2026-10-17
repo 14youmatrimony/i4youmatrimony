@@ -337,7 +337,7 @@ export default function AudioCallModal({
         <div className="text-center space-y-1 relative z-10 w-full">
           <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-semibold shadow-xs">
             <Lock className="w-3 h-3 text-emerald-400" />
-            <span>ലൈവ് Call • WebRTC P2P Encrypted Audio</span>
+            <span>Live Call • WebRTC P2P Encrypted Audio</span>
           </div>
 
           <div className="pt-2">
@@ -350,7 +350,7 @@ export default function AudioCallModal({
             {(candidate.district || candidate.city) && (
               <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1">
                 <MapPin className="w-3 h-3 text-[#DFB76C]" />
-                <span>{candidate.district || candidate.city}, {candidate.state || 'Kerala'}</span>
+                <span>{candidate.district || candidate.city}, {candidate.state || 'India'}</span>
               </p>
             )}
           </div>
@@ -359,19 +359,19 @@ export default function AudioCallModal({
           <div className="pt-3">
             {callStatus === 'calling' && (
               <span className="text-xs text-[#DFB76C] font-semibold animate-pulse">
-                കണക്ട് ചെയ്യുന്നു... (Signaling via Supabase)
+                Connecting... (Signaling via Supabase)
               </span>
             )}
             {callStatus === 'ringing' && (
               <span className="text-xs text-emerald-400 font-semibold animate-pulse">
-                റിംഗ് ചെയ്യുന്നു... (Ringing candidate device)
+                Ringing candidate device...
               </span>
             )}
             {callStatus === 'connected' && (
               <div className="flex flex-col items-center space-y-1">
                 <div className="inline-flex items-center space-x-2 text-sm font-mono font-bold text-emerald-400 bg-emerald-950/70 px-3.5 py-1 rounded-full border border-emerald-500/40 shadow-inner">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span>ലൈവ് Call: {formatDuration(callDuration)}</span>
+                  <span>Live Call: {formatDuration(callDuration)}</span>
                 </div>
                 
                 <div className="flex items-center space-x-2 text-[10px] text-emerald-300/80">
@@ -389,7 +389,7 @@ export default function AudioCallModal({
             )}
             {callStatus === 'ended' && (
               <span className="text-xs text-rose-400 font-bold">
-                കോൾ അവസാനിച്ചു • Call Ended ({formatDuration(callDuration)})
+                Call Ended ({formatDuration(callDuration)})
               </span>
             )}
           </div>

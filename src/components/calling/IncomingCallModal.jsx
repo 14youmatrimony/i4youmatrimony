@@ -112,7 +112,7 @@ export default function IncomingCallModal({
         <div className="text-center space-y-2 relative z-10 w-full">
           <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 text-xs font-bold shadow-lg animate-bounce">
             <Lock className="w-3.5 h-3.5 text-emerald-400" />
-            <span>ഇൻകമിംഗ് {isVideo ? 'ലൈവ് Video Call' : 'ലൈവ് Voice Call'}</span>
+            <span>Incoming {isVideo ? 'Live Video Call' : 'Live Voice Call'}</span>
           </div>
 
           <div className="pt-2">
@@ -133,7 +133,7 @@ export default function IncomingCallModal({
           </div>
 
           <p className="text-xs text-[#DFB76C] font-semibold pt-1">
-            {isVideo ? '📹 ലൈവ് വീഡിയോ മീറ്റിംഗിലേക്ക് ക്ഷണിക്കുന്നു...' : '📞 ലൈവ് ഓഡിയോ കോളിലേക്ക് ക്ഷണിക്കുന്നു...'}
+            {isVideo ? '📹 Incoming Live Video Meeting invitation...' : '📞 Incoming Live Audio Call invitation...'}
           </p>
         </div>
 
@@ -168,7 +168,7 @@ export default function IncomingCallModal({
               >
                 <PhoneOff className="w-7 h-7" />
               </button>
-              <span className="text-xs text-rose-300 font-semibold">നിരസിക്കുക</span>
+              <span className="text-xs text-rose-300 font-semibold">Decline</span>
             </div>
 
             {/* Accept Button */}
@@ -181,7 +181,7 @@ export default function IncomingCallModal({
               >
                 {isVideo ? <Video className="w-7 h-7" /> : <Phone className="w-7 h-7" />}
               </button>
-              <span className="text-xs text-emerald-300 font-semibold">സ്വീകരിക്കുക</span>
+              <span className="text-xs text-emerald-300 font-semibold">Accept</span>
             </div>
 
           </div>

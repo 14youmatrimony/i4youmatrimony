@@ -304,7 +304,7 @@ export default function MobileChatScreen({
               type="button"
               onClick={() => onStartAudioCall ? onStartAudioCall(activeProfile) : null}
               className="p-2 rounded-xl text-slate-300 hover:text-emerald-400 hover:bg-white/10 cursor-pointer active:scale-90 transition-all"
-              title="ലൈവ് Call (Voice Call)"
+              title="Live Call (Voice Call)"
             >
               <Phone className="w-4 h-4 text-emerald-400" />
             </button>
@@ -312,7 +312,7 @@ export default function MobileChatScreen({
               type="button"
               onClick={() => onStartVideoCall ? onStartVideoCall(activeProfile) : null}
               className="p-2 rounded-xl text-slate-300 hover:text-blue-400 hover:bg-white/10 cursor-pointer active:scale-90 transition-all"
-              title="ലൈവ് Video Call (Family Video Meeting)"
+              title="Live Video Call (Family Video Meeting)"
             >
               <Video className="w-4 h-4 text-blue-400" />
             </button>
@@ -369,7 +369,7 @@ export default function MobileChatScreen({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Live Instant Message Starters (Malayalam & English) */}
+        {/* Live Instant Message Starters (English) */}
         <div className={`px-3 py-1.5 border-t flex space-x-1.5 overflow-x-auto scrollbar-none shrink-0 ${
           isDarkMode ? 'bg-slate-900/80 border-white/10' : 'bg-slate-100/70 border-slate-200'
         }`}>
@@ -377,9 +377,9 @@ export default function MobileChatScreen({
             ⚡ Instant:
           </span>
           {[
-            "നമസ്കാരം! 🙏",
-            "കുടുംബവിശേഷങ്ങൾ പങ്കുവെക്കാമോ? 😊",
-            "വിവാഹാലോചന മുന്നോട്ട് കൊണ്ടുപോകാമോ?",
+            "Hello! Nice to connect 🙏",
+            "Would love to know more about your family! 😊",
+            "Interested in taking this proposal forward?",
             "Loved your profile & background! ✨",
             "Can we schedule a quick call? 📞"
           ].map((prompt, idx) => (

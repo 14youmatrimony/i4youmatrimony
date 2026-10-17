@@ -603,7 +603,7 @@ export default function SelfieVerificationSection({
                       <span className="w-4 h-4 rounded-full bg-[#D4AF37] text-[#0B192C] text-[9px] flex items-center justify-center font-extrabold">
                         {currentChallenge.stepNumber}
                       </span>
-                      <span>{currentChallenge.titleMl} ({currentChallenge.titleEn})</span>
+                      <span>{currentChallenge.titleEn}</span>
                     </span>
                     <span className="text-[#8C6D1F] font-mono">{trackerState.stepProgress}%</span>
                   </div>
