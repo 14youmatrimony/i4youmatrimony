@@ -703,6 +703,12 @@ export default function MobileAppModal({
                   {activeTab === 'account' && (
                     <MobileAccountScreen 
                       currentUser={currentUser}
+                      profiles={filteredProfiles || profiles}
+                      onSelectProfile={onSelectProfile}
+                      onToggleInterest={onToggleInterest}
+                      interestsSent={interestsSent}
+                      interestCount={interestsSent?.length || 0}
+                      shortlistCount={shortlisted?.length || 0}
                       onOpenNotifications={() => setIsNotificationsOpen(true)}
                       unreadNotificationsCount={unreadNotificationsCount}
                       onOpenPhotoManager={(tab = 'single') => {

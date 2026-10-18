@@ -3510,6 +3510,10 @@ export default function App() {
           {activeTab === 'account' && (
             <MobileAccountScreen 
               currentUser={currentUser}
+              profiles={filteredProfiles || profiles}
+              onSelectProfile={handleSelectProfile}
+              onToggleInterest={handleToggleInterest}
+              interestsSent={interestsSent}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
               unreadNotificationsCount={unreadNotificationsCount}
               onOpenPhotoManager={(tab = 'single') => {
