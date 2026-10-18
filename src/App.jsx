@@ -39,6 +39,7 @@ import AudioCallModal from './components/calling/AudioCallModal';
 import VideoCallModal from './components/calling/VideoCallModal';
 import IncomingCallModal from './components/calling/IncomingCallModal';
 import { webrtcCallService } from './services/webrtcCallService';
+import { liveChatService } from './services/liveChatService';
 import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePromptModal';
 import { getAppMode, setAppMode, APP_CONFIG } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
@@ -1097,6 +1098,68 @@ export default function App() {
       webrtcCallService.unsubscribeUserInbox();
     };
   }, [currentUser?.id]);
+
+  // Subscribe to real-time Live Chat messages via Supabase Realtime Broadcast + Cross-tab sync
+  useEffect(() => {
+    if (!currentUser) return;
+    liveChatService.subscribeToUserInbox(currentUser);
+
+    const unsubscribe = liveChatService.onMessage((incoming) => {
+      console.log('[App] Live chat message received:', incoming);
+      const senderId = incoming.senderId;
+      const text = incoming.text;
+      const senderName = incoming.senderName || 'Member';
+
+      if (!senderId || !text) return;
+
+      const incomingMsg = {
+        id: incoming.id || ('m-' + Date.now()),
+        sender: 'them',
+        text,
+        time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'read'
+      };
+
+      setConversations(prev => {
+        const exists = prev.find(c => c.profileId === senderId);
+        const isCurrentlyInThisChat = activeTab === 'chat' && activeChatProfileId === senderId;
+
+        if (exists) {
+          return prev.map(c => {
+            if (c.profileId === senderId) {
+              return {
+                ...c,
+                unreadCount: isCurrentlyInThisChat ? 0 : (c.unreadCount || 0) + 1,
+                messages: [...(c.messages || []), incomingMsg]
+              };
+            }
+            return c;
+          });
+        } else {
+          return [
+            ...prev,
+            {
+              profileId: senderId,
+              unreadCount: isCurrentlyInThisChat ? 0 : 1,
+              messages: [incomingMsg],
+              autoReplies: []
+            }
+          ];
+        }
+      });
+
+      // Show toast notification if not currently in this chat
+      const isCurrentlyInThisChat = activeTab === 'chat' && activeChatProfileId === senderId;
+      if (!isCurrentlyInThisChat) {
+        showToast(`💬 ${senderName}: ${text.length > 40 ? text.slice(0, 40) + '...' : text}`);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      liveChatService.unsubscribeUserInbox();
+    };
+  }, [currentUser, activeTab, activeChatProfileId]);
 
   const unreadNotificationsCount = currentUser ? (notifications || []).filter(n => n && !n.isRead).length : 0;
 
