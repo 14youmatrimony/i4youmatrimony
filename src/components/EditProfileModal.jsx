@@ -24,119 +24,100 @@ export default function EditProfileModal({
   const [activeTab, setActiveTab] = useState('personal');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
-  // Form State
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    age: '',
-    gender: 'Female',
-    height: '',
-    religion: 'Hindu',
-    caste: '',
-    motherTongue: '',
-    maritalStatus: 'Never Married',
-    state: '',
-    city: '',
-    district: '',
-    education: '',
-    profession: '',
-    company: '',
-    annualIncome: '',
-    diet: 'Vegetarian',
-    manglik: 'Non-Manglik',
-    about: ''
-  });
+  // Helper to extract cleanly mapped initial form data from props or storage
+  const getInitialFormData = (user) => {
+    let source = user;
+    if (!source) {
+      try {
+        const saved = localStorage.getItem('i4u_auth_user');
+        if (saved) source = JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {
+      name: source?.name || '',
+      phone: source?.phone || source?.mobile || '',
+      email: source?.email || '',
+      age: source?.age ? String(source.age) : '',
+      gender: source?.gender || 'Female',
+      height: source?.height || '',
+      religion: source?.religion || 'Hindu',
+      caste: source?.caste || '',
+      motherTongue: source?.motherTongue || source?.mother_tongue || '',
+      maritalStatus: source?.maritalStatus || source?.marital_status || 'Never Married',
+      state: source?.state || '',
+      city: source?.city || '',
+      district: source?.district || source?.city || '',
+      education: source?.education || '',
+      profession: source?.profession || '',
+      company: source?.company || '',
+      annualIncome: source?.annualIncome || source?.annual_income || '',
+      diet: source?.diet || 'Vegetarian',
+      manglik: source?.manglik || 'Non-Manglik',
+      about: source?.about || source?.aboutBio || ''
+    };
+  };
+
+  // Form State initialized immediately with whatever current user data exists
+  const [formData, setFormData] = useState(() => getInitialFormData(currentUser));
 
   // 1. STATE HYDRATION ON MOUNT (useEffect)
-  // Always fetches fresh data directly from Supabase, avoiding stale cache or mock defaults
+  // Hydrates immediately from props/storage, and synchronizes fresh data directly from Supabase
   useEffect(() => {
     if (!isOpen) return;
 
     let isMounted = true;
+    const initial = getInitialFormData(currentUser);
+    setFormData(initial);
+
+    // If we already have basic details, do not block the UI with full-screen loader
+    const hasInitialData = Boolean(initial.name || initial.phone);
+    setLoading(!hasInitialData);
+    setIsSyncing(true);
+    setErrorMsg(null);
+
     const hydrateProfile = async () => {
-      setLoading(true);
-      setErrorMsg(null);
+      try {
+        // Determine identifier: id, registerId, phone, or localStorage fallback
+        let identifier = currentUser?.id || currentUser?.registerId || currentUser?.register_id || currentUser?.phone || currentUser?.mobile;
+        if (!identifier) {
+          try {
+            const saved = localStorage.getItem('i4u_auth_user');
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              identifier = parsed?.id || parsed?.registerId || parsed?.register_id || parsed?.phone || parsed?.mobile;
+            }
+          } catch (e) {}
+        }
 
-      // Determine identifier: id, registerId, or localStorage fallback
-      let identifier = currentUser?.id || currentUser?.registerId || currentUser?.register_id;
-      if (!identifier) {
-        try {
-          const saved = localStorage.getItem('i4u_auth_user');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            identifier = parsed?.id || parsed?.registerId || parsed?.register_id;
-          }
-        } catch (e) {}
-      }
+        if (!identifier) {
+          identifier = localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id');
+        }
 
-      if (!identifier) {
-        identifier = localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id');
-      }
+        if (identifier) {
+          // Timeout race so fetch never hangs indefinitely
+          const fetchPromise = fetchLiveUserProfile(identifier);
+          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 3000));
+          const freshData = await Promise.race([fetchPromise, timeoutPromise]);
 
-      if (identifier) {
-        try {
-          const freshData = await fetchLiveUserProfile(identifier);
           if (isMounted && freshData) {
-            setFormData({
-              name: freshData.name || '',
-              phone: freshData.phone || freshData.mobile || '',
-              email: freshData.email || '',
-              age: freshData.age || '',
-              gender: freshData.gender || 'Female',
-              height: freshData.height || '',
-              religion: freshData.religion || 'Hindu',
-              caste: freshData.caste || '',
-              motherTongue: freshData.motherTongue || freshData.mother_tongue || '',
-              maritalStatus: freshData.maritalStatus || 'Never Married',
-              state: freshData.state || '',
-              city: freshData.city || '',
-              district: freshData.district || freshData.city || '',
-              education: freshData.education || '',
-              profession: freshData.profession || '',
-              company: freshData.company || '',
-              annualIncome: freshData.annualIncome || freshData.annual_income || '',
-              diet: freshData.diet || 'Vegetarian',
-              manglik: freshData.manglik || 'Non-Manglik',
-              about: freshData.about || freshData.aboutBio || ''
-            });
-            return;
+            setFormData(prev => ({
+              ...prev,
+              ...getInitialFormData(freshData)
+            }));
           }
-        } catch (fetchErr) {
-          console.warn('[EditProfileModal] Fresh profile fetch warning:', fetchErr);
+        }
+      } catch (fetchErr) {
+        console.warn('[EditProfileModal] Fresh profile fetch warning:', fetchErr);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+          setIsSyncing(false);
         }
       }
-
-      // Fallback to currently passed currentUser props if network query fails
-      if (isMounted && currentUser) {
-        setFormData({
-          name: currentUser.name || '',
-          phone: currentUser.phone || currentUser.mobile || '',
-          email: currentUser.email || '',
-          age: currentUser.age || '',
-          gender: currentUser.gender || 'Female',
-          height: currentUser.height || '',
-          religion: currentUser.religion || 'Hindu',
-          caste: currentUser.caste || '',
-          motherTongue: currentUser.motherTongue || '',
-          maritalStatus: currentUser.maritalStatus || 'Never Married',
-          state: currentUser.state || '',
-          city: currentUser.city || '',
-          district: currentUser.district || currentUser.city || '',
-          education: currentUser.education || '',
-          profession: currentUser.profession || '',
-          company: currentUser.company || '',
-          annualIncome: currentUser.annualIncome || '',
-          diet: currentUser.diet || 'Vegetarian',
-          manglik: currentUser.manglik || 'Non-Manglik',
-          about: currentUser.about || ''
-        });
-      }
-
-      if (isMounted) setLoading(false);
     };
 
     hydrateProfile();
@@ -160,11 +141,41 @@ export default function EditProfileModal({
     // CRITICAL: Prevent default browser form submission / reload
     e.preventDefault();
 
+    // Client-side validation with automatic tab switching
+    if (!formData.name?.trim()) {
+      setActiveTab('personal');
+      setErrorMsg('Please enter your full name.');
+      return;
+    }
+    if (!formData.age || Number(formData.age) < 18) {
+      setActiveTab('personal');
+      setErrorMsg('Please enter a valid age (minimum 18).');
+      return;
+    }
+    if (!formData.phone?.trim()) {
+      setActiveTab('location');
+      setErrorMsg('Please provide a valid contact mobile number.');
+      return;
+    }
+
     setSaving(true);
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const identifier = currentUser?.id || currentUser?.registerId || currentUser?.register_id || localStorage.getItem('i4u_current_user_id');
+    let identifier = currentUser?.id || currentUser?.registerId || currentUser?.register_id || currentUser?.phone || currentUser?.mobile;
+    if (!identifier) {
+      try {
+        const saved = localStorage.getItem('i4u_auth_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          identifier = parsed?.id || parsed?.registerId || parsed?.register_id || parsed?.phone || parsed?.mobile;
+        }
+      } catch (e) {}
+    }
+
+    if (!identifier) {
+      identifier = localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id') || formData.phone;
+    }
 
     if (!identifier) {
       setErrorMsg('User identifier not found. Please log in again.');
@@ -183,13 +194,13 @@ export default function EditProfileModal({
       // 2. Show success toast and trigger parent callback
       setSuccessMsg('Profile updated and saved to Supabase successfully! ✨');
       if (onProfileUpdated) {
-        onProfileUpdated(result.profile);
+        onProfileUpdated(result.profile || formData);
       }
 
       setTimeout(() => {
         setSuccessMsg(null);
         if (onClose) onClose();
-      }, 1400);
+      }, 1200);
 
     } catch (err) {
       console.error('[EditProfileModal] Submit error:', err);
@@ -215,7 +226,16 @@ export default function EditProfileModal({
             </div>
             <div>
               <h2 className="font-serif font-bold text-base text-white">Edit Matrimony Profile</h2>
-              <p className="text-[11px] text-[#DFB76C]">Live synchronization with Supabase Database</p>
+              <div className="flex items-center space-x-1.5 text-[11px] text-[#DFB76C]">
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin text-[#DFB76C]" />
+                    <span>Syncing with Supabase...</span>
+                  </>
+                ) : (
+                  <span>Live synchronization with Supabase Database</span>
+                )}
+              </div>
             </div>
           </div>
           <button
@@ -256,7 +276,7 @@ export default function EditProfileModal({
         </div>
 
         {/* Form Body with e.preventDefault() on submit */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto p-5 space-y-4">
           
           {/* Status Feedback Banners */}
           {errorMsg && (

@@ -58,6 +58,7 @@ export default function MobileAccountScreen({
   interestsSent = [],
   onUpdateLocation,
   onUpdatePhotos,
+  onUpdateProfile,
   onLoginSuccess,
   onRegistrationComplete,
   onOpenLogin,
@@ -1806,7 +1807,11 @@ export default function MobileAccountScreen({
           currentUser={currentUser}
           onClose={() => setShowEditModal(false)}
           onProfileUpdated={(updated) => {
-            onRegistrationComplete?.(updated);
+            if (onUpdateProfile) {
+              onUpdateProfile(updated);
+            } else if (onRegistrationComplete) {
+              onRegistrationComplete(updated);
+            }
           }}
         />
       )}

@@ -1051,7 +1051,23 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
         return { success: false, error: error.message };
       }
 
-      const updatedRow = data && data.length > 0 ? data[0] : null;
+      let updatedRow = data && data.length > 0 ? data[0] : null;
+
+      // If no row was matched/updated in Supabase, fallback to upsert via syncProfileToSupabase
+      if (!updatedRow) {
+        try {
+          const currentSaved = localStorage.getItem('i4u_auth_user');
+          const parsed = currentSaved ? JSON.parse(currentSaved) : {};
+          const fullData = { ...parsed, ...updateData, id: cleanId };
+          const syncRes = await syncProfileToSupabase(fullData);
+          if (syncRes && syncRes.data && syncRes.data.length > 0) {
+            updatedRow = syncRes.data[0];
+          }
+        } catch (syncErr) {
+          console.warn('[updateLiveUserProfile] Upsert fallback notice:', syncErr);
+        }
+      }
+
       const mappedProfile = updatedRow ? mapSupabaseRowToProfile(updatedRow) : null;
 
       // 4. Keep local session in sync so refresh never reverts
@@ -1073,7 +1089,17 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
     }
   }
 
-  return { success: false, error: 'Supabase is not configured' };
+  // Graceful local offline fallback
+  try {
+    const currentSaved = localStorage.getItem('i4u_auth_user');
+    const parsed = currentSaved ? JSON.parse(currentSaved) : {};
+    const merged = { ...parsed, ...updateData };
+    if (photoUrl) merged.photo = photoUrl;
+    localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
+    return { success: true, profile: merged };
+  } catch (e) {
+    return { success: false, error: 'Could not persist profile changes' };
+  }
 }
 
 /**

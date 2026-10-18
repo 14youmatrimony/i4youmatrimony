@@ -3662,6 +3662,18 @@ export default function App() {
                 showToast(`Location set to ${loc.district} Dist., ${loc.state}`);
               }}
               onUpdatePhotos={handlePhotoUpdateAction}
+              onUpdateProfile={(updated) => {
+                setCurrentUser(prev => {
+                  const base = prev || {};
+                  const merged = { ...base, ...updated };
+                  try {
+                    localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
+                  } catch (e) {}
+                  return merged;
+                });
+                setProfiles(prev => prev.map(p => (p.id === updated.id || (updated.phone && (p.phone === updated.phone || p.mobile === updated.phone))) ? { ...p, ...updated } : p));
+                showToast('Profile updated successfully! ✨');
+              }}
               onLoginSuccess={handleLoginSuccess}
               onRegistrationComplete={(regData) => {
                 if (regData?.aadhaarVerified) {

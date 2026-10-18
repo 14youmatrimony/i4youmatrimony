@@ -754,6 +754,17 @@ export default function MobileAppModal({
                           }));
                         }
                       }}
+                      onUpdateProfile={(updated) => {
+                        setCurrentUser(prev => {
+                          const base = prev || {};
+                          const merged = { ...base, ...updated };
+                          try {
+                            localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
+                          } catch (e) {}
+                          return merged;
+                        });
+                        showToast?.('Profile updated successfully! ✨');
+                      }}
                       onOpenOffers={onOpenOffers}
                       onOpenThemeSettings={() => setIsThemeSettingsOpen(true)}
                       onOpenAadhaarVerification={() => setInternalScreen('verify-aadhaar')}
