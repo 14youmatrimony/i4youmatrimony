@@ -16,6 +16,7 @@ import MobileFilterBottomSheet from './components/mobile/MobileFilterBottomSheet
 import MobilePhotoManagerSheet from './components/mobile/MobilePhotoManagerSheet';
 import { PhotoPrivacyProvider } from './context/PhotoPrivacyContext';
 import { ScreenshotRestrictedBanner, ScreenshotCaptureBlockOverlay } from './components/mobile/PhotoPrivacyShield';
+import SplashScreen from './components/common/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import RegistrationWizard from './components/RegistrationWizard';
 import RegisterPhoneVerification from './components/RegisterPhoneVerification';
@@ -260,10 +261,59 @@ const CANDIDATE_STATUSES = {
   }
 };
 
+/**
+ * Synchronously verify whether a valid authenticated user session is stored in localStorage.
+ * Filters out demo placeholders and checks for explicit logout flag.
+ */
+export const checkStoredUserSession = () => {
+  try {
+    if (typeof window === 'undefined') return null;
+    if (localStorage.getItem('i4u_logged_out') === 'true') {
+      return null;
+    }
+    const saved = localStorage.getItem('i4u_auth_user');
+    if (!saved) return null;
+    const user = JSON.parse(saved);
+    if (
+      !user ||
+      !user.id ||
+      user.id === 'demo-priya' ||
+      user.id === 'demo-rohan' ||
+      user.id === 'demo_user' ||
+      user.isDemo === true
+    ) {
+      try {
+        localStorage.removeItem('i4u_auth_user');
+        localStorage.removeItem('i4u_conversations');
+        localStorage.removeItem('i4u_notifications');
+      } catch (e) {}
+      return null;
+    }
+    const isAadhaarDone = localStorage.getItem('i4u_aadhaar_verified') === 'true';
+    if (isAadhaarDone) {
+      user.aadhaarVerified = true;
+      user.verified = true;
+    }
+    if (!user.membership || user.membership === 'free') {
+      user.membership = 'free';
+      user.contactCredits = 0;
+      user.unlockedContacts = user.unlockedContacts || [];
+    }
+    return user;
+  } catch (e) {
+    return null;
+  }
+};
+
 export default function App() {
   // Initialize viewMode from pathname (/app), URL search (?mode=app), hash (#app), or localStorage
   const getInitialViewMode = () => {
     try {
+      // Check Capacitor native platform
+      if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform && window.Capacitor.isNativePlatform()) {
+        return 'app';
+      }
+
       // Clean up any legacy admin routes or redirects
       const path = (window.location.pathname || '').toLowerCase().replace(/^\/+|\/+$/g, '');
       if (['admin', 'super-admin', 'superadmin', 'admin-console', 'admin-portal'].includes(path)) {
@@ -337,7 +387,32 @@ export default function App() {
   };
 
   const [deviceMode, setDeviceMode] = useState('fit'); // 'fit' | 'ios' | 'android' | 'wide'
-  const [currentScreen, setCurrentScreen] = useState('app'); // 'app' | 'login' | 'register' | 'verify-mobile'
+
+  // Splash screen state: active on initial load
+  const [showSplash, setShowSplash] = useState(true);
+
+  // Initialize currentScreen based on existing user session:
+  // If user is already authenticated, start on 'app', otherwise start on 'login'
+  const [currentScreen, setCurrentScreen] = useState(() => {
+    return checkStoredUserSession() ? 'app' : 'login';
+  });
+
+  // Smooth post-splash transition handler:
+  // Check auth state and route to main app or login/registration accordingly
+  const handleSplashFinish = useCallback(() => {
+    setShowSplash(false);
+    const authenticatedUser = checkStoredUserSession();
+    if (authenticatedUser) {
+      // If ALREADY logged in: Proceed directly to the main Home / Dashboard
+      setCurrentScreen('app');
+      setActiveTab('feed');
+    } else {
+      // If NOT logged in (or visiting for the first time):
+      // Automatically route/transition to the Login / Registration page
+      setCurrentScreen('login');
+    }
+  }, []);
+
   const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'search' | 'interests' | 'chat' | 'account'
   const [interestsSegment, setInterestsSegment] = useState('sent'); // 'sent' | 'received' | 'shortlist'
   const [isAppModalOpen, setIsAppModalOpen] = useState(false); // 80% screen mobile app modal over website
@@ -768,44 +843,7 @@ export default function App() {
   });
   const [activeChatProfileId, setActiveChatProfileId] = useState('p1');
   const [selectedProfile, setSelectedProfile] = useState(null);
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      if (localStorage.getItem('i4u_logged_out') === 'true') {
-        return null;
-      }
-      const saved = localStorage.getItem('i4u_auth_user');
-      if (saved) {
-        let user = JSON.parse(saved);
-        if (
-          !user ||
-          user.id === 'demo-priya' ||
-          user.id === 'demo-rohan' ||
-          user.id === 'demo_user' ||
-          user.isDemo === true
-        ) {
-          try {
-            localStorage.removeItem('i4u_auth_user');
-            localStorage.removeItem('i4u_conversations');
-            localStorage.removeItem('i4u_notifications');
-          } catch (e) {}
-          return null;
-        }
-        const isAadhaarDone = localStorage.getItem('i4u_aadhaar_verified') === 'true';
-        if (isAadhaarDone) {
-          user = { ...user, aadhaarVerified: true, verified: true };
-        }
-        if (!user.membership || user.membership === 'free') {
-          user.membership = 'free';
-          user.contactCredits = 0;
-          user.unlockedContacts = user.unlockedContacts || [];
-        }
-        return user;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  });
+  const [currentUser, setCurrentUser] = useState(checkStoredUserSession);
 
   // Purge any residual demo user data from prior visits immediately
   useEffect(() => {
@@ -2611,6 +2649,10 @@ export default function App() {
   return (
     <ThemeProvider>
       <PhotoPrivacyProvider>
+        {/* Premium Luxury Splash Screen on initial app launch */}
+        {showSplash && (
+          <SplashScreen onFinish={handleSplashFinish} duration={2800} />
+        )}
         {viewMode === 'website' ? (
           <>
             {/* 1. Website View */}
