@@ -644,6 +644,9 @@ function switchTab(tabId) {
   } else if (tabId === 'offers') {
     loadOffers();
   } else if (tabId === 'plans') {
+    const mainEl = document.querySelector('main');
+    if (mainEl) mainEl.scrollTop = 0;
+    window.scrollTo(0, 0);
     loadPlans();
   } else if (tabId === 'payments') {
     loadPayments();
@@ -2482,6 +2485,7 @@ async function loadPlans(force = false) {
       if (Array.isArray(data.plans) && data.plans.length > 0) {
         const newHash = JSON.stringify(data.plans);
         if (force || newHash !== lastRenderedPlansHash) {
+          lastRenderedPlansHash = newHash;
           state.plans = data.plans;
           renderPlans();
         }
@@ -2499,6 +2503,7 @@ async function loadPlans(force = false) {
 function renderPlans() {
   try {
     const plans = state.plans || [];
+    lastRenderedPlansHash = JSON.stringify(plans);
     const cardsContainer = document.getElementById('plansCardsContainer');
     const tableBody = document.getElementById('plansTableBody');
 
@@ -2739,7 +2744,7 @@ function renderPlans() {
                   data-plan-toggle="${p.id}"
                   onchange="togglePlanActive('${p.id}', this)" 
                   ${p.is_active ? 'checked' : ''} 
-                  class="sr-only switch-input"
+                  class="switch-input"
                 >
                 <div class="switch-track-custom">
                   <div class="switch-thumb-custom"></div>
@@ -2829,7 +2834,7 @@ function renderPlans() {
                   data-plan-toggle="${p.id}"
                   onchange="togglePlanActive('${p.id}', this)" 
                   ${p.is_active ? 'checked' : ''} 
-                  class="sr-only switch-input"
+                  class="switch-input"
                 >
                 <div class="switch-track-custom">
                   <div class="switch-thumb-custom"></div>
@@ -2903,7 +2908,7 @@ function renderPlans() {
                 data-plan-toggle="${p.id}"
                 onchange="togglePlanActive('${p.id}', this)" 
                 ${p.is_active ? 'checked' : ''} 
-                class="sr-only switch-input"
+                class="switch-input"
               >
               <div class="switch-track-custom">
                 <div class="switch-thumb-custom"></div>
@@ -2950,7 +2955,7 @@ function renderPlans() {
                 data-plan-toggle="${p.id}"
                 onchange="togglePlanActive('${p.id}', this)" 
                 ${p.is_active ? 'checked' : ''} 
-                class="sr-only switch-input"
+                class="switch-input"
               >
               <div class="switch-track-custom">
                 <div class="switch-thumb-custom"></div>
@@ -2965,49 +2970,59 @@ function renderPlans() {
       {
         label: 'Verified Contact Unlocks',
         icon: 'phone-call',
-        getter: p => p.contact_credits >= 999 ? '<strong class="text-purple-300">Unlimited</strong>' : `<strong class="text-white">${p.contact_credits} Numbers</strong>`
+        getter: p => (Number(p.contact_credits) >= 999) ? '<strong class="text-purple-300">Unlimited</strong>' : `<strong class="text-white">${p.contact_credits || 0} Numbers</strong>`
       },
       {
         label: '1-Month Offer Price',
         icon: 'tag',
-        getter: p => p.offer_price_1m === 0 ? '<span class="text-emerald-400 font-bold">Free</span>' : `<span class="text-emerald-400 font-mono font-bold">₹${p.offer_price_1m}</span>`
+        getter: p => Number(p.offer_price_1m) === 0 ? '<span class="text-emerald-400 font-bold">Free</span>' : `<span class="text-emerald-400 font-mono font-bold">₹${Number(p.offer_price_1m) || 0}</span>`
+      },
+      {
+        label: '3-Month Offer Price',
+        icon: 'tag',
+        getter: p => Number(p.offer_price_3m) === 0 ? '<span class="text-emerald-400 font-bold">Free</span>' : `<span class="text-emerald-400 font-mono font-bold">₹${Number(p.offer_price_3m) || 0}</span>`
       },
       {
         label: '6-Month Popular Offer',
         icon: 'tag',
-        getter: p => p.offer_price_6m === 0 ? '<span class="text-emerald-400 font-bold">Free</span>' : `<span class="text-emerald-300 font-mono font-bold">₹${p.offer_price_6m}</span>`
+        getter: p => Number(p.offer_price_6m) === 0 ? '<span class="text-emerald-400 font-bold">Free</span>' : `<span class="text-emerald-300 font-mono font-bold">₹${Number(p.offer_price_6m) || 0}</span>`
+      },
+      {
+        label: '12-Month Annual Offer',
+        icon: 'tag',
+        getter: p => Number(p.offer_price_12m) === 0 ? '<span class="text-emerald-400 font-bold">Free</span>' : `<span class="text-emerald-400 font-mono font-bold">₹${Number(p.offer_price_12m) || 0}</span>`
       },
       {
         label: 'Daily Direct Interests Quota',
         icon: 'heart',
-        getter: p => `<span class="font-medium text-slate-200">${p.daily_interests || 'Unlimited'}</span>`
+        getter: p => `<span class="font-medium text-slate-200">${escapePlanHtml(p.daily_interests || 'Unlimited')}</span>`
       },
       {
         label: 'Vedic Kundali Matching',
         icon: 'sparkles',
-        getter: p => `<span class="font-medium text-slate-200">${p.kundali_reports || 'Basic Ashtakoot'}</span>`
+        getter: p => `<span class="font-medium text-slate-200">${escapePlanHtml(p.kundali_reports || 'Basic Ashtakoot')}</span>`
       },
       {
         label: 'Search Visibility / Boost',
         icon: 'zap',
-        getter: p => `<span class="font-bold text-amber-300">${p.search_boost || '1x Standard'}</span>`
+        getter: p => `<span class="font-bold text-amber-300">${escapePlanHtml(p.search_boost || '1x Standard')}</span>`
       },
       {
         label: 'Dedicated Relationship Manager',
         icon: 'user-check',
-        getter: p => p.has_advisor 
+        getter: p => (p.has_advisor == 1 || p.has_advisor === true)
           ? '<span class="inline-flex items-center gap-1 text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">✓ Included Handpicked</span>' 
           : '<span class="text-slate-500 font-mono">✕</span>'
       },
       {
         label: 'Photo & Profile Privacy Shield',
         icon: 'shield-check',
-        getter: p => `<span class="text-slate-300">${p.privacy_shield || 'Standard'}</span>`
+        getter: p => `<span class="text-slate-300">${escapePlanHtml(p.privacy_shield || 'Standard')}</span>`
       },
       {
         label: 'Customer Support SLA',
         icon: 'headphones',
-        getter: p => `<span class="text-slate-300">${p.support_level || 'Priority'}</span>`
+        getter: p => `<span class="text-slate-300">${escapePlanHtml(p.support_level || 'Priority')}</span>`
       },
       {
         label: 'Manage & Modify Tier',

@@ -974,7 +974,12 @@
     }
   }
 
-  async function syncOffersFromSupabase() {
+  let lastSyncedOffersStr = '';
+  let lastOffersSyncTime = 0;
+  async function syncOffersFromSupabase(force = false) {
+    const now = Date.now();
+    if (!force && (now - lastOffersSyncTime < 25000)) return;
+    lastOffersSyncTime = now;
     try {
       const res = await originalFetch(`${SUPABASE_OFFERS}?select=*&order=id.desc`, {
         headers: {
@@ -985,10 +990,14 @@
       if (res.ok) {
         const rows = await res.json();
         if (Array.isArray(rows) && rows.length > 0) {
-          store.offers = rows;
-          saveStore(store);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('i4u_admin_synced'));
+          const newStr = JSON.stringify(rows);
+          if (newStr !== lastSyncedOffersStr) {
+            lastSyncedOffersStr = newStr;
+            store.offers = rows;
+            saveStore(store);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('i4u_admin_synced'));
+            }
           }
         }
       }
@@ -997,7 +1006,13 @@
     }
   }
 
-  async function syncPlansFromSupabase() {
+  let lastSyncedPlansStr = '';
+  let lastPlansSyncTime = 0;
+  async function syncPlansFromSupabase(force = false) {
+    const now = Date.now();
+    if (!force && (now - lastPlansSyncTime < 25000)) return;
+    lastPlansSyncTime = now;
+
     try {
       const res = await originalFetch(`${SUPABASE_PLANS}?select=*&order=sort_order.asc`, {
         headers: {
@@ -1008,21 +1023,25 @@
       if (res.ok) {
         const rows = await res.json();
         if (Array.isArray(rows) && rows.length > 0) {
-          store.plans = rows.map(r => {
-            let features_parsed = [];
-            if (typeof r.features === 'string') {
-              try { features_parsed = JSON.parse(r.features); } catch (e) { features_parsed = []; }
-            } else if (Array.isArray(r.features)) {
-              features_parsed = r.features;
+          const newStr = JSON.stringify(rows);
+          if (newStr !== lastSyncedPlansStr) {
+            lastSyncedPlansStr = newStr;
+            store.plans = rows.map(r => {
+              let features_parsed = [];
+              if (typeof r.features === 'string') {
+                try { features_parsed = JSON.parse(r.features); } catch (e) { features_parsed = []; }
+              } else if (Array.isArray(r.features)) {
+                features_parsed = r.features;
+              }
+              return {
+                ...r,
+                features_parsed
+              };
+            });
+            saveStore(store);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('i4u_admin_synced'));
             }
-            return {
-              ...r,
-              features_parsed
-            };
-          });
-          saveStore(store);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('i4u_admin_synced'));
           }
         }
       }
