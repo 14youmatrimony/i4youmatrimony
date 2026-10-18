@@ -3,6 +3,7 @@
  * Seamlessly provides full database functionality for Vercel and local dev.
  */
 (function() {
+  const originalFetch = (typeof window !== 'undefined' && window.fetch) ? window.fetch.bind(window) : (typeof fetch !== 'undefined' ? fetch : null);
   const SEED_DATA = {
   "admin_users": [
     {
@@ -635,9 +636,16 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.profiles)) {
+        if (parsed && typeof parsed === 'object') {
+          if (!Array.isArray(parsed.profiles)) parsed.profiles = [];
           // Strictly purge any legacy demo profiles from in-memory cache
           parsed.profiles = parsed.profiles.filter(p => !isDemoCandidate(p));
+          if (!Array.isArray(parsed.plans) || parsed.plans.length === 0) {
+            parsed.plans = JSON.parse(JSON.stringify(SEED_DATA.plans));
+          }
+          if (!Array.isArray(parsed.offers) || parsed.offers.length === 0) {
+            parsed.offers = JSON.parse(JSON.stringify(SEED_DATA.offers));
+          }
           if (parsed.admin_users && Array.isArray(parsed.admin_users)) {
             const customPass = localStorage.getItem('i4u_custom_admin_password');
             parsed.admin_users.forEach(u => {
@@ -1077,8 +1085,6 @@
   const AADHAAR_BACK_SVG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250' width='400' height='250'><rect width='400' height='250' rx='12' fill='%230B192C' stroke='%23D4AF37' stroke-width='2'/><text x='200' y='40' font-family='sans-serif' font-size='14' font-weight='bold' fill='%23DFB76C' text-anchor='middle'>AADHAAR CARD (BACK DOCUMENT)</text><text x='40' y='80' font-family='sans-serif' font-size='12' font-weight='bold' fill='%2394A3B8'>Address:</text><text x='40' y='105' font-family='sans-serif' font-size='12' fill='%23E2E8F0'>Kollam Beach Road, Near Port Office</text><text x='40' y='125' font-family='sans-serif' font-size='12' fill='%23E2E8F0'>Kollam District, Kerala - 691001</text><rect x='280' y='70' width='90' height='90' fill='%23FFFFFF' rx='6'/><text x='325' y='120' font-family='sans-serif' font-size='12' font-weight='bold' fill='%23000000' text-anchor='middle'>QR CODE</text><text x='200' y='220' font-family='monospace' font-size='16' font-weight='bold' fill='%23DFB76C' text-anchor='middle'>XXXX  XXXX  5928</text></svg>";
 
   // Intercept window.fetch
-  const originalFetch = window.fetch;
-
   window.fetch = async function(input, init) {
     const urlStr = typeof input === 'string' ? input : (input ? input.url : '');
     
@@ -1087,7 +1093,15 @@
       return originalFetch.apply(this, arguments);
     }
 
-    const parsedUrl = new URL(urlStr, window.location.origin);
+    let parsedUrl;
+    try {
+      const base = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') 
+        ? window.location.origin 
+        : 'http://localhost';
+      parsedUrl = new URL(urlStr, base);
+    } catch (e) {
+      parsedUrl = new URL(urlStr.startsWith('/') ? urlStr : '/' + urlStr, 'http://localhost');
+    }
     const pathname = parsedUrl.pathname;
     const method = ((init && init.method) || 'GET').toUpperCase();
     const params = parsedUrl.searchParams;
@@ -1697,6 +1711,180 @@
         // 2. PATCH toggle status (/api/offers/:id/toggle)
         if (subRoute === '/toggle' && method === 'PATCH') {
           const body = init && init.body ? JSON.parse(init.body) : {};
+          if (idx !== -1) {
+            const currentOffer = store.offers[idx];
+            let newActive;
+            if (body.is_active !== undefined) {
+              newActive = (body.is_active === true || body.is_active === 1 || body.is_active === '1') ? 1 : 0;
+            } else {
+              newActive = (currentOffer.is_active == 1 || currentOffer.is_active === true) ? 0 : 1;
+            }
+            store.offers[idx].is_active = newActive;
+            saveStore(store);
+            pushOfferUpdateToSupabase(currentOffer.id, { is_active: newActive });
+            const statusStr = newActive === 1 ? 'activated' : 'deactivated';
+            return jsonResponse({ 
+              success: true, 
+              is_active: newActive, 
+              message: `Offer '${currentOffer.code}' ${statusStr} successfully!` 
+            });
+          }
+          return jsonResponse({ error: 'Offer not found' }, 404);
+        }
+
+        // 3. DELETE offer (/api/offers/:id)
+        if (method === 'DELETE') {
+          if (idx !== -1) {
+            const deletedOffer = store.offers[idx];
+            store.offers.splice(idx, 1);
+            saveStore(store);
+            pushOfferDeleteToSupabase(deletedOffer.id);
+            return jsonResponse({ success: true, message: `Offer '${deletedOffer.code}' deleted successfully` });
+          }
+          return jsonResponse({ error: 'Offer not found' }, 404);
+        }
+
+        // 4. PUT update offer (/api/offers/:id)
+        if (method === 'PUT') {
+          const body = init && init.body ? JSON.parse(init.body) : {};
+          if (idx !== -1) {
+            const currentOffer = store.offers[idx];
+            const sanitizedUpdate = { ...body };
+            if ('is_active' in sanitizedUpdate) {
+              sanitizedUpdate.is_active = (sanitizedUpdate.is_active == 1 || sanitizedUpdate.is_active === true) ? 1 : 0;
+            }
+            if ('discount_percent' in sanitizedUpdate) {
+              sanitizedUpdate.discount_percent = Number(sanitizedUpdate.discount_percent) || 0;
+            }
+            if ('max_uses' in sanitizedUpdate) {
+              sanitizedUpdate.max_uses = Number(sanitizedUpdate.max_uses) || 100;
+            }
+            delete sanitizedUpdate.id;
+
+            store.offers[idx] = { ...currentOffer, ...sanitizedUpdate };
+            saveStore(store);
+            pushOfferUpdateToSupabase(currentOffer.id, sanitizedUpdate);
+            return jsonResponse({ 
+              success: true, 
+              message: `Offer '${store.offers[idx].code}' updated successfully!`, 
+              offer: store.offers[idx] 
+            });
+          }
+          return jsonResponse({ error: 'Offer not found' }, 404);
+        }
+      }
+
+      // 7. /api/plans & /api/public/plans
+      if (pathname === '/api/plans' || pathname === '/api/public/plans') {
+        if (method === 'GET') {
+          if (!store.plans || !Array.isArray(store.plans) || store.plans.length === 0) {
+            store.plans = JSON.parse(JSON.stringify(SEED_DATA.plans));
+            saveStore(store);
+          }
+          // Non-blocking background sync from Supabase
+          syncPlansFromSupabase().catch(() => {});
+          const formattedPlans = (store.plans || []).map(p => {
+            if (!p.features_parsed) {
+              if (typeof p.features === 'string') {
+                try { p.features_parsed = JSON.parse(p.features); } catch (e) { p.features_parsed = []; }
+              } else if (Array.isArray(p.features)) {
+                p.features_parsed = p.features;
+              } else {
+                p.features_parsed = [];
+              }
+            }
+            return p;
+          });
+          return jsonResponse({ success: true, plans: formattedPlans, total: formattedPlans.length });
+        }
+        if (method === 'POST') {
+          const body = init && init.body ? JSON.parse(init.body) : {};
+          const newPlanId = (body.id || 'plan_' + Date.now()).trim().toLowerCase().replace(/\s+/g, '_');
+          const newPlan = {
+            id: newPlanId,
+            name: body.name || 'New Membership Plan',
+            tagline: body.tagline || '',
+            badge: body.badge || '',
+            is_popular: (body.is_popular === true || body.is_popular === 1 || body.is_popular === '1') ? 1 : 0,
+            color: body.color || 'amber',
+            contact_credits: Number(body.contact_credits) || 30,
+            sort_order: Number(body.sort_order) || ((store.plans || []).length + 1),
+            price_1m: Number(body.price_1m) || 0,
+            offer_price_1m: Number(body.offer_price_1m) || 0,
+            price_3m: Number(body.price_3m) || 0,
+            offer_price_3m: Number(body.offer_price_3m) || 0,
+            price_6m: Number(body.price_6m) || 0,
+            offer_price_6m: Number(body.offer_price_6m) || 0,
+            price_12m: Number(body.price_12m) || 0,
+            offer_price_12m: Number(body.offer_price_12m) || 0,
+            daily_interests: body.daily_interests || 'Unlimited',
+            kundali_reports: body.kundali_reports || 'Basic Ashtakoot',
+            search_boost: body.search_boost || '1x Standard',
+            privacy_shield: body.privacy_shield || 'Standard Public',
+            support_level: body.support_level || 'Priority Support',
+            has_advisor: (body.has_advisor === true || body.has_advisor === 1 || body.has_advisor === '1') ? 1 : 0,
+            features: typeof body.features === 'string' ? body.features : JSON.stringify(body.features || []),
+            features_parsed: Array.isArray(body.features) ? body.features : [],
+            is_active: (body.is_active === false || body.is_active === 0 || body.is_active === '0') ? 0 : 1,
+            created_at: new Date().toISOString()
+          };
+          if (!store.plans) store.plans = [];
+          store.plans.push(newPlan);
+          saveStore(store);
+          await pushPlanInsertToSupabase(newPlan);
+          return jsonResponse({ success: true, plan: newPlan }, 201);
+        }
+      }
+
+      const planMatch = pathname.match(/^\/api\/plans\/([^\/]+)(\/.*)?$/);
+      if (planMatch) {
+        const planId = decodeURIComponent(planMatch[1]).trim().toLowerCase();
+        const subRoute = planMatch[2] || '';
+        if (!store.plans) store.plans = [];
+        const idx = store.plans.findIndex(p => String(p.id).trim().toLowerCase() === planId);
+
+        // GET /api/plans/:id -> Return single plan for edit modal
+        if (method === 'GET' && !subRoute) {
+          let plan = idx !== -1 ? store.plans[idx] : null;
+          if (!plan) {
+            try {
+              const sbRes = await originalFetch(`${SUPABASE_PLANS}?id=eq.${encodeURIComponent(planId)}&select=*`, {
+                headers: {
+                  'apikey': SUPABASE_ANON,
+                  'Authorization': 'Bearer ' + SUPABASE_ANON
+                }
+              });
+              if (sbRes.ok) {
+                const sbData = await sbRes.json();
+                if (Array.isArray(sbData) && sbData.length > 0) {
+                  plan = sbData[0];
+                  store.plans.push(plan);
+                  saveStore(store);
+                }
+              }
+            } catch (e) {
+              console.warn('[Admin Engine] Supabase direct plan fetch notice:', e);
+            }
+          }
+
+          if (plan) {
+            const planCopy = { ...plan };
+            if (!planCopy.features_parsed) {
+              if (typeof planCopy.features === 'string') {
+                try { planCopy.features_parsed = JSON.parse(planCopy.features); } catch (e) { planCopy.features_parsed = []; }
+              } else if (Array.isArray(planCopy.features)) {
+                planCopy.features_parsed = planCopy.features;
+              } else {
+                planCopy.features_parsed = [];
+              }
+            }
+            return jsonResponse({ success: true, plan: planCopy });
+          }
+          return jsonResponse({ error: 'Plan not found' }, 404);
+        }
+
+        if (subRoute === '/toggle' && method === 'PATCH') {
+          const body = init && init.body ? JSON.parse(init.body) : {};
           let newActive;
           if (idx !== -1) {
             if (body.is_active !== undefined) {
@@ -1722,17 +1910,6 @@
             message: 'Plan status updated successfully',
             plan: { id: planId, is_active: newActive } 
           });
-        }
-
-        if (subRoute === '/toggle' && method === 'PATCH') {
-          if (idx !== -1) {
-            const newActive = store.plans[idx].is_active == 1 ? 0 : 1;
-            store.plans[idx].is_active = newActive;
-            saveStore(store);
-            await pushPlanUpdateToSupabase(planId, { is_active: newActive });
-            return jsonResponse({ success: true, is_active: newActive, plan: store.plans[idx] });
-          }
-          return jsonResponse({ error: 'Plan not found' }, 404);
         }
 
         if (method === 'PUT') {

@@ -16,7 +16,7 @@ import {
   SlidersHorizontal,
   ChevronRight
 } from 'lucide-react';
-import { MobileTopStatusBar, MobileBottomNavigationIndicator } from './MobileStatusBar';
+import { MobileBottomNavigationIndicator } from './MobileStatusBar';
 import MobileAppShell from './MobileAppShell';
 import MobileMatchFeed from './MobileMatchFeed';
 import MobileSearchScreen from './MobileSearchScreen';
@@ -366,14 +366,6 @@ export default function MobileAppModal({
                 ? 'w-full max-w-[540px]'
                 : 'w-full max-w-full'
           } ${isDarkMode ? 'bg-[#081220]' : 'bg-slate-50'}`}>
-
-            {/* Mobile Top Status Bar (Time, Signal, WiFi, Battery) */}
-            <MobileTopStatusBar 
-              deviceType="ios" 
-              currentScreen={internalScreen} 
-              activeStoryViewer={activeStoryViewer} 
-              theme="auto" 
-            />
 
             {/* Internal App Navigation / Screen Router */}
             <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">

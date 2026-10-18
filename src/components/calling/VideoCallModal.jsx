@@ -31,8 +31,24 @@ export default function VideoCallModal({
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null);
   const timerRef = useRef(null);
   const audioContextRef = useRef(null);
+
+  // Helper to safely play media with user-gesture unlock fallback
+  const safePlayMedia = (mediaEl, label = 'media') => {
+    if (!mediaEl) return;
+    mediaEl.play().catch((err) => {
+      console.warn(`[VideoCall] ${label} autoplay notice:`, err);
+      const unlockGesture = () => {
+        mediaEl.play().catch(() => {});
+        window.removeEventListener('click', unlockGesture);
+        window.removeEventListener('touchstart', unlockGesture);
+      };
+      window.addEventListener('click', unlockGesture, { once: true });
+      window.addEventListener('touchstart', unlockGesture, { once: true });
+    });
+  };
 
   // Play pleasant chime on connect
   const playVideoChime = () => {
@@ -59,6 +75,59 @@ export default function VideoCallModal({
     } catch (e) {}
   };
 
+  // Attach local camera stream to local video element
+  const attachLocalStream = () => {
+    const stream = webrtcCallService.localStream;
+    if (stream) {
+      setHasCameraPermission(true);
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.muted = true;
+        safePlayMedia(localVideoRef.current, 'localVideo');
+      }
+    }
+  };
+
+  // Handle incoming remote media (both video and audio)
+  const handleRemoteStream = (stream) => {
+    console.log('[VideoCall] handleRemoteStream received:', stream?.getTracks()?.map(t => `${t.kind}:${t.enabled}`));
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = stream;
+      safePlayMedia(remoteVideoRef.current, 'remoteVideo');
+    }
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = stream;
+      safePlayMedia(remoteAudioRef.current, 'remoteAudio');
+    }
+    const hasVideoTrack = stream?.getVideoTracks()?.length > 0;
+    setHasRemoteVideo(hasVideoTrack);
+    setCallStatus('connected');
+    playVideoChime();
+  };
+
+  // Periodic safety check to ensure streams stay attached when connected
+  useEffect(() => {
+    if (callStatus === 'connected') {
+      if (webrtcCallService.localStream && localVideoRef.current && !localVideoRef.current.srcObject) {
+        localVideoRef.current.srcObject = webrtcCallService.localStream;
+        localVideoRef.current.muted = true;
+        safePlayMedia(localVideoRef.current, 'localVideo');
+        setHasCameraPermission(true);
+      }
+      if (webrtcCallService.remoteStream) {
+        if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
+          remoteVideoRef.current.srcObject = webrtcCallService.remoteStream;
+          safePlayMedia(remoteVideoRef.current, 'remoteVideo');
+          setHasRemoteVideo(true);
+        }
+        if (remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
+          remoteAudioRef.current.srcObject = webrtcCallService.remoteStream;
+          safePlayMedia(remoteAudioRef.current, 'remoteAudio');
+        }
+      }
+    }
+  }, [callStatus]);
+
   // WebRTC Video Lifecycle
   useEffect(() => {
     if (!isOpen) return;
@@ -67,27 +136,11 @@ export default function VideoCallModal({
     let ringTimer = null;
     let mockConnectTimer = null;
 
-    const attachLocalStream = () => {
-      if (webrtcCallService.localStream && localVideoRef.current) {
-        localVideoRef.current.srcObject = webrtcCallService.localStream;
-        setHasCameraPermission(true);
-      }
-    };
-
-    const handleRemoteStream = (stream) => {
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = stream;
-        remoteVideoRef.current.play().catch(e => console.log('Remote video autoplay:', e));
-      }
-      setHasRemoteVideo(true);
-      setCallStatus('connected');
-      playVideoChime();
-    };
-
     const handleStatusChange = (status) => {
       if (!isSubscribed) return;
       if (status === 'connected') {
         setCallStatus('connected');
+        attachLocalStream();
         playVideoChime();
       } else if (status === 'declined' || status === 'ended') {
         setCallStatus('ended');
@@ -119,6 +172,7 @@ export default function VideoCallModal({
       mockConnectTimer = setTimeout(() => {
         if (isSubscribed && callStatus !== 'connected' && callStatus !== 'ended') {
           setCallStatus('connected');
+          attachLocalStream();
           playVideoChime();
         }
       }, 6500);
@@ -208,18 +262,22 @@ export default function VideoCallModal({
         className="relative w-full max-w-sm sm:max-w-xl md:max-w-2xl bg-slate-950 rounded-3xl overflow-hidden shadow-2xl border border-[#D4AF37]/50 flex flex-col h-[90vh] max-h-[720px]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Dedicated Hidden Remote Audio Element for guaranteed bidirectional voice audio */}
+        <audio ref={remoteAudioRef} autoPlay playsInline />
+
         {/* Candidate Main Video Feed (Full Screen) */}
         <div className="relative flex-1 bg-gradient-to-b from-[#0B192C] to-[#040911] overflow-hidden flex items-center justify-center">
           
-          {/* Real Remote Video Feed if connected, or Candidate Photo */}
-          {hasRemoteVideo ? (
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
-          ) : (
+          {/* Real Remote Video Feed - Always mounted so ref is never null */}
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className={`w-full h-full object-cover ${hasRemoteVideo ? 'block' : 'hidden'}`}
+          />
+
+          {/* Candidate Placeholder Photo shown when remote video is not yet active */}
+          {!hasRemoteVideo && (
             <img 
               src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
               alt={candidate.name} 
@@ -277,20 +335,22 @@ export default function VideoCallModal({
 
           {/* Local User Picture-in-Picture (PIP) Window */}
           <div className="absolute bottom-20 sm:bottom-24 right-4 w-28 h-40 sm:w-36 sm:h-48 rounded-2xl overflow-hidden bg-black/80 border-2 border-[#D4AF37] shadow-2xl z-30 group">
-            {hasCameraPermission && !isCameraOff ? (
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover transform -scale-x-100"
-              />
-            ) : (
+            {/* Always mounted local video so ref is never null */}
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover transform -scale-x-100 ${
+                hasCameraPermission && !isCameraOff ? 'block' : 'hidden'
+              }`}
+            />
+            {(!hasCameraPermission || isCameraOff) && (
               <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900 text-slate-300 space-y-1">
                 <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-[#DFB76C] font-bold">
                   {currentUser?.name?.[0] || 'You'}
                 </div>
-                <span className="text-[10px] text-slate-400">{isCameraOff ? 'Camera Off' : 'Camera Active'}</span>
+                <span className="text-[10px] text-slate-400">{isCameraOff ? 'Camera Off' : 'Starting Camera...'}</span>
               </div>
             )}
             

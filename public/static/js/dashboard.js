@@ -2265,39 +2265,228 @@ function escapePlanHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+// ========================================================
+// DEFAULT MEMBERSHIP PLANS DEFINITION (OFFLINE-FIRST)
+// ========================================================
+const DEFAULT_MEMBERSHIP_PLANS = [
+  {
+    id: 'silver',
+    name: 'Silver Starter',
+    tagline: 'Ideal for exploring verified matches',
+    badge: 'BASIC',
+    is_popular: 0,
+    color: 'slate',
+    contact_credits: 10,
+    price_1m: 499,
+    offer_price_1m: 399,
+    price_3m: 999,
+    offer_price_3m: 799,
+    price_6m: 1499,
+    offer_price_6m: 1199,
+    price_12m: 1999,
+    offer_price_12m: 1699,
+    daily_interests: '15/day',
+    kundali_reports: 'Basic Ashtakoot',
+    search_boost: '1x Standard',
+    has_advisor: 0,
+    privacy_shield: 'Standard Public',
+    support_level: 'Email Support',
+    features_parsed: [
+      { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Send Unlimited Interests & Shortlists', included: true },
+      { text: 'View 10 Verified Mobile Numbers & Addresses', included: true },
+      { text: 'Full 36 Gunas Vedic Horoscope & Dosha Analysis', included: true },
+      { text: 'Instant WhatsApp Family Connect Link', included: true },
+      { text: 'Personal Matchmaking Advisor', included: false }
+    ],
+    features: JSON.stringify([
+      { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Send Unlimited Interests & Shortlists', included: true },
+      { text: 'View 10 Verified Mobile Numbers & Addresses', included: true },
+      { text: 'Full 36 Gunas Vedic Horoscope & Dosha Analysis', included: true },
+      { text: 'Instant WhatsApp Family Connect Link', included: true },
+      { text: 'Personal Matchmaking Advisor', included: false }
+    ]),
+    is_active: 1,
+    sort_order: 1
+  },
+  {
+    id: 'gold',
+    name: 'Gold Match',
+    tagline: 'Ideal for serious marriage seekers',
+    badge: 'POPULAR CHOICE',
+    is_popular: 0,
+    color: 'amber',
+    contact_credits: 30,
+    price_1m: 999,
+    offer_price_1m: 799,
+    price_3m: 1999,
+    offer_price_3m: 1499,
+    price_6m: 2999,
+    offer_price_6m: 2499,
+    price_12m: 3999,
+    offer_price_12m: 3599,
+    daily_interests: 'Unlimited',
+    kundali_reports: 'Basic Ashtakoot',
+    search_boost: '1x Standard',
+    has_advisor: 0,
+    privacy_shield: 'Photo Blur until Accepted',
+    support_level: 'Priority Chat & Email (24h)',
+    features_parsed: [
+      { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Send Unlimited Interests & Shortlists', included: true },
+      { text: 'View 30 Verified Mobile Numbers & Addresses', included: true },
+      { text: 'Full 36 Gunas Ashtakoot Astrological Dossier', included: true },
+      { text: 'Unlimited Direct Matrimonial Chat', included: true },
+      { text: 'Instant WhatsApp Family Connect Link', included: true },
+      { text: '3x Search Visibility Profile Boost', included: false },
+      { text: 'Personal Matchmaking Advisor', included: false }
+    ],
+    features: JSON.stringify([
+      { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Send Unlimited Interests & Shortlists', included: true },
+      { text: 'View 30 Verified Mobile Numbers & Addresses', included: true },
+      { text: 'Full 36 Gunas Ashtakoot Astrological Dossier', included: true },
+      { text: 'Unlimited Direct Matrimonial Chat', included: true },
+      { text: 'Instant WhatsApp Family Connect Link', included: true },
+      { text: '3x Search Visibility Profile Boost', included: false },
+      { text: 'Personal Matchmaking Advisor', included: false }
+    ]),
+    is_active: 1,
+    sort_order: 2
+  },
+  {
+    id: 'diamond',
+    name: 'Diamond VIP',
+    tagline: 'Fastest matches with 3x visibility',
+    badge: 'MOST POPULAR ⭐',
+    is_popular: 1,
+    color: 'blue',
+    contact_credits: 50,
+    price_1m: 2499,
+    offer_price_1m: 1999,
+    price_3m: 3999,
+    offer_price_3m: 2499,
+    price_6m: 4999,
+    offer_price_6m: 3499,
+    price_12m: 8999,
+    offer_price_12m: 3999,
+    daily_interests: 'Unlimited',
+    kundali_reports: 'Basic Ashtakoot',
+    search_boost: '3x Boost',
+    has_advisor: 0,
+    privacy_shield: 'Standard Public',
+    support_level: 'Priority 24h Support',
+    features_parsed: [
+      { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Send Unlimited Interests & Follow-ups', included: true },
+      { text: 'View 50 Verified Contact Numbers + Parents Contacts', included: true },
+      { text: 'Full 36 Gunas Vedic Horoscope & Dosha Analysis', included: true },
+      { text: 'Priority Chat Badge & Read Receipts', included: true },
+      { text: 'Instant WhatsApp Connect & Family Contact Access', included: true },
+      { text: '3x Search Visibility & Spotlight in Match Feed', included: true },
+      { text: 'VIP Aadhaar Golden Shield on Profile', included: true },
+      { text: 'Dedicated Matrimonial Relationship Manager', included: false }
+    ],
+    features: JSON.stringify([
+      { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Send Unlimited Interests & Follow-ups', included: true },
+      { text: 'View 50 Verified Contact Numbers + Parents Contacts', included: true },
+      { text: 'Full 36 Gunas Vedic Horoscope & Dosha Analysis', included: true },
+      { text: 'Priority Chat Badge & Read Receipts', included: true },
+      { text: 'Instant WhatsApp Connect & Family Contact Access', included: true },
+      { text: '3x Search Visibility & Spotlight in Match Feed', included: true },
+      { text: 'VIP Aadhaar Golden Shield on Profile', included: true },
+      { text: 'Dedicated Matrimonial Relationship Manager', included: false }
+    ]),
+    is_active: 1,
+    sort_order: 3
+  },
+  {
+    id: 'platinum',
+    name: 'Platinum Royal',
+    tagline: 'Full luxury matrimonial suite',
+    badge: 'ELITE CONCIERGE',
+    is_popular: 0,
+    color: 'purple',
+    contact_credits: 100,
+    price_1m: 1999,
+    offer_price_1m: 1499,
+    price_3m: 3999,
+    offer_price_3m: 2999,
+    price_6m: 5999,
+    offer_price_6m: 4499,
+    price_12m: 7999,
+    offer_price_12m: 6499,
+    daily_interests: 'Unlimited',
+    kundali_reports: 'Full 36 Gunas + Dosha Analysis',
+    search_boost: '5x VIP Boost',
+    has_advisor: 1,
+    privacy_shield: 'Maximum VIP Shield',
+    support_level: '24/7 Dedicated Manager',
+    features_parsed: [
+      { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Send Unlimited Interests & Priority Messages', included: true },
+      { text: 'View 100 Verified Mobile Numbers & Family Contacts', included: true },
+      { text: 'Complete Horoscope & Kundali Matching Report', included: true },
+      { text: 'Unlimited Direct Matrimonial Chat & Voice Calls', included: true },
+      { text: 'Instant WhatsApp Family Connect Link', included: true },
+      { text: '5x Top-Rank Search Visibility Profile Boost', included: true },
+      { text: 'Personal Relationship Advisor & Manager', included: true }
+    ],
+    features: JSON.stringify([
+      { text: 'Browse 100% Aadhaar Verified Profiles', included: true },
+      { text: 'Send Unlimited Interests & Priority Messages', included: true },
+      { text: 'View 100 Verified Mobile Numbers & Family Contacts', included: true },
+      { text: 'Complete Horoscope & Kundali Matching Report', included: true },
+      { text: 'Unlimited Direct Matrimonial Chat & Voice Calls', included: true },
+      { text: 'Instant WhatsApp Family Connect Link', included: true },
+      { text: '5x Top-Rank Search Visibility Profile Boost', included: true },
+      { text: 'Personal Relationship Advisor & Manager', included: true }
+    ]),
+    is_active: 1,
+    sort_order: 4
+  }
+];
+
 async function loadPlans() {
   const cardsContainer = document.getElementById('plansCardsContainer');
   const tableBody = document.getElementById('plansTableBody');
   if (!cardsContainer && !tableBody) return;
 
-  if (!state.plans || state.plans.length === 0) {
-    if (cardsContainer) {
-      cardsContainer.innerHTML = `
-        <div class="col-span-full flex flex-col items-center justify-center py-16 text-slate-400 bg-[#0B192C] rounded-3xl border border-slate-800">
-          <div class="flex items-center gap-3">
-            <i data-lucide="loader-2" class="w-6 h-6 animate-spin text-[#DFB76C]"></i>
-            <span class="text-sm font-semibold text-slate-300">Loading membership packages...</span>
-          </div>
-        </div>
-      `;
-      if (window.lucide && typeof window.lucide.createIcons === 'function') lucide.createIcons();
+  // 1. Instant optimistic render: show full dashboard matrix immediately without blocking
+  if (!state.plans || !Array.isArray(state.plans) || state.plans.length === 0) {
+    try {
+      const cached = localStorage.getItem('i4you_admin_store_v4') || localStorage.getItem('i4u_matrimony_admin_store_v3');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed.plans) && parsed.plans.length > 0) {
+          state.plans = parsed.plans;
+        }
+      }
+    } catch (e) {}
+
+    if (!state.plans || !Array.isArray(state.plans) || state.plans.length === 0) {
+      state.plans = DEFAULT_MEMBERSHIP_PLANS;
     }
+    renderPlans();
   }
 
+  // 2. Fetch live updates in background from API / Supabase
   try {
     const res = await fetch('/api/plans');
-    if (!res.ok) throw new Error('Failed to load membership plans');
-    const data = await res.json();
-    state.plans = data.plans || [];
-
-    renderPlans();
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.plans) && data.plans.length > 0) {
+        state.plans = data.plans;
+        renderPlans();
+      }
+    }
   } catch (err) {
-    if (cardsContainer) {
-      cardsContainer.innerHTML = `
-        <div class="col-span-full text-center py-8 text-rose-400 text-xs">
-          Failed to load membership plans. Please click refresh to retry.
-        </div>
-      `;
+    console.warn('[Admin] Live plans refresh notice (using offline plans):', err);
+    if (!state.plans || !Array.isArray(state.plans) || state.plans.length === 0) {
+      state.plans = DEFAULT_MEMBERSHIP_PLANS;
+      renderPlans();
     }
   }
 }

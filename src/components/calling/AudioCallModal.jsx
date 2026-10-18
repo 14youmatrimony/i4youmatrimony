@@ -40,6 +40,21 @@ export default function AudioCallModal({
   const animFrameRef = useRef(null);
   const ringIntervalRef = useRef(null);
 
+  // Helper to safely play media with user-gesture unlock fallback
+  const safePlayMedia = (mediaEl, label = 'media') => {
+    if (!mediaEl) return;
+    mediaEl.play().catch((err) => {
+      console.warn(`[AudioCall] ${label} autoplay notice:`, err);
+      const unlockGesture = () => {
+        mediaEl.play().catch(() => {});
+        window.removeEventListener('click', unlockGesture);
+        window.removeEventListener('touchstart', unlockGesture);
+      };
+      window.addEventListener('click', unlockGesture, { once: true });
+      window.addEventListener('touchstart', unlockGesture, { once: true });
+    });
+  };
+
   // Web Audio Tone generator
   const playTone = (freq1, freq2, duration = 0.15) => {
     try {
@@ -178,7 +193,7 @@ export default function AudioCallModal({
     const handleRemoteStream = (stream) => {
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = stream;
-        remoteAudioRef.current.play().catch(e => console.log('Audio autoplay:', e));
+        safePlayMedia(remoteAudioRef.current, 'remoteAudio');
       }
       setIsConnectedPeer(true);
       setCallStatus('connected');
@@ -280,6 +295,16 @@ export default function AudioCallModal({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
+  }, [callStatus]);
+
+  // Safety check to ensure remote audio stays attached and playing when connected
+  useEffect(() => {
+    if (callStatus === 'connected' && webrtcCallService.remoteStream && remoteAudioRef.current) {
+      if (!remoteAudioRef.current.srcObject) {
+        remoteAudioRef.current.srcObject = webrtcCallService.remoteStream;
+      }
+      safePlayMedia(remoteAudioRef.current, 'remoteAudio');
+    }
   }, [callStatus]);
 
   if (!isOpen || !candidate) return null;

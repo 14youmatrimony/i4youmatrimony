@@ -1,13 +1,15 @@
 import { supabase } from './supabase';
 
-// Public Google STUN servers for NAT traversal (100% Free)
+// High-reliability public STUN servers for NAT traversal across diverse ISP / mobile networks (100% Free)
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' }
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:stun.services.mozilla.com' }
   ]
 };
 
@@ -123,12 +125,20 @@ class WebRTCCallService {
       });
 
     // Subscribe to session channel, then send incoming call notification to callee's inbox
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.activeSessionChannel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           console.log('[WebRTC] Connected to session channel:', sessionChannelName);
 
-          // Broadcast incoming call to callee's inbox
+          // 1. Acquire local media & prepare peer connection with tracks FIRST
+          try {
+            await this.initLocalMedia(callType);
+            this.initPeerConnection();
+          } catch (mediaErr) {
+            console.warn('[WebRTC] Media initialization error on startCall:', mediaErr);
+          }
+
+          // 2. Broadcast incoming call to callee's inbox
           const calleeInbox = supabase.channel(`user-call-inbox-${callee.id}`);
           calleeInbox.subscribe((inboxStatus) => {
             if (inboxStatus === 'SUBSCRIBED') {
@@ -155,21 +165,11 @@ class WebRTCCallService {
             }
           });
 
-          // Acquire local media
-          try {
-            await this.initLocalMedia(callType);
-            this.initPeerConnection();
-            resolve({
-              callId: this.currentCallId,
-              channelName: sessionChannelName
-            });
-          } catch (mediaErr) {
-            console.warn('[WebRTC] Media initialization error:', mediaErr);
-            resolve({
-              callId: this.currentCallId,
-              channelName: sessionChannelName
-            });
-          }
+          resolve({
+            callId: this.currentCallId,
+            channelName: sessionChannelName,
+            localStream: this.localStream
+          });
         }
       });
     });
@@ -220,7 +220,15 @@ class WebRTCCallService {
         if (status === 'SUBSCRIBED') {
           console.log('[WebRTC] Receiver connected to session channel:', sessionChannelName);
 
-          // Inform caller that call is accepted
+          // 1. Acquire local media & create peer connection FIRST so local audio/video tracks are ready
+          try {
+            await this.initLocalMedia(this.callType);
+            this.initPeerConnection();
+          } catch (e) {
+            console.warn('[WebRTC] Media init error on acceptCall:', e);
+          }
+
+          // 2. NOW inform caller that call is accepted, ready to receive offer
           await this.activeSessionChannel.send({
             type: 'broadcast',
             event: 'call-accepted',
@@ -234,15 +242,10 @@ class WebRTCCallService {
             this.onCallStatusChangeCallback('connected');
           }
 
-          // Acquire local media & create peer connection
-          try {
-            await this.initLocalMedia(this.callType);
-            this.initPeerConnection();
-          } catch (e) {
-            console.warn('[WebRTC] Media init warning:', e);
-          }
-
-          resolve(true);
+          resolve({
+            callId: this.currentCallId,
+            localStream: this.localStream
+          });
         }
       });
     });
@@ -285,49 +288,87 @@ class WebRTCCallService {
   }
 
   /**
-   * Acquire camera/microphone stream
+   * Acquire camera/microphone stream with progressive fallbacks
    */
   async initLocalMedia(callType = 'audio', facingMode = 'user') {
     if (this.localStream) {
-      return this.localStream;
+      const hasVideo = this.localStream.getVideoTracks().length > 0;
+      if (callType !== 'video' || hasVideo) {
+        return this.localStream;
+      }
+      // Re-acquiring because previous stream had no video track
+      this.localStream.getTracks().forEach((track) => track.stop());
+      this.localStream = null;
     }
 
-    const constraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.warn('[WebRTC] getUserMedia not supported in this environment');
+      return null;
+    }
+
+    const isVideo = callType === 'video';
+
+    // Progressive attempts for video + audio
+    const attemptConstraints = isVideo ? [
+      // 1. HD 1280x720 with ideal facingMode & audio processing
+      {
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
       },
-      video: callType === 'video' ? {
-        facingMode,
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      } : false
-    };
-
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        this.localStream = stream;
-        return stream;
+      // 2. Ideal facing mode with standard dimensions
+      {
+        audio: true,
+        video: { facingMode: { ideal: facingMode }, width: { ideal: 640 }, height: { ideal: 480 } }
+      },
+      // 3. Simple facing mode
+      {
+        audio: true,
+        video: { facingMode: { ideal: facingMode } }
+      },
+      // 4. Any video and audio
+      {
+        audio: true,
+        video: true
+      },
+      // 5. Video only fallback
+      {
+        audio: false,
+        video: true
+      },
+      // 6. Audio only fallback (if camera completely unavailable)
+      {
+        audio: true,
+        video: false
       }
-    } catch (err) {
-      console.warn('[WebRTC] getUserMedia failed, trying audio-only fallback:', err);
-      if (callType === 'video') {
-        try {
-          const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          this.localStream = audioOnlyStream;
-          return audioOnlyStream;
-        } catch (audioErr) {
-          console.warn('[WebRTC] Microphone access denied or unavailable:', audioErr);
+    ] : [
+      // Audio call attempts
+      {
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      },
+      {
+        audio: true
+      }
+    ];
+
+    let stream = null;
+    for (const constraints of attemptConstraints) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (stream) {
+          console.log('[WebRTC] Successfully acquired local media with constraints:', constraints);
+          break;
         }
+      } catch (err) {
+        console.warn('[WebRTC] getUserMedia attempt failed, trying fallback:', constraints, err);
       }
     }
-    return null;
+
+    this.localStream = stream;
+    return stream;
   }
 
   /**
-   * Initialize RTCPeerConnection with Google STUN servers
+   * Initialize RTCPeerConnection with Google & Cloudflare STUN servers
    */
   initPeerConnection() {
     if (typeof RTCPeerConnection === 'undefined') {
@@ -335,23 +376,45 @@ class WebRTCCallService {
       return;
     }
 
+    // Close any previous peer connection before starting fresh
+    if (this.peerConnection) {
+      try {
+        this.peerConnection.close();
+      } catch (e) {}
+      this.peerConnection = null;
+    }
+
     this.peerConnection = new RTCPeerConnection(ICE_SERVERS);
 
     // Add local tracks to peer connection
     if (this.localStream) {
       this.localStream.getTracks().forEach((track) => {
-        this.peerConnection.addTrack(track, this.localStream);
+        try {
+          this.peerConnection.addTrack(track, this.localStream);
+          console.log(`[WebRTC] Added local track (${track.kind}) to peer connection`);
+        } catch (e) {
+          console.warn('[WebRTC] Error adding local track:', e);
+        }
       });
     }
 
-    // Handle remote tracks
+    // Handle incoming remote tracks (both audio and video)
     this.peerConnection.ontrack = (event) => {
-      console.log('[WebRTC] ontrack received remote media stream:', event.streams);
-      if (event.streams && event.streams[0]) {
-        this.remoteStream = event.streams[0];
-        if (this.onRemoteStreamCallback) {
-          this.onRemoteStreamCallback(this.remoteStream);
+      console.log('[WebRTC] ontrack received track:', event.track.kind, event.streams);
+
+      let stream = event.streams && event.streams[0];
+      if (!stream) {
+        if (!this.remoteStream) {
+          this.remoteStream = new MediaStream();
         }
+        this.remoteStream.addTrack(event.track);
+        stream = this.remoteStream;
+      } else {
+        this.remoteStream = stream;
+      }
+
+      if (this.onRemoteStreamCallback) {
+        this.onRemoteStreamCallback(this.remoteStream);
       }
     };
 
@@ -414,6 +477,7 @@ class WebRTCCallService {
    */
   async handleRemoteOffer(offerSdp) {
     if (!this.peerConnection) {
+      await this.initLocalMedia(this.callType);
       this.initPeerConnection();
     }
     try {
@@ -422,10 +486,17 @@ class WebRTCCallService {
       // Process any queued ICE candidates
       while (this.iceCandidateQueue.length > 0) {
         const candidate = this.iceCandidateQueue.shift();
-        await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.warn('[WebRTC] Queued ICE candidate error:', e);
+        }
       }
 
-      const answer = await this.peerConnection.createAnswer();
+      const answer = await this.peerConnection.createAnswer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: this.callType === 'video'
+      });
       await this.peerConnection.setLocalDescription(answer);
 
       if (this.activeSessionChannel) {
@@ -446,12 +517,18 @@ class WebRTCCallService {
   async handleRemoteAnswer(answerSdp) {
     if (!this.peerConnection) return;
     try {
-      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answerSdp));
+      if (this.peerConnection.signalingState !== 'stable') {
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answerSdp));
+      }
 
       // Process any queued ICE candidates
       while (this.iceCandidateQueue.length > 0) {
         const candidate = this.iceCandidateQueue.shift();
-        await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.warn('[WebRTC] Queued ICE candidate error in answer:', e);
+        }
       }
     } catch (err) {
       console.error('[WebRTC] Error handling remote answer:', err);
@@ -463,7 +540,7 @@ class WebRTCCallService {
    */
   async handleRemoteIceCandidate(candidateData) {
     try {
-      if (this.peerConnection && this.peerConnection.remoteDescription) {
+      if (this.peerConnection && this.peerConnection.remoteDescription && this.peerConnection.remoteDescription.type) {
         await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
       } else {
         this.iceCandidateQueue.push(candidateData);
@@ -503,11 +580,11 @@ class WebRTCCallService {
 
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode },
-        audio: true
+        video: { facingMode: { ideal: facingMode } },
+        audio: false // Do not request audio here to prevent microphone conflict
       });
 
-      const oldVideoTrack = this.localStream.getVideoTracks()[0];
+      const oldVideoTrack = this.localStream?.getVideoTracks()[0];
       const newVideoTrack = newStream.getVideoTracks()[0];
 
       if (oldVideoTrack && newVideoTrack) {
@@ -516,7 +593,7 @@ class WebRTCCallService {
           .find((s) => s.track && s.track.kind === 'video');
 
         if (sender) {
-          sender.replaceTrack(newVideoTrack);
+          await sender.replaceTrack(newVideoTrack);
         }
 
         oldVideoTrack.stop();

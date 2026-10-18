@@ -1,6 +1,6 @@
 import React from 'react';
 import { Monitor } from 'lucide-react';
-import { MobileTopStatusBar, MobileBottomNavigationIndicator } from './MobileStatusBar';
+import { MobileBottomNavigationIndicator } from './MobileStatusBar';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function DeviceFrameSimulator({
@@ -40,12 +40,6 @@ export default function DeviceFrameSimulator({
           <div className={`w-full max-w-full sm:max-w-[400px] sm:w-[400px] flex flex-col h-full sm:max-h-[840px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_30px_rgba(212,175,55,0.18)] overflow-hidden sm:border sm:border-[#D4AF37]/40 sm:rounded-[38px] relative [transform:translateZ(0)] shrink-0 ${
             currentScreen === 'app' ? (isDarkMode ? 'bg-[#081220]' : 'bg-slate-50') : (currentScreen === 'register' || currentScreen === 'login' ? 'bg-white' : 'bg-[#0B192C]')
           }`}>
-            <MobileTopStatusBar 
-              deviceType="ios" 
-              currentScreen={currentScreen} 
-              activeStoryViewer={activeStoryViewer} 
-              theme={statusBarMode} 
-            />
             <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
               {children}
             </div>
@@ -63,12 +57,6 @@ export default function DeviceFrameSimulator({
           <div className={`w-full max-w-full sm:max-w-lg flex flex-col h-full sm:max-h-[840px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_30px_rgba(212,175,55,0.18)] overflow-hidden sm:border sm:border-[#D4AF37]/40 sm:rounded-[38px] relative [transform:translateZ(0)] shrink-0 ${
             currentScreen === 'app' ? (isDarkMode ? 'bg-[#081220]' : 'bg-slate-50') : (currentScreen === 'register' || currentScreen === 'login' ? 'bg-white' : 'bg-[#0B192C]')
           }`}>
-            <MobileTopStatusBar 
-              deviceType="ios" 
-              currentScreen={currentScreen} 
-              activeStoryViewer={activeStoryViewer} 
-              theme={statusBarMode} 
-            />
             <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
               {children}
             </div>
@@ -87,12 +75,6 @@ export default function DeviceFrameSimulator({
             <div className={`flex-1 flex flex-col sm:rounded-[34px] overflow-hidden relative shadow-inner [transform:translateZ(0)] ${
               currentScreen === 'app' ? (isDarkMode ? 'bg-[#081220]' : 'bg-slate-50') : (currentScreen === 'register' || currentScreen === 'login' ? 'bg-white' : 'bg-[#0B192C]')
             }`}>
-              <MobileTopStatusBar 
-                deviceType="android" 
-                currentScreen={currentScreen} 
-                activeStoryViewer={activeStoryViewer} 
-                theme={statusBarMode} 
-              />
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
                 {children}
               </div>
@@ -112,12 +94,6 @@ export default function DeviceFrameSimulator({
             <div className={`flex-1 flex flex-col sm:rounded-[38px] overflow-hidden relative shadow-inner [transform:translateZ(0)] ${
               currentScreen === 'app' ? (isDarkMode ? 'bg-[#081220]' : 'bg-slate-50') : (currentScreen === 'register' || currentScreen === 'login' ? 'bg-white' : 'bg-[#0B192C]')
             }`}>
-              <MobileTopStatusBar 
-                deviceType="ios" 
-                currentScreen={currentScreen} 
-                activeStoryViewer={activeStoryViewer} 
-                theme={statusBarMode} 
-              />
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
                 {children}
               </div>
