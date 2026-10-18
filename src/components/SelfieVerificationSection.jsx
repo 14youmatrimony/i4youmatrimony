@@ -303,7 +303,7 @@ export default function SelfieVerificationSection({
     if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraErrorType('unsupported');
       setCameraError(
-        'WebRTC camera is not supported in this browser. Please use the Device Camera or Photo Upload option below.'
+        'Camera is not supported in this browser. Please use the Device Camera or Photo Upload option below.'
       );
       setCameraActive(false);
       return;

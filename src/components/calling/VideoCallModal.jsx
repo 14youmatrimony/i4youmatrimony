@@ -7,9 +7,7 @@ import {
   PhoneOff, 
   SwitchCamera, 
   ShieldCheck, 
-  Lock, 
-  MapPin,
-  Radio
+  Lock 
 } from 'lucide-react';
 import { webrtcCallService } from '../../services/webrtcCallService';
 
@@ -76,8 +74,8 @@ export default function VideoCallModal({
   };
 
   // Attach local camera stream to local video element
-  const attachLocalStream = () => {
-    const stream = webrtcCallService.localStream;
+  const attachLocalStream = (customStream = null) => {
+    const stream = customStream || webrtcCallService.localStream;
     if (stream) {
       setHasCameraPermission(true);
       if (localVideoRef.current) {
@@ -90,17 +88,34 @@ export default function VideoCallModal({
 
   // Handle incoming remote media (both video and audio)
   const handleRemoteStream = (stream) => {
+    if (!stream) return;
     console.log('[VideoCall] handleRemoteStream received:', stream?.getTracks()?.map(t => `${t.kind}:${t.enabled}`));
-    if (remoteVideoRef.current) {
+
+    const checkTracks = () => {
+      const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live' && t.enabled);
+      setHasRemoteVideo(vTracks.length > 0);
+    };
+
+    stream.onaddtrack = () => checkTracks();
+    stream.onremovetrack = () => checkTracks();
+    checkTracks();
+
+    // Attach to video element for rendering remote video
+    if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== stream) {
       remoteVideoRef.current.srcObject = stream;
+    }
+    if (remoteVideoRef.current) {
       safePlayMedia(remoteVideoRef.current, 'remoteVideo');
     }
-    if (remoteAudioRef.current) {
+
+    // Dedicated unmuted audio element for clean, direct incoming voice
+    if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== stream) {
       remoteAudioRef.current.srcObject = stream;
+    }
+    if (remoteAudioRef.current) {
       safePlayMedia(remoteAudioRef.current, 'remoteAudio');
     }
-    const hasVideoTrack = stream?.getVideoTracks()?.length > 0;
-    setHasRemoteVideo(hasVideoTrack);
+
     setCallStatus('connected');
     playVideoChime();
   };
@@ -118,23 +133,33 @@ export default function VideoCallModal({
         if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
           remoteVideoRef.current.srcObject = webrtcCallService.remoteStream;
           safePlayMedia(remoteVideoRef.current, 'remoteVideo');
-          setHasRemoteVideo(true);
         }
         if (remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
           remoteAudioRef.current.srcObject = webrtcCallService.remoteStream;
           safePlayMedia(remoteAudioRef.current, 'remoteAudio');
         }
+        const hasV = webrtcCallService.remoteStream.getVideoTracks().some(t => t.readyState === 'live' && t.enabled);
+        setHasRemoteVideo(hasV);
       }
     }
   }, [callStatus]);
 
-  // WebRTC Video Lifecycle
+  // Video Call Lifecycle
   useEffect(() => {
     if (!isOpen) return;
 
     let isSubscribed = true;
     let ringTimer = null;
-    let mockConnectTimer = null;
+    let callTimeoutTimer = null;
+
+    // 1. Instantly request local camera & audio stream so local preview starts immediately
+    webrtcCallService.initLocalMedia('video', facingMode).then((stream) => {
+      if (isSubscribed && stream) {
+        attachLocalStream(stream);
+      }
+    }).catch((err) => {
+      console.warn('[VideoCall] Initial camera preview error:', err);
+    });
 
     const handleStatusChange = (status) => {
       if (!isSubscribed) return;
@@ -168,14 +193,13 @@ export default function VideoCallModal({
         }
       }, 1500);
 
-      // Automated fallback for demo / test accounts when offline
-      mockConnectTimer = setTimeout(() => {
+      // Call timeout: if not answered within 45 seconds, conclude call
+      callTimeoutTimer = setTimeout(() => {
         if (isSubscribed && callStatus !== 'connected' && callStatus !== 'ended') {
-          setCallStatus('connected');
-          attachLocalStream();
-          playVideoChime();
+          setCallStatus('ended');
+          setTimeout(() => onClose(), 1200);
         }
-      }, 6500);
+      }, 45000);
 
     } else {
       // Receiver accepting video call
@@ -196,7 +220,7 @@ export default function VideoCallModal({
     return () => {
       isSubscribed = false;
       clearTimeout(ringTimer);
-      clearTimeout(mockConnectTimer);
+      clearTimeout(callTimeoutTimer);
       if (timerRef.current) clearInterval(timerRef.current);
       webrtcCallService.cleanup();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
@@ -268,11 +292,12 @@ export default function VideoCallModal({
         {/* Candidate Main Video Feed (Full Screen) */}
         <div className="relative flex-1 bg-gradient-to-b from-[#0B192C] to-[#040911] overflow-hidden flex items-center justify-center">
           
-          {/* Real Remote Video Feed - Always mounted so ref is never null */}
+          {/* Real Remote Video Feed - Always mounted so ref is never null, muted to avoid duplicate audio with remoteAudioRef */}
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
+            muted
             className={`w-full h-full object-cover ${hasRemoteVideo ? 'block' : 'hidden'}`}
           />
 
@@ -304,7 +329,7 @@ export default function VideoCallModal({
 
             <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold shadow-md">
               <Lock className="w-3 h-3 text-emerald-400" />
-              <span>WebRTC P2P Encrypted Video</span>
+              <span>End-to-End Encrypted</span>
             </div>
           </div>
 
@@ -325,8 +350,8 @@ export default function VideoCallModal({
               <div className="text-center text-white space-y-1">
                 <h3 className="font-serif font-bold text-lg">{candidate.name}</h3>
                 <p className="text-xs text-[#DFB76C] font-semibold animate-pulse">
-                  {callStatus === 'calling' && 'Starting Live Video Call... (Signaling)'}
-                  {callStatus === 'ringing' && 'Awaiting response... (Candidate device ringing)'}
+                  {callStatus === 'calling' && 'Initiating Live Video Call...'}
+                  {callStatus === 'ringing' && 'Awaiting response... (Ringing)'}
                   {callStatus === 'ended' && 'Video Meeting Ended'}
                 </p>
               </div>
@@ -358,12 +383,6 @@ export default function VideoCallModal({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               <span>You</span>
             </div>
-          </div>
-
-          {/* Bottom Watermark Security Banner */}
-          <div className="absolute bottom-20 left-4 text-[10px] text-slate-400/90 bg-black/60 px-2.5 py-1 rounded-lg backdrop-blur-xs hidden sm:flex items-center space-x-1 border border-white/5">
-            <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-            <span>P2P WebRTC Live Feed • 100% Privacy</span>
           </div>
 
         </div>

@@ -187,7 +187,7 @@ export default function IncomingCallModal({
           </div>
 
           <p className="text-[10px] text-center text-slate-400 leading-relaxed">
-            🔒 Protected under I 4 You Privacy Protocol • End-to-End Encrypted WebRTC
+            🔒 Protected under I 4 You Privacy Protocol • End-to-End Encrypted
           </p>
         </div>
 

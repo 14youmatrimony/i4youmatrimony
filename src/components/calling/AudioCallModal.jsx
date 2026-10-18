@@ -242,14 +242,15 @@ export default function AudioCallModal({
         }
       }, 1200);
 
-      // Automated fallback for demo / test accounts when offline
+      // Awaiting recipient answer timeout (45s)
       mockConnectTimer = setTimeout(() => {
         if (isSubscribed && callStatus !== 'connected' && callStatus !== 'ended') {
           if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
-          setCallStatus('connected');
-          playConnectChime();
+          setCallStatus('ended');
+          playTone(380, 280, 0.3);
+          setTimeout(() => onClose(), 1200);
         }
-      }, 6500);
+      }, 45000);
 
     } else {
       // Receiver answering incoming call
@@ -551,7 +552,7 @@ export default function AudioCallModal({
 
           {/* Privacy Disclaimer */}
           <p className="text-[10px] text-center text-slate-400 max-w-xs mx-auto leading-relaxed">
-            🔒 In-App WebRTC Call • Supabase Realtime Signaling. Direct mobile number is masked.
+            🔒 End-to-End Encrypted Voice Call. Direct mobile number is masked.
           </p>
 
         </div>
