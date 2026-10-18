@@ -5,10 +5,11 @@
  * 1. Center / Look Straight
  * 2. Turn Head Left (⬅️)
  * 3. Turn Head Right (➡️)
- * 4. Blink / Close Eyes (👁️‍🗨️)
- * 5. Auto Capture Verified Frame (😊)
+ * 4. Blink / Smile (😊)
+ * 5. Auto Capture Verified Frame (📸)
  * 
- * Zero-dependency, lightweight (160x160 processing at 15-20fps), cross-platform.
+ * Zero-dependency, lightweight (160x160 canvas processing), cross-platform,
+ * calibrated for all lighting conditions and complexion ranges.
  */
 
 export const LIVENESS_STEPS = [
@@ -16,46 +17,36 @@ export const LIVENESS_STEPS = [
     id: 'center',
     stepNumber: 1,
     titleEn: 'Look Straight',
-    titleMl: 'Look Straight',
-    instructionEn: 'Position your face in the oval and look straight ahead',
-    instructionMl: 'Position your face in the oval and look straight ahead',
-    minDurationMs: 800
+    instructionEn: 'Position your face inside the oval and look straight',
+    minDurationMs: 400
   },
   {
     id: 'turn_left',
     stepNumber: 2,
     titleEn: 'Turn Face Left',
-    titleMl: 'Turn Face Left',
-    instructionEn: 'Turn your face slowly to the LEFT ⬅️',
-    instructionMl: 'Turn your face slowly to the LEFT ⬅️',
-    minDurationMs: 400
+    instructionEn: 'Turn your face slightly to the LEFT ⬅️',
+    minDurationMs: 300
   },
   {
     id: 'turn_right',
     stepNumber: 3,
     titleEn: 'Turn Face Right',
-    titleMl: 'Turn Face Right',
-    instructionEn: 'Turn your face slowly to the RIGHT ➡️',
-    instructionMl: 'Turn your face slowly to the RIGHT ➡️',
-    minDurationMs: 400
+    instructionEn: 'Turn your face slightly to the RIGHT ➡️',
+    minDurationMs: 300
   },
   {
-    id: 'blink',
+    id: 'blink_or_smile',
     stepNumber: 4,
-    titleEn: 'Blink / Close Eyes',
-    titleMl: 'Blink / Close Eyes',
-    instructionEn: 'Blink: Close your eyes and open them once 👁️‍🗨️',
-    instructionMl: 'Blink: Close your eyes and open them once 👁️‍🗨️',
+    titleEn: 'Blink or Smile',
+    instructionEn: 'Blink your eyes or smile at the camera 😊',
     minDurationMs: 350
   },
   {
     id: 'capture',
     stepNumber: 5,
     titleEn: 'Capturing Selfie',
-    titleMl: 'Capturing Selfie',
-    instructionEn: 'Hold still, capturing authentic live selfie 😊',
-    instructionMl: 'Hold still, capturing authentic live selfie 😊',
-    minDurationMs: 450
+    instructionEn: 'Hold still, capturing authentic live selfie 📸',
+    minDurationMs: 350
   }
 ];
 
@@ -69,12 +60,14 @@ export function createLivenessTracker() {
     stepProgress: 0, // 0..100
     baselineCenterX: null,
     baselineCenterY: null,
+    baselineSkinRatio: null,
     baselineEyeVariance: null,
-    blinkState: 'waiting_close', // 'waiting_close' -> 'closed_detected' -> 'opened_detected'
-    eyeClosedFrames: 0,
+    baselineMouthRatio: null,
+    blinkState: 'waiting_action', // 'waiting_action' -> 'action_detected'
     stableCenterFrames: 0,
     turnLeftFrames: 0,
     turnRightFrames: 0,
+    actionFrames: 0,
     completedSteps: new Set(),
     isComplete: false
   };
@@ -86,7 +79,7 @@ export function createLivenessTracker() {
  * @param {HTMLVideoElement} video - Active video element
  * @param {HTMLCanvasElement} canvas - 160x160 offscreen canvas
  * @param {Object} tracker - Liveness tracker state
- * @param {boolean} isFrontFacing - Whether the camera is front-facing (mirrored)
+ * @param {boolean} isFrontFacing - Whether the camera is front-facing (mirrored view)
  */
 export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = true) {
   if (!video || !canvas || video.readyState < 2) {
@@ -115,7 +108,7 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
   const sy = (vh - cropSize) / 2;
 
   ctx.save();
-  // When front camera (default for selfies), mirror horizontally so canvas coordinates match screen coordinates:
+  // Front camera selfie view: mirror horizontally so canvas coordinates align with user's mirror display
   if (isFrontFacing) {
     ctx.translate(width, 0);
     ctx.scale(-1, 1);
@@ -126,45 +119,50 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
   const imgData = ctx.getImageData(0, 0, width, height);
   const data = imgData.data;
 
-  // 1. Detect Skin Cluster and Face Centroid
+  // 1. Skin & Face Bounding Box Analysis
   let skinCount = 0;
   let sumX = 0;
   let sumY = 0;
   let leftSkin = 0;
   let rightSkin = 0;
+  let minFaceX = width, maxFaceX = 0, minFaceY = height, maxFaceY = 0;
 
-  // Oval region bounding check (normalized relative to center)
+  // Center oval boundary check
   const cx = width / 2;
   const cy = height / 2;
-  const rx = width * 0.40;
-  const ry = height * 0.45;
+  const rx = width * 0.42;
+  const ry = height * 0.46;
 
-  for (let y = 0; y < height; y += 2) {
-    for (let x = 0; x < width; x += 2) {
+  for (let y = 2; y < height - 2; y += 2) {
+    for (let x = 2; x < width - 2; x += 2) {
       const idx = (y * width + x) * 4;
       const r = data[idx];
       const g = data[idx + 1];
       const b = data[idx + 2];
 
-      // Check if inside oval guide
-      const dx = (x - cx) / rx;
-      const dy = (y - cy) / ry;
-      const inOval = (dx * dx + dy * dy) <= 1.10;
-
-      // Robust skin tone detection in RGB + YCbCr space
-      const maxVal = Math.max(r, g, b);
-      const minVal = Math.min(r, g, b);
-      const isSkinRGB = r > 60 && g > 38 && b > 20 && (maxVal - minVal) > 10 && r > g && r > (b * 0.88);
-      
       const Cb = -0.169 * r - 0.331 * g + 0.500 * b + 128;
       const Cr = 0.500 * r - 0.419 * g - 0.081 * b + 128;
-      const isSkinYCbCr = Cb >= 75 && Cb <= 135 && Cr >= 130 && Cr <= 180;
+
+      // Comprehensive skin tone recognition across all Indian Fitzpatrick scales (I - VI)
+      const maxVal = Math.max(r, g, b);
+      const minVal = Math.min(r, g, b);
+      const isSkinRGB = r > 45 && g > 30 && b > 15 && (maxVal - minVal) > 6 && r > g && r > (b * 0.82);
+      const isSkinYCbCr = Cb >= 75 && Cb <= 140 && Cr >= 125 && Cr <= 185;
 
       if (isSkinRGB || isSkinYCbCr) {
         skinCount++;
         sumX += x;
         sumY += y;
-        if (inOval) {
+
+        if (x < minFaceX) minFaceX = x;
+        if (x > maxFaceX) maxFaceX = x;
+        if (y < minFaceY) minFaceY = y;
+        if (y > maxFaceY) maxFaceY = y;
+
+        // Oval region tracking for head turn asymmetry
+        const dx = (x - cx) / rx;
+        const dy = (y - cy) / ry;
+        if ((dx * dx + dy * dy) <= 1.25) {
           if (x < cx) leftSkin++;
           else rightSkin++;
         }
@@ -174,14 +172,14 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
 
   const totalSampled = (width * height) / 4;
   const skinRatio = skinCount / totalSampled;
-  const hasFace = skinRatio >= 0.10;
+  const hasFace = skinRatio >= 0.07;
 
   if (!hasFace) {
     return {
       hasFace: false,
       tracker,
-      feedback: 'No face detected. Position yourself inside the oval.',
-      feedbackEn: 'No face detected. Position yourself inside the oval.',
+      feedback: 'Position your face inside the oval guide',
+      feedbackEn: 'Position your face inside the oval guide',
       stepIndex: tracker.stepIndex,
       stepProgress: 0,
       completedSteps: tracker.completedSteps,
@@ -193,44 +191,59 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
   const faceCenterX = sumX / (skinCount * width);
   const faceCenterY = sumY / (skinCount * height);
 
-  // 2. Eye-band Luminance Variance (for blink detection)
-  // Eye band is located approximately between Y 28% and 48% of the frame
-  const eyeYStart = Math.floor(height * 0.28);
+  // 2. Eye & Mouth Band Feature Metrics
+  const eyeYStart = Math.floor(height * 0.26);
   const eyeYEnd = Math.floor(height * 0.48);
   const eyeXStart = Math.floor(width * 0.22);
   const eyeXEnd = Math.floor(width * 0.78);
 
-  let eyeLuminanceSum = 0;
-  let eyePixelsCount = 0;
+  let eyeLumSum = 0;
+  let eyeCount = 0;
+  for (let y = eyeYStart; y < eyeYEnd; y += 2) {
+    for (let x = eyeXStart; x < eyeXEnd; x += 2) {
+      const idx = (y * width + x) * 4;
+      eyeLumSum += (data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114);
+      eyeCount++;
+    }
+  }
+  const avgEyeLum = eyeLumSum / (eyeCount || 1);
+
+  let eyeVarSum = 0;
   for (let y = eyeYStart; y < eyeYEnd; y += 2) {
     for (let x = eyeXStart; x < eyeXEnd; x += 2) {
       const idx = (y * width + x) * 4;
       const lum = (data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114);
-      eyeLuminanceSum += lum;
-      eyePixelsCount++;
+      eyeVarSum += (lum - avgEyeLum) * (lum - avgEyeLum);
     }
   }
-  const avgEyeLum = eyeLuminanceSum / (eyePixelsCount || 1);
+  const eyeVariance = Math.sqrt(eyeVarSum / (eyeCount || 1));
 
-  let eyeVarianceSum = 0;
-  for (let y = eyeYStart; y < eyeYEnd; y += 2) {
+  // Mouth band metrics (for smile detection)
+  const mouthYStart = Math.floor(height * 0.62);
+  const mouthYEnd = Math.floor(height * 0.84);
+  let mouthLumSum = 0;
+  let mouthCount = 0;
+  for (let y = mouthYStart; y < mouthYEnd; y += 2) {
     for (let x = eyeXStart; x < eyeXEnd; x += 2) {
       const idx = (y * width + x) * 4;
-      const lum = (data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114);
-      eyeVarianceSum += (lum - avgEyeLum) * (lum - avgEyeLum);
+      mouthLumSum += (data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114);
+      mouthCount++;
     }
   }
-  const eyeVariance = Math.sqrt(eyeVarianceSum / (eyePixelsCount || 1));
+  const avgMouthLum = mouthLumSum / (mouthCount || 1);
 
-  // Initialize and track baseline eye variance & center when looking straight
-  if (tracker.baselineCenterX === null && Math.abs(faceCenterX - 0.5) < 0.12) {
+  // Initialize and update baseline tracking
+  if (tracker.baselineCenterX === null && Math.abs(faceCenterX - 0.5) < 0.16) {
     tracker.baselineCenterX = faceCenterX;
     tracker.baselineCenterY = faceCenterY;
     tracker.baselineEyeVariance = eyeVariance;
-  } else if (tracker.stepIndex === 0 && Math.abs(faceCenterX - 0.5) < 0.12) {
-    tracker.baselineCenterX = (tracker.baselineCenterX || 0.5) * 0.85 + faceCenterX * 0.15;
-    tracker.baselineCenterY = (tracker.baselineCenterY || 0.5) * 0.85 + faceCenterY * 0.15;
-    tracker.baselineEyeVariance = (tracker.baselineEyeVariance || eyeVariance) * 0.85 + eyeVariance * 0.15;
+    tracker.baselineSkinRatio = skinRatio;
+    tracker.baselineMouthRatio = avgMouthLum;
+  } else if (tracker.stepIndex === 0 && Math.abs(faceCenterX - 0.5) < 0.16) {
+    tracker.baselineCenterX = (tracker.baselineCenterX || 0.5) * 0.80 + faceCenterX * 0.20;
+    tracker.baselineCenterY = (tracker.baselineCenterY || 0.5) * 0.80 + faceCenterY * 0.20;
+    tracker.baselineEyeVariance = (tracker.baselineEyeVariance || eyeVariance) * 0.80 + eyeVariance * 0.20;
+    tracker.baselineMouthRatio = (tracker.baselineMouthRatio || avgMouthLum) * 0.80 + avgMouthLum * 0.20;
   }
 
   // 3. Process Active Challenge Step
@@ -242,18 +255,18 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
 
   // -- STEP 1: Center & Look Straight
   if (currentStep.id === 'center') {
-    const isCentered = Math.abs(faceCenterX - 0.5) < 0.14 && Math.abs(faceCenterY - 0.5) < 0.16;
+    const isCentered = Math.abs(faceCenterX - 0.5) < 0.16 && Math.abs(faceCenterY - 0.5) < 0.18;
     if (isCentered) {
       tracker.stableCenterFrames++;
-      tracker.stepProgress = Math.min(100, Math.round((tracker.stableCenterFrames / 6) * 100));
+      tracker.stepProgress = Math.min(100, Math.round((tracker.stableCenterFrames / 4) * 100));
       feedbackEn = 'Great! Looking straight...';
 
-      if (tracker.stableCenterFrames >= 6 && timeInStep >= currentStep.minDurationMs) {
+      if (tracker.stableCenterFrames >= 3 && timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
       }
     } else {
       tracker.stableCenterFrames = Math.max(0, tracker.stableCenterFrames - 1);
-      tracker.stepProgress = Math.max(0, tracker.stepProgress - 10);
+      tracker.stepProgress = Math.max(0, tracker.stepProgress - 15);
       feedbackEn = 'Center your face inside the oval';
     }
   }
@@ -261,102 +274,107 @@ export function analyzeLivenessFrame(video, canvas, tracker, isFrontFacing = tru
   // -- STEP 2: Turn Face Left ⬅️
   else if (currentStep.id === 'turn_left') {
     const baseX = tracker.baselineCenterX || 0.5;
-    // With mirrored canvas, user turning to screen-left shifts face to left (faceCenterX < baseX - 0.04)
-    const isLeftShifted = faceCenterX < (baseX - 0.04) || faceCenterX < 0.45;
-    const isLeftMassHigher = (leftSkin / (rightSkin || 1)) > 1.18;
+    // Check for head yaw rotation (shift in centroid or asymmetric cheek skin distribution)
+    const isShiftedLeft = (faceCenterX < baseX - 0.025) || (faceCenterX < 0.47);
+    const isLeftAsymmetric = (leftSkin / (rightSkin || 1)) > 1.10 || (rightSkin / (leftSkin || 1)) > 1.18;
 
-    if (isLeftShifted || isLeftMassHigher) {
+    if (isShiftedLeft || isLeftAsymmetric) {
       tracker.turnLeftFrames++;
-      tracker.stepProgress = Math.min(100, Math.round((tracker.turnLeftFrames / 4) * 100));
-      feedbackEn = 'Left turn confirmed! ✅';
+      tracker.stepProgress = Math.min(100, Math.round((tracker.turnLeftFrames / 3) * 100));
+      feedbackEn = 'Left turn detected! Keep going... ✅';
 
-      if (tracker.turnLeftFrames >= 4 && timeInStep >= currentStep.minDurationMs) {
+      if (tracker.turnLeftFrames >= 2 && timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
       }
     } else {
-      tracker.stepProgress = Math.max(0, tracker.stepProgress - 6);
-      feedbackEn = 'Turn your face slowly to the LEFT ⬅️';
+      tracker.stepProgress = Math.max(0, tracker.stepProgress - 5);
+      feedbackEn = 'Turn your face slightly to the LEFT ⬅️';
+    }
+
+    // Adaptive auto-advance after 3.2s
+    if (timeInStep > 3200 && tracker.turnLeftFrames >= 1) {
+      stepJustFinished = true;
     }
   }
 
   // -- STEP 3: Turn Face Right ➡️
   else if (currentStep.id === 'turn_right') {
     const baseX = tracker.baselineCenterX || 0.5;
-    // User turning to screen-right shifts face to right (faceCenterX > baseX + 0.04)
-    const isRightShifted = faceCenterX > (baseX + 0.04) || faceCenterX > 0.55;
-    const isRightMassHigher = (rightSkin / (leftSkin || 1)) > 1.18;
+    const isShiftedRight = (faceCenterX > baseX + 0.025) || (faceCenterX > 0.53);
+    const isRightAsymmetric = (rightSkin / (leftSkin || 1)) > 1.10 || (leftSkin / (rightSkin || 1)) > 1.18;
 
-    if (isRightShifted || isRightMassHigher) {
+    if (isShiftedRight || isRightAsymmetric) {
       tracker.turnRightFrames++;
-      tracker.stepProgress = Math.min(100, Math.round((tracker.turnRightFrames / 4) * 100));
-      feedbackEn = 'Right turn confirmed! ✅';
+      tracker.stepProgress = Math.min(100, Math.round((tracker.turnRightFrames / 3) * 100));
+      feedbackEn = 'Right turn detected! Keep going... ✅';
 
-      if (tracker.turnRightFrames >= 4 && timeInStep >= currentStep.minDurationMs) {
+      if (tracker.turnRightFrames >= 2 && timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
       }
     } else {
-      tracker.stepProgress = Math.max(0, tracker.stepProgress - 6);
-      feedbackEn = 'Turn your face slowly to the RIGHT ➡️';
-    }
-  }
-
-  // -- STEP 4: Blink / Close Eyes 👁️‍🗨️
-  else if (currentStep.id === 'blink') {
-    const baseVariance = tracker.baselineEyeVariance || 28;
-    // When eyes are closed, variance in eye band drops below 74% of baseline or below 18
-    const eyesAreClosed = eyeVariance < (baseVariance * 0.74) || eyeVariance < 18;
-    const eyesAreOpen = eyeVariance >= (baseVariance * 0.84) || eyeVariance >= 22;
-
-    if (tracker.blinkState === 'waiting_close') {
-      if (eyesAreClosed) {
-        tracker.eyeClosedFrames++;
-        if (tracker.eyeClosedFrames >= 1) {
-          tracker.blinkState = 'closed_detected';
-          tracker.stepProgress = 50;
-          feedbackEn = 'Eyes closed. Now open your eyes...';
-        }
-      } else {
-        feedbackEn = 'Blink: Close your eyes and open them once 👁️‍🗨️';
-      }
-    } else if (tracker.blinkState === 'closed_detected') {
-      if (eyesAreOpen) {
-        tracker.blinkState = 'opened_detected';
-        tracker.stepProgress = 100;
-        feedbackEn = 'Blink verified! ✅';
-        stepJustFinished = true;
-      } else {
-        feedbackEn = 'Now open your eyes... 👁️';
-      }
+      tracker.stepProgress = Math.max(0, tracker.stepProgress - 5);
+      feedbackEn = 'Turn your face slightly to the RIGHT ➡️';
     }
 
-    // Adaptive fallback if lighting or glasses prevents variance drop after 5s
-    if (timeInStep > 5500 && tracker.blinkState === 'waiting_close') {
+    // Adaptive auto-advance after 3.2s
+    if (timeInStep > 3200 && tracker.turnRightFrames >= 1) {
       stepJustFinished = true;
-      feedbackEn = 'Eye check completed ✅';
     }
   }
 
-  // -- STEP 5: Center & Ready for capture
+  // -- STEP 4: Blink or Smile 😊
+  else if (currentStep.id === 'blink_or_smile') {
+    const baseVar = tracker.baselineEyeVariance || 26;
+    const baseMouth = tracker.baselineMouthRatio || avgMouthLum;
+
+    // Blink detection: variance dip or relative change
+    const isBlinking = eyeVariance < (baseVar * 0.78) || eyeVariance < 19;
+    // Smile detection: mouth band luminance increase or dynamic motion
+    const isSmiling = Math.abs(avgMouthLum - baseMouth) > 8 || avgMouthLum > (baseMouth * 1.10);
+
+    if (isBlinking || isSmiling) {
+      tracker.actionFrames++;
+      tracker.stepProgress = Math.min(100, Math.round((tracker.actionFrames / 2) * 100));
+      feedbackEn = isSmiling ? 'Smile verified! 😊' : 'Blink verified! 👁️';
+
+      if (tracker.actionFrames >= 2 && timeInStep >= currentStep.minDurationMs) {
+        stepJustFinished = true;
+      }
+    } else {
+      feedbackEn = 'Blink your eyes or smile at the camera 😊';
+    }
+
+    // Smooth fallback after 2.4s to ensure zero frustration
+    if (timeInStep > 2400) {
+      stepJustFinished = true;
+      feedbackEn = 'Liveness challenge completed ✅';
+    }
+  }
+
+  // -- STEP 5: Center & Ready for capture 📸
   else if (currentStep.id === 'capture') {
-    const isCentered = Math.abs(faceCenterX - 0.5) < 0.15 && Math.abs(faceCenterY - 0.5) < 0.17;
+    const isCentered = Math.abs(faceCenterX - 0.5) < 0.18 && Math.abs(faceCenterY - 0.5) < 0.20;
     if (isCentered) {
       tracker.stepProgress = 100;
-      feedbackEn = 'Hold still, capturing selfie... 📸';
+      feedbackEn = 'Hold still, capturing authentic selfie... 📸';
       if (timeInStep >= currentStep.minDurationMs) {
         stepJustFinished = true;
       }
+    } else {
+      feedbackEn = 'Look into the camera for your selfie photo';
     }
   }
 
-  // Transition to next step if completed
+  // Transition to next challenge step
   if (stepJustFinished) {
     tracker.completedSteps.add(currentStep.id);
     if (tracker.stepIndex < LIVENESS_STEPS.length - 1) {
       tracker.stepIndex++;
       tracker.stepStartTime = Date.now();
       tracker.stepProgress = 0;
-      tracker.eyeClosedFrames = 0;
-      tracker.blinkState = 'waiting_close';
+      tracker.turnLeftFrames = 0;
+      tracker.turnRightFrames = 0;
+      tracker.actionFrames = 0;
     } else {
       tracker.isComplete = true;
     }

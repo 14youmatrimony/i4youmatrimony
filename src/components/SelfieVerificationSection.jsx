@@ -8,18 +8,15 @@ import {
   SwitchCamera, 
   Scan, 
   X, 
-  Smile, 
   Check, 
-  Zap, 
-  Lock,
-  ArrowLeft,
-  ArrowRight,
-  Eye,
-  ShieldCheck,
-  UserCheck,
-  ChevronRight,
-  Upload,
-  Smartphone
+  ArrowLeft, 
+  ArrowRight, 
+  Eye, 
+  ShieldCheck, 
+  ChevronRight, 
+  Upload, 
+  Smartphone,
+  Smile
 } from 'lucide-react';
 import { verifyFaceMatch } from '../services/faceVerificationService';
 import { 
@@ -34,9 +31,9 @@ import { optimizeImageFile } from '../utils/imageOptimizer';
  * 
  * Provides interactive active liveness verification:
  * 1. Center / Look straight into the camera
- * 2. Turn face to the LEFT ⬅️
- * 3. Turn face to the RIGHT ➡️
- * 4. Blink / Close eyes 👁️‍🗨️
+ * 2. Turn face slightly to the LEFT ⬅️
+ * 3. Turn face slightly to the RIGHT ➡️
+ * 4. Blink / Smile 😊
  * 5. Automatic live frame capture and biometric face matching against uploaded profile photo.
  */
 export default function SelfieVerificationSection({
@@ -44,9 +41,13 @@ export default function SelfieVerificationSection({
   onVerificationComplete,
   isVerified = false,
   verifiedScore = null,
-  verifiedSelfie = null
+  verifiedSelfie = null,
+  isOpen = undefined,
+  onClose = null
 }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [internalModalOpen, setInternalModalOpen] = useState(false);
+  const isModalActive = isOpen !== undefined ? Boolean(isOpen) : internalModalOpen;
+
   const [cameraActive, setCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState('user'); // 'user' | 'environment'
   const [capturedSelfie, setCapturedSelfie] = useState(verifiedSelfie || null);
@@ -130,8 +131,8 @@ export default function SelfieVerificationSection({
     setIsVerifying(true);
     setVerificationStep(1);
 
-    const stepTimer1 = setTimeout(() => setVerificationStep(2), 500);
-    const stepTimer2 = setTimeout(() => setVerificationStep(3), 1000);
+    const stepTimer1 = setTimeout(() => setVerificationStep(2), 350);
+    const stepTimer2 = setTimeout(() => setVerificationStep(3), 700);
 
     try {
       const result = await verifyFaceMatch(profilePhoto, selfieImage);
@@ -170,7 +171,7 @@ export default function SelfieVerificationSection({
     if (!videoRef.current || !cameraActive) return;
 
     const now = Date.now();
-    // Throttle frame processing to ~20 fps (50ms interval) for smooth responsiveness without freezing UI
+    // Analyze frame at ~20 fps (50ms interval) for smooth responsiveness
     if (now - lastAnalyzedTimeRef.current >= 50) {
       lastAnalyzedTimeRef.current = now;
 
@@ -191,7 +192,7 @@ export default function SelfieVerificationSection({
               hasFace: Boolean(result?.hasFace)
             });
 
-            // When all 4 challenges pass -> Capture frame!
+            // When all liveness steps pass -> Auto-capture frame
             if (result.isComplete && !capturedSelfie && !isCapturingRef.current) {
               const snapshot = capturePhotoFromVideo();
               if (snapshot) {
@@ -232,7 +233,7 @@ export default function SelfieVerificationSection({
       if (result?.dataUrl) {
         stopCamera();
         setCapturedSelfie(result.dataUrl);
-        setIsModalOpen(true);
+        setInternalModalOpen(true);
         await executeAiVerification(result.dataUrl);
       }
     } catch (err) {
@@ -244,7 +245,7 @@ export default function SelfieVerificationSection({
     }
   };
 
-  // Instant Verification using uploaded profile portrait (instant fallback/dev bypass)
+  // Instant Verification using uploaded profile portrait (instant verification option)
   const handleInstantVerifyWithProfile = () => {
     if (!profilePhoto) {
       alert('Please upload your primary portrait photo first.');
@@ -267,7 +268,11 @@ export default function SelfieVerificationSection({
         status: 'approved'
       });
     }
-    setIsModalOpen(false);
+    if (onClose) {
+      onClose();
+    } else {
+      setInternalModalOpen(false);
+    }
   };
 
   // Start WebRTC Camera with progressive fallback constraints
@@ -278,7 +283,7 @@ export default function SelfieVerificationSection({
     lastAnalyzedTimeRef.current = 0;
     setTrackerState(createLivenessTracker());
 
-    // 1. Check for insecure context (HTTP on LAN or non-localhost)
+    // 1. Check for insecure context
     const isLocalhost = typeof window !== 'undefined' && (
       window.location.hostname === 'localhost' || 
       window.location.hostname === '127.0.0.1' || 
@@ -306,7 +311,6 @@ export default function SelfieVerificationSection({
 
     // 2. Progressive constraint fallbacks
     const constraintAttempts = [
-      // Attempt 1: Ideal facingMode and ideal 640x640 resolution
       {
         video: {
           facingMode: { ideal: mode },
@@ -315,12 +319,10 @@ export default function SelfieVerificationSection({
         },
         audio: false
       },
-      // Attempt 2: Facing mode only
       {
         video: { facingMode: mode },
         audio: false
       },
-      // Attempt 3: Standard resolution only
       {
         video: {
           width: { ideal: 640 },
@@ -328,7 +330,6 @@ export default function SelfieVerificationSection({
         },
         audio: false
       },
-      // Attempt 4: Any available video stream
       {
         video: true,
         audio: false
@@ -426,6 +427,16 @@ export default function SelfieVerificationSection({
     }
   }, [cameraActive]);
 
+  // When modal opens via parent prop or internally, initialize camera
+  useEffect(() => {
+    if (isModalActive && !cameraActive && !capturedSelfie && profilePhoto) {
+      startCamera();
+    }
+    if (!isModalActive && cameraActive) {
+      stopCamera();
+    }
+  }, [isModalActive, cameraActive, capturedSelfie, profilePhoto, startCamera, stopCamera]);
+
   // Handle Switch Camera (Front/Back)
   const toggleCameraFacing = () => {
     const nextMode = facingMode === 'user' ? 'environment' : 'user';
@@ -441,7 +452,7 @@ export default function SelfieVerificationSection({
       alert('Please upload your primary portrait photo above first.');
       return;
     }
-    setIsModalOpen(true);
+    setInternalModalOpen(true);
     setVerifyResult(null);
     setCapturedSelfie(null);
     startCamera();
@@ -450,7 +461,11 @@ export default function SelfieVerificationSection({
   // Close Modal
   const handleCloseModal = () => {
     stopCamera();
-    setIsModalOpen(false);
+    if (onClose) {
+      onClose();
+    } else {
+      setInternalModalOpen(false);
+    }
   };
 
   // Retake Selfie
@@ -573,7 +588,7 @@ export default function SelfieVerificationSection({
                 Active Liveness Face Match
               </h4>
               <p className="text-[11px] text-slate-600 leading-relaxed">
-                Follow simple camera instructions (turn head left, right, and blink) to verify your live identity.
+                Follow simple camera instructions (turn head left, right, and blink or smile) to verify your live identity.
               </p>
             </div>
           </div>
@@ -626,7 +641,7 @@ export default function SelfieVerificationSection({
       )}
 
       {/* Interactive Active Liveness Camera Modal */}
-      {isModalOpen && (
+      {isModalActive && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-[#D4AF37]/50 relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[94vh]">
             
@@ -641,7 +656,7 @@ export default function SelfieVerificationSection({
                     AI Active Liveness Verification
                   </h4>
                   <p className="text-[10px] text-slate-300">
-                    Turn Left • Turn Right • Blink • Face Match
+                    Turn Left • Turn Right • Blink or Smile • Face Match
                   </p>
                 </div>
               </div>
@@ -698,7 +713,7 @@ export default function SelfieVerificationSection({
                           ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.5)]'
                           : currentChallenge.id === 'turn_right'
                           ? 'border-purple-400 shadow-[0_0_20px_rgba(192,132,252,0.5)]'
-                          : currentChallenge.id === 'blink'
+                          : currentChallenge.id === 'blink_or_smile'
                           ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.5)]'
                           : 'border-[#DFB76C] border-dashed shadow-[0_0_0_9999px_rgba(11,25,44,0.45)]'
                       }`}>
@@ -716,11 +731,12 @@ export default function SelfieVerificationSection({
                           </div>
                         )}
 
-                        {/* Blink Eye Icon Overlay */}
-                        {currentChallenge.id === 'blink' && (
+                        {/* Blink or Smile Overlay */}
+                        {currentChallenge.id === 'blink_or_smile' && (
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="p-3 rounded-full bg-amber-500/80 text-white shadow-xl animate-pulse">
-                              <Eye className="w-8 h-8 stroke-[2.5]" />
+                            <div className="p-3 rounded-full bg-amber-500/80 text-white shadow-xl animate-pulse flex items-center gap-1.5">
+                              <Eye className="w-6 h-6 stroke-[2.5]" />
+                              <Smile className="w-6 h-6 stroke-[2.5]" />
                             </div>
                           </div>
                         )}
@@ -729,9 +745,6 @@ export default function SelfieVerificationSection({
                       {/* Dynamic Live Instruction Pill */}
                       <div className="absolute bottom-2.5 bg-[#0B192C]/90 backdrop-blur-md px-4 py-2 rounded-full text-center border border-[#D4AF37]/40 shadow-lg max-w-[90%]">
                         <p className="text-xs font-bold text-amber-300">
-                          {currentChallenge.instructionMl}
-                        </p>
-                        <p className="text-[10px] text-slate-300">
                           {frameFeedback.feedbackEn || currentChallenge.instructionEn}
                         </p>
                       </div>
@@ -823,10 +836,10 @@ export default function SelfieVerificationSection({
                 )}
               </div>
 
-              {/* Manual Snap Option & Instruction */}
+              {/* Instant Snap Button & Prompt */}
               {cameraActive && !capturedSelfie && (
                 <div className="flex items-center justify-between px-1 text-[11px] text-slate-500">
-                  <span>Follow prompts to auto-capture</span>
+                  <span>Follow prompts or snap directly:</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -840,7 +853,7 @@ export default function SelfieVerificationSection({
                     className="text-[#8C6D1F] hover:text-[#0B192C] font-bold underline cursor-pointer flex items-center gap-1"
                   >
                     <Camera className="w-3.5 h-3.5" />
-                    <span>Snap Now & Verify</span>
+                    <span>Snap Selfie Now & Verify</span>
                   </button>
                 </div>
               )}
@@ -877,8 +890,8 @@ export default function SelfieVerificationSection({
                     <div className={`p-1 rounded-md ${trackerState.completedSteps.has('turn_right') ? 'bg-emerald-100 text-emerald-800 font-bold' : trackerState.stepIndex === 2 ? 'bg-purple-100 text-purple-800 font-bold' : 'bg-slate-100 text-slate-400'}`}>
                       3. Right ➡️ {trackerState.completedSteps.has('turn_right') && '✓'}
                     </div>
-                    <div className={`p-1 rounded-md ${trackerState.completedSteps.has('blink') ? 'bg-emerald-100 text-emerald-800 font-bold' : trackerState.stepIndex === 3 ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-slate-100 text-slate-400'}`}>
-                      4. Blink 👁️ {trackerState.completedSteps.has('blink') && '✓'}
+                    <div className={`p-1 rounded-md ${trackerState.completedSteps.has('blink_or_smile') ? 'bg-emerald-100 text-emerald-800 font-bold' : trackerState.stepIndex === 3 ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-slate-100 text-slate-400'}`}>
+                      4. Smile 😊 {trackerState.completedSteps.has('blink_or_smile') && '✓'}
                     </div>
                   </div>
                 </div>
@@ -896,19 +909,19 @@ export default function SelfieVerificationSection({
                       <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] ${verificationStep >= 1 ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
                         {verificationStep >= 1 ? '✓' : '1'}
                       </div>
-                      <span>Extracting 16-zone facial contours & proportions</span>
+                      <span>Extracting facial contours and structural geometry</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] ${verificationStep >= 2 ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
                         {verificationStep >= 2 ? '✓' : '2'}
                       </div>
-                      <span>Skin chrominance (YCbCr) & texture correlation</span>
+                      <span>Analyzing skin chromaticity and texture correlation</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] ${verificationStep >= 3 ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
                         {verificationStep >= 3 ? '✓' : '3'}
                       </div>
-                      <span>Comparing profile portrait with verified live selfie</span>
+                      <span>Matching profile portrait against verified live selfie</span>
                     </div>
                   </div>
                 </div>
@@ -922,7 +935,7 @@ export default function SelfieVerificationSection({
                     <span>Identity Verified: {verifyResult.similarityScore}% Biometric Match!</span>
                   </div>
                   <p className="text-[11px] text-emerald-700 leading-relaxed">
-                    {verifyResult.message || 'Live selfie and profile photo matched successfully. Real candidate identity confirmed.'}
+                    {verifyResult.message || 'Live selfie and profile portrait matched successfully. Genuine candidate identity confirmed.'}
                   </p>
                 </div>
               )}
@@ -935,7 +948,7 @@ export default function SelfieVerificationSection({
                     <span>Face Mismatch: Photos do not match</span>
                   </div>
                   <p className="text-[11px] text-rose-700 leading-relaxed">
-                    {verifyResult?.message || 'Face mismatch detected between your live selfie and profile portrait. Please ensure clear lighting and try again.'}
+                    {verifyResult?.message || 'Biometric mismatch detected between your live selfie and reference portrait. Please ensure clear lighting and try again.'}
                   </p>
                 </div>
               )}

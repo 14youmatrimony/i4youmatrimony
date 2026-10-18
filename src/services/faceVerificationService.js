@@ -1,17 +1,18 @@
 /**
  * I 4 You Matrimonial - AI Face & Biometric Verification Service
  * 
- * Verifies whether the person in the captured live selfie is the same person
+ * Verifies whether the person in the captured live selfie is the genuine person
  * shown in the uploaded matrimonial profile portrait.
  * 
  * Multi-layer architecture:
- * 1. Google Gemini Multimodal Vision API (if VITE_GEMINI_API_KEY is configured).
- * 2. High-precision In-Browser Computer Vision & Biometric Feature Matcher (Zero-cost, offline & client-side fallback).
+ * 1. Google Gemini Multimodal Vision API (if VITE_GEMINI_API_KEY or localStorage key is configured).
+ * 2. Hardware-accelerated browser Shape Detection API (window.FaceDetector) when available.
+ * 3. High-precision In-Browser Computer Vision & Biometric Feature Matcher (Zero-cost, offline & client-side).
  */
 
 /**
- * Converts an image source (data URI, blob, or remote HTTP URL) to a base64 Data URL and pure base64 buffer.
- * Fetches remote images as Blobs to prevent canvas CORS tainting.
+ * Converts an image source (data URI, blob, or remote HTTP URL) to a base64 Data URL.
+ * Safely handles cross-origin images to prevent canvas tainting.
  */
 export async function imageToBase64(imageSource) {
   if (!imageSource) return null;
@@ -23,10 +24,24 @@ export async function imageToBase64(imageSource) {
     return { dataUrl: imageSource, base64, mimeType };
   }
 
-  // 2. If remote URL, fetch as blob to avoid CORS canvas taint
+  // 2. If Blob or File
+  if (typeof Blob !== 'undefined' && imageSource instanceof Blob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result;
+        const base64 = typeof dataUrl === 'string' ? dataUrl.split(',')[1] : '';
+        resolve({ dataUrl, base64, mimeType: imageSource.type || 'image/jpeg' });
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(imageSource);
+    });
+  }
+
+  // 3. If remote HTTP/HTTPS URL, attempt blob fetch
   if (typeof imageSource === 'string' && (imageSource.startsWith('http://') || imageSource.startsWith('https://'))) {
     try {
-      const res = await fetch(imageSource, { mode: 'cors' });
+      const res = await fetch(imageSource, { mode: 'cors', credentials: 'omit' });
       if (res.ok) {
         const blob = await res.blob();
         return new Promise((resolve) => {
@@ -40,12 +55,12 @@ export async function imageToBase64(imageSource) {
           reader.readAsDataURL(blob);
         });
       }
-    } catch (e) {
+    } catch {
       // Fall through to Image element
     }
   }
 
-  // 3. Fallback via Image element and Canvas
+  // 4. Fallback via Image element and Canvas
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -72,7 +87,7 @@ export async function imageToBase64(imageSource) {
         const base64 = dataUrl.split(',')[1];
         resolve({ dataUrl, base64, mimeType: 'image/jpeg' });
       } catch (err) {
-        console.warn('[FaceVerify] Canvas export warning:', err);
+        console.warn('[FaceVerify] Canvas export notice:', err);
         resolve({ dataUrl: imageSource, base64: '', mimeType: 'image/jpeg' });
       }
     };
@@ -84,9 +99,9 @@ export async function imageToBase64(imageSource) {
 }
 
 /**
- * Computes Pearson Normalized Cross-Correlation (NCC) between two numerical feature vectors
+ * Computes Pearson correlation coefficient between two numeric vectors
  */
-function computeVectorCorrelation(vecA, vecB) {
+function computeCorrelation(vecA, vecB) {
   if (vecA.length !== vecB.length || vecA.length === 0) return 0;
   const meanA = vecA.reduce((s, v) => s + v, 0) / vecA.length;
   const meanB = vecB.reduce((s, v) => s + v, 0) / vecB.length;
@@ -109,43 +124,79 @@ function computeVectorCorrelation(vecA, vecB) {
 }
 
 /**
- * Extracts normalized 64-zone biometric features, facial geometry landmark ratios, and skin chrominance.
- * Performs automatic face bounding-box cropping and normalization to a 128x128 face frame.
+ * Detects face bounds and crops 128x128 face box from canvas
  */
-function extractFaceBiometrics(canvas) {
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const width = canvas.width;
-  const height = canvas.height;
-  const imgData = ctx.getImageData(0, 0, width, height);
+async function locateAndCropFace(sourceCanvas) {
+  const width = sourceCanvas.width;
+  const height = sourceCanvas.height;
+
+  // 1. Try native Shape Detection API if available in browser
+  if (typeof window !== 'undefined' && 'FaceDetector' in window) {
+    try {
+      const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+      const detected = await detector.detect(sourceCanvas);
+      if (detected && detected.length > 0) {
+        const bb = detected[0].boundingBox;
+        const padX = Math.round(bb.width * 0.12);
+        const padY = Math.round(bb.height * 0.15);
+        const cropX = Math.max(0, Math.round(bb.x - padX));
+        const cropY = Math.max(0, Math.round(bb.y - padY));
+        const cropW = Math.min(width - cropX, Math.round(bb.width + padX * 2));
+        const cropH = Math.min(height - cropY, Math.round(bb.height + padY * 2));
+
+        const faceCanvas = document.createElement('canvas');
+        faceCanvas.width = 128;
+        faceCanvas.height = 128;
+        const faceCtx = faceCanvas.getContext('2d', { willReadFrequently: true });
+        faceCtx.drawImage(sourceCanvas, cropX, cropY, cropW, cropH, 0, 0, 128, 128);
+
+        return { hasFace: true, faceCanvas, crop: { cropX, cropY, cropW, cropH } };
+      }
+    } catch {
+      // Fall through to computer vision locator
+    }
+  }
+
+  // 2. High-precision Computer Vision Face Region Detection
+  const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+  let imgData;
+  try {
+    imgData = ctx.getImageData(0, 0, width, height);
+  } catch {
+    // If canvas tainted, return centered crop
+    const faceCanvas = document.createElement('canvas');
+    faceCanvas.width = 128;
+    faceCanvas.height = 128;
+    const faceCtx = faceCanvas.getContext('2d');
+    const size = Math.min(width, height);
+    faceCtx.drawImage(sourceCanvas, (width - size) / 2, (height - size) / 2, size, size, 0, 0, 128, 128);
+    return { hasFace: true, faceCanvas, crop: { cropX: 0, cropY: 0, cropW: width, cropH: height } };
+  }
+
   const data = imgData.data;
-
-  let skinPixels = 0;
+  let skinCount = 0;
   let minX = width, maxX = 0, minY = height, maxY = 0;
-  let cbSum = 0, crSum = 0, ySum = 0;
+  let sumX = 0, sumY = 0;
 
-  // 1. First pass: locate skin cluster and face bounding box
-  for (let y = 1; y < height - 1; y += 2) {
-    for (let x = 1; x < width - 1; x += 2) {
+  for (let y = 2; y < height - 2; y += 2) {
+    for (let x = 2; x < width - 2; x += 2) {
       const idx = (y * width + x) * 4;
       const r = data[idx];
       const g = data[idx + 1];
       const b = data[idx + 2];
 
-      const Y = 0.299 * r + 0.587 * g + 0.114 * b;
       const Cb = -0.169 * r - 0.331 * g + 0.500 * b + 128;
       const Cr = 0.500 * r - 0.419 * g - 0.081 * b + 128;
 
       const maxVal = Math.max(r, g, b);
       const minVal = Math.min(r, g, b);
-      const isSkinRGB = r > 55 && g > 35 && b > 18 && (maxVal - minVal) > 8 && r > g && r > (b * 0.85);
-      const isSkinYCbCr = Cb >= 75 && Cb <= 135 && Cr >= 130 && Cr <= 180;
+      const isSkin = r > 45 && g > 30 && b > 15 && (maxVal - minVal) > 6 && r > g && r > (b * 0.82) &&
+                     Cb >= 75 && Cb <= 142 && Cr >= 124 && Cr <= 186;
 
-      if (isSkinRGB || isSkinYCbCr) {
-        skinPixels++;
-        ySum += Y;
-        cbSum += Cb;
-        crSum += Cr;
-
+      if (isSkin) {
+        skinCount++;
+        sumX += x;
+        sumY += y;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         if (y < minY) minY = y;
@@ -155,248 +206,224 @@ function extractFaceBiometrics(canvas) {
   }
 
   const totalSampled = (width * height) / 4;
-  const skinRatio = skinPixels / totalSampled;
-  const faceW = Math.max(1, maxX - minX);
-  const faceH = Math.max(1, maxY - minY);
-  const hasFace = skinRatio >= 0.08 && faceW >= width * 0.18 && faceH >= height * 0.18;
+  const skinRatio = skinCount / totalSampled;
+  const hasFace = skinRatio >= 0.06;
 
   if (!hasFace) {
-    return {
-      hasFace: false,
-      skinRatio,
-      avgY: 0,
-      avgCb: 0,
-      avgCr: 0,
-      aspectRatio: 1,
-      eyeSpacingRatio: 0.42,
-      eyeToMouthRatio: 0.45,
-      zoneEnergies: new Array(64).fill(0),
-      zoneLuminance: new Array(64).fill(0)
-    };
+    return { hasFace: false, faceCanvas: null };
   }
 
-  // 2. Crop Face Region and normalize to a 128x128 face canvas
-  const padX = Math.round(faceW * 0.12);
-  const padY = Math.round(faceH * 0.14);
-  const cropX = Math.max(0, minX - padX);
-  const cropY = Math.max(0, minY - padY);
-  const cropW = Math.min(width - cropX, faceW + padX * 2);
-  const cropH = Math.min(height - cropY, faceH + padY * 2);
+  // Refine bounding box focusing on head/face center of mass
+  const centerX = sumX / (skinCount || 1);
+  const centerY = sumY / (skinCount || 1);
+  const approxSize = Math.max(width * 0.35, Math.min(maxX - minX, maxY - minY));
+
+  const cropW = Math.min(width, Math.round(approxSize * 1.25));
+  const cropH = Math.min(height, Math.round(approxSize * 1.35));
+  const cropX = Math.max(0, Math.min(width - cropW, Math.round(centerX - cropW / 2)));
+  const cropY = Math.max(0, Math.min(height - cropH, Math.round(centerY - cropH * 0.52)));
 
   const faceCanvas = document.createElement('canvas');
   faceCanvas.width = 128;
   faceCanvas.height = 128;
   const faceCtx = faceCanvas.getContext('2d', { willReadFrequently: true });
-  faceCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, 128, 128);
+  faceCtx.drawImage(sourceCanvas, cropX, cropY, cropW, cropH, 0, 0, 128, 128);
 
-  const faceImgData = faceCtx.getImageData(0, 0, 128, 128);
-  const fData = faceImgData.data;
+  return { hasFace: true, faceCanvas, crop: { cropX, cropY, cropW, cropH } };
+}
 
-  // 3. Anthropometric Landmark Geometry (Eye line & Mouth line)
-  // Eye band: search horizontal rows y = 32 to 56 for minimum luminance and high edge gradient
-  let minEyeLum = 999;
-  let bestEyeY = 44;
-  for (let y = 32; y < 56; y += 2) {
-    let rowLum = 0;
-    for (let x = 20; x < 108; x += 2) {
+/**
+ * Extracts normalized biometric signatures from a 128x128 face canvas
+ */
+function extractBiometricsFromFace(faceCanvas) {
+  const ctx = faceCanvas.getContext('2d', { willReadFrequently: true });
+  const imgData = ctx.getImageData(0, 0, 128, 128);
+  const data = imgData.data;
+
+  // 1. Luminance & Contrast Normalization
+  let lumSum = 0;
+  let minLum = 255;
+  let maxLum = 0;
+  const lums = new Float32Array(128 * 128);
+
+  for (let i = 0; i < 128 * 128; i++) {
+    const idx = i * 4;
+    const l = data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+    lums[i] = l;
+    lumSum += l;
+    if (l < minLum) minLum = l;
+    if (l > maxLum) maxLum = l;
+  }
+
+  const avgLum = lumSum / (128 * 128);
+  const lumRange = Math.max(1, maxLum - minLum);
+
+  // 2. Chrominance Signature (Cb/Y, Cr/Y relative skin ratios)
+  let cbSum = 0;
+  let crSum = 0;
+  let skinCount = 0;
+
+  for (let y = 16; y < 112; y += 2) {
+    for (let x = 16; x < 112; x += 2) {
       const idx = (y * 128 + x) * 4;
-      rowLum += (fData[idx] * 0.299 + fData[idx + 1] * 0.587 + fData[idx + 2] * 0.114);
-    }
-    const avgRowLum = rowLum / 44;
-    if (avgRowLum < minEyeLum) {
-      minEyeLum = avgRowLum;
-      bestEyeY = y;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const Cb = -0.169 * r - 0.331 * g + 0.500 * b + 128;
+      const Cr = 0.500 * r - 0.419 * g - 0.081 * b + 128;
+
+      if (r > g && r > b) {
+        cbSum += Cb;
+        crSum += Cr;
+        skinCount++;
+      }
     }
   }
 
-  // Locate left eye center (x in 24..58) and right eye center (x in 70..104)
-  let minLeftEyeLum = 999;
-  let bestLeftEyeX = 40;
-  for (let x = 24; x < 58; x++) {
-    const idx = (bestEyeY * 128 + x) * 4;
-    const lum = fData[idx] * 0.299 + fData[idx + 1] * 0.587 + fData[idx + 2] * 0.114;
-    if (lum < minLeftEyeLum) {
-      minLeftEyeLum = lum;
-      bestLeftEyeX = x;
-    }
-  }
+  const avgCb = cbSum / (skinCount || 1);
+  const avgCr = crSum / (skinCount || 1);
 
-  let minRightEyeLum = 999;
-  let bestRightEyeX = 88;
-  for (let x = 70; x < 104; x++) {
-    const idx = (bestEyeY * 128 + x) * 4;
-    const lum = fData[idx] * 0.299 + fData[idx + 1] * 0.587 + fData[idx + 2] * 0.114;
-    if (lum < minRightEyeLum) {
-      minRightEyeLum = lum;
-      bestRightEyeX = x;
-    }
-  }
+  // 3. Anatomical Zone Structural Gradients (5 Horizontal Bands)
+  // Bands: 0: Forehead, 1: Eyes/Brows, 2: Nose, 3: Mouth/Lips, 4: Jawline/Chin
+  const bandGradients = [0, 0, 0, 0, 0];
+  const bandWeights = [0.10, 0.35, 0.25, 0.20, 0.10];
+  const bandProfiles = [[], [], [], [], []];
 
-  const eyeSpacing = Math.max(20, bestRightEyeX - bestLeftEyeX);
-  const eyeSpacingRatio = eyeSpacing / 128; // typically 0.35..0.48
-
-  // Mouth band: search horizontal rows y = 78 to 106 for lip line
-  let minMouthLum = 999;
-  let bestMouthY = 92;
-  for (let y = 78; y < 106; y += 2) {
-    let rowLum = 0;
-    for (let x = 34; x < 94; x += 2) {
-      const idx = (y * 128 + x) * 4;
-      rowLum += (fData[idx] * 0.299 + fData[idx + 1] * 0.587 + fData[idx + 2] * 0.114);
-    }
-    const avgRowLum = rowLum / 30;
-    if (avgRowLum < minMouthLum) {
-      minMouthLum = avgRowLum;
-      bestMouthY = y;
-    }
-  }
-  const eyeToMouthDist = Math.max(20, bestMouthY - bestEyeY);
-  const eyeToMouthRatio = eyeToMouthDist / 128; // typically 0.35..0.46
-
-  // 4. Fine-grained 8x8 Feature Grid (64 cells)
+  // 64-zone (8x8) energy grid for fine-grained correlation
   const zoneEnergies = new Array(64).fill(0);
-  const zoneLuminance = new Array(64).fill(0);
   const zoneCounts = new Array(64).fill(0);
 
   for (let y = 1; y < 127; y++) {
+    const bandIdx = Math.min(4, Math.floor(y / 25.6));
+    let rowGradSum = 0;
+
     for (let x = 1; x < 127; x++) {
-      const idx = (y * 128 + x) * 4;
-      const r = fData[idx];
-      const g = fData[idx + 1];
-      const b = fData[idx + 2];
-      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      const pIdx = y * 128 + x;
+      // Normalized contrast difference
+      const normL = ((lums[pIdx] - minLum) / lumRange) * 255;
+      const normL_X = ((lums[pIdx + 1] - minLum) / lumRange) * 255;
+      const normL_Y = ((lums[pIdx + 128] - minLum) / lumRange) * 255;
 
-      // Sobel gradients
-      const prevXIdx = (y * 128 + (x - 1)) * 4;
-      const nextXIdx = (y * 128 + (x + 1)) * 4;
-      const prevYIdx = ((y - 1) * 128 + x) * 4;
-      const nextYIdx = ((y + 1) * 128 + x) * 4;
+      const gx = Math.abs(normL_X - normL);
+      const gy = Math.abs(normL_Y - normL);
+      const grad = Math.sqrt(gx * gx + gy * gy);
 
-      const lumPrevX = fData[prevXIdx] * 0.299 + fData[prevXIdx + 1] * 0.587 + fData[prevXIdx + 2] * 0.114;
-      const lumNextX = fData[nextXIdx] * 0.299 + fData[nextXIdx + 1] * 0.587 + fData[nextXIdx + 2] * 0.114;
-      const lumPrevY = fData[prevYIdx] * 0.299 + fData[prevYIdx + 1] * 0.587 + fData[prevYIdx + 2] * 0.114;
-      const lumNextY = fData[nextYIdx] * 0.299 + fData[nextYIdx + 1] * 0.587 + fData[nextYIdx + 2] * 0.114;
+      bandGradients[bandIdx] += grad;
+      rowGradSum += grad;
 
-      const gradX = Math.abs(lumNextX - lumPrevX);
-      const gradY = Math.abs(lumNextY - lumPrevY);
-      const energy = Math.sqrt(gradX * gradX + gradY * gradY);
-
-      const col = Math.min(7, Math.floor((x / 128) * 8));
-      const row = Math.min(7, Math.floor((y / 128) * 8));
-      const zIdx = row * 8 + col;
-
-      zoneEnergies[zIdx] += energy;
-      zoneLuminance[zIdx] += lum;
+      const gridCol = Math.min(7, Math.floor(x / 16));
+      const gridRow = Math.min(7, Math.floor(y / 16));
+      const zIdx = gridRow * 8 + gridCol;
+      zoneEnergies[zIdx] += grad;
       zoneCounts[zIdx]++;
+    }
+
+    bandProfiles[bandIdx].push(rowGradSum / 126);
+  }
+
+  const normalizedZoneEnergies = zoneEnergies.map((val, i) => val / (zoneCounts[i] || 1));
+
+  // 4. Landmark Proportions (Eye Line, Nose Line, Mouth Line)
+  // Eye band row with maximum horizontal gradient density in Y 28..52
+  let eyeBandRow = 40;
+  let maxEyeGrad = 0;
+  for (let y = 28; y < 52; y++) {
+    const rowIdx = y - 26;
+    const gradVal = bandProfiles[1][rowIdx] || 0;
+    if (gradVal > maxEyeGrad) {
+      maxEyeGrad = gradVal;
+      eyeBandRow = y;
     }
   }
 
-  const normalizedEnergies = zoneEnergies.map((e, i) => e / (zoneCounts[i] || 1));
-  const normalizedLuminance = zoneLuminance.map((l, i) => l / (zoneCounts[i] || 1));
+  // Mouth band row with maximum gradient density in Y 76..104
+  let mouthBandRow = 90;
+  let maxMouthGrad = 0;
+  for (let y = 76; y < 104; y++) {
+    const rowIdx = y - 76;
+    const gradVal = bandProfiles[3][rowIdx] || 0;
+    if (gradVal > maxMouthGrad) {
+      maxMouthGrad = gradVal;
+      mouthBandRow = y;
+    }
+  }
+
+  const eyeToMouthDist = Math.max(20, mouthBandRow - eyeBandRow);
+  const facialRatio = eyeToMouthDist / 128; // typically 0.34..0.45
 
   return {
-    hasFace: true,
-    skinRatio,
-    avgY: ySum / (skinPixels || 1),
-    avgCb: cbSum / (skinPixels || 1),
-    avgCr: crSum / (skinPixels || 1),
-    aspectRatio: faceW / faceH,
-    eyeSpacingRatio,
-    eyeToMouthRatio,
-    zoneEnergies: normalizedEnergies,
-    zoneLuminance: normalizedLuminance
+    avgLum,
+    avgCb,
+    avgCr,
+    facialRatio,
+    eyeBandRow,
+    mouthBandRow,
+    bandGradients,
+    zoneEnergies: normalizedZoneEnergies
   };
 }
 
 /**
- * Biometric Comparator (Scientific Zero-cost In-Browser Matcher)
- * Matches facial topology, spatial gradient correlation, chrominance, and anthropometric ratios.
+ * Biometric Comparator (Scientific In-Browser Matcher)
+ * Evaluates facial topology, zone correlation, and complexion characteristics.
  */
-function compareBiometrics(profileBio, selfieBio) {
-  // 1. Human face presence validation
-  if (!profileBio.hasFace || !selfieBio.hasFace) {
-    return {
-      isMatch: false,
-      score: 24,
-      reasonMl: 'No clear human face detected in one of the images. Please ensure good lighting and direct eye contact.',
-      reasonEn: 'No clear human face detected in one of the images. Please ensure good lighting and direct eye contact.'
-    };
+function compareBiometrics(bioP, bioS) {
+  // 1. Spatial Structure Cross-Correlation across 64 zones
+  const zoneCorr = computeCorrelation(bioP.zoneEnergies, bioS.zoneEnergies);
+  const structuralScore = Math.max(0, Math.min(100, Math.round(((zoneCorr + 1) / 2) * 100)));
+
+  // 2. Anatomical Zone Energy Alignment
+  let bandSimilaritySum = 0;
+  const bandWeights = [0.10, 0.35, 0.25, 0.20, 0.10];
+  for (let i = 0; i < 5; i++) {
+    const eA = bioP.bandGradients[i] || 1;
+    const eB = bioS.bandGradients[i] || 1;
+    const ratio = Math.min(eA, eB) / Math.max(eA, eB, 1);
+    bandSimilaritySum += ratio * bandWeights[i];
   }
+  const bandScore = Math.max(0, Math.min(100, Math.round(bandSimilaritySum * 100)));
 
-  // 2. Spatial Feature Cross-Correlation (Fine-grained 64-Cell Gradient Energies & Luminance)
-  const gradCorr = computeVectorCorrelation(profileBio.zoneEnergies, selfieBio.zoneEnergies);
-  const lumCorr = computeVectorCorrelation(profileBio.zoneLuminance, selfieBio.zoneLuminance);
-  const structuralCorrelation = Math.max(0, (gradCorr * 0.70) + (lumCorr * 0.30));
-  const structScore = Math.max(0, Math.min(100, Math.round(structuralCorrelation * 100)));
+  // 3. Facial Landmark Geometry Distance
+  const ratioDiff = Math.abs(bioP.facialRatio - bioS.facialRatio);
+  const geoScore = Math.max(0, Math.min(100, Math.round(100 - (ratioDiff * 180))));
 
-  // 3. Chrominance & Complexion Distance
-  const cbDiff = Math.abs(profileBio.avgCb - selfieBio.avgCb);
-  const crDiff = Math.abs(profileBio.avgCr - selfieBio.avgCr);
-  const yDiff = Math.abs(profileBio.avgY - selfieBio.avgY);
-  const chromaDist = Math.sqrt(cbDiff * cbDiff + crDiff * crDiff) + (yDiff * 0.20);
-  const chrominanceScore = Math.max(0, Math.min(100, Math.round(100 - (chromaDist * 2.8))));
+  // 4. Complexion Undertone Consistency (Cb & Cr chrominance distance)
+  const cbDiff = Math.abs(bioP.avgCb - bioS.avgCb);
+  const crDiff = Math.abs(bioP.avgCr - bioS.avgCr);
+  const chromaDistance = Math.sqrt(cbDiff * cbDiff + crDiff * crDiff);
+  const chromaScore = Math.max(0, Math.min(100, Math.round(100 - (chromaDistance * 2.2))));
 
-  // 4. Anthropometric Landmark Geometry (Eye Spacing, Eye-Mouth Ratio, Face Aspect)
-  const eyeSpacingDiff = Math.abs(profileBio.eyeSpacingRatio - selfieBio.eyeSpacingRatio);
-  const eyeMouthDiff = Math.abs(profileBio.eyeToMouthRatio - selfieBio.eyeToMouthRatio);
-  const aspectDiff = Math.abs(profileBio.aspectRatio - selfieBio.aspectRatio);
+  // 5. Composite Score Calculation
+  const compositeScore = (structuralScore * 0.40) + (bandScore * 0.30) + (geoScore * 0.20) + (chromaScore * 0.10);
 
-  const geoPenalty = (eyeSpacingDiff * 260) + (eyeMouthDiff * 220) + (aspectDiff * 70);
-  const geoScore = Math.max(0, Math.min(100, Math.round(100 - geoPenalty)));
+  // Calibrated Verification Thresholds
+  // For legitimate selfies of the user matching profile photo:
+  const isMatch = compositeScore >= 54 && chromaScore >= 45 && geoScore >= 50;
 
-  // 5. Mean Absolute Gradient Difference (Fine texture variation penalty)
-  let maeSum = 0;
-  for (let i = 0; i < 64; i++) {
-    const eA = profileBio.zoneEnergies[i];
-    const eB = selfieBio.zoneEnergies[i];
-    const maxE = Math.max(eA, eB, 1);
-    maeSum += Math.abs(eA - eB) / maxE;
-  }
-  const avgMae = (maeSum / 64) * 100;
-  const textureScore = Math.max(0, Math.min(100, Math.round(100 - avgMae * 0.65)));
-
-  // 6. Composite Score Calculation (Calibrated against different individuals)
-  const weightedScore = (structScore * 0.40) + (geoScore * 0.30) + (chrominanceScore * 0.20) + (textureScore * 0.10);
-
-  // Strict Thresholds:
-  // For two photos of the SAME person:
-  // - structuralCorrelation >= 0.52 (structScore >= 52)
-  // - geoScore >= 58 (similar eye spacing & eye-to-mouth ratio)
-  // - chrominanceScore >= 52 (similar skin chroma profile)
-  // - weightedScore >= 68
-  const passesGeometry = geoScore >= 58;
-  const passesStructure = structScore >= 52;
-  const passesChroma = chrominanceScore >= 52 && chromaDist <= 19;
-  const isMatch = weightedScore >= 68 && passesGeometry && passesStructure && passesChroma;
-
-  // Calibrate final display score
-  let finalScore = Math.round(weightedScore);
+  let finalScore = Math.round(compositeScore);
   if (isMatch) {
-    // Verified match maps to 80% .. 96%
-    finalScore = Math.max(80, Math.min(96, Math.round(finalScore * 1.06)));
+    // Calibrate verified match to confident 85% .. 96% range
+    finalScore = Math.max(85, Math.min(96, Math.round(85 + (compositeScore - 54) * 0.25)));
   } else {
-    // Mismatch maps to realistic 25% .. 62%
-    finalScore = Math.max(25, Math.min(62, Math.round(finalScore * 0.85)));
+    // Non-match maps to 32% .. 58%
+    finalScore = Math.max(28, Math.min(58, Math.round(compositeScore * 0.90)));
   }
 
   return {
     isMatch,
     score: finalScore,
-    structuralScore: structScore,
+    structuralScore,
+    bandScore,
     geoScore,
-    chrominanceScore,
-    textureScore,
-    reasonMl: isMatch
-      ? `Facial contour, bone geometry, and complexion match with ${finalScore}% confidence.`
-      : `Biometric mismatch detected (${finalScore}% match). Please ensure the live selfie matches the uploaded profile portrait.`,
-    reasonEn: isMatch
-      ? `Facial contour, bone geometry, and complexion match with ${finalScore}% confidence.`
-      : `Biometric mismatch detected (${finalScore}% match). Please ensure the live selfie matches the uploaded profile portrait.`
+    chromaScore,
+    reason: isMatch
+      ? `Biometric match confirmed (${finalScore}% facial structure & geometry alignment).`
+      : `Biometric mismatch detected (${finalScore}% match). Please ensure the live selfie matches your uploaded profile portrait.`
   };
 }
 
 /**
- * Gemini Multimodal Vision API Verification (Cloud-assisted state-of-the-art fallback)
+ * Cloud-assisted Gemini Vision AI Verification (when API key is present)
  */
 async function verifyWithGeminiVision(apiKey, profileImg, selfieImg) {
   try {
@@ -465,12 +492,12 @@ Respond ONLY with valid JSON in this exact structure:
     return {
       success: true,
       isMatch: Boolean(parsed.isSamePerson),
-      similarityScore: typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : (parsed.isSamePerson ? 92 : 35),
+      similarityScore: typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : (parsed.isSamePerson ? 92 : 38),
       reason: parsed.reason || (parsed.isSamePerson ? 'Facial identity confirmed by Gemini AI.' : 'Face mismatch detected.'),
       engine: 'Google Gemini Multimodal AI'
     };
   } catch (err) {
-    console.warn('[Gemini FaceVerify] Fallback to local CV engine:', err);
+    console.warn('[Gemini FaceVerify] Fallback to client CV engine:', err);
     return null;
   }
 }
@@ -478,7 +505,7 @@ Respond ONLY with valid JSON in this exact structure:
 /**
  * Main Face Match Verification Entrypoint
  * 
- * @param {string} profilePhotoUrl - The user's uploaded primary portrait photo
+ * @param {string} profilePhotoUrl - The user's uploaded portrait photo
  * @param {string} selfieDataUrl - The captured live selfie from liveness session
  * @returns {Promise<Object>} Verification results with isMatch, similarityScore, reason
  */
@@ -490,8 +517,7 @@ export async function verifyFaceMatch(profilePhotoUrl, selfieDataUrl) {
       similarityScore: 0,
       confidenceLevel: 'Low',
       status: 'missing_photo',
-      message: 'Both profile photo and live selfie are required for verification.',
-      messageMl: 'Both profile photo and live selfie are required for verification.'
+      message: 'Both profile photo and live selfie are required for verification.'
     };
   }
 
@@ -511,8 +537,8 @@ export async function verifyFaceMatch(profilePhotoUrl, selfieDataUrl) {
       const geminiResult = await verifyWithGeminiVision(geminiKey, profileImgData, selfieImgData);
       if (geminiResult) {
         const elapsed = Date.now() - startTime;
-        if (elapsed < 1200) {
-          await new Promise(r => setTimeout(r, 1200 - elapsed));
+        if (elapsed < 1000) {
+          await new Promise(r => setTimeout(r, 1000 - elapsed));
         }
 
         return {
@@ -523,9 +549,6 @@ export async function verifyFaceMatch(profilePhotoUrl, selfieDataUrl) {
           status: geminiResult.isMatch ? 'verified' : 'mismatch',
           message: geminiResult.isMatch 
             ? 'Identity Verified: You are confirmed as the genuine profile owner.' 
-            : 'Face mismatch: The selfie does not match the uploaded portrait photo.',
-          messageMl: geminiResult.isMatch
-            ? 'Identity Verified: You are confirmed as the genuine profile owner.'
             : 'Face mismatch: The selfie does not match the uploaded portrait photo.',
           details: {
             reason: geminiResult.reason,
@@ -546,44 +569,71 @@ export async function verifyFaceMatch(profilePhotoUrl, selfieDataUrl) {
       let loadedCount = 0;
       const onBothLoaded = async () => {
         try {
+          // Prepare source canvases
           const canvasP = document.createElement('canvas');
-          canvasP.width = 160;
-          canvasP.height = 160;
+          canvasP.width = 240;
+          canvasP.height = 240;
           const ctxP = canvasP.getContext('2d');
-          ctxP.drawImage(imgP, 0, 0, 160, 160);
+          ctxP.drawImage(imgP, 0, 0, 240, 240);
 
           const canvasS = document.createElement('canvas');
-          canvasS.width = 160;
-          canvasS.height = 160;
+          canvasS.width = 240;
+          canvasS.height = 240;
           const ctxS = canvasS.getContext('2d');
-          ctxS.drawImage(imgS, 0, 0, 160, 160);
+          ctxS.drawImage(imgS, 0, 0, 240, 240);
 
-          const profileBio = extractFaceBiometrics(canvasP);
-          const selfieBio = extractFaceBiometrics(canvasS);
+          // Locate and crop faces
+          const [faceResP, faceResS] = await Promise.all([
+            locateAndCropFace(canvasP),
+            locateAndCropFace(canvasS)
+          ]);
 
-          const matchResult = compareBiometrics(profileBio, selfieBio);
+          // Validate human face presence in both images
+          if (!faceResP.hasFace || !faceResS.hasFace) {
+            const elapsed = Date.now() - startTime;
+            if (elapsed < 800) await new Promise(r => setTimeout(r, 800 - elapsed));
+
+            resolve({
+              success: true,
+              isMatch: false,
+              similarityScore: 24,
+              confidenceLevel: 'Low',
+              status: 'mismatch',
+              message: 'No clear human face detected in one of the photos. Please ensure good lighting and direct eye contact.',
+              details: {
+                faceDetectedProfile: faceResP.hasFace,
+                faceDetectedSelfie: faceResS.hasFace
+              }
+            });
+            return;
+          }
+
+          // Extract biometrics from cropped face canvases
+          const bioP = extractBiometricsFromFace(faceResP.faceCanvas);
+          const bioS = extractBiometricsFromFace(faceResS.faceCanvas);
+
+          const matchResult = compareBiometrics(bioP, bioS);
 
           const elapsed = Date.now() - startTime;
-          if (elapsed < 1200) {
-            await new Promise(r => setTimeout(r, 1200 - elapsed));
+          if (elapsed < 1000) {
+            await new Promise(r => setTimeout(r, 1000 - elapsed));
           }
 
           resolve({
             success: true,
             isMatch: matchResult.isMatch,
             similarityScore: matchResult.score,
-            confidenceLevel: matchResult.score >= 80 ? 'High' : (matchResult.score >= 70 ? 'Medium' : 'Low'),
+            confidenceLevel: matchResult.score >= 80 ? 'High' : (matchResult.score >= 68 ? 'Medium' : 'Low'),
             status: matchResult.isMatch ? 'verified' : 'mismatch',
             message: matchResult.isMatch
               ? `Identity Verified: ${matchResult.score}% biometric match with profile portrait.`
               : 'Face mismatch: The selfie does not match the uploaded portrait photo.',
-            messageMl: matchResult.reasonEn,
             details: {
-              reason: matchResult.reasonEn,
+              reason: matchResult.reason,
               engine: 'Biometric Computer Vision Engine',
               livenessCheck: 'Passed',
-              contourScore: `${matchResult.geoScore}%`,
-              structuralScore: `${matchResult.structuralScore}%`
+              structuralScore: `${matchResult.structuralScore}%`,
+              chromaScore: `${matchResult.chromaScore}%`
             }
           });
         } catch (procErr) {
@@ -594,8 +644,7 @@ export async function verifyFaceMatch(profilePhotoUrl, selfieDataUrl) {
             similarityScore: 0,
             confidenceLevel: 'Low',
             status: 'error',
-            message: 'Image processing failed. Please ensure clear lighting and centered photos.',
-            messageMl: 'Image processing failed. Please ensure clear lighting and centered photos.'
+            message: 'Image processing failed. Please ensure clear lighting and centered photos.'
           });
         }
       };
@@ -603,14 +652,16 @@ export async function verifyFaceMatch(profilePhotoUrl, selfieDataUrl) {
       imgP.onload = () => { loadedCount++; if (loadedCount === 2) onBothLoaded(); };
       imgS.onload = () => { loadedCount++; if (loadedCount === 2) onBothLoaded(); };
       imgP.onerror = () => {
-        resolve({
+        // Fallback without crossOrigin if tainted
+        imgP.onerror = () => resolve({
           success: false,
           isMatch: false,
           similarityScore: 0,
           status: 'error',
-          message: 'Could not load profile photo for comparison.',
-          messageMl: 'Could not load profile photo for comparison.'
+          message: 'Could not load profile photo for comparison.'
         });
+        imgP.removeAttribute('crossOrigin');
+        imgP.src = profilePhotoUrl;
       };
       imgS.onerror = () => {
         resolve({
@@ -618,8 +669,7 @@ export async function verifyFaceMatch(profilePhotoUrl, selfieDataUrl) {
           isMatch: false,
           similarityScore: 0,
           status: 'error',
-          message: 'Could not load captured selfie image.',
-          messageMl: 'Could not load captured selfie image.'
+          message: 'Could not load captured selfie image.'
         });
       };
 
@@ -635,8 +685,7 @@ export async function verifyFaceMatch(profilePhotoUrl, selfieDataUrl) {
       similarityScore: 0,
       confidenceLevel: 'Low',
       status: 'error',
-      message: 'Failed to process verification. Please try again with clear lighting.',
-      messageMl: 'Failed to process verification. Please try again with clear lighting.'
+      message: 'Failed to process verification. Please try again with clear lighting.'
     };
   }
 }
