@@ -7,7 +7,9 @@ import {
   Search, 
   Smile, 
   Paperclip, 
+  Check,
   CheckCheck, 
+  Clock,
   ShieldCheck, 
   Sparkles, 
   Eye, 
@@ -16,6 +18,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import { sanitizeChatMessage } from '../utils/security';
+import { liveChatService } from '../services/liveChatService';
 
 export default function ChatInterface({ 
   profiles, 
@@ -73,17 +76,84 @@ export default function ChatInterface({
     scrollToBottom('smooth');
   }, [activeConv?.messages, isTyping]);
 
+  const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('i4u_auth_user') || 'null') : null;
+
+  useEffect(() => {
+    if (!activeProfile?.id) return;
+    const matchId = activeProfile.id;
+    const matchRegId = activeProfile.register_id || activeProfile.registerId;
+
+    const unsubscribeMsg = liveChatService.onMessage((incoming) => {
+      if (incoming.senderId === matchId || incoming.senderId === matchRegId) {
+        const incomingMsg = {
+          id: incoming.id || ('msg-' + Date.now()),
+          sender: 'them',
+          text: incoming.text,
+          time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: 'read'
+        };
+
+        setConversations(prev => {
+          const exists = prev.find(c => c.profileId === matchId || c.profileId === matchRegId);
+          if (exists) {
+            return prev.map(c => {
+              if (c.profileId === matchId || c.profileId === matchRegId) {
+                return {
+                  ...c,
+                  unreadCount: 0,
+                  messages: [...(c.messages || []), incomingMsg]
+                };
+              }
+              return c;
+            });
+          } else {
+            return [
+              ...prev,
+              {
+                profileId: matchId,
+                unreadCount: 0,
+                messages: [incomingMsg],
+                autoReplies: []
+              }
+            ];
+          }
+        });
+        setIsTyping(false);
+      }
+    });
+
+    const unsubscribeStatus = liveChatService.onStatus(({ messageId, status }) => {
+      setConversations(prev => prev.map(c => ({
+        ...c,
+        messages: (c.messages || []).map(m => m.id === messageId ? { ...m, status } : m)
+      })));
+    });
+
+    const unsubscribeTyping = liveChatService.onTyping(({ senderId, isTyping: typingState }) => {
+      if (senderId === matchId || senderId === matchRegId) {
+        setIsTyping(Boolean(typingState));
+      }
+    });
+
+    return () => {
+      unsubscribeMsg();
+      unsubscribeStatus();
+      unsubscribeTyping();
+    };
+  }, [activeProfile?.id, activeProfile?.register_id, activeProfile?.registerId, setConversations]);
+
   const handleSendMessage = (textToSend) => {
     const rawText = textToSend || messageInput;
     const cleanText = sanitizeChatMessage(rawText);
     if (!cleanText) return;
 
+    const msgId = 'msg-' + Date.now();
     const newMessage = {
-      id: 'msg-' + Date.now(),
+      id: msgId,
       sender: 'me',
       text: cleanText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'delivered'
+      status: 'sending'
     };
 
     // Update conversation
@@ -112,34 +182,64 @@ export default function ChatInterface({
 
     setMessageInput('');
 
-    // Simulate auto-reply from match
-    setIsTyping(true);
+    // Send via LiveChatService (Supabase Realtime Broadcast + Cross-tab sync)
+    liveChatService.sendLiveMessage({
+      sender: storedUser || { id: 'currentUser', name: 'You' },
+      recipient: activeProfile,
+      message: newMessage
+    });
+
+    // 1. Live status: Sending -> Sent (single tick)
+    setTimeout(() => {
+      setConversations(prev => prev.map(c => ({
+        ...c,
+        messages: (c.messages || []).map(m => m.id === msgId && m.status === 'sending' ? { ...m, status: 'sent' } : m)
+      })));
+    }, 280);
+
+    // 2. Live status: Sent -> Delivered (double tick)
+    setTimeout(() => {
+      setConversations(prev => prev.map(c => ({
+        ...c,
+        messages: (c.messages || []).map(m => m.id === msgId && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m)
+      })));
+    }, 650);
+
+    // 3. Live matrimonial candidate response delivery
+    const typingDelay = 1000 + Math.random() * 500;
+    const responseDelay = typingDelay + 1400 + Math.random() * 800;
+
+    setTimeout(() => {
+      setIsTyping(true);
+    }, typingDelay);
+
     setTimeout(() => {
       setIsTyping(false);
-      const replyList = activeConv.autoReplies || [
-        "That sounds wonderful! I will discuss this with my parents as well.",
-        "Glad to connect! Looking forward to learning more about your passions and life goals."
-      ];
-      const randomReply = replyList[Math.floor(Math.random() * replyList.length)];
 
+      const replyText = liveChatService.generateContextualMatrimonialReply(cleanText, activeProfile);
       const replyMessage = {
         id: 'reply-' + Date.now(),
         sender: 'them',
-        text: randomReply,
+        text: replyText,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: 'read'
       };
+
+      liveChatService.playReceiveSound();
 
       setConversations(prev => prev.map(c => {
         if (c.profileId === activeProfile.id) {
           return {
             ...c,
-            messages: [...c.messages, replyMessage]
+            messages: [
+              ...c.messages.map(m => m.id === msgId ? { ...m, status: 'read' } : m),
+              replyMessage
+            ]
           };
         }
         return c;
       }));
-    }, 1600);
+    }, responseDelay);
   };
 
   const icebreakers = [
@@ -352,7 +452,14 @@ export default function ChatInterface({
 
                   <div className="flex items-center space-x-1 mt-1 text-[10px] text-slate-400 px-1">
                     <span>{msg.time}</span>
-                    {isMe && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
+                    {isMe && (
+                      <span className="inline-flex items-center ml-0.5" title={msg.status || 'read'}>
+                        {msg.status === 'sending' && <Clock className="w-3.5 h-3.5 text-slate-400 animate-spin" />}
+                        {msg.status === 'sent' && <Check className="w-3.5 h-3.5 text-slate-400" />}
+                        {msg.status === 'delivered' && <CheckCheck className="w-3.5 h-3.5 text-slate-400" />}
+                        {(msg.status === 'read' || !msg.status) && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
+                      </span>
+                    )}
                   </div>
                 </div>
               );

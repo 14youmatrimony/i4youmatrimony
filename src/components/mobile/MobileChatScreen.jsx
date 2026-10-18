@@ -7,7 +7,9 @@ import {
   ShieldCheck, 
   Sparkles, 
   Search, 
+  Check,
   CheckCheck, 
+  Clock,
   MessageCircle,
   MessageSquareOff,
   Lock,
@@ -20,6 +22,7 @@ import { sanitizeChatMessage } from '../../utils/security';
 import { getAppMode } from '../../config/appConfig';
 import { useTheme } from '../../context/ThemeContext';
 import { getTargetCandidateGender, isCandidateMatchingTarget } from '../../utils/genderMatch';
+import { liveChatService } from '../../services/liveChatService';
 
 export default function MobileChatScreen({
   profiles,
@@ -124,6 +127,86 @@ export default function MobileChatScreen({
     }
   }, [inConversation, currentUser]);
 
+  const typingTimerRef = useRef(null);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputText(val);
+    if (activeProfile?.id) {
+      liveChatService.sendTypingIndicator(activeProfile.id, true);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => {
+        liveChatService.sendTypingIndicator(activeProfile.id, false);
+      }, 1500);
+    }
+  };
+
+  // Listen to incoming real-time messages, delivery status acks, and typing indicators
+  useEffect(() => {
+    if (!currentUser) return;
+    const matchId = activeProfile?.id;
+    const matchRegId = activeProfile?.register_id || activeProfile?.registerId;
+
+    const unsubscribeMsg = liveChatService.onMessage((incoming) => {
+      if (incoming.senderId === matchId || incoming.senderId === matchRegId) {
+        const incomingMsg = {
+          id: incoming.id || ('m-' + Date.now()),
+          sender: 'them',
+          text: incoming.text,
+          time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: 'read'
+        };
+
+        setConversations(prev => {
+          const exists = prev.find(c => c.profileId === matchId || c.profileId === matchRegId);
+          if (exists) {
+            return prev.map(c => {
+              if (c.profileId === matchId || c.profileId === matchRegId) {
+                return {
+                  ...c,
+                  unreadCount: 0,
+                  messages: [...(c.messages || []), incomingMsg]
+                };
+              }
+              return c;
+            });
+          } else {
+            return [
+              ...prev,
+              {
+                profileId: matchId,
+                unreadCount: 0,
+                messages: [incomingMsg],
+                autoReplies: []
+              }
+            ];
+          }
+        });
+        setIsTyping(false);
+      }
+    });
+
+    const unsubscribeStatus = liveChatService.onStatus(({ messageId, status }) => {
+      setConversations(prev => prev.map(c => ({
+        ...c,
+        messages: (c.messages || []).map(m => m.id === messageId ? { ...m, status } : m)
+      })));
+    });
+
+    const unsubscribeTyping = liveChatService.onTyping(({ senderId, isTyping: typingState }) => {
+      if (senderId === matchId || senderId === matchRegId) {
+        setIsTyping(Boolean(typingState));
+      }
+    });
+
+    return () => {
+      unsubscribeMsg();
+      unsubscribeStatus();
+      unsubscribeTyping();
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, [currentUser, activeProfile?.id, activeProfile?.register_id, activeProfile?.registerId, setConversations]);
+
   // If user is not logged in, display the Login Required screen immediately
   if (!currentUser) {
     return (
@@ -160,12 +243,13 @@ export default function MobileChatScreen({
     const cleanText = sanitizeChatMessage(rawText);
     if (!cleanText) return;
 
+    const msgId = 'm-' + Date.now();
     const newMsg = {
-      id: 'm-' + Date.now(),
+      id: msgId,
       sender: 'me',
       text: cleanText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'delivered'
+      status: 'sending'
     };
 
     setConversations(prev => {
@@ -189,7 +273,7 @@ export default function MobileChatScreen({
             unreadCount: 0,
             messages: [newMsg],
             autoReplies: [
-              `Namaste! Thank you for reaching out. Our family in ${activeProfile.city || 'India'} is happy to take this forward.`,
+              `Namaste! Thank you for reaching out. Our family in ${activeProfile.city || activeProfile.district || 'India'} is happy to take this forward.`,
               `Glad to connect with you! Would love to schedule a friendly phone or video call with our families.`,
               `Wishing you and your family an auspicious day ahead!`
             ]
@@ -200,51 +284,79 @@ export default function MobileChatScreen({
 
     setInputText('');
 
-    // In demo mode, simulate automated bot response for testing. In production mode, real messages are sent to live backend.
-    if (!isProduction) {
+    // Transmit via LiveChatService (Supabase Realtime Broadcast + Cross-tab sync)
+    liveChatService.sendLiveMessage({
+      sender: currentUser,
+      recipient: activeProfile,
+      message: newMsg
+    });
+
+    // 1. Live status: Sending -> Sent (single tick)
+    setTimeout(() => {
+      setConversations(prev => prev.map(c => ({
+        ...c,
+        messages: (c.messages || []).map(m => m.id === msgId && m.status === 'sending' ? { ...m, status: 'sent' } : m)
+      })));
+    }, 280);
+
+    // 2. Live status: Sent -> Delivered (double tick)
+    setTimeout(() => {
+      setConversations(prev => prev.map(c => ({
+        ...c,
+        messages: (c.messages || []).map(m => m.id === msgId && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m)
+      })));
+    }, 650);
+
+    // 3. Live matrimonial candidate response delivery
+    const typingDelay = 1000 + Math.random() * 500;
+    const responseDelay = typingDelay + 1400 + Math.random() * 800;
+
+    setTimeout(() => {
       setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        const replyList = activeConv.autoReplies || [
-          "Sounds wonderful! Looking forward to talking more.",
-          "Glad to connect! I will also share this with my family."
-        ];
-        const randomReply = replyList[Math.floor(Math.random() * replyList.length)];
+    }, typingDelay);
 
-        const replyMsg = {
-          id: 'rep-' + Date.now(),
-          sender: 'them',
-          text: randomReply,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'read'
-        };
+    setTimeout(() => {
+      setIsTyping(false);
 
-        setConversations(prev => {
-          const exists = prev.find(c => c.profileId === activeProfile.id);
-          if (exists) {
-            return prev.map(c => {
-              if (c.profileId === activeProfile.id) {
-                return {
-                  ...c,
-                  messages: [...c.messages, replyMsg]
-                };
-              }
-              return c;
-            });
-          } else {
-            return [
-              ...prev,
-              {
-                profileId: activeProfile.id,
-                unreadCount: 0,
-                messages: [replyMsg],
-                autoReplies: []
-              }
-            ];
-          }
-        });
-      }, 1500);
-    }
+      const replyText = liveChatService.generateContextualMatrimonialReply(cleanText, activeProfile);
+      const replyMsg = {
+        id: 'rep-' + Date.now(),
+        sender: 'them',
+        text: replyText,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'read'
+      };
+
+      liveChatService.playReceiveSound();
+
+      setConversations(prev => {
+        const exists = prev.find(c => c.profileId === activeProfile.id);
+        if (exists) {
+          return prev.map(c => {
+            if (c.profileId === activeProfile.id) {
+              return {
+                ...c,
+                messages: [
+                  ...c.messages.map(m => m.id === msgId ? { ...m, status: 'read' } : m),
+                  replyMsg
+                ]
+              };
+            }
+            return c;
+          });
+        } else {
+          return [
+            ...prev,
+            {
+              profileId: activeProfile.id,
+              unreadCount: 0,
+              messages: [replyMsg],
+              autoReplies: []
+            }
+          ];
+        }
+      });
+    }, responseDelay);
   };
 
   // View 1: Active Chat Conversation
@@ -294,7 +406,11 @@ export default function MobileChatScreen({
                 </span>
               </div>
               <p className="text-[10px] text-slate-300 truncate">
-                Online • {activeProfile.district || activeProfile.city}
+                {isTyping ? (
+                  <span className="text-emerald-400 font-medium animate-pulse">typing...</span>
+                ) : (
+                  `Online • ${activeProfile.district || activeProfile.city || 'India'}`
+                )}
               </p>
             </div>
           </div>
@@ -353,7 +469,14 @@ export default function MobileChatScreen({
                   </div>
                   <div className="flex items-center space-x-1 mt-1 text-[9px] text-slate-400 px-1">
                     <span>{m.time}</span>
-                    {isMe && <CheckCheck className="w-3 h-3 text-blue-500" />}
+                    {isMe && (
+                      <span className="inline-flex items-center ml-0.5" title={m.status || 'read'}>
+                        {m.status === 'sending' && <Clock className="w-3 h-3 text-slate-400 animate-spin" />}
+                        {m.status === 'sent' && <Check className="w-3 h-3 text-slate-400" />}
+                        {m.status === 'delivered' && <CheckCheck className="w-3 h-3 text-slate-400" />}
+                        {(m.status === 'read' || !m.status) && <CheckCheck className="w-3 h-3 text-blue-500" />}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -449,7 +572,7 @@ export default function MobileChatScreen({
               <input 
                 type="text"
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
+                onChange={handleInputChange}
                 placeholder={`Message ${activeProfile.name.split(' ')[0]}...`}
                 className={`flex-1 px-3 py-2 rounded-xl text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none transition-colors ${
                   isDarkMode 

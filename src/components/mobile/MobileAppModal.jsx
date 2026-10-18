@@ -33,6 +33,7 @@ import MobileOffersAndPlansSheet from './MobileOffersAndPlansSheet';
 import MobilePaymentModal from './MobilePaymentModal';
 import PaymentInvoiceModal from './PaymentInvoiceModal';
 import MobileThemeSettingsSheet from './MobileThemeSettingsSheet';
+import SendInterestModal from '../SendInterestModal';
 import AadhaarVerificationScreen from '../AadhaarVerificationScreen';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -163,6 +164,8 @@ export default function MobileAppModal({
   setIsThemeSettingsOpen,
   handleStartChat,
   onRequestSendInterest,
+  interestModalCandidate,
+  setInterestModalCandidate,
   onStartAudioCall,
   onStartVideoCall,
   onAadhaarVerificationComplete,
@@ -610,6 +613,24 @@ export default function MobileAppModal({
                         isOpen={isThemeSettingsOpen}
                         onClose={() => setIsThemeSettingsOpen(false)}
                       />
+
+                      {/* Live Instant Message / Express Interest Modal */}
+                      {interestModalCandidate && (
+                        <SendInterestModal 
+                          isOpen={Boolean(interestModalCandidate)}
+                          candidate={interestModalCandidate}
+                          currentUser={currentUser}
+                          isAlreadyInterested={Boolean(interestModalCandidate && (interestsSent.includes(interestModalCandidate.id) || (interestModalCandidate.registerId && interestsSent.includes(interestModalCandidate.registerId)) || (interestModalCandidate.register_id && interestsSent.includes(interestModalCandidate.register_id))))}
+                          onSendInterest={(candId, msg) => {
+                            if (onToggleInterest) onToggleInterest(candId);
+                            if (setInterestModalCandidate) setInterestModalCandidate(null);
+                          }}
+                          onClose={() => {
+                            if (setInterestModalCandidate) setInterestModalCandidate(null);
+                          }}
+                          isWebsiteModal={false}
+                        />
+                      )}
                     </>
                   }
                 >

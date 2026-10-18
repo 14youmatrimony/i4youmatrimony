@@ -2956,6 +2956,19 @@ export default function App() {
               isWebsiteModal={true}
             />
 
+            {/* Authentic Matrimonial Interest Message Composer Modal in Website Mode */}
+            {interestModalCandidate && !isAppModalOpen && (
+              <SendInterestModal 
+                isOpen={Boolean(interestModalCandidate)}
+                candidate={interestModalCandidate}
+                currentUser={currentUser}
+                isAlreadyInterested={isProfileInterested(interestModalCandidate)}
+                onSendInterest={handleConfirmSendInterest}
+                onClose={() => setInterestModalCandidate(null)}
+                isWebsiteModal={true}
+              />
+            )}
+
             {/* 80% Screen Mobile App Modal Over Website */}
             <MobileAppModal 
               isOpen={isAppModalOpen}
@@ -3102,6 +3115,8 @@ export default function App() {
               handleUndoDeclineReceivedInterest={handleUndoDeclineReceivedInterest}
               handleAcceptReceivedInterest={handleAcceptReceivedInterest}
               onRequestSendInterest={handleOpenSendInterest}
+              interestModalCandidate={interestModalCandidate}
+              setInterestModalCandidate={setInterestModalCandidate}
               onStartAudioCall={handleStartAudioCall}
               onStartVideoCall={handleStartVideoCall}
             />
@@ -3455,6 +3470,19 @@ export default function App() {
                 isOpen={isThemeSettingsOpen}
                 onClose={() => setIsThemeSettingsOpen(false)}
               />
+
+              {/* Authentic Matrimonial Interest Message Composer Modal inside Mobile App */}
+              {interestModalCandidate && (
+                <SendInterestModal 
+                  isOpen={Boolean(interestModalCandidate)}
+                  candidate={interestModalCandidate}
+                  currentUser={currentUser}
+                  isAlreadyInterested={isProfileInterested(interestModalCandidate)}
+                  onSendInterest={handleConfirmSendInterest}
+                  onClose={() => setInterestModalCandidate(null)}
+                  isWebsiteModal={false}
+                />
+              )}
             </>
           }
         >
@@ -3606,18 +3634,6 @@ export default function App() {
       )}
 
     </DeviceFrameSimulator>
-    )}
-
-    {/* Authentic Matrimonial Interest Message Composer Modal (Malayalam & English) */}
-    {interestModalCandidate && (
-      <SendInterestModal 
-        isOpen={Boolean(interestModalCandidate)}
-        candidate={interestModalCandidate}
-        currentUser={currentUser}
-        isAlreadyInterested={isProfileInterested(interestModalCandidate)}
-        onSendInterest={handleConfirmSendInterest}
-        onClose={() => setInterestModalCandidate(null)}
-      />
     )}
 
     {/* Realtime WebRTC Incoming Call Overlay */}
