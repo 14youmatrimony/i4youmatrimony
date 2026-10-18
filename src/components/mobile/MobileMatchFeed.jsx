@@ -740,32 +740,6 @@ export default function MobileMatchFeed({
                         <Heart className={`w-3.5 h-3.5 ${isShortlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
                       </button>
 
-                      {/* Live Audio Call */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onStartAudioCall) onStartAudioCall(profile);
-                        }}
-                        className="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition-all"
-                        title="Live Call (Audio Call)"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                      </button>
-
-                      {/* Live Video Call */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onStartVideoCall) onStartVideoCall(profile);
-                        }}
-                        className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition-all"
-                        title="Live Video Call"
-                      >
-                        <Video className="w-3.5 h-3.5" />
-                      </button>
-
                       {/* Live Message (Direct Chat) */}
                       <button
                         type="button"
@@ -993,27 +967,6 @@ export default function MobileMatchFeed({
                         <Heart className={`w-4 h-4 ${isShortlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
                       </button>
 
-                      {/* Live Audio Call */}
-                      <button
-                        onClick={() => {
-                          if (onStartAudioCall) onStartAudioCall(profile);
-                        }}
-                        className="p-2.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-emerald-100 shrink-0"
-                        title="Live Call (Voice Call)"
-                      >
-                        <Phone className="w-4 h-4" />
-                      </button>
-
-                      {/* Live Video Call */}
-                      <button
-                        onClick={() => {
-                          if (onStartVideoCall) onStartVideoCall(profile);
-                        }}
-                        className="p-2.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-indigo-100 shrink-0"
-                        title="Live Video Call"
-                      >
-                        <Video className="w-4 h-4" />
-                      </button>
 
                       {/* Live Message (Chat) */}
                       <button
