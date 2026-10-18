@@ -2449,7 +2449,9 @@ const DEFAULT_MEMBERSHIP_PLANS = [
   }
 ];
 
-async function loadPlans() {
+let lastRenderedPlansHash = '';
+
+async function loadPlans(force = false) {
   const cardsContainer = document.getElementById('plansCardsContainer');
   const tableBody = document.getElementById('plansTableBody');
   if (!cardsContainer && !tableBody) return;
@@ -2478,8 +2480,11 @@ async function loadPlans() {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.plans) && data.plans.length > 0) {
-        state.plans = data.plans;
-        renderPlans();
+        const newHash = JSON.stringify(data.plans);
+        if (force || newHash !== lastRenderedPlansHash) {
+          state.plans = data.plans;
+          renderPlans();
+        }
       }
     }
   } catch (err) {
