@@ -40,6 +40,7 @@ import VideoCallModal from './components/calling/VideoCallModal';
 import IncomingCallModal from './components/calling/IncomingCallModal';
 import { webrtcCallService } from './services/webrtcCallService';
 import { liveChatService } from './services/liveChatService';
+import { interestService } from './services/interestService';
 import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePromptModal';
 import { getAppMode, setAppMode, APP_CONFIG } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
@@ -1407,6 +1408,12 @@ export default function App() {
       }
       return [...prev, targetId];
     });
+
+    // Record acceptance in interestService for real-time WebRTC unlock
+    if (currentUser && profile) {
+      interestService.acceptInterest(currentUser, profile).catch(err => console.warn('[App] acceptInterest error:', err));
+    }
+
     setConversations(prev => {
       if (!prev.find(c => c.profileId === targetId || (targetRegId && c.profileId === targetRegId))) {
         return [...prev, {
@@ -1425,13 +1432,16 @@ export default function App() {
       }
       return prev;
     });
-    showToast(`Accepted interest from ${profile?.name || 'candidate'}! Chat unlocked ✨`);
+    showToast(`Accepted interest from ${profile?.name || 'candidate'}! Calling & Chat unlocked ✨`);
   };
 
   const handleDeclineInterestNotification = (notifId) => {
     const notif = notifications.find(n => n.id === notifId);
     if (notif?.profileId) {
       setDeclinedReceivedIds(prev => (prev.includes(notif.profileId) ? prev : [...prev, notif.profileId]));
+      if (currentUser) {
+        interestService.rejectInterest(currentUser, notif.profileId).catch(err => console.warn('[App] rejectInterest error:', err));
+      }
     }
     setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true, status: 'declined' } : n));
     showToast('Interest politely declined');
@@ -1442,6 +1452,9 @@ export default function App() {
     const targetId = profile?.id || profileId;
     setDeclinedReceivedIds(prev => (prev.includes(targetId) ? prev : [...prev, targetId]));
     setNotifications(prev => prev.map(n => (n.profileId === targetId || n.profileId === profileId) ? { ...n, isRead: true, status: 'declined' } : n));
+    if (currentUser && (profile || targetId)) {
+      interestService.rejectInterest(currentUser, profile || targetId).catch(err => console.warn('[App] rejectInterest error:', err));
+    }
     showToast(`Politely declined interest from ${profile?.name || 'candidate'}`);
   };
 
@@ -1466,6 +1479,11 @@ export default function App() {
     });
     setNotifications(prev => prev.map(n => (n.profileId === targetId || n.profileId === profileId) ? { ...n, isRead: true, status: 'accepted' } : n));
     
+    // Record acceptance in interestService for real-time WebRTC unlock
+    if (currentUser && profile) {
+      interestService.acceptInterest(currentUser, profile).catch(err => console.warn('[App] acceptInterest error:', err));
+    }
+
     // Ensure chat conversation thread exists
     setConversations(prev => {
       if (!prev.find(c => c.profileId === targetId || (targetRegId && c.profileId === targetRegId))) {
@@ -1486,7 +1504,7 @@ export default function App() {
       return prev;
     });
 
-    showToast(`Accepted interest from ${profile?.name || 'candidate'}! ✨ Chat unlocked.`);
+    showToast(`Accepted interest from ${profile?.name || 'candidate'}! ✨ Calling & Chat unlocked.`);
     handleStartChat(targetId);
   };
 
@@ -1612,6 +1630,11 @@ export default function App() {
         return [...cleaned, targetId];
       });
       showToast(`Interest sent to ${profile?.name || 'profile'}! ✨`);
+
+      // Record interest in interestService for relationship status tracking
+      if (currentUser && profile) {
+        interestService.sendInterest(currentUser, profile).catch(err => console.warn('[App] sendInterest error:', err));
+      }
 
       // Dispatch automated email alert to candidate's registered email
       if (profile?.email) {
@@ -1749,7 +1772,7 @@ export default function App() {
     setInterestModalCandidate(candidate);
   };
 
-  // Confirm sending interest with chosen/customized Malayalam or English message
+  // Confirm sending interest with chosen/customized message
   const handleConfirmSendInterest = (profileId, customMessage) => {
     const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId) || interestModalCandidate;
     const targetId = profile?.id || profileId;
@@ -1761,6 +1784,11 @@ export default function App() {
     });
     setInterestModalCandidate(null);
     showToast(`💖 Interest & message sent to ${profile?.name || 'candidate'}! ✨`);
+
+    // Record interest in interestService for relationship status tracking
+    if (currentUser && profile) {
+      interestService.sendInterest(currentUser, profile, customMessage).catch(err => console.warn('[App] sendInterest error:', err));
+    }
 
     // Dispatch automated email alert to candidate's registered email
     if (profile?.email) {
@@ -1808,20 +1836,64 @@ export default function App() {
     });
   };
 
-  // Start direct Audio Call with candidate (Active for all users via WebRTC)
-  const handleStartAudioCall = (candidateOrId) => {
+  // Start direct Audio Call with candidate (Authorized ONLY if Interest is Accepted)
+  const handleStartAudioCall = async (candidateOrId) => {
+    if (!currentUser) {
+      showToast('🔒 Please register free to make voice calls');
+      handleOpenRegister();
+      return;
+    }
     const candidate = typeof candidateOrId === 'object' ? candidateOrId : profiles.find(p => p.id === candidateOrId);
     if (!candidate) return;
+
+    // Security Gate: Check mutual matrimonial interest status
+    const authCheck = await interestService.verifyCallAuthorization(currentUser, candidate);
+    if (!authCheck.authorized) {
+      if (authCheck.status === 'none') {
+        showToast('Send an Interest first. Calling is unlocked once accepted.');
+        handleOpenSendInterest(candidate);
+      } else if (authCheck.status === 'pending') {
+        showToast('Interest is pending acceptance. You can call once they accept your interest.');
+      } else if (authCheck.status === 'rejected') {
+        showToast('Calling is unavailable as the interest was not accepted.');
+      } else {
+        showToast(authCheck.reason);
+      }
+      return;
+    }
+
     setIsCallCaller(true);
     setActiveCallSession(null);
     setActiveAudioCallCandidate(candidate);
     showToast(`📞 Live Call: Initiating encrypted audio line with ${candidate.name}...`);
   };
 
-  // Start live Video Call with candidate (Active for all users via WebRTC)
-  const handleStartVideoCall = (candidateOrId) => {
+  // Start live Video Call with candidate (Authorized ONLY if Interest is Accepted)
+  const handleStartVideoCall = async (candidateOrId) => {
+    if (!currentUser) {
+      showToast('🔒 Please register free to make video calls');
+      handleOpenRegister();
+      return;
+    }
     const candidate = typeof candidateOrId === 'object' ? candidateOrId : profiles.find(p => p.id === candidateOrId);
     if (!candidate) return;
+
+    // Security Gate: Check mutual matrimonial interest status
+    const authCheck = await interestService.verifyCallAuthorization(currentUser, candidate);
+    if (!authCheck.authorized) {
+      if (authCheck.status === 'none') {
+        showToast('Send an Interest first. Calling is unlocked once accepted.');
+        handleOpenSendInterest(candidate);
+      } else if (authCheck.status === 'pending') {
+        showToast('Interest is pending acceptance. You can call once they accept your interest.');
+      } else if (authCheck.status === 'rejected') {
+        showToast('Calling is unavailable as the interest was not accepted.');
+      } else {
+        showToast(authCheck.reason);
+      }
+      return;
+    }
+
     setIsCallCaller(true);
     setActiveCallSession(null);
     setActiveVideoCallCandidate(candidate);
@@ -3634,6 +3706,8 @@ export default function App() {
               onOpenOffers={handleOpenOffers}
               onStartAudioCall={handleStartAudioCall}
               onStartVideoCall={handleStartVideoCall}
+              onRequestSendInterest={handleOpenSendInterest}
+              onToggleInterest={handleToggleInterest}
             />
           )}
 

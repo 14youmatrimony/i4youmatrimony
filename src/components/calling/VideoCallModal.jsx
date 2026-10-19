@@ -172,7 +172,10 @@ export default function VideoCallModal({
 
     const handleStatusChange = (status) => {
       if (!isSubscribed) return;
-      if (status === 'connected') {
+      if (status === 'blocked') {
+        setCallStatus('ended');
+        setTimeout(() => onClose(), 1000);
+      } else if (status === 'connected') {
         setCallStatus('connected');
         attachLocalStream();
         playVideoChime();
@@ -192,7 +195,12 @@ export default function VideoCallModal({
         callType: 'video',
         onRemoteStream: handleRemoteStream,
         onStatusChange: handleStatusChange
-      }).then(() => {
+      }).then((res) => {
+        if (res && res.error === 'CALL_BLOCKED') {
+          setCallStatus('ended');
+          setTimeout(() => onClose(), 1000);
+          return;
+        }
         attachLocalStream();
         if (webrtcCallService.hardwareError === 'camera_denied') {
           setCameraNotice('Camera permission denied. Operating in audio-only mode.');

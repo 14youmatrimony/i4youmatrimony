@@ -215,7 +215,12 @@ export default function AudioCallModal({
     // Callback for status change from Supabase/WebRTC
     const handleStatusChange = (status) => {
       if (!isSubscribed) return;
-      if (status === 'connected') {
+      if (status === 'blocked') {
+        if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
+        setCallStatus('ended');
+        playTone(380, 280, 0.3);
+        setTimeout(() => onClose(), 1200);
+      } else if (status === 'connected') {
         if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
         setCallStatus('connected');
         setIsConnectedPeer(true);
@@ -240,7 +245,14 @@ export default function AudioCallModal({
         callType: 'audio',
         onRemoteStream: handleRemoteStream,
         onStatusChange: handleStatusChange
-      }).then(() => {
+      }).then((res) => {
+        if (res && res.error === 'CALL_BLOCKED') {
+          if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
+          setCallStatus('ended');
+          playTone(380, 280, 0.3);
+          setTimeout(() => onClose(), 1200);
+          return;
+        }
         if (webrtcCallService.localStream) {
           setupMicAnalyser(webrtcCallService.localStream);
         } else if (webrtcCallService.hardwareError === 'permission_denied') {

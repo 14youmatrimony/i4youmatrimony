@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { interestService } from './interestService';
 
 /**
  * Reliable public Google STUN servers for robust NAT traversal
@@ -112,9 +113,15 @@ class WebRTCCallService {
           config: { broadcast: { self: false } }
         });
 
-        const handleIncoming = ({ payload }) => {
+        const handleIncoming = async ({ payload }) => {
           if (!payload) return;
           console.log(`[WebRTC] Received incoming call invite on ${inboxChannelName}:`, payload);
+          // Signaling security barrier: Drop call immediately if interest is not accepted
+          const authCheck = await interestService.verifyCallAuthorization(userOrId, payload.caller);
+          if (!authCheck.authorized) {
+            console.warn('[WebRTC Signaling Security] Dropped unauthorized incoming call invite from:', payload.caller?.id, authCheck.reason);
+            return;
+          }
           if (this.inboxCallback) {
             this.inboxCallback(payload);
           }
@@ -162,9 +169,18 @@ class WebRTCCallService {
       if (!payload) return;
       const targetId = String(payload.calleeId);
       const isTarget = this.listeningUserIds && this.listeningUserIds.some((id) => String(id) === targetId);
-      if (isTarget && this.inboxCallback) {
-        console.log('[WebRTC CrossTab] Received incoming call for matching user:', payload);
-        this.inboxCallback(payload);
+      if (isTarget) {
+        // Signaling security barrier for cross-tab invitations
+        interestService.verifyCallAuthorization(targetId, payload.caller).then((authCheck) => {
+          if (!authCheck.authorized) {
+            console.warn('[WebRTC CrossTab Signaling Security] Dropped unauthorized incoming call invite from:', payload.caller?.id, authCheck.reason);
+            return;
+          }
+          console.log('[WebRTC CrossTab] Received incoming call for matching authorized user:', payload);
+          if (this.inboxCallback) {
+            this.inboxCallback(payload);
+          }
+        });
       }
       return;
     }
@@ -519,6 +535,28 @@ class WebRTCCallService {
     this.callType = normalizedCallType;
     this.onRemoteStreamCallback = onRemoteStream;
     this.onCallStatusChangeCallback = onStatusChange;
+
+    // 0. SIGNALING SECURITY GATE: Calling is strictly permitted only if interest status is 'accepted'
+    const authCheck = await interestService.verifyCallAuthorization(caller, callee);
+    if (!authCheck.authorized) {
+      console.warn('[WebRTC Signaling Security] Outgoing call blocked:', authCheck.reason);
+      if (onStatusChange) {
+        onStatusChange('blocked', {
+          error: 'CALL_BLOCKED',
+          message: 'Interest not accepted by recipient',
+          details: authCheck.reason,
+          status: authCheck.status
+        });
+      }
+      return {
+        success: false,
+        error: 'CALL_BLOCKED',
+        message: 'Interest not accepted by recipient',
+        details: authCheck.reason,
+        status: authCheck.status
+      };
+    }
+
     this.currentCallId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     this.currentSessionChannelName = `call-session-${this.currentCallId}`;
     this.iceCandidateQueue = [];

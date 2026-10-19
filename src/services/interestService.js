@@ -8,6 +8,7 @@
  * Audio/Video calling is PERMITTED ONLY IF interest status === 'accepted'
  */
 
+import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase';
 
 class InterestService {
@@ -480,3 +481,62 @@ class InterestService {
 
 export const interestService = new InterestService();
 export default interestService;
+
+/**
+ * React Hook to observe real-time matrimonial interest relationship status
+ * between the currentUser and a target candidate profile.
+ * 
+ * Returns: { status, isAccepted, isPending, isRejected, isNone, loading }
+ */
+export function useInterestStatus(currentUser, targetProfile) {
+  const [status, setStatus] = useState(() => interestService.getRelationshipStatusSync(currentUser, targetProfile));
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    // Fetch initial status from DB / storage
+    interestService.getRelationshipStatus(currentUser, targetProfile).then((newStatus) => {
+      if (isMounted) {
+        setStatus(newStatus);
+        setLoading(false);
+      }
+    });
+
+    // Subscribe to live status changes (local + cross-tab)
+    const unsubscribe = interestService.onStatusChange((update) => {
+      if (!isMounted || !update) return;
+      const idsA = interestService.getUserIds(currentUser);
+      const idsB = interestService.getUserIds(targetProfile);
+
+      const match =
+        (idsA.includes(String(update.userAId)) && idsB.includes(String(update.userBId))) ||
+        (idsB.includes(String(update.userAId)) && idsA.includes(String(update.userBId)));
+
+      if (match) {
+        setStatus(update.status);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [
+    currentUser?.id,
+    currentUser?.registerId,
+    currentUser?.register_id,
+    targetProfile?.id,
+    targetProfile?.registerId,
+    targetProfile?.register_id
+  ]);
+
+  return {
+    status, // 'none' | 'pending' | 'accepted' | 'rejected'
+    isAccepted: status === 'accepted',
+    isPending: status === 'pending',
+    isRejected: status === 'rejected',
+    isNone: status === 'none',
+    loading
+  };
+}

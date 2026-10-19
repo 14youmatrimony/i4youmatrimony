@@ -717,6 +717,8 @@ export default function MobileAppModal({
                       onOpenOffers={onOpenOffers}
                       onStartAudioCall={onStartAudioCall}
                       onStartVideoCall={onStartVideoCall}
+                      onRequestSendInterest={onRequestSendInterest}
+                      onToggleInterest={onToggleInterest}
                     />
                   )}
 
