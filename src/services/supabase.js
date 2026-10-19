@@ -18,12 +18,21 @@ export const isSupabaseConfigured = () => {
 };
 
 /**
- * Supabase client instance.
+ * Supabase client instance with explicit permanent session persistence (localStorage).
  * Gracefully initializes with dummy key if not yet provided to prevent frontend bundling crashes.
  */
 export const supabase = createClient(
   supabaseUrl,
-  supabaseAnonKey || 'dummy-anon-key-placeholder'
+  supabaseAnonKey || 'dummy-anon-key-placeholder',
+  {
+    auth: {
+      persistSession: true,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce'
+    }
+  }
 );
 
 if (!isSupabaseConfigured()) {
@@ -32,4 +41,33 @@ if (!isSupabaseConfigured()) {
   );
 }
 
+/**
+ * Initializes a root-level auth state change listener to synchronize session tokens
+ */
+export const initSupabaseAuthListener = (callback) => {
+  if (!isSupabaseConfigured() || !supabase?.auth) return () => {};
+  try {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.access_token && typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('i4u_auth_token', session.access_token);
+          if (session.refresh_token) {
+            localStorage.setItem('i4u_refresh_token', session.refresh_token);
+          }
+        } catch (e) {}
+      }
+      if (typeof callback === 'function') {
+        callback(event, session);
+      }
+    });
+    return () => {
+      subscription?.unsubscribe?.();
+    };
+  } catch (err) {
+    console.warn('[Supabase] Auth listener init warning:', err);
+    return () => {};
+  }
+};
+
 export default supabase;
+

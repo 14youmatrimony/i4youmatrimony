@@ -180,9 +180,8 @@ export default function WebsiteMatchShowcase({
         const matchesCity = (p.city || '').toLowerCase().includes(cleanTerm);
         const matchesDistrict = (p.district || '').toLowerCase().includes(cleanTerm);
         const matchesProfession = (p.profession || '').toLowerCase().includes(cleanTerm);
-        const matchesCaste = (p.caste || '').toLowerCase().includes(cleanTerm);
         const matchesEducation = (p.education || '').toLowerCase().includes(cleanTerm);
-        if (!matchesName && !matchesCity && !matchesDistrict && !matchesProfession && !matchesCaste && !matchesEducation) {
+        if (!matchesName && !matchesCity && !matchesDistrict && !matchesProfession && !matchesEducation) {
           return false;
         }
       }
@@ -286,7 +285,7 @@ export default function WebsiteMatchShowcase({
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search candidate name, hometown, profession, caste, or education..."
+                placeholder="Search candidate name, hometown, profession, or education..."
                 className="w-full pl-13 pr-24 py-3 rounded-2xl bg-slate-50/90 hover:bg-slate-50 focus:bg-white text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 border border-slate-200/90 hover:border-[#DFB76C]/60 focus:outline-hidden focus:border-[#D4AF37] focus:ring-4 focus:ring-[#DFB76C]/15 transition-all shadow-inner"
               />
               {searchTerm ? (
@@ -718,12 +717,10 @@ export default function WebsiteMatchShowcase({
                   <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3 bg-white">
                     
                     <div className="space-y-2 text-xs text-slate-600">
-                      {/* Religion & Caste */}
+                      {/* Religion */}
                       <p className="flex items-center gap-1.5 text-slate-900 font-bold truncate">
                         <span className="w-2 h-2 rounded-full bg-[#D4AF37] shrink-0"></span>
                         <span>{profile.religion}</span>
-                        <span className="text-slate-400">•</span>
-                        <span className="truncate text-slate-700 font-semibold">{profile.caste}</span>
                       </p>
 
                       {/* Education */}

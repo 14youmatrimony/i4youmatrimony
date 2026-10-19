@@ -72,7 +72,6 @@ export default function MobileSearchScreen({
                     p.city.toLowerCase().includes(q) || 
                     (p.district && p.district.toLowerCase().includes(q)) ||
                     p.profession.toLowerCase().includes(q) || 
-                    p.caste.toLowerCase().includes(q) ||
                     phoneMatch ||
                     mobileMatch;
         if (!hit) return false;
@@ -105,7 +104,7 @@ export default function MobileSearchScreen({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search mobile number, name, district, caste..."
+              placeholder="Search mobile number, name, district..."
               className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:bg-white focus:ring-2 focus:ring-[#D4AF37] focus:outline-none"
             />
           </div>

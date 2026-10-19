@@ -358,7 +358,7 @@ export default function MobileProfileDetailSheet({
                   </>
                 )}
                 <span>•</span>
-                <span>{profile.religion} ({profile.caste})</span>
+                <span>{profile.religion}</span>
               </p>
 
               <div className="flex items-center space-x-1.5 text-xs text-slate-300 mt-1">
@@ -497,10 +497,7 @@ export default function MobileProfileDetailSheet({
                     <span className="text-slate-400 block text-[10px] font-semibold">Religion & Faith</span>
                     <span className="font-bold text-slate-800 text-sm mt-0.5 block">{profile.religion}</span>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-slate-400 block text-[10px] font-semibold">Community / Caste</span>
-                    <span className="font-bold text-slate-800 text-sm mt-0.5 block">{profile.caste}</span>
-                  </div>
+
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                     <span className="text-slate-400 block text-[10px] font-semibold">Smoking</span>
                     <span className="font-bold text-slate-800 text-sm mt-0.5 block">{profile.smoking}</span>

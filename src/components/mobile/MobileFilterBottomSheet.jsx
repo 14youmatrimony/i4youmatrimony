@@ -525,16 +525,16 @@ export default function MobileFilterBottomSheet({
 
           </div>
 
-          {/* 4. COMMUNITY & CASTE */}
+          {/* 4. RELIGION */}
           <div className="space-y-2.5 pt-1 border-t border-slate-100">
             <div className="flex items-center space-x-1.5 text-slate-700">
               <Sparkles className="w-3.5 h-3.5 text-[#8C6D1F]" />
               <label className="uppercase text-[9px] font-bold tracking-wider text-slate-600">
-                Religion, Community & Caste
+                Religion
               </label>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {/* Religion */}
               <div>
                 <SearchableSelect
@@ -544,19 +544,6 @@ export default function MobileFilterBottomSheet({
                   onChange={(val) => handleReligionChange(val)}
                   options={['All Religions', ...RELIGIONS]}
                   searchPlaceholder="Search religion..."
-                  buttonClassName="w-full px-2.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium truncate"
-                />
-              </div>
-
-              {/* Community & Caste */}
-              <div>
-                <SearchableSelect
-                  label="Community & Caste"
-                  title="Select Community & Caste"
-                  value={selectedCaste || 'All Castes & Communities'}
-                  onChange={(val) => setSelectedCaste && setSelectedCaste(val)}
-                  options={['All Castes & Communities', ...availableCastes]}
-                  searchPlaceholder="Search community or caste..."
                   buttonClassName="w-full px-2.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium truncate"
                 />
               </div>
