@@ -19,16 +19,20 @@ import {
 } from 'lucide-react';
 import { sanitizeChatMessage } from '../utils/security';
 import { liveChatService } from '../services/liveChatService';
+import { useInterestStatus } from '../services/interestService';
 
 export default function ChatInterface({ 
   profiles, 
+  currentUser,
   conversations, 
   setConversations, 
   activeProfileId, 
   setActiveProfileId, 
   onSelectProfile,
   onStartAudioCall,
-  onStartVideoCall
+  onStartVideoCall,
+  onRequestSendInterest,
+  onToggleInterest
 }) {
   const [messageInput, setMessageInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -41,6 +45,39 @@ export default function ChatInterface({
 
   // Active profile
   const activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0];
+  const { status: interestStatus, isAccepted: isCallingUnlocked } = useInterestStatus(currentUser, activeProfile);
+  const [callAuthAlert, setCallAuthAlert] = useState(null);
+
+  const handleAttemptCall = (type = 'audio') => {
+    if (isCallingUnlocked) {
+      if (type === 'video' && onStartVideoCall) {
+        onStartVideoCall(activeProfile);
+      } else if (onStartAudioCall) {
+        onStartAudioCall(activeProfile);
+      }
+      return;
+    }
+
+    if (interestStatus === 'pending') {
+      setCallAuthAlert({
+        title: 'Interest Pending Acceptance',
+        message: 'Interest is pending acceptance. You can call once they accept your interest.',
+        status: 'pending'
+      });
+    } else if (interestStatus === 'rejected') {
+      setCallAuthAlert({
+        title: 'Calling Unavailable',
+        message: 'Calling is unavailable as the interest was not accepted.',
+        status: 'rejected'
+      });
+    } else {
+      setCallAuthAlert({
+        title: 'Send Interest to Unlock Calling',
+        message: 'Send an Interest first. Calling is unlocked once accepted.',
+        status: 'none'
+      });
+    }
+  };
   
   // Find or initialize conversation for active profile
   const activeConv = conversations.find(c => c.profileId === activeProfile.id) || {
@@ -400,20 +437,38 @@ export default function ChatInterface({
 
               <button 
                 type="button"
-                onClick={() => onStartAudioCall ? onStartAudioCall(activeProfile) : null}
-                className="p-2 rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:shadow-sm transition-all cursor-pointer active:scale-95 border border-emerald-200"
-                title="Live Call (Voice Call)"
+                onClick={() => handleAttemptCall('audio')}
+                className={`p-2 rounded-xl transition-all cursor-pointer active:scale-95 border relative ${
+                  isCallingUnlocked
+                    ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:shadow-sm border-emerald-200'
+                    : 'text-slate-400 bg-slate-100 border-slate-200 opacity-60'
+                }`}
+                title={isCallingUnlocked ? "Live Call (Voice Call)" : "Voice Call locked - requires accepted interest"}
               >
                 <Phone className="w-4 h-4" />
+                {!isCallingUnlocked && (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full flex items-center justify-center text-slate-950 shadow-xs">
+                    <Lock className="w-2 h-2 text-slate-950 stroke-[3]" />
+                  </span>
+                )}
               </button>
 
               <button 
                 type="button"
-                onClick={() => onStartVideoCall ? onStartVideoCall(activeProfile) : null}
-                className="p-2 rounded-xl text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:shadow-sm transition-all cursor-pointer active:scale-95 border border-indigo-200"
-                title="Live Video Call"
+                onClick={() => handleAttemptCall('video')}
+                className={`p-2 rounded-xl transition-all cursor-pointer active:scale-95 border relative ${
+                  isCallingUnlocked
+                    ? 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:shadow-sm border-indigo-200'
+                    : 'text-slate-400 bg-slate-100 border-slate-200 opacity-60'
+                }`}
+                title={isCallingUnlocked ? "Live Video Call" : "Video Call locked - requires accepted interest"}
               >
                 <Video className="w-4 h-4" />
+                {!isCallingUnlocked && (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full flex items-center justify-center text-slate-950 shadow-xs">
+                    <Lock className="w-2 h-2 text-slate-950 stroke-[3]" />
+                  </span>
+                )}
               </button>
             </div>
           </div>
@@ -565,6 +620,60 @@ export default function ChatInterface({
         </div>
 
       </div>
+
+      {/* Calling Authorization Required Alert Modal */}
+      {callAuthAlert && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setCallAuthAlert(null)}
+        >
+          <div 
+            className="w-full max-w-sm bg-white border border-slate-200 rounded-3xl p-6 text-center shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 mx-auto flex items-center justify-center mb-4">
+              <Lock className="w-7 h-7 text-[#DFB76C]" />
+            </div>
+
+            <h3 className="font-serif font-bold text-base text-slate-900 mb-2">
+              {callAuthAlert.title}
+            </h3>
+
+            <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+              {callAuthAlert.message}
+            </p>
+
+            <div className="flex items-center gap-2">
+              {callAuthAlert.status === 'none' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCallAuthAlert(null);
+                    if (onRequestSendInterest) {
+                      onRequestSendInterest(activeProfile);
+                    } else if (onToggleInterest) {
+                      onToggleInterest(activeProfile.id);
+                    }
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-md hover:brightness-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center space-x-1.5"
+                >
+                  <span>Send Interest</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setCallAuthAlert(null)}
+                className={`py-2.5 px-4 rounded-xl font-bold text-xs border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer ${
+                  callAuthAlert.status === 'none' ? 'flex-none px-5' : 'w-full'
+                }`}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase.js';
 
 class InterestService {
   constructor() {

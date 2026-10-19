@@ -1,5 +1,5 @@
-import { supabase, isSupabaseConfigured } from './supabase';
-import { interestService } from './interestService';
+import { supabase, isSupabaseConfigured } from './supabase.js';
+import { interestService } from './interestService.js';
 
 /**
  * Reliable public Google STUN servers for robust NAT traversal
