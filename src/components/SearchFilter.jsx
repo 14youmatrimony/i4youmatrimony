@@ -128,8 +128,7 @@ export default function SearchFilter({
         const matchesCity = profile.city.toLowerCase().includes(query);
         const matchesProfession = profile.profession.toLowerCase().includes(query);
         const matchesCompany = profile.company.toLowerCase().includes(query);
-        const matchesCaste = profile.caste.toLowerCase().includes(query);
-        if (!matchesName && !matchesCity && !matchesProfession && !matchesCompany && !matchesCaste) {
+        if (!matchesName && !matchesCity && !matchesProfession && !matchesCompany) {
           return false;
         }
       }
@@ -256,7 +255,7 @@ export default function SearchFilter({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by candidate name, company (e.g. Google, AIIMS), city (e.g. Nashik, Salem, Udupi), or caste..."
+            placeholder="Search by candidate name, company (e.g. Google, AIIMS), or city (e.g. Nashik, Salem, Udupi)..."
             className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#D4AF37] focus:outline-none text-sm"
           />
         </div>

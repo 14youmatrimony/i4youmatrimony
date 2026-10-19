@@ -230,8 +230,8 @@ export default function ProfileModal({
                   <p className="text-sm font-bold text-slate-800 mt-0.5">{profile.motherTongue}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] font-semibold text-slate-400">Religion & Community</span>
-                  <p className="text-sm font-bold text-slate-800 mt-0.5">{profile.religion} ({profile.caste})</p>
+                  <span className="text-[11px] font-semibold text-slate-400">Religion</span>
+                  <p className="text-sm font-bold text-slate-800 mt-0.5">{profile.religion || 'Not Specified'}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                   <span className="text-[11px] font-semibold text-slate-400">Smoking</span>

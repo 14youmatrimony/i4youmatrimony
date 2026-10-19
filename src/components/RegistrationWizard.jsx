@@ -2916,12 +2916,12 @@ export default function RegistrationWizard({
 
                 <div>
                   <SearchableSelect 
-                    label="Community & Caste"
+                    label="Community Preference"
                     value={formData.prefMotherTongue}
                     onChange={(val) => setFormData(prev => ({ ...prev, prefMotherTongue: val }))}
                     options={[
                       'Open to All Communities',
-                      'Same Community & Caste Preferred',
+                      'Same Community Preferred',
                       'Marathi Community',
                       'Hindi Community',
                       'South Indian (Tamil/Telugu/Kannada)',
