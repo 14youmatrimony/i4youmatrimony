@@ -850,7 +850,7 @@ export default function App() {
       return [];
     }
   });
-  const [activeChatProfileId, setActiveChatProfileId] = useState('p1');
+  const [activeChatProfileId, setActiveChatProfileId] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [currentUser, setCurrentUser] = useState(checkStoredUserSession);
 
@@ -1257,27 +1257,34 @@ export default function App() {
     liveChatService.subscribeToUserInbox(currentUser);
 
     const unsubscribe = liveChatService.onMessage((incoming) => {
-      const senderId = incoming.senderId;
+      if (!incoming) return;
+      const senderId = String(incoming.sender_id || incoming.senderId || '');
+      const receiverId = String(incoming.receiver_id || incoming.recipientId || '');
+      const convId = incoming.conversation_id || incoming.conversationId || '';
       const text = incoming.text;
       const senderName = incoming.senderName || 'Member';
 
       if (!senderId || !text) return;
 
       // Do not process messages sent by ourselves
-      if (myIds.includes(String(senderId))) return;
+      if (myIds.includes(senderId)) return;
 
       const incomingMsg = {
         id: incoming.id || incoming.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
         tempId: incoming.tempId || incoming.id,
+        conversation_id: convId,
+        sender_id: senderId,
+        receiver_id: receiverId,
         sender: 'them',
         text,
         time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: 'read',
-        created_at: new Date(incoming.timestamp || Date.now()).toISOString()
+        timestamp: incoming.timestamp || new Date().toISOString(),
+        created_at: new Date(incoming.timestamp || incoming.created_at || Date.now()).toISOString()
       };
 
       setConversations(prev => {
-        const senderIdStr = String(senderId);
+        const senderIdStr = senderId;
         const exists = prev.find(c => String(c.profileId) === senderIdStr);
         const isCurrentlyInThisChat = activeTabRef.current === 'chat' && String(activeChatProfileIdRef.current) === senderIdStr;
 
@@ -1288,7 +1295,7 @@ export default function App() {
               const alreadyExists = currentMsgs.some(m =>
                 (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
                 (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
-                (m.text === text && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
+                (m.text === text && String(m.sender_id) === senderId && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
               );
               if (alreadyExists) {
                 return isCurrentlyInThisChat && c.unreadCount > 0
@@ -1318,7 +1325,7 @@ export default function App() {
       });
 
       // Show toast notification if not currently in this chat
-      const isCurrentlyInThisChat = activeTabRef.current === 'chat' && String(activeChatProfileIdRef.current) === String(senderId);
+      const isCurrentlyInThisChat = activeTabRef.current === 'chat' && String(activeChatProfileIdRef.current) === senderId;
       if (!isCurrentlyInThisChat) {
         showToast(`💬 ${senderName}: ${text.length > 40 ? text.slice(0, 40) + '...' : text}`);
       }
@@ -1583,15 +1590,7 @@ export default function App() {
         return [...prev, {
           profileId: targetId,
           unreadCount: 0,
-          messages: [
-            {
-              id: 'init-' + Date.now(),
-              sender: 'them',
-              text: `Namaste! Thank you for accepting my interest. Our family in ${profile?.city || 'India'} is happy to take this forward.`,
-              time: 'Just now',
-              status: 'read'
-            }
-          ]
+          messages: []
         }];
       }
       return prev;
@@ -1654,15 +1653,7 @@ export default function App() {
         return [...prev, {
           profileId: targetId,
           unreadCount: 0,
-          messages: [
-            {
-              id: 'init-' + Date.now(),
-              sender: 'them',
-              text: `Namaste! Thank you for accepting my interest. Our family in ${profile?.city || 'India'} is happy to take this forward.`,
-              time: 'Just now',
-              status: 'read'
-            }
-          ]
+          messages: []
         }];
       }
       return prev;
@@ -1820,19 +1811,7 @@ export default function App() {
           return [...prev, {
             profileId: targetId,
             unreadCount: 0,
-            messages: [
-              {
-                id: 'init-' + Date.now(),
-                sender: 'me',
-                text: `Namaste! Sent you an interest on I 4 You. Looking forward to connecting.`,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                status: 'delivered'
-              }
-            ],
-            autoReplies: [
-              `Namaste! Thank you for connecting. Our family in ${profile?.city || 'India'} is happy to take this forward.`,
-              `Glad to connect with you. Would love to schedule a friendly voice or video call this weekend.`
-            ]
+            messages: []
           }];
         }
         return prev;
@@ -1886,26 +1865,12 @@ export default function App() {
     // Ensure a conversation thread exists for this profile
     setConversations(prev => {
       const existing = prev.find(c => c.profileId === profileId);
-      const incomingText = initialMessage || `Namaste! Thank you for connecting. I reviewed your profile and our family values align wonderfully.`;
       if (!existing) {
         return [...prev, {
           profileId,
           unreadCount: 0,
-          messages: [
-            {
-              id: 'init-' + Date.now(),
-              sender: 'them',
-              text: incomingText,
-              time: 'Just now',
-              status: 'read'
-            }
-          ],
-          autoReplies: [
-            `Namaste! Thank you for reaching out. Our family in ${profile?.city || 'India'} is happy to take this forward.`,
-            `Glad to connect with you! Would love to schedule a friendly phone or video call with our families.`,
-            `Our elders were also really happy looking at our horoscope compatibility and educational background.`,
-            `Wishing you and your family an auspicious day ahead!`
-          ]
+          messages: [],
+          autoReplies: []
         }];
       } else {
         return prev.map(c => c.profileId === profileId ? { ...c, unreadCount: 0 } : c);

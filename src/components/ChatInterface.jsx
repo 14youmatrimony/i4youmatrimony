@@ -15,7 +15,8 @@ import {
   Eye, 
   MapPin, 
   Briefcase,
-  ChevronLeft
+  ChevronLeft,
+  Lock
 } from 'lucide-react';
 import { sanitizeChatMessage } from '../utils/security';
 import { liveChatService, deduplicateMessageList } from '../services/liveChatService';
@@ -43,12 +44,55 @@ export default function ChatInterface({
 
   const CHAT_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '😊', '🌺', '🌟', '💫', '🕊️', '❤️', '🌹', '😍', '👍'];
 
-  // Active profile
-  const activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0];
+  // Strictly resolve partnerUser excluding currentUser
+  const partnerUser = useMemo(() => {
+    if (!currentUser) return null;
+    const currentUserId = String(currentUser.id);
+    const currentUserRegId = currentUser.register_id || currentUser.registerId ? String(currentUser.register_id || currentUser.registerId) : null;
+
+    if (activeProfileId) {
+      const targetId = String(activeProfileId);
+      if (targetId !== currentUserId && (!currentUserRegId || targetId !== currentUserRegId)) {
+        const found = profiles.find(p => 
+          p && (
+            String(p.id) === targetId ||
+            (p.register_id && String(p.register_id) === targetId) ||
+            (p.registerId && String(p.registerId) === targetId)
+          )
+        );
+        if (found) {
+          return {
+            ...found,
+            id: String(found.id || targetId),
+            name: found.name || 'Candidate',
+            photo: found.photo || found.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+            onlineStatus: found.onlineStatus || 'Online'
+          };
+        }
+      }
+    }
+
+    const otherCandidates = profiles.filter(p => {
+      if (!p) return false;
+      const pid = String(p.id);
+      if (pid === currentUserId || (currentUserRegId && (pid === currentUserRegId || String(p.register_id) === currentUserRegId || String(p.registerId) === currentUserRegId))) return false;
+      return true;
+    });
+    return otherCandidates[0] || null;
+  }, [profiles, currentUser, activeProfileId]);
+
+  const activeProfile = partnerUser;
+
+  const activeConversationId = useMemo(() => {
+    if (!currentUser?.id || !partnerUser?.id) return '';
+    return [String(currentUser.id), String(partnerUser.id)].sort().join(':::');
+  }, [currentUser?.id, partnerUser?.id]);
+
   const { status: interestStatus, isAccepted: isCallingUnlocked } = useInterestStatus(currentUser, activeProfile);
   const [callAuthAlert, setCallAuthAlert] = useState(null);
 
   const handleAttemptCall = (type = 'audio') => {
+    if (!activeProfile) return;
     if (isCallingUnlocked) {
       if (type === 'video' && onStartVideoCall) {
         onStartVideoCall(activeProfile);
@@ -80,24 +124,18 @@ export default function ChatInterface({
   };
   
   // Find or initialize conversation for active profile
-  const activeConv = conversations.find(c => c.profileId === activeProfile.id) || {
-    profileId: activeProfile.id,
+  const existingConv = partnerUser?.id ? conversations.find(c => 
+    String(c.profileId) === String(partnerUser.id) || 
+    (partnerUser.register_id && String(c.profileId) === String(partnerUser.register_id)) ||
+    (partnerUser.registerId && String(c.profileId) === String(partnerUser.registerId))
+  ) : null;
+
+  const activeConv = existingConv || {
+    profileId: partnerUser?.id || '',
+    partnerUser: partnerUser,
     unreadCount: 0,
-    messages: [
-      {
-        id: 'init-1',
-        sender: 'them',
-        text: `Namaste! Thank you for connecting on I 4 You. I noticed your profile and our backgrounds align very well.`,
-        time: 'Just now',
-        status: 'read'
-      }
-    ],
-    autoReplies: [
-      "Thank you for your message! It is wonderful to hear from you.",
-      "Yes, absolutely. My family in " + activeProfile.city + " also reviewed the details and they were very pleased.",
-      "Would love to speak further! Let's arrange a time that works best for you.",
-      "Wishing you a peaceful and auspicious week ahead!"
-    ]
+    messages: [],
+    autoReplies: []
   };
 
   const displayMessages = useMemo(() => {
@@ -117,64 +155,84 @@ export default function ChatInterface({
     scrollToBottom('smooth');
   }, [displayMessages.length, isTyping]);
 
-  const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('i4u_auth_user') || 'null') : null;
-
   useEffect(() => {
-    if (!activeProfile?.id) return;
-    const matchId = activeProfile.id;
-    const matchRegId = activeProfile.register_id || activeProfile.registerId;
+    if (!currentUser || !partnerUser) return;
+    const matchId = String(partnerUser.id);
+    const matchRegId = partnerUser.register_id || partnerUser.registerId ? String(partnerUser.register_id || partnerUser.registerId) : null;
+    const convId = activeConversationId;
 
-    const unsubscribeMsg = liveChatService.onMessage((incoming) => {
-      if (incoming.senderId === matchId || incoming.senderId === matchRegId) {
-        setIsTyping(false);
+    const handleIncoming = (incoming) => {
+      if (!incoming) return;
+      const incomingSenderId = String(incoming.sender_id || incoming.senderId || '');
+      const incomingRecipientId = String(incoming.receiver_id || incoming.recipientId || '');
+      const incomingConvId = incoming.conversation_id || incoming.conversationId;
 
-        const incomingMsg = {
-          id: incoming.id || incoming.tempId || ('msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
-          tempId: incoming.tempId || incoming.id,
-          sender: 'them',
-          text: incoming.text,
-          time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'read',
-          created_at: new Date(incoming.timestamp || Date.now()).toISOString()
-        };
+      // Verify if the incoming message belongs to this conversation
+      const isForThisChat = (incomingConvId && incomingConvId === convId) ||
+        (matchId && (incomingSenderId === matchId || incomingRecipientId === matchId)) ||
+        (matchRegId && (incomingSenderId === matchRegId || incomingRecipientId === matchRegId));
 
-        setConversations(prev => {
-          const targetId = matchId || matchRegId;
-          const exists = prev.find(c => c.profileId === matchId || c.profileId === matchRegId);
-          if (exists) {
-            return prev.map(c => {
-              if (c.profileId === matchId || c.profileId === matchRegId) {
-                const currentMsgs = c.messages || [];
-                const alreadyExists = currentMsgs.some(m =>
-                  (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
-                  (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
-                  (m.text === incoming.text && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
-                );
-                if (alreadyExists) {
-                  return c.unreadCount !== 0 ? { ...c, unreadCount: 0 } : c;
-                }
-                return {
-                  ...c,
-                  unreadCount: 0,
-                  messages: deduplicateMessageList([...currentMsgs, incomingMsg])
-                };
+      if (!isForThisChat) return;
+
+      setIsTyping(false);
+
+      // Evaluate isMe based strictly on active currentUser.id
+      const isIncomingFromMe = incomingSenderId === String(currentUser.id);
+
+      const incomingMsg = {
+        id: incoming.id || incoming.tempId || ('msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
+        tempId: incoming.tempId || incoming.id,
+        conversation_id: incomingConvId || convId,
+        sender_id: incomingSenderId,
+        receiver_id: incomingRecipientId || (isIncomingFromMe ? matchId : String(currentUser.id)),
+        sender: isIncomingFromMe ? 'me' : 'them',
+        text: incoming.text,
+        time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: isIncomingFromMe ? (incoming.status || 'delivered') : 'read',
+        timestamp: incoming.timestamp || new Date().toISOString(),
+        created_at: new Date(incoming.timestamp || incoming.created_at || Date.now()).toISOString()
+      };
+
+      setConversations(prev => {
+        const targetId = matchId;
+        const exists = prev.find(c => String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId));
+        if (exists) {
+          return prev.map(c => {
+            if (String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId)) {
+              const currentMsgs = c.messages || [];
+              const alreadyExists = currentMsgs.some(m =>
+                (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
+                (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
+                (m.text === incoming.text && String(m.sender_id) === incomingSenderId && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
+              );
+              if (alreadyExists) {
+                return isIncomingFromMe ? c : (c.unreadCount !== 0 ? { ...c, unreadCount: 0 } : c);
               }
-              return c;
-            });
-          } else {
-            return [
-              ...prev,
-              {
-                profileId: targetId,
+              return {
+                ...c,
                 unreadCount: 0,
-                messages: [incomingMsg],
-                autoReplies: []
-              }
-            ];
-          }
-        });
-      }
-    });
+                messages: deduplicateMessageList([...currentMsgs, incomingMsg])
+              };
+            }
+            return c;
+          });
+        } else {
+          return [
+            ...prev,
+            {
+              profileId: targetId,
+              partnerUser: partnerUser,
+              unreadCount: 0,
+              messages: [incomingMsg],
+              autoReplies: []
+            }
+          ];
+        }
+      });
+    };
+
+    const unsubscribeConv = liveChatService.subscribeToConversation(convId, handleIncoming);
+    const unsubscribeMsg = liveChatService.onMessage(handleIncoming);
 
     const unsubscribeStatus = liveChatService.onStatus(({ messageId, status }) => {
       setConversations(prev => prev.map(c => ({
@@ -184,41 +242,49 @@ export default function ChatInterface({
     });
 
     const unsubscribeTyping = liveChatService.onTyping(({ senderId, isTyping: typingState }) => {
-      if (senderId === matchId || senderId === matchRegId) {
+      if (String(senderId) === matchId || (matchRegId && String(senderId) === matchRegId)) {
         setIsTyping(Boolean(typingState));
       }
     });
 
     return () => {
+      if (unsubscribeConv) unsubscribeConv();
       unsubscribeMsg();
       unsubscribeStatus();
       unsubscribeTyping();
     };
-  }, [activeProfile?.id, activeProfile?.register_id, activeProfile?.registerId, setConversations]);
+  }, [currentUser?.id, partnerUser?.id, partnerUser?.register_id, partnerUser?.registerId, activeConversationId, setConversations]);
 
   const handleSendMessage = (textToSend) => {
+    if (!currentUser || !partnerUser) return;
     const rawText = textToSend || messageInput;
     const cleanText = sanitizeChatMessage(rawText);
     if (!cleanText) return;
 
     const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+    const nowIso = new Date().toISOString();
     const newMessage = {
       id: msgId,
       tempId: msgId,
+      conversation_id: activeConversationId,
+      sender_id: String(currentUser.id),
+      receiver_id: String(partnerUser.id),
       sender: 'me',
       text: cleanText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'sending',
-      created_at: new Date().toISOString()
+      timestamp: nowIso,
+      created_at: nowIso
     };
 
     // Update conversation
     setConversations(prev => {
-      const targetId = activeProfile.id;
-      const exists = prev.find(c => c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id));
+      const targetId = String(partnerUser.id);
+      const targetRegId = partnerUser.register_id || partnerUser.registerId ? String(partnerUser.register_id || partnerUser.registerId) : null;
+      const exists = prev.find(c => String(c.profileId) === targetId || (targetRegId && String(c.profileId) === targetRegId));
       if (exists) {
         return prev.map(c => {
-          if (c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id)) {
+          if (String(c.profileId) === targetId || (targetRegId && String(c.profileId) === targetRegId)) {
             const currentMsgs = c.messages || [];
             if (currentMsgs.some(m => m.id === msgId || m.tempId === msgId)) {
               return c;
@@ -234,20 +300,22 @@ export default function ChatInterface({
       } else {
         return [...prev, {
           profileId: targetId,
+          partnerUser: partnerUser,
           unreadCount: 0,
           messages: [newMessage],
-          autoReplies: activeConv.autoReplies || []
+          autoReplies: []
         }];
       }
     });
 
     setMessageInput('');
 
-    // Send via LiveChatService (Supabase Realtime Broadcast + Cross-tab sync)
+    // Send strictly via LiveChatService with canonical fields
     liveChatService.sendLiveMessage({
-      sender: storedUser || currentUser || { id: 'currentUser', name: 'You' },
-      recipient: activeProfile,
-      message: newMessage
+      sender: currentUser,
+      recipient: partnerUser,
+      message: newMessage,
+      conversationId: activeConversationId
     });
 
     // 1. Live status: Sending -> Sent (single tick)
@@ -265,64 +333,6 @@ export default function ChatInterface({
         messages: (c.messages || []).map(m => (m.id === msgId || m.tempId === msgId) && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m)
       })));
     }, 650);
-
-    // 3. Live matrimonial candidate response delivery
-    const typingDelay = 1000 + Math.random() * 500;
-    const responseDelay = typingDelay + 1400 + Math.random() * 800;
-
-    setTimeout(() => {
-      setIsTyping(true);
-    }, typingDelay);
-
-    setTimeout(() => {
-      setIsTyping(false);
-
-      const replyText = liveChatService.generateContextualMatrimonialReply(cleanText, activeProfile);
-      const replyId = 'reply-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
-      const replyMessage = {
-        id: replyId,
-        tempId: replyId,
-        sender: 'them',
-        text: replyText,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: 'read',
-        created_at: new Date().toISOString()
-      };
-
-      liveChatService.playReceiveSound();
-
-      setConversations(prev => {
-        const targetId = activeProfile.id;
-        const exists = prev.find(c => c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id));
-        if (exists) {
-          return prev.map(c => {
-            if (c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id)) {
-              const currentMsgs = c.messages || [];
-              const alreadyHasReply = currentMsgs.some(m => m.id === replyId || (m.sender === 'them' && m.text === replyText && Math.abs(new Date(m.created_at || 0).getTime() - Date.now()) < 3000));
-              if (alreadyHasReply) return c;
-              return {
-                ...c,
-                messages: deduplicateMessageList([
-                  ...currentMsgs.map(m => (m.id === msgId || m.tempId === msgId) ? { ...m, status: 'read' } : m),
-                  replyMessage
-                ])
-              };
-            }
-            return c;
-          });
-        } else {
-          return [
-            ...prev,
-            {
-              profileId: targetId,
-              unreadCount: 0,
-              messages: [replyMessage],
-              autoReplies: []
-            }
-          ];
-        }
-      });
-    }, responseDelay);
   };
 
   const icebreakers = [
@@ -441,10 +451,10 @@ export default function ChatInterface({
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              <div className="relative cursor-pointer" onClick={() => onSelectProfile(activeProfile)}>
+              <div className="relative cursor-pointer" onClick={() => partnerUser && onSelectProfile(partnerUser)}>
                 <img 
-                  src={activeProfile.photo} 
-                  alt={activeProfile.name}
+                  src={partnerUser?.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400'} 
+                  alt={partnerUser?.name || 'Partner'}
                   className="w-11 h-11 rounded-full object-cover ring-2 ring-[#DFB76C]" 
                 />
                 <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white"></span>
@@ -452,10 +462,10 @@ export default function ChatInterface({
 
               <div>
                 <div className="flex items-center space-x-1.5">
-                  <h3 className="font-serif font-bold text-sm sm:text-base text-slate-900 cursor-pointer hover:underline" onClick={() => onSelectProfile(activeProfile)}>
-                    {activeProfile.name}
+                  <h3 className="font-serif font-bold text-sm sm:text-base text-slate-900 cursor-pointer hover:underline" onClick={() => partnerUser && onSelectProfile(partnerUser)}>
+                    {partnerUser?.name || 'Candidate'}
                   </h3>
-                  {activeProfile.verified && (
+                  {partnerUser?.verified && (
                     <ShieldCheck className="w-4 h-4 text-emerald-600" title="Verified Profile" />
                   )}
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -464,9 +474,9 @@ export default function ChatInterface({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                  <span>{activeProfile.profession}</span>
+                  <span>{partnerUser?.onlineStatus || 'Online'}</span>
                   <span>•</span>
-                  <span>{activeProfile.district || activeProfile.city}, {activeProfile.state}</span>
+                  <span>{partnerUser?.district || partnerUser?.city || 'India'}, {partnerUser?.state || ''}</span>
                 </p>
               </div>
             </div>
@@ -474,7 +484,7 @@ export default function ChatInterface({
             {/* Quick Actions in Header */}
             <div className="flex items-center space-x-1 sm:space-x-2">
               <button 
-                onClick={() => onSelectProfile(activeProfile)}
+                onClick={() => partnerUser && onSelectProfile(partnerUser)}
                 className="p-2 rounded-xl text-slate-600 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
                 title="View Full Matrimonial Profile"
               >
@@ -526,7 +536,7 @@ export default function ChatInterface({
             <div className="max-w-md mx-auto bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3 text-center space-y-1">
               <div className="flex items-center justify-center space-x-1 text-[#8C6D1F] text-xs font-bold">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Horoscope Compatibility: {activeProfile.gunasMatch} ({activeProfile.matchScore}% Match)</span>
+                <span>Horoscope Compatibility: {partnerUser?.gunasMatch || 'Compatible'} ({partnerUser?.matchScore || 85}% Match)</span>
               </div>
               <p className="text-[11px] text-slate-500">
                 Messages are confidential and end-to-end encrypted under I 4 You matrimonial privacy policy.
@@ -535,8 +545,8 @@ export default function ChatInterface({
 
             {/* Message Bubbles */}
             {displayMessages.map((msg, index) => {
-              const isMe = msg.sender === 'me';
-              const uniqueKey = msg.id || msg.tempId || `msg_${msg.sender}_${index}_${msg.time || ''}`;
+              const isMe = String(msg.sender_id) === String(currentUser?.id) || (!msg.sender_id && msg.sender === 'me');
+              const uniqueKey = msg.id || msg.tempId || `msg_${isMe ? 'me' : 'them'}_${index}_${msg.time || ''}`;
               return (
                 <div 
                   key={uniqueKey}
@@ -570,7 +580,7 @@ export default function ChatInterface({
             {/* Typing Indicator */}
             {isTyping && (
               <div className="flex items-center space-x-2 text-xs text-slate-500 bg-white px-3.5 py-2 rounded-2xl w-fit border border-slate-200 animate-pulse">
-                <span className="font-semibold text-[#0B192C]">{activeProfile.name.split(' ')[0]}</span> is typing a response...
+                <span className="font-semibold text-[#0B192C]">{partnerUser?.name ? partnerUser.name.split(' ')[0] : 'Candidate'}</span> is typing a response...
               </div>
             )}
 
@@ -649,7 +659,7 @@ export default function ChatInterface({
                 type="text"
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
-                placeholder={`Type a respectful message to ${activeProfile.name.split(' ')[0]}...`}
+                placeholder={"Message " + (partnerUser?.name || 'partner') + "..."}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white text-xs sm:text-sm focus:ring-2 focus:ring-[#D4AF37] focus:outline-none"
               />
 

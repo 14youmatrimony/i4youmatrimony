@@ -111,28 +111,66 @@ export default function MobileChatScreen({
     return list;
   }, [profiles, currentUser, conversations]);
 
-  const activeProfile = validProfiles.find(p => 
-    String(p.id) === String(activeProfileId) || 
-    (p.register_id && String(p.register_id) === String(activeProfileId)) || 
-    (p.registerId && String(p.registerId) === String(activeProfileId))
-  ) 
-    || profiles.find(p => 
-      String(p.id) === String(activeProfileId) || 
-      (p.register_id && String(p.register_id) === String(activeProfileId)) || 
-      (p.registerId && String(p.registerId) === String(activeProfileId))
-    ) 
-    || validProfiles[0] 
-    || {
-      id: activeProfileId || 'placeholder',
-      name: 'Candidate',
+  // Strictly resolve chat partner (partnerUser), ensuring currentUser is never resolved as partner
+  const partnerUser = useMemo(() => {
+    if (!currentUser || !activeProfileId) return null;
+    const currentUserId = String(currentUser.id);
+    const currentUserRegId = currentUser.register_id || currentUser.registerId ? String(currentUser.register_id || currentUser.registerId) : null;
+    const targetId = String(activeProfileId);
+
+    // Strictly ensure partner is NOT current user
+    if (targetId === currentUserId || (currentUserRegId && targetId === currentUserRegId)) {
+      return null;
+    }
+
+    const found = profiles.find(p => 
+      p && (
+        String(p.id) === targetId ||
+        (p.register_id && String(p.register_id) === targetId) ||
+        (p.registerId && String(p.registerId) === targetId)
+      )
+    );
+
+    if (found) {
+      return {
+        ...found,
+        id: String(found.id || targetId),
+        name: found.name || 'Candidate',
+        photo: found.photo || found.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+        onlineStatus: found.onlineStatus || 'Online'
+      };
+    }
+
+    // Check if partner exists in active conversation object
+    const conv = conversations.find(c => String(c.profileId) === targetId);
+    if (conv?.partnerUser) {
+      return conv.partnerUser;
+    }
+
+    // Fallback structured candidate object if valid non-self profile ID
+    return {
+      id: targetId,
+      name: 'Candidate ' + targetId,
+      photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+      onlineStatus: 'Online',
       city: 'India',
+      district: '',
       state: ''
     };
+  }, [profiles, currentUser, activeProfileId, conversations]);
+
+  const activeProfile = partnerUser;
+
+  const activeConversationId = useMemo(() => {
+    if (!currentUser?.id || !partnerUser?.id) return '';
+    return [String(currentUser.id), String(partnerUser.id)].sort().join(':::');
+  }, [currentUser?.id, partnerUser?.id]);
 
   const { status: interestStatus, isAccepted: isCallingUnlocked } = useInterestStatus(currentUser, activeProfile);
   const [callAuthAlert, setCallAuthAlert] = useState(null);
 
   const handleAttemptCall = (type = 'audio') => {
+    if (!activeProfile) return;
     if (isCallingUnlocked) {
       if (type === 'video' && onStartVideoCall) {
         onStartVideoCall(activeProfile);
@@ -163,14 +201,15 @@ export default function MobileChatScreen({
     }
   };
 
-  const existingConv = conversations.find(c => 
-    String(c.profileId) === String(activeProfile.id) || 
-    String(c.profileId) === String(activeProfileId) ||
-    (activeProfile?.register_id && String(c.profileId) === String(activeProfile.register_id)) ||
-    (activeProfile?.registerId && String(c.profileId) === String(activeProfile.registerId))
-  );
+  const existingConv = partnerUser?.id ? conversations.find(c => 
+    String(c.profileId) === String(partnerUser.id) || 
+    (partnerUser.register_id && String(c.profileId) === String(partnerUser.register_id)) ||
+    (partnerUser.registerId && String(c.profileId) === String(partnerUser.registerId))
+  ) : null;
+
   const activeConv = existingConv || {
-    profileId: activeProfile.id,
+    profileId: partnerUser?.id || '',
+    partnerUser: partnerUser,
     unreadCount: 0,
     messages: [],
     autoReplies: []
@@ -180,7 +219,7 @@ export default function MobileChatScreen({
     return deduplicateMessageList(activeConv?.messages || []);
   }, [activeConv?.messages]);
 
-  const hasIncomingMessage = Boolean(displayMessages.some(m => m.sender === 'them'));
+  const hasIncomingMessage = Boolean(displayMessages.some(m => String(m.sender_id) !== String(currentUser?.id) && m.sender !== 'me'));
   // Live Message is fully active for matrimonial connections
   const canSendMessages = true;
 
@@ -226,61 +265,83 @@ export default function MobileChatScreen({
 
   // Listen to incoming real-time messages, delivery status acks, and typing indicators
   useEffect(() => {
-    if (!currentUser) return;
-    const matchId = activeProfile?.id;
-    const matchRegId = activeProfile?.register_id || activeProfile?.registerId;
+    if (!currentUser || !partnerUser) return;
+    const matchId = String(partnerUser.id);
+    const matchRegId = partnerUser.register_id || partnerUser.registerId ? String(partnerUser.register_id || partnerUser.registerId) : null;
+    const convId = activeConversationId;
 
-    const unsubscribeMsg = liveChatService.onMessage((incoming) => {
-      if (incoming.senderId === matchId || incoming.senderId === matchRegId) {
-        setIsTyping(false);
+    const handleIncoming = (incoming) => {
+      if (!incoming) return;
+      const incomingSenderId = String(incoming.sender_id || incoming.senderId || '');
+      const incomingRecipientId = String(incoming.receiver_id || incoming.recipientId || '');
+      const incomingConvId = incoming.conversation_id || incoming.conversationId;
 
-        const incomingMsg = {
-          id: incoming.id || incoming.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
-          tempId: incoming.tempId || incoming.id,
-          sender: 'them',
-          text: incoming.text,
-          time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'read',
-          created_at: new Date(incoming.timestamp || Date.now()).toISOString()
-        };
+      // Verify if the incoming message belongs to this conversation
+      const isForThisChat = (incomingConvId && incomingConvId === convId) ||
+        (matchId && (incomingSenderId === matchId || incomingRecipientId === matchId)) ||
+        (matchRegId && (incomingSenderId === matchRegId || incomingRecipientId === matchRegId));
 
-        setConversations(prev => {
-          const targetId = matchId || matchRegId;
-          const exists = prev.find(c => c.profileId === matchId || c.profileId === matchRegId);
-          if (exists) {
-            return prev.map(c => {
-              if (c.profileId === matchId || c.profileId === matchRegId) {
-                const currentMsgs = c.messages || [];
-                const alreadyExists = currentMsgs.some(m =>
-                  (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
-                  (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
-                  (m.text === incoming.text && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
-                );
-                if (alreadyExists) {
-                  return c.unreadCount !== 0 ? { ...c, unreadCount: 0 } : c;
-                }
-                return {
-                  ...c,
-                  unreadCount: 0,
-                  messages: deduplicateMessageList([...currentMsgs, incomingMsg])
-                };
+      if (!isForThisChat) return;
+
+      setIsTyping(false);
+
+      // Evaluate isMe based strictly on active currentUser.id
+      const isIncomingFromMe = incomingSenderId === String(currentUser.id);
+
+      const incomingMsg = {
+        id: incoming.id || incoming.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
+        tempId: incoming.tempId || incoming.id,
+        conversation_id: incomingConvId || convId,
+        sender_id: incomingSenderId,
+        receiver_id: incomingRecipientId || (isIncomingFromMe ? matchId : String(currentUser.id)),
+        sender: isIncomingFromMe ? 'me' : 'them',
+        text: incoming.text,
+        time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: isIncomingFromMe ? (incoming.status || 'delivered') : 'read',
+        timestamp: incoming.timestamp || new Date().toISOString(),
+        created_at: new Date(incoming.timestamp || incoming.created_at || Date.now()).toISOString()
+      };
+
+      setConversations(prev => {
+        const targetId = matchId;
+        const exists = prev.find(c => String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId));
+        if (exists) {
+          return prev.map(c => {
+            if (String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId)) {
+              const currentMsgs = c.messages || [];
+              const alreadyExists = currentMsgs.some(m =>
+                (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
+                (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
+                (m.text === incoming.text && String(m.sender_id) === incomingSenderId && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
+              );
+              if (alreadyExists) {
+                return isIncomingFromMe ? c : (c.unreadCount !== 0 ? { ...c, unreadCount: 0 } : c);
               }
-              return c;
-            });
-          } else {
-            return [
-              ...prev,
-              {
-                profileId: targetId,
+              return {
+                ...c,
                 unreadCount: 0,
-                messages: [incomingMsg],
-                autoReplies: []
-              }
-            ];
-          }
-        });
-      }
-    });
+                messages: deduplicateMessageList([...currentMsgs, incomingMsg])
+              };
+            }
+            return c;
+          });
+        } else {
+          return [
+            ...prev,
+            {
+              profileId: targetId,
+              partnerUser: partnerUser,
+              unreadCount: 0,
+              messages: [incomingMsg],
+              autoReplies: []
+            }
+          ];
+        }
+      });
+    };
+
+    const unsubscribeConv = liveChatService.subscribeToConversation(convId, handleIncoming);
+    const unsubscribeMsg = liveChatService.onMessage(handleIncoming);
 
     const unsubscribeStatus = liveChatService.onStatus(({ messageId, status }) => {
       setConversations(prev => prev.map(c => ({
@@ -290,18 +351,19 @@ export default function MobileChatScreen({
     });
 
     const unsubscribeTyping = liveChatService.onTyping(({ senderId, isTyping: typingState }) => {
-      if (senderId === matchId || senderId === matchRegId) {
+      if (String(senderId) === matchId || (matchRegId && String(senderId) === matchRegId)) {
         setIsTyping(Boolean(typingState));
       }
     });
 
     return () => {
+      if (unsubscribeConv) unsubscribeConv();
       unsubscribeMsg();
       unsubscribeStatus();
       unsubscribeTyping();
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
-  }, [currentUser?.id, activeProfile?.id, activeProfile?.register_id, activeProfile?.registerId, setConversations]);
+  }, [currentUser?.id, partnerUser?.id, partnerUser?.register_id, partnerUser?.registerId, activeConversationId, setConversations]);
 
   // If user is not logged in, display the Login Required screen immediately
   if (!currentUser) {
@@ -335,27 +397,35 @@ export default function MobileChatScreen({
       return;
     }
 
+    if (!partnerUser || !currentUser) return;
+
     const rawText = textToSend || inputText;
     const cleanText = sanitizeChatMessage(rawText);
     if (!cleanText) return;
 
     const msgId = 'm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+    const nowIso = new Date().toISOString();
     const newMsg = {
       id: msgId,
       tempId: msgId,
+      conversation_id: activeConversationId,
+      sender_id: String(currentUser.id),
+      receiver_id: String(partnerUser.id),
       sender: 'me',
       text: cleanText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'sending',
-      created_at: new Date().toISOString()
+      timestamp: nowIso,
+      created_at: nowIso
     };
 
     setConversations(prev => {
-      const targetId = activeProfile.id;
-      const exists = prev.find(c => c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id));
+      const targetId = String(partnerUser.id);
+      const targetRegId = partnerUser.register_id || partnerUser.registerId ? String(partnerUser.register_id || partnerUser.registerId) : null;
+      const exists = prev.find(c => String(c.profileId) === targetId || (targetRegId && String(c.profileId) === targetRegId));
       if (exists) {
         return prev.map(c => {
-          if (c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id)) {
+          if (String(c.profileId) === targetId || (targetRegId && String(c.profileId) === targetRegId)) {
             const currentMsgs = c.messages || [];
             if (currentMsgs.some(m => m.id === msgId || m.tempId === msgId)) {
               return c;
@@ -373,13 +443,10 @@ export default function MobileChatScreen({
           ...prev,
           {
             profileId: targetId,
+            partnerUser: partnerUser,
             unreadCount: 0,
             messages: [newMsg],
-            autoReplies: [
-              `Namaste! Thank you for reaching out. Our family in ${activeProfile.city || activeProfile.district || 'India'} is happy to take this forward.`,
-              `Glad to connect with you! Would love to schedule a friendly phone or video call with our families.`,
-              `Wishing you and your family an auspicious day ahead!`
-            ]
+            autoReplies: []
           }
         ];
       }
@@ -387,11 +454,12 @@ export default function MobileChatScreen({
 
     setInputText('');
 
-    // Transmit via LiveChatService (Supabase Realtime Broadcast + Cross-tab sync)
+    // Transmit strictly via LiveChatService with canonical fields
     liveChatService.sendLiveMessage({
       sender: currentUser,
-      recipient: activeProfile,
-      message: newMsg
+      recipient: partnerUser,
+      message: newMsg,
+      conversationId: activeConversationId
     });
 
     // 1. Live status: Sending -> Sent (single tick)
@@ -409,68 +477,10 @@ export default function MobileChatScreen({
         messages: (c.messages || []).map(m => (m.id === msgId || m.tempId === msgId) && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m)
       })));
     }, 650);
-
-    // 3. Live matrimonial candidate response delivery
-    const typingDelay = 1000 + Math.random() * 500;
-    const responseDelay = typingDelay + 1400 + Math.random() * 800;
-
-    setTimeout(() => {
-      setIsTyping(true);
-    }, typingDelay);
-
-    setTimeout(() => {
-      setIsTyping(false);
-
-      const replyText = liveChatService.generateContextualMatrimonialReply(cleanText, activeProfile);
-      const replyId = 'rep-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
-      const replyMsg = {
-        id: replyId,
-        tempId: replyId,
-        sender: 'them',
-        text: replyText,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: 'read',
-        created_at: new Date().toISOString()
-      };
-
-      liveChatService.playReceiveSound();
-
-      setConversations(prev => {
-        const targetId = activeProfile.id;
-        const exists = prev.find(c => c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id));
-        if (exists) {
-          return prev.map(c => {
-            if (c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id)) {
-              const currentMsgs = c.messages || [];
-              const alreadyHasReply = currentMsgs.some(m => m.id === replyId || (m.sender === 'them' && m.text === replyText && Math.abs(new Date(m.created_at || 0).getTime() - Date.now()) < 3000));
-              if (alreadyHasReply) return c;
-              return {
-                ...c,
-                messages: deduplicateMessageList([
-                  ...currentMsgs.map(m => (m.id === msgId || m.tempId === msgId) ? { ...m, status: 'read' } : m),
-                  replyMsg
-                ])
-              };
-            }
-            return c;
-          });
-        } else {
-          return [
-            ...prev,
-            {
-              profileId: targetId,
-              unreadCount: 0,
-              messages: [replyMsg],
-              autoReplies: []
-            }
-          ];
-        }
-      });
-    }, responseDelay);
   };
 
   // View 1: Active Chat Conversation
-  if (inConversation) {
+  if (inConversation && partnerUser) {
     return (
       <div className={`flex-1 flex flex-col h-full min-h-0 relative overflow-hidden transition-colors duration-200 ${
         isDarkMode ? 'bg-[#081220] text-slate-100' : 'bg-slate-50 text-slate-900'
@@ -492,22 +502,22 @@ export default function MobileChatScreen({
 
             <div 
               className="relative cursor-pointer shrink-0" 
-              onClick={() => onSelectProfile(activeProfile)}
+              onClick={() => onSelectProfile(partnerUser)}
             >
               <img 
-                src={activeProfile.photo} 
-                alt={activeProfile.name}
+                src={partnerUser.photo} 
+                alt={partnerUser.name}
                 className="w-9 h-9 rounded-full object-cover ring-1 ring-[#DFB76C]" 
               />
               <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-1.5 ring-[#0B192C]"></span>
             </div>
 
-            <div className="min-w-0" onClick={() => onSelectProfile(activeProfile)}>
+            <div className="min-w-0" onClick={() => onSelectProfile(partnerUser)}>
               <div className="flex items-center space-x-1.5">
                 <h3 className="font-serif font-bold text-xs sm:text-sm text-white truncate">
-                  {activeProfile.name}
+                  {partnerUser.name}
                 </h3>
-                {activeProfile.verified && (
+                {partnerUser.verified && (
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 )}
                 <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.2 rounded-full border border-emerald-500/30 shrink-0">
@@ -519,7 +529,7 @@ export default function MobileChatScreen({
                 {isTyping ? (
                   <span className="text-emerald-400 font-medium animate-pulse">typing...</span>
                 ) : (
-                  `Online • ${activeProfile.district || activeProfile.city || 'India'}`
+                  partnerUser.onlineStatus || `Online • ${partnerUser.district || partnerUser.city || 'India'}`
                 )}
               </p>
             </div>
@@ -567,7 +577,7 @@ export default function MobileChatScreen({
         <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
           
           <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-2.5 text-center text-[10px] text-amber-900">
-            <span className="font-bold">Horoscope Match: {activeProfile.gunasMatch} ({activeProfile.matchScore}% Match)</span>
+            <span className="font-bold">Horoscope Match: {partnerUser.gunasMatch || 'Compatible'} ({partnerUser.matchScore || 85}% Match)</span>
             <p className="text-slate-500 mt-0.5">End-to-end encrypted under I 4 You matrimonial privacy guarantee.</p>
           </div>
 
@@ -577,7 +587,7 @@ export default function MobileChatScreen({
                 <Sparkles className="w-6 h-6 text-[#DFB76C]" />
               </div>
               <h4 className="font-serif font-bold text-sm text-slate-800">
-                Start your conversation with {activeProfile.name}
+                Start your conversation with {partnerUser.name}
               </h4>
               <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
                 Send a respectful message or choose an auspicious conversation starter below.
@@ -585,8 +595,8 @@ export default function MobileChatScreen({
             </div>
           ) : (
             displayMessages.map((m, index) => {
-              const isMe = m.sender === 'me';
-              const uniqueKey = m.id || m.tempId || `msg_${m.sender}_${index}_${m.time || ''}`;
+              const isMe = String(m.sender_id) === String(currentUser.id) || (!m.sender_id && m.sender === 'me');
+              const uniqueKey = m.id || m.tempId || `msg_${isMe ? 'me' : 'them'}_${index}_${m.time || ''}`;
               return (
                 <div key={uniqueKey} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                   <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-sm ${
@@ -614,7 +624,7 @@ export default function MobileChatScreen({
 
           {isTyping && (
             <div className="text-[11px] text-slate-500 bg-white px-3 py-1.5 rounded-xl w-fit border border-slate-200 animate-pulse">
-              {activeProfile.name.split(' ')[0]} is typing...
+              {partnerUser.name.split(' ')[0]} is typing...
             </div>
           )}
 
@@ -702,7 +712,7 @@ export default function MobileChatScreen({
                 type="text"
                 value={inputText}
                 onChange={handleInputChange}
-                placeholder={`Message ${activeProfile.name.split(' ')[0]}...`}
+                placeholder={"Message " + (partnerUser?.name || 'partner') + "..."}
                 className={`flex-1 px-3 py-2 rounded-xl text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none transition-colors ${
                   isDarkMode 
                     ? 'bg-slate-800/90 border border-slate-700 text-white placeholder-slate-400 focus:bg-slate-800' 

@@ -31,14 +31,15 @@ class LiveChatService {
         this.broadcastChannel.onmessage = (event) => {
           const data = event.data;
           if (!data) return;
-          if (data.type === 'message') {
+          if (data.type === 'message' || data.type === 'receive_message') {
             const payload = data.payload;
             if (!payload) return;
-            const msgKey = payload.id || `msg_${payload.senderId}_${payload.timestamp}_${payload.text}`;
+            const sid = String(payload.sender_id || payload.senderId || '');
+            const msgKey = payload.id || `msg_${sid}_${payload.timestamp}_${payload.text}`;
             if (this.isMessageProcessed(payload.id, msgKey)) return;
 
             // Ignore messages from self
-            if (this.currentUserId && String(payload.senderId) === String(this.currentUserId)) {
+            if (this.currentUserId && sid === String(this.currentUserId)) {
               return;
             }
             this.notifyMessageListeners(payload);
@@ -160,27 +161,31 @@ class LiveChatService {
           config: { broadcast: { self: false } }
         });
 
+        const handleIncoming = ({ payload }) => {
+          if (!payload) return;
+          const sid = String(payload.sender_id || payload.senderId || '');
+          const msgKey = payload.id || `msg_${sid}_${payload.timestamp}_${payload.text}`;
+          if (this.isMessageProcessed(payload.id, msgKey)) {
+            return;
+          }
+
+          // Strictly ignore messages sent by self
+          if (this.currentUserId && (sid === String(this.currentUserId) || userIds.includes(sid))) {
+            return;
+          }
+
+          this.playReceiveSound();
+          this.notifyMessageListeners(payload);
+
+          // Acknowledge delivery back to sender
+          if (sid && payload.id) {
+            this.sendDeliveryAck(sid, payload.id, 'delivered');
+          }
+        };
+
         chn
-          .on('broadcast', { event: 'new-chat-message' }, ({ payload }) => {
-            if (!payload) return;
-            const msgKey = payload.id || `msg_${payload.senderId}_${payload.timestamp}_${payload.text}`;
-            if (this.isMessageProcessed(payload.id, msgKey)) {
-              return;
-            }
-
-            // Ignore messages from self
-            if (this.currentUserId && (String(payload.senderId) === String(this.currentUserId) || userIds.includes(String(payload.senderId)))) {
-              return;
-            }
-
-            this.playReceiveSound();
-            this.notifyMessageListeners(payload);
-
-            // Acknowledge delivery back to sender
-            if (payload.senderId && payload.id) {
-              this.sendDeliveryAck(payload.senderId, payload.id, 'delivered');
-            }
-          })
+          .on('broadcast', { event: 'receive_message' }, handleIncoming)
+          .on('broadcast', { event: 'new-chat-message' }, handleIncoming)
           .on('broadcast', { event: 'chat-status-ack' }, ({ payload }) => {
             if (!payload) return;
             this.notifyStatusListeners(payload);
@@ -195,6 +200,39 @@ class LiveChatService {
       });
     } catch (err) {
       console.warn('[LiveChat] Supabase subscription failed:', err);
+    }
+  }
+
+  /**
+   * Subscribe directly to a real-time conversation room scoped to conversation_${conversationId}
+   */
+  subscribeToConversation(conversationId, callback) {
+    if (!conversationId || !isSupabaseConfigured() || !supabase) return () => {};
+    const channelName = `conversation_${conversationId}`;
+    try {
+      const chn = supabase.channel(channelName, {
+        config: { broadcast: { self: false } }
+      });
+
+      const handleConvMsg = ({ payload }) => {
+        if (!payload) return;
+        const sid = String(payload.sender_id || payload.senderId || '');
+        if (this.currentUserId && sid === String(this.currentUserId)) {
+          return;
+        }
+        callback?.(payload);
+      };
+
+      chn
+        .on('broadcast', { event: 'receive_message' }, handleConvMsg)
+        .on('broadcast', { event: 'new-chat-message' }, handleConvMsg)
+        .subscribe();
+
+      return () => {
+        try { supabase.removeChannel(chn); } catch (e) {}
+      };
+    } catch (e) {
+      return () => {};
     }
   }
 
@@ -285,14 +323,15 @@ class LiveChatService {
   /**
    * Transmit live message to recipient via Supabase Broadcast + Messages Table Insert + Local Sync
    */
-  async sendLiveMessage({ sender, recipient, message }) {
+  async sendLiveMessage({ sender, recipient, message, conversationId }) {
     if (!sender || !recipient || !message) return false;
 
     this.playSendSound();
 
     const senderId = String(sender.id || sender.registerId || sender.register_id);
     const recipientId = String(recipient.id || recipient.register_id || recipient.registerId);
-    const convId = [senderId, recipientId].sort().join(':::');
+    const convId = conversationId || [senderId, recipientId].sort().join(':::');
+    const nowIso = new Date().toISOString();
 
     const msgId = message.id || message.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
 
@@ -300,11 +339,19 @@ class LiveChatService {
       ...message,
       id: msgId,
       tempId: message.tempId || msgId,
+      conversation_id: convId,
+      conversationId: convId,
+      sender_id: senderId,
       senderId,
+      receiver_id: recipientId,
+      recipientId,
       senderName: sender.name || 'Member',
       senderPhoto: sender.photo || null,
-      recipientId,
-      timestamp: Date.now()
+      text: message.text || '',
+      timestamp: message.timestamp || nowIso,
+      created_at: message.created_at || nowIso,
+      time: message.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: 'delivered'
     };
 
     // Mark as processed locally so we don't process or echo back our own sent message
@@ -315,6 +362,10 @@ class LiveChatService {
     // 1. Cross-tab sync
     if (this.broadcastChannel) {
       try {
+        this.broadcastChannel.postMessage({
+          type: 'receive_message',
+          payload
+        });
         this.broadcastChannel.postMessage({
           type: 'message',
           payload
@@ -332,7 +383,7 @@ class LiveChatService {
             receiver_id: recipientId,
             text: message.text || '',
             status: 'delivered',
-            created_at: new Date().toISOString()
+            created_at: nowIso
           }
         ]);
       } catch (dbErr) {
@@ -349,13 +400,15 @@ class LiveChatService {
             title: `💬 New message from ${sender.name || 'Member'}`,
             message: message.text || 'Sent you a chat message.',
             metadata: {
+              conversation_id: convId,
+              sender_id: senderId,
               senderId,
               senderName: sender.name,
               senderPhoto: sender.photo,
               text: message.text
             },
             is_read: false,
-            created_at: new Date().toISOString()
+            created_at: nowIso
           }
         ]);
       } catch (notifErr) {
@@ -363,32 +416,64 @@ class LiveChatService {
       }
     }
 
-    // 3. Persist to local conversations for sender and recipient
+    // 3. Persist to local conversations for SENDER ONLY (never contaminate recipient's local state)
     try {
       const msgItem = {
         id: payload.id,
         tempId: payload.tempId,
+        conversation_id: convId,
+        sender_id: senderId,
+        receiver_id: recipientId,
         text: payload.text,
         status: 'delivered',
-        created_at: new Date(payload.timestamp).toISOString()
+        timestamp: nowIso,
+        created_at: nowIso,
+        sender: 'me'
       };
-      this.appendLocalConversationMessage(senderId, recipientId, { ...msgItem, sender: 'me' });
-      this.appendLocalConversationMessage(recipientId, senderId, { ...msgItem, sender: 'them' });
+      this.appendLocalConversationMessage(senderId, recipientId, msgItem);
     } catch (e) {}
 
-    // 4. Supabase Realtime broadcast to recipient's inbox channels (deduplicated)
-    const recipientIds = Array.from(new Set([
-      recipient.id,
-      recipient.register_id,
-      recipient.registerId
-    ].filter(Boolean).map(String)));
-
+    // 4. Supabase Realtime broadcast to scoped conversation room AND recipient inbox
     if (isSupabaseConfigured() && supabase) {
+      // 4A. Scoped conversation room channel
+      try {
+        const convRoom = supabase.channel(`conversation_${convId}`);
+        convRoom.subscribe((chnStatus) => {
+          if (chnStatus === 'SUBSCRIBED') {
+            convRoom.send({
+              type: 'broadcast',
+              event: 'receive_message',
+              payload
+            }).catch(() => {});
+            convRoom.send({
+              type: 'broadcast',
+              event: 'new-chat-message',
+              payload
+            }).catch(() => {});
+            setTimeout(() => {
+              try { supabase.removeChannel(convRoom); } catch (e) {}
+            }, 3000);
+          }
+        });
+      } catch (e) {}
+
+      // 4B. Recipient user inbox channels (deduplicated)
+      const recipientIds = Array.from(new Set([
+        recipient.id,
+        recipient.register_id,
+        recipient.registerId
+      ].filter(Boolean).map(String)));
+
       recipientIds.forEach((targetId) => {
         try {
           const chn = supabase.channel(`user-chat-inbox-${targetId}`);
           chn.subscribe((chnStatus) => {
             if (chnStatus === 'SUBSCRIBED') {
+              chn.send({
+                type: 'broadcast',
+                event: 'receive_message',
+                payload
+              }).catch(() => {});
               chn.send({
                 type: 'broadcast',
                 event: 'new-chat-message',
@@ -414,17 +499,18 @@ class LiveChatService {
       const convs = raw ? JSON.parse(raw) : [];
 
       let conv = convs.find((c) => String(c.profileId) === String(partnerId));
+      const isSentByOwner = String(msg.sender_id) === String(ownerId) || msg.sender === 'me';
 
       if (!conv) {
         conv = {
           profileId: String(partnerId),
-          unreadCount: msg.sender === 'them' ? 1 : 0,
+          unreadCount: isSentByOwner ? 0 : 1,
           messages: [],
           autoReplies: []
         };
         convs.push(conv);
       } else {
-        if (msg.sender === 'them') {
+        if (!isSentByOwner) {
           conv.unreadCount = (conv.unreadCount || 0) + 1;
         }
       }
@@ -432,25 +518,32 @@ class LiveChatService {
       const already = (conv.messages || []).some((m) => 
         (msg.id && (m.id === msg.id || m.tempId === msg.id)) ||
         (msg.tempId && (m.tempId === msg.tempId || m.id === msg.tempId)) ||
-        (m.text === msg.text && Math.abs(new Date(m.created_at || 0).getTime() - new Date(msg.created_at || 0).getTime()) < 2000)
+        (m.text === msg.text && Math.abs(new Date(m.created_at || m.timestamp || 0).getTime() - new Date(msg.created_at || msg.timestamp || 0).getTime()) < 2000)
       );
 
       if (!already) {
         conv.messages.push({
           id: msg.id,
           tempId: msg.tempId || msg.id,
-          sender: msg.sender,
+          conversation_id: msg.conversation_id,
+          sender_id: String(msg.sender_id || (isSentByOwner ? ownerId : partnerId)),
+          receiver_id: String(msg.receiver_id || (isSentByOwner ? partnerId : ownerId)),
+          sender: isSentByOwner ? 'me' : 'them',
           text: msg.text,
-          time: new Date(msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          time: new Date(msg.created_at || msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: msg.timestamp || msg.created_at || new Date().toISOString(),
           status: msg.status || 'delivered',
-          created_at: msg.created_at || new Date().toISOString()
+          created_at: msg.created_at || msg.timestamp || new Date().toISOString()
         });
       }
 
       conv.messages = deduplicateMessageList(conv.messages);
 
       localStorage.setItem(key, JSON.stringify(convs));
-      localStorage.setItem('i4u_conversations', JSON.stringify(convs));
+      // Strictly only update active fallback i4u_conversations if ownerId matches currentUserId
+      if (this.currentUserId && String(ownerId) === String(this.currentUserId)) {
+        localStorage.setItem('i4u_conversations', JSON.stringify(convs));
+      }
     } catch (e) {}
   }
 
@@ -494,8 +587,11 @@ class LiveChatService {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
             parsed.forEach((c) => {
-              if (!localConvs.some((existing) => String(existing.profileId) === String(c.profileId))) {
-                localConvs.push(c);
+              // Ensure we strictly exclude conversations with self
+              if (c?.profileId && !userIds.includes(String(c.profileId))) {
+                if (!localConvs.some((existing) => String(existing.profileId) === String(c.profileId))) {
+                  localConvs.push(c);
+                }
               }
             });
           }
@@ -505,7 +601,15 @@ class LiveChatService {
         const fallbackRaw = localStorage.getItem('i4u_conversations');
         if (fallbackRaw) {
           const parsed = JSON.parse(fallbackRaw);
-          if (Array.isArray(parsed)) localConvs = parsed;
+          if (Array.isArray(parsed)) {
+            parsed.forEach((c) => {
+              if (c?.profileId && !userIds.includes(String(c.profileId))) {
+                if (!localConvs.some((existing) => String(existing.profileId) === String(c.profileId))) {
+                  localConvs.push(c);
+                }
+              }
+            });
+          }
         }
       }
     } catch (e) {}
@@ -515,7 +619,7 @@ class LiveChatService {
     // Populate existing local conversations
     if (Array.isArray(localConvs)) {
       localConvs.forEach((c) => {
-        if (c?.profileId) {
+        if (c?.profileId && !userIds.includes(String(c.profileId))) {
           convMap.set(String(c.profileId), {
             profileId: String(c.profileId),
             unreadCount: c.unreadCount || 0,
@@ -530,6 +634,9 @@ class LiveChatService {
     remoteMessages.forEach((msg) => {
       const isSentByMe = userIds.includes(String(msg.sender_id));
       const partnerId = isSentByMe ? String(msg.receiver_id) : String(msg.sender_id);
+
+      // Strictly skip invalid or self-conversations
+      if (!partnerId || userIds.includes(partnerId)) return;
 
       if (!convMap.has(partnerId)) {
         convMap.set(partnerId, {
@@ -550,9 +657,13 @@ class LiveChatService {
         conv.messages.push({
           id: msg.id,
           tempId: msg.id,
+          conversation_id: msg.conversation_id,
+          sender_id: String(msg.sender_id),
+          receiver_id: String(msg.receiver_id),
           sender: isSentByMe ? 'me' : 'them',
           text: msg.text,
           time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: msg.created_at,
           status: msg.status || 'read',
           created_at: msg.created_at
         });
@@ -697,20 +808,22 @@ export function deduplicateMessageList(messages) {
   for (const m of messages) {
     if (!m) continue;
 
-    // 1. Check by explicit ID or tempId
+    // 1. Check by explicit string ID or tempId
     const primaryId = m.id || m.tempId;
     if (primaryId) {
-      if (seenIds.has(primaryId)) continue;
-      seenIds.add(primaryId);
+      const idStr = String(primaryId);
+      if (seenIds.has(idStr)) continue;
+      seenIds.add(idStr);
     }
 
-    // 2. Check by content signature (sender + normalized text + approx timestamp or time)
+    // 2. Check by content signature (sender_id + normalized text + approx timestamp or time)
     const normText = (m.text || '').trim();
     if (normText) {
-      const timeSignature = m.created_at
-        ? Math.floor(new Date(m.created_at).getTime() / 2000)
+      const timeSignature = m.created_at || m.timestamp
+        ? Math.floor(new Date(m.created_at || m.timestamp).getTime() / 2000)
         : (m.time || '');
-      const signature = `${m.sender || 'msg'}__${timeSignature}__${normText}`;
+      const sId = m.sender_id || m.senderId || m.sender || '';
+      const signature = `${sId}__${timeSignature}__${normText}`;
       if (seenSignatures.has(signature)) continue;
       seenSignatures.add(signature);
     }
