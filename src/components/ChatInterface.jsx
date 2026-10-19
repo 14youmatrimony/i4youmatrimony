@@ -127,91 +127,93 @@ export default function ChatInterface({
   const existingConv = partnerUser?.id ? conversations.find(c => 
     String(c.profileId) === String(partnerUser.id) || 
     (partnerUser.register_id && String(c.profileId) === String(partnerUser.register_id)) ||
-    (partnerUser.registerId && String(c.profileId) === String(partnerUser.registerId))
-  ) : null;
+  // Isolated messages state strictly for the active conversation
+  const [messages, setMessages] = useState([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-  const activeConv = existingConv || {
-    profileId: partnerUser?.id || '',
-    partnerUser: partnerUser,
-    unreadCount: 0,
-    messages: [],
-    autoReplies: []
-  };
+  // Load and synchronize messages strictly for the active conversation
+  useEffect(() => {
+    // 5. STATE CLEANUP ON ROUTE / PROFILE CHANGE:
+    // Immediately clear messages state on switch or unmount to eliminate lingering messages
+    setMessages([]);
 
-  const displayMessages = useMemo(() => {
-    return deduplicateMessageList(activeConv?.messages || []);
-  }, [activeConv?.messages]);
-
-  const scrollToBottom = (behavior = 'smooth') => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTo({
-        top: messagesContainerRef.current.scrollHeight,
-        behavior
-      });
+    if (!currentUser?.id || !partnerUser?.id || !activeConversationId) {
+      return;
     }
-  };
 
-  useEffect(() => {
-    scrollToBottom('smooth');
-  }, [displayMessages.length, isTyping]);
+    let isMounted = true;
+    setIsLoadingMessages(true);
 
-  useEffect(() => {
-    if (!currentUser || !partnerUser) return;
+    // 2. STRICT DATABASE QUERY ISOLATION:
+    // Strictly fetch messages belonging to this unique conversation / two-way pair
+    liveChatService.fetchMessagesForConversation({
+      conversationId: activeConversationId,
+      currentUserId: currentUser.id,
+      partnerUserId: partnerUser.id
+    }).then((loadedMsgs) => {
+      if (isMounted) {
+        setMessages(loadedMsgs);
+        setIsLoadingMessages(false);
+      }
+    }).catch(() => {
+      if (isMounted) setIsLoadingMessages(false);
+    });
+
     const matchId = String(partnerUser.id);
     const matchRegId = partnerUser.register_id || partnerUser.registerId ? String(partnerUser.register_id || partnerUser.registerId) : null;
-    const convId = activeConversationId;
+    const currentUserId = String(currentUser.id);
 
+    // 3. & 4. WEBSOCKET / REAL-TIME ROOM ISOLATION & FRONTEND CONVERSATION MATCH CHECK
     const handleIncoming = (incoming) => {
       if (!incoming) return;
-      const incomingSenderId = String(incoming.sender_id || incoming.senderId || '');
-      const incomingRecipientId = String(incoming.receiver_id || incoming.recipientId || '');
       const incomingConvId = incoming.conversation_id || incoming.conversationId;
 
-      // Verify if the incoming message belongs to this conversation
-      const isForThisChat = (incomingConvId && incomingConvId === convId) ||
-        (matchId && (incomingSenderId === matchId || incomingRecipientId === matchId)) ||
-        (matchRegId && (incomingSenderId === matchRegId || incomingRecipientId === matchRegId));
+      // Gatekeeper 1: conversation_id match check
+      if (incomingConvId && String(incomingConvId) !== String(activeConversationId)) {
+        return; // Ignore messages intended for other chats/rooms
+      }
 
-      if (!isForThisChat) return;
+      const sId = String(incoming.sender_id || incoming.senderId || '');
+      const rId = String(incoming.receiver_id || incoming.recipientId || '');
+
+      // Gatekeeper 2: exact two-way match check between current user and active partner
+      const isValidPair = 
+        (sId === currentUserId && (rId === matchId || (matchRegId && rId === matchRegId))) ||
+        ((sId === matchId || (matchRegId && sId === matchRegId)) && rId === currentUserId);
+
+      if (!isValidPair) return;
 
       setIsTyping(false);
 
-      // Evaluate isMe based strictly on active currentUser.id
-      const isIncomingFromMe = incomingSenderId === String(currentUser.id);
+      const isIncomingFromMe = sId === currentUserId;
 
       const incomingMsg = {
         id: incoming.id || incoming.tempId || ('msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
         tempId: incoming.tempId || incoming.id,
-        conversation_id: incomingConvId || convId,
-        sender_id: incomingSenderId,
-        receiver_id: incomingRecipientId || (isIncomingFromMe ? matchId : String(currentUser.id)),
+        conversation_id: activeConversationId,
+        sender_id: sId,
+        receiver_id: rId || (isIncomingFromMe ? matchId : currentUserId),
         sender: isIncomingFromMe ? 'me' : 'them',
         text: incoming.text,
         time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: isIncomingFromMe ? (incoming.status || 'delivered') : 'read',
         timestamp: incoming.timestamp || new Date().toISOString(),
-        created_at: new Date(incoming.timestamp || incoming.created_at || Date.now()).toISOString()
+        created_at: incoming.created_at || incoming.timestamp || new Date().toISOString()
       };
 
+      setMessages(prev => deduplicateMessageList([...prev, incomingMsg]));
+
+      // Keep parent conversation list updated
       setConversations(prev => {
         const targetId = matchId;
         const exists = prev.find(c => String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId));
         if (exists) {
           return prev.map(c => {
             if (String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId)) {
-              const currentMsgs = c.messages || [];
-              const alreadyExists = currentMsgs.some(m =>
-                (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
-                (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
-                (m.text === incoming.text && String(m.sender_id) === incomingSenderId && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
-              );
-              if (alreadyExists) {
-                return isIncomingFromMe ? c : (c.unreadCount !== 0 ? { ...c, unreadCount: 0 } : c);
-              }
               return {
                 ...c,
                 unreadCount: 0,
-                messages: deduplicateMessageList([...currentMsgs, incomingMsg])
+                messages: deduplicateMessageList([...(c.messages || []), incomingMsg])
               };
             }
             return c;
@@ -231,10 +233,10 @@ export default function ChatInterface({
       });
     };
 
-    const unsubscribeConv = liveChatService.subscribeToConversation(convId, handleIncoming);
-    const unsubscribeMsg = liveChatService.onMessage(handleIncoming);
+    const unsubscribeConv = liveChatService.subscribeToConversation(activeConversationId, handleIncoming);
 
     const unsubscribeStatus = liveChatService.onStatus(({ messageId, status }) => {
+      setMessages(prev => prev.map(m => (m.id === messageId || m.tempId === messageId) ? { ...m, status } : m));
       setConversations(prev => prev.map(c => ({
         ...c,
         messages: (c.messages || []).map(m => (m.id === messageId || m.tempId === messageId) ? { ...m, status } : m)
@@ -248,12 +250,30 @@ export default function ChatInterface({
     });
 
     return () => {
-      if (unsubscribeConv) unsubscribeConv();
-      unsubscribeMsg();
+      isMounted = false;
+      unsubscribeConv();
       unsubscribeStatus();
       unsubscribeTyping();
+      setMessages([]); // Reset state on cleanup
     };
   }, [currentUser?.id, partnerUser?.id, partnerUser?.register_id, partnerUser?.registerId, activeConversationId, setConversations]);
+
+  const displayMessages = useMemo(() => {
+    return deduplicateMessageList(messages);
+  }, [messages]);
+
+  const scrollToBottom = (behavior = 'smooth') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior
+      });
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom('smooth');
+  }, [displayMessages.length, isTyping]);
 
   const handleSendMessage = (textToSend) => {
     if (!currentUser || !partnerUser) return;
@@ -276,6 +296,9 @@ export default function ChatInterface({
       timestamp: nowIso,
       created_at: nowIso
     };
+
+    // Update isolated messages state immediately
+    setMessages(prev => deduplicateMessageList([...prev, newMessage]));
 
     // Update conversation
     setConversations(prev => {
@@ -320,6 +343,7 @@ export default function ChatInterface({
 
     // 1. Live status: Sending -> Sent (single tick)
     setTimeout(() => {
+      setMessages(prev => prev.map(m => (m.id === msgId || m.tempId === msgId) && m.status === 'sending' ? { ...m, status: 'sent' } : m));
       setConversations(prev => prev.map(c => ({
         ...c,
         messages: (c.messages || []).map(m => (m.id === msgId || m.tempId === msgId) && m.status === 'sending' ? { ...m, status: 'sent' } : m)
@@ -328,6 +352,7 @@ export default function ChatInterface({
 
     // 2. Live status: Sent -> Delivered (double tick)
     setTimeout(() => {
+      setMessages(prev => prev.map(m => (m.id === msgId || m.tempId === msgId) && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m));
       setConversations(prev => prev.map(c => ({
         ...c,
         messages: (c.messages || []).map(m => (m.id === msgId || m.tempId === msgId) && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m)
@@ -543,39 +568,65 @@ export default function ChatInterface({
               </p>
             </div>
 
-            {/* Message Bubbles */}
-            {displayMessages.map((msg, index) => {
-              const isMe = String(msg.sender_id) === String(currentUser?.id) || (!msg.sender_id && msg.sender === 'me');
-              const uniqueKey = msg.id || msg.tempId || `msg_${isMe ? 'me' : 'them'}_${index}_${msg.time || ''}`;
-              return (
-                <div 
-                  key={uniqueKey}
-                  className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
-                >
-                  <div 
-                    className={`max-w-[80%] sm:max-w-md rounded-2xl px-4 py-3 text-xs sm:text-sm shadow-sm leading-relaxed ${
-                      isMe 
-                        ? 'bg-gradient-to-r from-[#0B192C] to-[#1E3A8A] text-white rounded-br-none' 
-                        : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
-                    }`}
-                  >
-                    {msg.text}
-                  </div>
-
-                  <div className="flex items-center space-x-1 mt-1 text-[10px] text-slate-400 px-1">
-                    <span>{msg.time}</span>
-                    {isMe && (
-                      <span className="inline-flex items-center ml-0.5" title={msg.status || 'read'}>
-                        {msg.status === 'sending' && <Clock className="w-3.5 h-3.5 text-slate-400 animate-spin" />}
-                        {msg.status === 'sent' && <Check className="w-3.5 h-3.5 text-slate-400" />}
-                        {msg.status === 'delivered' && <CheckCheck className="w-3.5 h-3.5 text-slate-400" />}
-                        {(msg.status === 'read' || !msg.status) && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
-                      </span>
-                    )}
-                  </div>
+            {/* Message Bubbles / Loading Skeleton / Empty State */}
+            {isLoadingMessages ? (
+              <div className="py-6 space-y-4">
+                <div className="flex justify-start">
+                  <div className="w-3/5 h-12 bg-slate-200 rounded-2xl rounded-bl-none animate-pulse" />
                 </div>
-              );
-            })}
+                <div className="flex justify-end">
+                  <div className="w-1/2 h-10 bg-slate-300 rounded-2xl rounded-br-none animate-pulse" />
+                </div>
+                <div className="flex justify-start">
+                  <div className="w-2/3 h-14 bg-slate-200 rounded-2xl rounded-bl-none animate-pulse" />
+                </div>
+              </div>
+            ) : displayMessages.length === 0 ? (
+              <div className="py-16 text-center space-y-3">
+                <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 text-[#8C6D1F] mx-auto flex items-center justify-center">
+                  <Sparkles className="w-7 h-7 text-[#DFB76C]" />
+                </div>
+                <h4 className="font-serif font-bold text-base text-slate-800">
+                  Start your conversation with {partnerUser?.name || 'Candidate'}
+                </h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                  Send a respectful proposal message or click one of the auspicious icebreakers below.
+                </p>
+              </div>
+            ) : (
+              displayMessages.map((msg, index) => {
+                const isMe = String(msg.sender_id) === String(currentUser?.id) || (!msg.sender_id && msg.sender === 'me');
+                const uniqueKey = msg.id || msg.tempId || `msg_${isMe ? 'me' : 'them'}_${index}_${msg.time || ''}`;
+                return (
+                  <div 
+                    key={uniqueKey}
+                    className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                  >
+                    <div 
+                      className={`max-w-[80%] sm:max-w-md rounded-2xl px-4 py-3 text-xs sm:text-sm shadow-sm leading-relaxed ${
+                        isMe 
+                          ? 'bg-gradient-to-r from-[#0B192C] to-[#1E3A8A] text-white rounded-br-none' 
+                          : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+
+                    <div className="flex items-center space-x-1 mt-1 text-[10px] text-slate-400 px-1">
+                      <span>{msg.time}</span>
+                      {isMe && (
+                        <span className="inline-flex items-center ml-0.5" title={msg.status || 'read'}>
+                          {msg.status === 'sending' && <Clock className="w-3.5 h-3.5 text-slate-400 animate-spin" />}
+                          {msg.status === 'sent' && <Check className="w-3.5 h-3.5 text-slate-400" />}
+                          {msg.status === 'delivered' && <CheckCheck className="w-3.5 h-3.5 text-slate-400" />}
+                          {(msg.status === 'read' || !msg.status) && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
 
             {/* Typing Indicator */}
             {isTyping && (

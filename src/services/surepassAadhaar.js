@@ -177,6 +177,16 @@ export const submitAadhaarOtp = async (clientId, enteredOtp, fallbackAadhaar = '
     };
   }
 
+  // Resolve authenticated user name if available
+  let authName = 'Verified Member';
+  try {
+    const uStr = localStorage.getItem('i4u_auth_user');
+    if (uStr) {
+      const u = JSON.parse(uStr);
+      if (u && u.name) authName = u.name;
+    }
+  } catch (e) {}
+
   // 1. If simulated or demo clientId
   if (String(clientId || '').startsWith('demo_')) {
     const last4 = sanitizeAadhaar(fallbackAadhaar).slice(-4) || '5928';
@@ -184,7 +194,7 @@ export const submitAadhaarOtp = async (clientId, enteredOtp, fallbackAadhaar = '
       success: true,
       isSimulated: true,
       data: {
-        fullName: 'Arun Kumar',
+        fullName: authName,
         gender: 'M',
         dob: '1995-05-12',
         maskedAadhaar: `XXXX XXXX ${last4}`,
@@ -210,7 +220,7 @@ export const submitAadhaarOtp = async (clientId, enteredOtp, fallbackAadhaar = '
       success: true,
       isSimulated: true,
       data: {
-        fullName: 'Arun Kumar',
+        fullName: authName,
         gender: 'M',
         dob: '1995-05-12',
         maskedAadhaar: `XXXX XXXX ${last4}`,

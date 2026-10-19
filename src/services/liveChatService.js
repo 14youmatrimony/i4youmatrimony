@@ -24,26 +24,14 @@ class LiveChatService {
     this.processedMessageIds = new Set();
     this.inboxChannels = [];
 
-    // Initialize cross-tab synchronization with deduplication
+    // Initialize cross-tab synchronization for status and typing (no global message leak)
     if (typeof window !== 'undefined' && window.BroadcastChannel) {
       try {
         this.broadcastChannel = new BroadcastChannel('i4u_live_chat_sync');
         this.broadcastChannel.onmessage = (event) => {
           const data = event.data;
           if (!data) return;
-          if (data.type === 'message' || data.type === 'receive_message') {
-            const payload = data.payload;
-            if (!payload) return;
-            const sid = String(payload.sender_id || payload.senderId || '');
-            const msgKey = payload.id || `msg_${sid}_${payload.timestamp}_${payload.text}`;
-            if (this.isMessageProcessed(payload.id, msgKey)) return;
-
-            // Ignore messages from self
-            if (this.currentUserId && sid === String(this.currentUserId)) {
-              return;
-            }
-            this.notifyMessageListeners(payload);
-          } else if (data.type === 'status') {
+          if (data.type === 'status') {
             this.notifyStatusListeners(data.payload);
           } else if (data.type === 'typing') {
             this.notifyTypingListeners(data.payload);
@@ -224,6 +212,7 @@ class LiveChatService {
       };
 
       chn
+        .on('broadcast', { event: 'new_message' }, handleConvMsg)
         .on('broadcast', { event: 'receive_message' }, handleConvMsg)
         .on('broadcast', { event: 'new-chat-message' }, handleConvMsg)
         .subscribe();
@@ -354,20 +343,19 @@ class LiveChatService {
       status: 'delivered'
     };
 
+    // Log backend chat room transmission
+    console.log(`[Chat Room] Message sent in room conversation_${convId} from ${senderId} to ${recipientId}`);
+
     // Mark as processed locally so we don't process or echo back our own sent message
     this.processedMessageIds.add(msgId);
     if (message.tempId) this.processedMessageIds.add(message.tempId);
     this.processedMessageIds.add(`msg_${senderId}_${payload.timestamp}_${payload.text}`);
 
-    // 1. Cross-tab sync
+    // 1. Cross-tab sync strictly for the open conversation (if any)
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.postMessage({
-          type: 'receive_message',
-          payload
-        });
-        this.broadcastChannel.postMessage({
-          type: 'message',
+          type: 'room_message',
           payload
         });
       } catch (e) {}
@@ -440,6 +428,11 @@ class LiveChatService {
         const convRoom = supabase.channel(`conversation_${convId}`);
         convRoom.subscribe((chnStatus) => {
           if (chnStatus === 'SUBSCRIBED') {
+            convRoom.send({
+              type: 'broadcast',
+              event: 'new_message',
+              payload
+            }).catch(() => {});
             convRoom.send({
               type: 'broadcast',
               event: 'receive_message',
@@ -540,11 +533,80 @@ class LiveChatService {
       conv.messages = deduplicateMessageList(conv.messages);
 
       localStorage.setItem(key, JSON.stringify(convs));
-      // Strictly only update active fallback i4u_conversations if ownerId matches currentUserId
-      if (this.currentUserId && String(ownerId) === String(this.currentUserId)) {
-        localStorage.setItem('i4u_conversations', JSON.stringify(convs));
+      // Purge legacy un-scoped key to prevent cross-account contamination
+      localStorage.removeItem('i4u_conversations');
+    } catch (e) {}
+  }
+
+  /**
+   * Fetch messages strictly isolated to a single conversation between two authenticated participants.
+   * Enforces exact two-way matching:
+   * WHERE (sender_id = :currentUserId AND receiver_id = :partnerUserId) OR (sender_id = :partnerUserId AND receiver_id = :currentUserId)
+   * And ensures conversation_id match if provided.
+   */
+  async fetchMessagesForConversation({ conversationId, currentUserId, partnerUserId }) {
+    const cId = String(currentUserId || '');
+    const pId = String(partnerUserId || '');
+    if (!cId || !pId) return [];
+
+    let messages = [];
+
+    // 1. Supabase messages table with strict two-way isolation
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .or(`and(sender_id.eq."${cId}",receiver_id.eq."${pId}"),and(sender_id.eq."${pId}",receiver_id.eq."${cId}")`)
+          .order('created_at', { ascending: true });
+
+        if (!error && Array.isArray(data)) {
+          // Gatekeeper validation: verify strictly belonging to this two-way pair
+          messages = data.filter((msg) => {
+            const sid = String(msg.sender_id || '');
+            const rid = String(msg.receiver_id || '');
+            const isValidPair = (sid === cId && rid === pId) || (sid === pId && rid === cId);
+            return isValidPair;
+          });
+        }
+      } catch (err) {
+        console.warn('[LiveChat] Error querying isolated messages from Supabase:', err);
+      }
+    }
+
+    // 2. Local storage messages strictly isolated to current user's profile
+    try {
+      const localKey = `i4u_conversations_${cId}`;
+      const raw = localStorage.getItem(localKey);
+      if (raw) {
+        const convs = JSON.parse(raw);
+        const conv = convs.find((c) => String(c.profileId) === pId);
+        if (conv && Array.isArray(conv.messages)) {
+          conv.messages.forEach((localMsg) => {
+            const sid = String(localMsg.sender_id || (localMsg.sender === 'me' ? cId : pId));
+            const rid = String(localMsg.receiver_id || (localMsg.sender === 'me' ? pId : cId));
+            const isValidPair = (sid === cId && rid === pId) || (sid === pId && rid === cId);
+            if (isValidPair) {
+              const exists = messages.some((m) =>
+                (localMsg.id && (m.id === localMsg.id || m.tempId === localMsg.id)) ||
+                (localMsg.tempId && (m.tempId === localMsg.tempId || m.id === localMsg.tempId)) ||
+                (m.text === localMsg.text && Math.abs(new Date(m.created_at || m.timestamp || 0).getTime() - new Date(localMsg.created_at || localMsg.timestamp || 0).getTime()) < 3000)
+              );
+              if (!exists) {
+                messages.push({
+                  ...localMsg,
+                  conversation_id: localMsg.conversation_id || conversationId,
+                  sender_id: sid,
+                  receiver_id: rid
+                });
+              }
+            }
+          });
+        }
       }
     } catch (e) {}
+
+    return deduplicateMessageList(messages);
   }
 
   /**
@@ -597,21 +659,8 @@ class LiveChatService {
           }
         }
       });
-      if (localConvs.length === 0) {
-        const fallbackRaw = localStorage.getItem('i4u_conversations');
-        if (fallbackRaw) {
-          const parsed = JSON.parse(fallbackRaw);
-          if (Array.isArray(parsed)) {
-            parsed.forEach((c) => {
-              if (c?.profileId && !userIds.includes(String(c.profileId))) {
-                if (!localConvs.some((existing) => String(existing.profileId) === String(c.profileId))) {
-                  localConvs.push(c);
-                }
-              }
-            });
-          }
-        }
-      }
+      // Legacy un-scoped fallback removed to prevent cross-account contamination
+      localStorage.removeItem('i4u_conversations');
     } catch (e) {}
 
     const convMap = new Map();

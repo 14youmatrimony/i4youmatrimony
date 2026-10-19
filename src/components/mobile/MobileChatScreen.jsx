@@ -93,16 +93,8 @@ export default function MobileChatScreen({
         (p.registerId && String(p.registerId) === pid)
       );
 
-      const profileToAdd = matchedProfile || {
-        id: pid,
-        name: 'Member ' + pid,
-        photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
-        city: 'India',
-        gunasMatch: '28/36 Gunas',
-        matchScore: 85
-      };
-
-      if (!seenIds.has(String(profileToAdd.id))) {
+      const profileToAdd = matchedProfile || c.partnerUser;
+      if (profileToAdd && !seenIds.has(String(profileToAdd.id))) {
         seenIds.add(String(profileToAdd.id));
         list.push(profileToAdd);
       }
@@ -147,16 +139,8 @@ export default function MobileChatScreen({
       return conv.partnerUser;
     }
 
-    // Fallback structured candidate object if valid non-self profile ID
-    return {
-      id: targetId,
-      name: 'Candidate ' + targetId,
-      photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
-      onlineStatus: 'Online',
-      city: 'India',
-      district: '',
-      state: ''
-    };
+    // Return null if profile data is still loading or undefined (renders authentic skeleton)
+    return null;
   }, [profiles, currentUser, activeProfileId, conversations]);
 
   const activeProfile = partnerUser;
@@ -215,9 +199,141 @@ export default function MobileChatScreen({
     autoReplies: []
   };
 
+  // Dedicated messages state strictly isolated to the currently active conversation
+  const [messages, setMessages] = useState([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+
+  // Load and synchronize messages strictly for the active conversation
+  useEffect(() => {
+    // 5. STATE CLEANUP ON ROUTE / PROFILE CHANGE:
+    // Immediately clear messages state on switch or unmount to eliminate lingering messages
+    setMessages([]);
+
+    if (!currentUser?.id || !partnerUser?.id || !activeConversationId) {
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingMessages(true);
+
+    // 2. STRICT DATABASE QUERY ISOLATION:
+    // Strictly fetch messages belonging to this unique conversation / two-way pair
+    liveChatService.fetchMessagesForConversation({
+      conversationId: activeConversationId,
+      currentUserId: currentUser.id,
+      partnerUserId: partnerUser.id
+    }).then((loadedMsgs) => {
+      if (isMounted) {
+        setMessages(loadedMsgs);
+        setIsLoadingMessages(false);
+      }
+    }).catch(() => {
+      if (isMounted) setIsLoadingMessages(false);
+    });
+
+    const matchId = String(partnerUser.id);
+    const matchRegId = partnerUser.register_id || partnerUser.registerId ? String(partnerUser.register_id || partnerUser.registerId) : null;
+    const currentUserId = String(currentUser.id);
+
+    // 3. & 4. WEBSOCKET / REAL-TIME ROOM ISOLATION & FRONTEND CONVERSATION MATCH CHECK
+    const handleIncoming = (incoming) => {
+      if (!incoming) return;
+      const incomingConvId = incoming.conversation_id || incoming.conversationId;
+
+      // Gatekeeper 1: conversation_id match check
+      if (incomingConvId && String(incomingConvId) !== String(activeConversationId)) {
+        return; // Ignore messages intended for other chats/rooms
+      }
+
+      const sId = String(incoming.sender_id || incoming.senderId || '');
+      const rId = String(incoming.receiver_id || incoming.recipientId || '');
+
+      // Gatekeeper 2: exact two-way match check between current user and active partner
+      const isValidPair = 
+        (sId === currentUserId && (rId === matchId || (matchRegId && rId === matchRegId))) ||
+        ((sId === matchId || (matchRegId && sId === matchRegId)) && rId === currentUserId);
+
+      if (!isValidPair) return;
+
+      setIsTyping(false);
+
+      const isIncomingFromMe = sId === currentUserId;
+
+      const incomingMsg = {
+        id: incoming.id || incoming.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
+        tempId: incoming.tempId || incoming.id,
+        conversation_id: activeConversationId,
+        sender_id: sId,
+        receiver_id: rId || (isIncomingFromMe ? matchId : currentUserId),
+        sender: isIncomingFromMe ? 'me' : 'them',
+        text: incoming.text,
+        time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: isIncomingFromMe ? (incoming.status || 'delivered') : 'read',
+        timestamp: incoming.timestamp || new Date().toISOString(),
+        created_at: incoming.created_at || incoming.timestamp || new Date().toISOString()
+      };
+
+      setMessages(prev => deduplicateMessageList([...prev, incomingMsg]));
+
+      // Keep parent conversation list updated
+      setConversations(prev => {
+        const targetId = matchId;
+        const exists = prev.find(c => String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId));
+        if (exists) {
+          return prev.map(c => {
+            if (String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId)) {
+              return {
+                ...c,
+                unreadCount: 0,
+                messages: deduplicateMessageList([...(c.messages || []), incomingMsg])
+              };
+            }
+            return c;
+          });
+        } else {
+          return [
+            ...prev,
+            {
+              profileId: targetId,
+              partnerUser: partnerUser,
+              unreadCount: 0,
+              messages: [incomingMsg],
+              autoReplies: []
+            }
+          ];
+        }
+      });
+    };
+
+    const unsubscribeConv = liveChatService.subscribeToConversation(activeConversationId, handleIncoming);
+
+    const unsubscribeStatus = liveChatService.onStatus(({ messageId, status }) => {
+      setMessages(prev => prev.map(m => (m.id === messageId || m.tempId === messageId) ? { ...m, status } : m));
+      setConversations(prev => prev.map(c => ({
+        ...c,
+        messages: (c.messages || []).map(m => (m.id === messageId || m.tempId === messageId) ? { ...m, status } : m)
+      })));
+    });
+
+    const unsubscribeTyping = liveChatService.onTyping(({ senderId, isTyping: typingState }) => {
+      if (String(senderId) === matchId || (matchRegId && String(senderId) === matchRegId)) {
+        setIsTyping(Boolean(typingState));
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribeConv();
+      unsubscribeStatus();
+      unsubscribeTyping();
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      setMessages([]); // Reset state on cleanup
+    };
+  }, [currentUser?.id, partnerUser?.id, partnerUser?.register_id, partnerUser?.registerId, activeConversationId, setConversations]);
+
   const displayMessages = useMemo(() => {
-    return deduplicateMessageList(activeConv?.messages || []);
-  }, [activeConv?.messages]);
+    return deduplicateMessageList(messages);
+  }, [messages]);
 
   const hasIncomingMessage = Boolean(displayMessages.some(m => String(m.sender_id) !== String(currentUser?.id) && m.sender !== 'me'));
   // Live Message is fully active for matrimonial connections
@@ -262,108 +378,6 @@ export default function MobileChatScreen({
       }, 1500);
     }
   };
-
-  // Listen to incoming real-time messages, delivery status acks, and typing indicators
-  useEffect(() => {
-    if (!currentUser || !partnerUser) return;
-    const matchId = String(partnerUser.id);
-    const matchRegId = partnerUser.register_id || partnerUser.registerId ? String(partnerUser.register_id || partnerUser.registerId) : null;
-    const convId = activeConversationId;
-
-    const handleIncoming = (incoming) => {
-      if (!incoming) return;
-      const incomingSenderId = String(incoming.sender_id || incoming.senderId || '');
-      const incomingRecipientId = String(incoming.receiver_id || incoming.recipientId || '');
-      const incomingConvId = incoming.conversation_id || incoming.conversationId;
-
-      // Verify if the incoming message belongs to this conversation
-      const isForThisChat = (incomingConvId && incomingConvId === convId) ||
-        (matchId && (incomingSenderId === matchId || incomingRecipientId === matchId)) ||
-        (matchRegId && (incomingSenderId === matchRegId || incomingRecipientId === matchRegId));
-
-      if (!isForThisChat) return;
-
-      setIsTyping(false);
-
-      // Evaluate isMe based strictly on active currentUser.id
-      const isIncomingFromMe = incomingSenderId === String(currentUser.id);
-
-      const incomingMsg = {
-        id: incoming.id || incoming.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
-        tempId: incoming.tempId || incoming.id,
-        conversation_id: incomingConvId || convId,
-        sender_id: incomingSenderId,
-        receiver_id: incomingRecipientId || (isIncomingFromMe ? matchId : String(currentUser.id)),
-        sender: isIncomingFromMe ? 'me' : 'them',
-        text: incoming.text,
-        time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: isIncomingFromMe ? (incoming.status || 'delivered') : 'read',
-        timestamp: incoming.timestamp || new Date().toISOString(),
-        created_at: new Date(incoming.timestamp || incoming.created_at || Date.now()).toISOString()
-      };
-
-      setConversations(prev => {
-        const targetId = matchId;
-        const exists = prev.find(c => String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId));
-        if (exists) {
-          return prev.map(c => {
-            if (String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId)) {
-              const currentMsgs = c.messages || [];
-              const alreadyExists = currentMsgs.some(m =>
-                (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
-                (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
-                (m.text === incoming.text && String(m.sender_id) === incomingSenderId && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
-              );
-              if (alreadyExists) {
-                return isIncomingFromMe ? c : (c.unreadCount !== 0 ? { ...c, unreadCount: 0 } : c);
-              }
-              return {
-                ...c,
-                unreadCount: 0,
-                messages: deduplicateMessageList([...currentMsgs, incomingMsg])
-              };
-            }
-            return c;
-          });
-        } else {
-          return [
-            ...prev,
-            {
-              profileId: targetId,
-              partnerUser: partnerUser,
-              unreadCount: 0,
-              messages: [incomingMsg],
-              autoReplies: []
-            }
-          ];
-        }
-      });
-    };
-
-    const unsubscribeConv = liveChatService.subscribeToConversation(convId, handleIncoming);
-    const unsubscribeMsg = liveChatService.onMessage(handleIncoming);
-
-    const unsubscribeStatus = liveChatService.onStatus(({ messageId, status }) => {
-      setConversations(prev => prev.map(c => ({
-        ...c,
-        messages: (c.messages || []).map(m => (m.id === messageId || m.tempId === messageId) ? { ...m, status } : m)
-      })));
-    });
-
-    const unsubscribeTyping = liveChatService.onTyping(({ senderId, isTyping: typingState }) => {
-      if (String(senderId) === matchId || (matchRegId && String(senderId) === matchRegId)) {
-        setIsTyping(Boolean(typingState));
-      }
-    });
-
-    return () => {
-      if (unsubscribeConv) unsubscribeConv();
-      unsubscribeMsg();
-      unsubscribeStatus();
-      unsubscribeTyping();
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    };
-  }, [currentUser?.id, partnerUser?.id, partnerUser?.register_id, partnerUser?.registerId, activeConversationId, setConversations]);
 
   // If user is not logged in, display the Login Required screen immediately
   if (!currentUser) {
@@ -419,6 +433,9 @@ export default function MobileChatScreen({
       created_at: nowIso
     };
 
+    // Update isolated messages state immediately
+    setMessages(prev => deduplicateMessageList([...prev, newMsg]));
+
     setConversations(prev => {
       const targetId = String(partnerUser.id);
       const targetRegId = partnerUser.register_id || partnerUser.registerId ? String(partnerUser.register_id || partnerUser.registerId) : null;
@@ -464,6 +481,7 @@ export default function MobileChatScreen({
 
     // 1. Live status: Sending -> Sent (single tick)
     setTimeout(() => {
+      setMessages(prev => prev.map(m => (m.id === msgId || m.tempId === msgId) && m.status === 'sending' ? { ...m, status: 'sent' } : m));
       setConversations(prev => prev.map(c => ({
         ...c,
         messages: (c.messages || []).map(m => (m.id === msgId || m.tempId === msgId) && m.status === 'sending' ? { ...m, status: 'sent' } : m)
@@ -472,6 +490,7 @@ export default function MobileChatScreen({
 
     // 2. Live status: Sent -> Delivered (double tick)
     setTimeout(() => {
+      setMessages(prev => prev.map(m => (m.id === msgId || m.tempId === msgId) && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m));
       setConversations(prev => prev.map(c => ({
         ...c,
         messages: (c.messages || []).map(m => (m.id === msgId || m.tempId === msgId) && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m)
@@ -479,7 +498,62 @@ export default function MobileChatScreen({
     }, 650);
   };
 
-  // View 1: Active Chat Conversation
+  // View 1A: Loading Skeleton when inConversation but profile is still loading / undefined
+  if (inConversation && !partnerUser) {
+    return (
+      <div className={`flex-1 flex flex-col h-full min-h-0 relative overflow-hidden ${
+        isDarkMode ? 'bg-[#081220] text-slate-100' : 'bg-slate-50 text-slate-900'
+      }`}>
+        {/* Loading Skeleton Header */}
+        <div className="bg-[#0B192C] text-white px-3 py-2.5 flex items-center justify-between border-b border-white/10 shrink-0 sticky top-0 z-20">
+          <div className="flex items-center space-x-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                setInConversation(false);
+                setIsDirectChatOpen?.(false);
+                setActiveProfileId?.(null);
+              }}
+              className="p-1 rounded-full text-slate-300 hover:text-white cursor-pointer"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <div className="w-9 h-9 rounded-full bg-slate-700/60 animate-pulse ring-1 ring-amber-500/30 shrink-0" />
+            <div className="space-y-1.5 min-w-0">
+              <div className="w-28 h-3.5 bg-slate-700/70 rounded-md animate-pulse" />
+              <div className="w-16 h-2.5 bg-slate-800 rounded-md animate-pulse" />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2 shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-slate-800/80 animate-pulse" />
+            <div className="w-8 h-8 rounded-xl bg-slate-800/80 animate-pulse" />
+          </div>
+        </div>
+
+        {/* Loading Skeleton Messages */}
+        <div className="flex-1 p-4 space-y-4 overflow-hidden">
+          <div className="w-48 h-7 mx-auto bg-amber-500/10 rounded-xl animate-pulse" />
+          <div className="flex justify-start">
+            <div className="w-3/5 h-12 bg-slate-200 dark:bg-slate-800/60 rounded-2xl rounded-bl-none animate-pulse" />
+          </div>
+          <div className="flex justify-end">
+            <div className="w-1/2 h-10 bg-slate-300 dark:bg-slate-700/60 rounded-2xl rounded-br-none animate-pulse" />
+          </div>
+          <div className="flex justify-start">
+            <div className="w-2/3 h-14 bg-slate-200 dark:bg-slate-800/60 rounded-2xl rounded-bl-none animate-pulse" />
+          </div>
+        </div>
+
+        {/* Loading Skeleton Input Bar */}
+        <div className="p-3 border-t border-slate-200 dark:border-white/10 flex items-center space-x-2 shrink-0">
+          <div className="flex-1 h-10 bg-slate-200 dark:bg-slate-800 rounded-full animate-pulse" />
+          <div className="w-10 h-10 bg-slate-300 dark:bg-slate-700 rounded-full animate-pulse shrink-0" />
+        </div>
+      </div>
+    );
+  }
+
+  // View 1B: Active Chat Conversation
   if (inConversation && partnerUser) {
     return (
       <div className={`flex-1 flex flex-col h-full min-h-0 relative overflow-hidden transition-colors duration-200 ${
@@ -581,7 +655,19 @@ export default function MobileChatScreen({
             <p className="text-slate-500 mt-0.5">End-to-end encrypted under I 4 You matrimonial privacy guarantee.</p>
           </div>
 
-          {displayMessages.length === 0 ? (
+          {isLoadingMessages ? (
+            <div className="py-6 space-y-4">
+              <div className="flex justify-start">
+                <div className="w-3/5 h-10 bg-slate-200 dark:bg-slate-800/60 rounded-2xl rounded-bl-none animate-pulse" />
+              </div>
+              <div className="flex justify-end">
+                <div className="w-1/2 h-10 bg-slate-300 dark:bg-slate-700/60 rounded-2xl rounded-br-none animate-pulse" />
+              </div>
+              <div className="flex justify-start">
+                <div className="w-2/3 h-12 bg-slate-200 dark:bg-slate-800/60 rounded-2xl rounded-bl-none animate-pulse" />
+              </div>
+            </div>
+          ) : displayMessages.length === 0 ? (
             <div className="py-12 px-4 text-center space-y-2.5">
               <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-100 to-yellow-50 border border-amber-200 text-[#8C6D1F] mx-auto flex items-center justify-center shadow-xs">
                 <Sparkles className="w-6 h-6 text-[#DFB76C]" />

@@ -66,6 +66,7 @@ import { Sparkles, Crown, ShieldCheck } from 'lucide-react';
 
 // Live sample notifications: Interest received, Profile shortlisted, Contact viewed, and Chat message (Tailored strictly to opposite gender real candidates)
 export const getNotificationsForUser = (user, availableProfiles = []) => {
+  if (!user) return [];
   const isMale = (user?.gender || '').toLowerCase() === 'male';
   
   const pool = (Array.isArray(availableProfiles) && availableProfiles.length > 0)
@@ -79,52 +80,19 @@ export const getNotificationsForUser = (user, availableProfiles = []) => {
     return isMale ? (g === 'female' || g === 'woman') : (g === 'male' || g === 'man');
   });
 
-  const c1 = oppositeProfiles[0] || (isMale ? {
-    id: 'i4y1021_1791653762897',
-    name: 'Dr. Anu jose',
-    age: 28,
-    profession: 'Doctor (MBBS)',
-    city: 'Ernakulam'
-  } : {
-    id: 'i4y1020_1791653762896',
-    name: 'Arun Thomas',
-    age: 26,
-    profession: 'Software Engineer',
-    city: 'Kochi'
-  });
+  if (!oppositeProfiles.length) {
+    return [];
+  }
 
-  const c2 = oppositeProfiles[1] || (isMale ? {
-    id: 'i4y1009_1791653762899',
-    name: 'Rosemol',
-    age: 28,
-    profession: 'MSc Nursing',
-    city: 'Kottayam'
-  } : {
-    id: 'i4y1019_1791653762895',
-    name: 'Amal',
-    age: 25,
-    profession: 'Marketing Lead',
-    city: 'Thrissur'
-  });
-
-  const c3 = oppositeProfiles[2] || (isMale ? {
-    id: 'i4y1010_1791653762898',
-    name: 'Tinu',
-    age: 25,
-    profession: 'Fashion Designer',
-    city: 'Kochi'
-  } : {
-    id: 'i4y1007_1791653762894',
-    name: 'Arun Kumar',
-    age: 25,
-    profession: 'Civil Engineer',
-    city: 'Alappuzha'
-  });
+  const c1 = oppositeProfiles[0];
+  const c2 = oppositeProfiles[1];
+  const c3 = oppositeProfiles[2];
 
   const firstName = user?.name ? user.name.split(' ')[0] : 'there';
+  const list = [];
 
-  return [
-    {
+  if (c1) {
+    list.push({
       id: 'notif-interest-' + c1.id,
       type: 'interest_received',
       profileId: c1.id,
@@ -135,8 +103,11 @@ export const getNotificationsForUser = (user, availableProfiles = []) => {
       isRead: false,
       status: 'pending',
       badge: c1.profession || 'Universal Match'
-    },
-    {
+    });
+  }
+
+  if (c2 && c2.id !== c1.id) {
+    list.push({
       id: 'notif-shortlist-' + c2.id,
       type: 'profile_shortlisted',
       profileId: c2.id,
@@ -147,8 +118,11 @@ export const getNotificationsForUser = (user, availableProfiles = []) => {
       isRead: false,
       status: 'pending',
       badge: c2.profession || 'Shortlisted'
-    },
-    {
+    });
+  }
+
+  if (c3 && c3.id !== c1.id && c3.id !== c2.id) {
+    list.push({
       id: 'notif-contact-' + c3.id,
       type: 'contact_viewed',
       profileId: c3.id,
@@ -159,20 +133,10 @@ export const getNotificationsForUser = (user, availableProfiles = []) => {
       isRead: false,
       status: 'pending',
       badge: 'Aadhaar Verified'
-    },
-    {
-      id: 'notif-msg-' + c1.id,
-      type: 'message_received',
-      profileId: c1.id,
-      title: `New Message from ${c1.name} 💬`,
-      message: `${c1.name} sent you a direct message in matrimonial chat.`,
-      quote: '“Namaste! My parents saw your details and would love to arrange a video call this Sunday.”',
-      time: '3h ago',
-      isRead: false,
-      status: 'pending',
-      badge: '1 Unread Message'
-    }
-  ];
+    });
+  }
+
+  return list;
 };
 
 export const INITIAL_NOTIFICATIONS = [];
@@ -844,8 +808,7 @@ export default function App() {
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         }
       }
-      const saved = localStorage.getItem('i4u_conversations');
-      return saved ? JSON.parse(saved) : [];
+      return [];
     } catch (e) {
       return [];
     }
@@ -853,6 +816,26 @@ export default function App() {
   const [activeChatProfileId, setActiveChatProfileId] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [currentUser, setCurrentUser] = useState(checkStoredUserSession);
+
+  // Synchronize conversations state strictly scoped to the active user
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setConversations([]);
+      return;
+    }
+    const uid = currentUser.id;
+    try {
+      const userSpecific = localStorage.getItem(`i4u_conversations_${uid}`);
+      if (userSpecific) {
+        const parsed = JSON.parse(userSpecific);
+        setConversations(Array.isArray(parsed) ? parsed : []);
+      } else {
+        setConversations([]);
+      }
+    } catch (e) {
+      setConversations([]);
+    }
+  }, [currentUser?.id]);
 
   // Root-level auth state listener: Synchronizes persistent authentication sessions & tokens across browser sessions and tabs
   useEffect(() => {
@@ -936,16 +919,15 @@ export default function App() {
     } catch (e) {}
   }, [shortlisted, currentUser?.id]);
 
-  // Persist conversations to localStorage whenever it changes
+  // Persist conversations to localStorage strictly scoped to user (never write to shared key)
   useEffect(() => {
     try {
-      if (Array.isArray(conversations) && conversations.length > 0) {
-        localStorage.setItem('i4u_conversations', JSON.stringify(conversations));
-        const uid = currentUser?.id || localStorage.getItem('i4u_current_user_id');
-        if (uid) {
-          localStorage.setItem(`i4u_conversations_${uid}`, JSON.stringify(conversations));
-        }
+      const uid = currentUser?.id || localStorage.getItem('i4u_current_user_id');
+      if (uid && Array.isArray(conversations)) {
+        localStorage.setItem(`i4u_conversations_${uid}`, JSON.stringify(conversations));
       }
+      // Purge legacy un-scoped key
+      localStorage.removeItem('i4u_conversations');
     } catch (e) {}
   }, [conversations, currentUser?.id]);
 
@@ -1079,31 +1061,11 @@ export default function App() {
 
     let isMounted = true;
 
-    // 1. Fetch conversations from Supabase messages table
+    // 1. Fetch conversations from Supabase messages table strictly for current user
     liveChatService.fetchConversationsForUser(currentUser, profiles)
       .then((loadedConvs) => {
-        if (isMounted && Array.isArray(loadedConvs) && loadedConvs.length > 0) {
-          setConversations((prev) => {
-            const merged = [...prev];
-            loadedConvs.forEach((c) => {
-              const idx = merged.findIndex((m) => 
-                String(m.profileId) === String(c.profileId)
-              );
-              if (idx >= 0) {
-                merged[idx] = {
-                  ...merged[idx],
-                  messages: deduplicateMessageList([...(merged[idx].messages || []), ...(c.messages || [])]),
-                  unreadCount: Math.max(merged[idx].unreadCount || 0, c.unreadCount || 0)
-                };
-              } else {
-                merged.push({
-                  ...c,
-                  messages: deduplicateMessageList(c.messages || [])
-                });
-              }
-            });
-            return merged;
-          });
+        if (isMounted && Array.isArray(loadedConvs)) {
+          setConversations(loadedConvs);
         }
       })
       .catch((e) => console.warn('[App] Error loading conversations:', e));
@@ -1266,8 +1228,9 @@ export default function App() {
 
       if (!senderId || !text) return;
 
-      // Do not process messages sent by ourselves
+      // Do not process messages sent by ourselves or not intended for us
       if (myIds.includes(senderId)) return;
+      if (receiverId && !myIds.includes(receiverId)) return;
 
       const incomingMsg = {
         id: incoming.id || incoming.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
