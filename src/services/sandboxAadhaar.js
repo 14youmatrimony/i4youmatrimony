@@ -31,8 +31,8 @@ export const saveSandboxCredentials = (key, secret) => {
     else localStorage.removeItem('i4u_sandbox_api_key');
     if (secret) localStorage.setItem('i4u_sandbox_api_secret', secret.trim());
     else localStorage.removeItem('i4u_sandbox_api_secret');
-    sessionStorage.removeItem('i4u_sandbox_token');
-    sessionStorage.removeItem('i4u_sandbox_token_expiry');
+    localStorage.removeItem('i4u_sandbox_token');
+    localStorage.removeItem('i4u_sandbox_token_expiry');
   }
 };
 
@@ -107,10 +107,10 @@ export const getSandboxAccessToken = async () => {
     throw new Error('Sandbox.co.in API Key or Secret is missing in .env');
   }
 
-  // Check cached token in sessionStorage
+  // Check cached token in localStorage
   try {
-    const cachedToken = sessionStorage.getItem('i4u_sandbox_token');
-    const cachedExpiry = sessionStorage.getItem('i4u_sandbox_token_expiry');
+    const cachedToken = localStorage.getItem('i4u_sandbox_token');
+    const cachedExpiry = localStorage.getItem('i4u_sandbox_token_expiry');
     if (cachedToken && cachedExpiry && Date.now() < Number(cachedExpiry)) {
       return cachedToken;
     }
@@ -136,9 +136,9 @@ export const getSandboxAccessToken = async () => {
 
   const token = result.data.access_token;
   try {
-    // Cache for 23 hours (Sandbox tokens are valid for 24 hours)
-    sessionStorage.setItem('i4u_sandbox_token', token);
-    sessionStorage.setItem('i4u_sandbox_token_expiry', String(Date.now() + 23 * 60 * 60 * 1000));
+    // Cache for 23 hours (Sandbox tokens are valid for 24 hours) in localStorage
+    localStorage.setItem('i4u_sandbox_token', token);
+    localStorage.setItem('i4u_sandbox_token_expiry', String(Date.now() + 23 * 60 * 60 * 1000));
   } catch (e) {}
 
   return token;

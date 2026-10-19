@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, updateLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile } from './services/api';
-import { supabase, isSupabaseConfigured } from './services/supabase';
+import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { uploadProfilePhoto } from './services/storageService';
-import { logoutUser } from './services/authService';
+import { logoutUser, persistUserSession } from './services/authService';
 import { signOutGoogleAuth } from './services/googleAuth';
 import DeviceFrameSimulator from './components/mobile/DeviceFrameSimulator';
 import MobileAppShell from './components/mobile/MobileAppShell';
@@ -264,7 +264,8 @@ const CANDIDATE_STATUSES = {
 
 /**
  * Synchronously verify whether a valid authenticated user session is stored in localStorage.
- * Filters out demo placeholders and checks for explicit logout flag.
+ * Checks for explicit logout flag (i4u_logged_out).
+ * Normalizes user ID and ensures persistent session integrity across app re-open and reloads.
  */
 export const checkStoredUserSession = () => {
   try {
@@ -275,21 +276,19 @@ export const checkStoredUserSession = () => {
     const saved = localStorage.getItem('i4u_auth_user');
     if (!saved) return null;
     const user = JSON.parse(saved);
-    if (
-      !user ||
-      !user.id ||
-      user.id === 'demo-priya' ||
-      user.id === 'demo-rohan' ||
-      user.id === 'demo_user' ||
-      user.isDemo === true
-    ) {
-      try {
-        localStorage.removeItem('i4u_auth_user');
-        localStorage.removeItem('i4u_conversations');
-        localStorage.removeItem('i4u_notifications');
-      } catch (e) {}
+    if (!user) return null;
+
+    // Normalize user identifier across all authentication providers (Register ID, Phone, Supabase, Google)
+    const cleanPhone = (user.mobile || user.phone || '').replace(/\D/g, '');
+    const resolvedId = user.id || user.uid || user.userId || 
+      (cleanPhone ? `usr_${cleanPhone.slice(-10)}` : null) || 
+      (user.registerId ? `usr_${user.registerId}` : null);
+
+    if (!resolvedId) {
       return null;
     }
+    user.id = resolvedId;
+
     const isAadhaarDone = localStorage.getItem('i4u_aadhaar_verified') === 'true';
     if (isAadhaarDone) {
       user.aadhaarVerified = true;
@@ -297,7 +296,7 @@ export const checkStoredUserSession = () => {
     }
     if (!user.membership || user.membership === 'free') {
       user.membership = 'free';
-      user.contactCredits = 0;
+      user.contactCredits = user.contactCredits ?? 0;
       user.unlockedContacts = user.unlockedContacts || [];
     }
     return user;
@@ -393,24 +392,32 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   // Initialize currentScreen based on existing user session:
-  // If user is already authenticated, start on 'app', otherwise start on 'login'
+  // If user is already authenticated, start on 'app' to prevent any momentary flicker
   const [currentScreen, setCurrentScreen] = useState(() => {
-    return checkStoredUserSession() ? 'app' : 'login';
+    const hasSession = Boolean(checkStoredUserSession());
+    if (hasSession) return 'app';
+    const initialMode = getInitialViewMode();
+    return initialMode === 'app' ? 'login' : 'app';
   });
 
   // Smooth post-splash transition handler:
-  // Check auth state and route to main app or login/registration accordingly
+  // Silently check auth state and route to main dashboard or login accordingly
   const handleSplashFinish = useCallback(() => {
     setShowSplash(false);
     const authenticatedUser = checkStoredUserSession();
     if (authenticatedUser) {
       // If ALREADY logged in: Proceed directly to the main Home / Dashboard
+      setCurrentUser(prev => prev || authenticatedUser);
       setCurrentScreen('app');
       setActiveTab('feed');
     } else {
-      // If NOT logged in (or visiting for the first time):
-      // Automatically route/transition to the Login / Registration page
-      setCurrentScreen('login');
+      // If NOT logged in: Route to Login if in Mobile App mode; otherwise stay on website view
+      const isMobileApp = getInitialViewMode() === 'app';
+      if (isMobileApp) {
+        setCurrentScreen('login');
+      } else {
+        setCurrentScreen('app');
+      }
     }
   }, []);
 
@@ -846,27 +853,24 @@ export default function App() {
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [currentUser, setCurrentUser] = useState(checkStoredUserSession);
 
-  // Purge any residual demo user data from prior visits immediately
+  // Root-level auth state listener: Synchronizes persistent authentication sessions & tokens
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('i4u_auth_user');
-      if (saved) {
-        const u = JSON.parse(saved);
-        if (u.id === 'demo-priya' || u.id === 'demo-rohan' || u.id === 'demo_user' || u.name === 'Priya Sharma' || u.mobile === '9876543210' || u.isDemo) {
-          localStorage.removeItem('i4u_auth_user');
-          localStorage.removeItem('i4u_conversations');
-          localStorage.removeItem('i4u_notifications');
-          localStorage.removeItem('i4u_interests_sent');
-          localStorage.removeItem('i4u_shortlisted');
+    const unsubscribe = initSupabaseAuthListener((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        if (localStorage.getItem('i4u_logged_out') === 'true') {
           setCurrentUser(null);
-          setConversations([]);
-          setNotifications([]);
-          setInterestsSent([]);
-          setShortlisted([]);
+        }
+      } else if (session?.user && !currentUser) {
+        const stored = checkStoredUserSession();
+        if (stored) {
+          setCurrentUser(stored);
         }
       }
-    } catch (e) {}
-  }, []);
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -1211,7 +1215,7 @@ export default function App() {
     }
   };
 
-  // Logout handler
+  // Explicit Logout Handler
   const handleLogout = () => {
     const uid = currentUser?.id || localStorage.getItem('i4u_current_user_id');
     logoutUser();
@@ -1220,6 +1224,8 @@ export default function App() {
       supabase.auth.signOut().catch(() => {});
     }
     try {
+      localStorage.removeItem('i4u_auth_token');
+      localStorage.removeItem('i4u_refresh_token');
       localStorage.removeItem('i4u_interests_sent');
       localStorage.removeItem('i4u_shortlisted');
       localStorage.removeItem('i4u_declined_received_ids');
@@ -1237,11 +1243,7 @@ export default function App() {
     setShortlisted([]);
     setDeclinedReceivedIds([]);
     setActiveTab('feed');
-    if (viewMode === 'app') {
-      setCurrentScreen('login');
-    } else {
-      setCurrentScreen('app');
-    }
+    setCurrentScreen('login');
     showToast('Logged out successfully');
   };
 
@@ -2297,7 +2299,6 @@ export default function App() {
       ? (currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'Verified Member')
       : userData.name;
     const resolvedGender = normalizeGender(userData?.gender || currentUser?.gender) === 'male' ? 'Male' : 'Female';
-    const isMale = resolvedGender === 'Male';
     const updatedUser = {
       ...(currentUser || {}),
       ...userData,
@@ -2306,10 +2307,7 @@ export default function App() {
       mobileVerified: true,
       verified: true
     };
-    try {
-      localStorage.removeItem('i4u_logged_out');
-      localStorage.setItem('i4u_auth_user', JSON.stringify(updatedUser));
-    } catch (e) {}
+    persistUserSession(updatedUser);
     setCurrentUser(updatedUser);
     setInterestsSent(updatedUser.interestsSent || []);
     setShortlisted(updatedUser.shortlisted || []);

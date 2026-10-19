@@ -416,30 +416,102 @@ export async function loginWithMobileOtpSuccess(phoneNumber) {
 }
 
 /**
- * Persist user session to localStorage
+ * Persist user session and tokens to localStorage for indefinite session persistence
  */
-export function persistUserSession(user) {
+export function persistUserSession(user, tokens = {}) {
   try {
+    if (!user) return null;
     localStorage.removeItem('i4u_logged_out');
-    localStorage.setItem('i4u_auth_user', JSON.stringify(user));
-    if (user?.id) localStorage.setItem('i4u_current_user_id', user.id);
-    if (user?.registerId || user?.register_id) localStorage.setItem('i4u_register_id', user.registerId || user.register_id);
-    if (typeof window !== 'undefined' && user?.id) {
-      window.__currentUserId = user.id;
+
+    const cleanPhone = (user.mobile || user.phone || '').replace(/\D/g, '');
+    const resolvedId = user.id || user.uid || user.userId || 
+      (cleanPhone ? `usr_${cleanPhone.slice(-10)}` : null) || 
+      (user.registerId ? `usr_${user.registerId}` : null) ||
+      `usr_${Date.now()}`;
+
+    const normalizedUser = {
+      ...user,
+      id: resolvedId,
+      name: user.name || user.fullName || 'Member',
+      fullName: user.fullName || user.name || 'Member',
+      phone: user.phone || user.mobile || '',
+      mobile: user.mobile || user.phone || '',
+      verified: user.verified !== undefined ? Boolean(user.verified) : true,
+      mobileVerified: user.mobileVerified !== undefined ? Boolean(user.mobileVerified) : true
+    };
+
+    localStorage.setItem('i4u_auth_user', JSON.stringify(normalizedUser));
+    if (normalizedUser.id) localStorage.setItem('i4u_current_user_id', normalizedUser.id);
+    if (normalizedUser.registerId || normalizedUser.register_id) {
+      localStorage.setItem('i4u_register_id', normalizedUser.registerId || normalizedUser.register_id);
     }
+
+    // Persist JWT / API access & refresh tokens
+    const accessToken = tokens.accessToken || tokens.access_token || user.accessToken || user.access_token || user.token;
+    const refreshToken = tokens.refreshToken || tokens.refresh_token || user.refreshToken || user.refresh_token;
+    if (accessToken) localStorage.setItem('i4u_auth_token', accessToken);
+    if (refreshToken) localStorage.setItem('i4u_refresh_token', refreshToken);
+
+    if (typeof window !== 'undefined' && normalizedUser.id) {
+      window.__currentUserId = normalizedUser.id;
+    }
+    return normalizedUser;
   } catch (e) {
     console.warn('[authService] localStorage write error:', e);
+    return user;
   }
 }
 
 /**
- * Completely terminates user session and clears all authentication artifacts from storage
+ * Synchronously retrieves existing authenticated user session from localStorage.
+ * Returns null if user explicitly logged out or if no session exists.
+ */
+export function getStoredUserSession() {
+  try {
+    if (typeof window === 'undefined') return null;
+    if (localStorage.getItem('i4u_logged_out') === 'true') {
+      return null;
+    }
+    const saved = localStorage.getItem('i4u_auth_user');
+    if (!saved) return null;
+    const user = JSON.parse(saved);
+    if (!user) return null;
+
+    const cleanPhone = (user.mobile || user.phone || '').replace(/\D/g, '');
+    const resolvedId = user.id || user.uid || user.userId || 
+      (cleanPhone ? `usr_${cleanPhone.slice(-10)}` : null) || 
+      (user.registerId ? `usr_${user.registerId}` : null);
+
+    if (!resolvedId) return null;
+    user.id = resolvedId;
+
+    const isAadhaarDone = localStorage.getItem('i4u_aadhaar_verified') === 'true';
+    if (isAadhaarDone) {
+      user.aadhaarVerified = true;
+      user.verified = true;
+    }
+    if (!user.membership || user.membership === 'free') {
+      user.membership = 'free';
+      user.contactCredits = user.contactCredits ?? 0;
+      user.unlockedContacts = user.unlockedContacts || [];
+    }
+    return user;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Completely terminates user session and clears all authentication artifacts from storage.
+ * Called ONLY on explicit user logout action.
  */
 export function logoutUser() {
   try {
     localStorage.removeItem('i4u_auth_user');
     localStorage.removeItem('i4u_current_user_id');
     localStorage.removeItem('i4u_register_id');
+    localStorage.removeItem('i4u_auth_token');
+    localStorage.removeItem('i4u_refresh_token');
     localStorage.removeItem('i4u_saved_google_user');
     localStorage.removeItem('i4u_aadhaar_verified');
     localStorage.removeItem('i4u_my_status');

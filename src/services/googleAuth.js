@@ -1,15 +1,18 @@
 import { supabase, isSupabaseConfigured } from './supabase';
+import { persistUserSession } from './authService';
 
 /**
  * Pre-configured verified Google profiles for seamless 1-click authentication
  */
 export const GOOGLE_DEMO_ACCOUNTS = [
   {
+    id: 'google-arun-101',
     uid: 'google-arun-101',
     name: 'Arun Kumar',
     email: 'arun.matrimony@gmail.com',
     photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800',
     mobile: '9847123456',
+    phone: '9847123456',
     city: 'Kochi',
     district: 'Ernakulam',
     state: 'Kerala',
@@ -20,11 +23,13 @@ export const GOOGLE_DEMO_ACCOUNTS = [
     badge: 'Kochi, Kerala • Verified Profile'
   },
   {
+    id: 'google-priya-102',
     uid: 'google-priya-102',
     name: 'Priya Sharma',
     email: 'priya.sharma@gmail.com',
     photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800',
     mobile: '9876543210',
+    phone: '9876543210',
     city: 'Pune',
     district: 'Pune',
     state: 'Maharashtra',
@@ -77,17 +82,20 @@ export const isGoogleOAuthEnabledOnServer = () => {
 export const signInWithGoogleAuth = async (accountOverride = null) => {
   // If an account was explicitly chosen from the Google Chooser dialog
   if (accountOverride) {
-    saveGoogleAccount(accountOverride);
+    const userToPersist = {
+      ...accountOverride,
+      id: accountOverride.id || accountOverride.uid || `google_${Date.now()}`,
+      verified: true,
+      mobileVerified: true,
+      emailVerified: true
+    };
+    saveGoogleAccount(userToPersist);
+    persistUserSession(userToPersist);
     await new Promise((resolve) => setTimeout(resolve, 300));
     return {
       success: true,
       isSimulated: true,
-      user: {
-        ...accountOverride,
-        verified: true,
-        mobileVerified: true,
-        emailVerified: true
-      }
+      user: userToPersist
     };
   }
 
@@ -115,18 +123,21 @@ export const signInWithGoogleAuth = async (accountOverride = null) => {
 
   // Instant seamless login with saved or primary Google account
   const account = getSavedGoogleAccount() || GOOGLE_DEMO_ACCOUNTS[0];
-  saveGoogleAccount(account);
+  const user = {
+    ...account,
+    id: account.id || account.uid || 'google-arun-101',
+    verified: true,
+    mobileVerified: true,
+    emailVerified: true
+  };
+  saveGoogleAccount(user);
+  persistUserSession(user);
   await new Promise((resolve) => setTimeout(resolve, 350));
 
   return {
     success: true,
     isSimulated: true,
-    user: {
-      ...account,
-      verified: true,
-      mobileVerified: true,
-      emailVerified: true
-    }
+    user
   };
 };
 

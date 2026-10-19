@@ -19,7 +19,7 @@ export const formatPhoneNumberE164 = (rawPhone) => {
 };
 
 /**
- * Translates Supabase / Auth error codes to user-friendly Malayalam & English messages
+ * Translates Supabase / Auth error codes to user-friendly English messages
  */
 export const getFriendlyAuthErrorMessage = (error) => {
   const msg = error?.message || '';

@@ -170,7 +170,165 @@ export const API_BASE = (() => {
 })();
 
 /**
+ * Helper to get the stored access token from localStorage or Supabase session
+ */
+export const getStoredAuthToken = () => {
+  if (typeof window === 'undefined') return null;
+  const token = localStorage.getItem('i4u_auth_token');
+  if (token) return token;
+  try {
+    const savedUser = localStorage.getItem('i4u_auth_user');
+    if (savedUser) {
+      const u = JSON.parse(savedUser);
+      return u?.accessToken || u?.access_token || u?.token || null;
+    }
+  } catch (e) {}
+  return null;
+};
+
+/**
+ * Helper to get stored refresh token
+ */
+export const getStoredRefreshToken = () => {
+  if (typeof window === 'undefined') return null;
+  const token = localStorage.getItem('i4u_refresh_token');
+  if (token) return token;
+  try {
+    const savedUser = localStorage.getItem('i4u_auth_user');
+    if (savedUser) {
+      const u = JSON.parse(savedUser);
+      return u?.refreshToken || u?.refresh_token || null;
+    }
+  } catch (e) {}
+  return null;
+};
+
+/**
+ * Silent token refresh logic using Supabase or backend refresh endpoint.
+ * Returns new access token string on success, or null if refresh token is revoked/invalid.
+ */
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+const onRefreshed = (token) => {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+};
+
+export async function silentRefreshToken() {
+  if (isRefreshing) {
+    return new Promise((resolve) => {
+      refreshSubscribers.push((token) => resolve(token));
+    });
+  }
+
+  isRefreshing = true;
+  try {
+    // 1. Try Supabase refresh if active
+    if (isSupabaseConfigured() && supabase?.auth) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (!error && data?.session?.access_token) {
+        const newAccess = data.session.access_token;
+        const newRefresh = data.session.refresh_token;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('i4u_auth_token', newAccess);
+          if (newRefresh) localStorage.setItem('i4u_refresh_token', newRefresh);
+        }
+        onRefreshed(newAccess);
+        return newAccess;
+      }
+    }
+
+    // 2. Try REST API refresh endpoint if refresh token exists
+    const storedRefresh = getStoredRefreshToken();
+    if (storedRefresh) {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: storedRefresh })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const newAccess = data.access_token || data.token;
+        if (newAccess && typeof window !== 'undefined') {
+          localStorage.setItem('i4u_auth_token', newAccess);
+          if (data.refresh_token) localStorage.setItem('i4u_refresh_token', data.refresh_token);
+          onRefreshed(newAccess);
+          return newAccess;
+        }
+      } else if (res.status === 401 || res.status === 403) {
+        console.warn('[api] Refresh token expired or revoked.');
+        onRefreshed(null);
+        return null;
+      }
+    }
+  } catch (err) {
+    console.warn('[api] Silent token refresh exception:', err);
+  } finally {
+    isRefreshing = false;
+  }
+  return null;
+}
+
+/**
+ * Authenticated Fetch Interceptor:
+ * Automatically attaches Authorization: Bearer <token>,
+ * intercepts 401 responses, performs silent token refresh,
+ * retries once, and only clears auth if the refresh token is revoked.
+ */
+export async function authenticatedFetch(url, options = {}, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const reqOptions = { ...options };
+  const headers = new Headers(reqOptions.headers || {});
+
+  // Automatically attach Bearer token if not explicitly provided
+  if (!headers.has('Authorization')) {
+    const token = getStoredAuthToken();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+  }
+  reqOptions.headers = headers;
+  reqOptions.signal = controller.signal;
+
+  try {
+    let res = await fetch(url, reqOptions);
+    clearTimeout(timer);
+
+    // If 401 Unauthorized, attempt silent token refresh and retry
+    if (res.status === 401) {
+      const newToken = await silentRefreshToken();
+      if (newToken) {
+        headers.set('Authorization', `Bearer ${newToken}`);
+        const retryController = new AbortController();
+        const retryTimer = setTimeout(() => retryController.abort(), timeoutMs);
+        reqOptions.signal = retryController.signal;
+        res = await fetch(url, reqOptions);
+        clearTimeout(retryTimer);
+      } else {
+        // Only trigger cleanup if refresh token was tried and confirmed invalid
+        const hasRefreshToken = Boolean(getStoredRefreshToken());
+        if (hasRefreshToken) {
+          console.warn('[api] Refresh token revoked. Session expired.');
+          try {
+            localStorage.removeItem('i4u_auth_token');
+            localStorage.removeItem('i4u_refresh_token');
+          } catch (e) {}
+        }
+      }
+    }
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+/**
  * Safely executes a fetch with timeout and verifies JSON response.
+ * Uses authenticatedFetch interceptor for bearer token management and 401 retry.
  * If backend is offline, unreachable, returns HTML (e.g. Vercel SPA rewrites), or times out,
  * it returns null so the caller can seamlessly fall back to local/sandbox handling.
  */
@@ -181,15 +339,8 @@ export async function safeFetchJson(url, options = {}, timeoutMs = 1500) {
   }
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    clearTimeout(timer);
-
-    if (!res.ok) return null;
+    const res = await authenticatedFetch(url, options, timeoutMs);
+    if (!res || !res.ok) return null;
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) return null;
 
