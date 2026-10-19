@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Phone, PhoneOff, Video, ShieldCheck, Lock, MapPin } from 'lucide-react';
+import { webrtcCallService } from '../../services/webrtcCallService';
 
 export default function IncomingCallModal({
   incomingCall,
@@ -90,6 +91,9 @@ export default function IncomingCallModal({
 
   const handleAcceptClick = () => {
     stopAudio();
+    try {
+      webrtcCallService.primeAudioPlayback();
+    } catch (e) {}
     if (onAccept) onAccept(incomingCall);
   };
 

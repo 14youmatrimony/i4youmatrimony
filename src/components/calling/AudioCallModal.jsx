@@ -31,6 +31,8 @@ export default function AudioCallModal({
   const [dialedDigits, setDialedDigits] = useState('');
   const [audioLevel, setAudioLevel] = useState(0);
   const [hasMicPermission, setHasMicPermission] = useState(false);
+  const [micPermissionError, setMicPermissionError] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [isConnectedPeer, setIsConnectedPeer] = useState(false);
 
   const timerRef = useRef(null);
@@ -43,16 +45,25 @@ export default function AudioCallModal({
   // Helper to safely play media with user-gesture unlock fallback
   const safePlayMedia = (mediaEl, label = 'media') => {
     if (!mediaEl) return;
-    mediaEl.play().catch((err) => {
-      console.warn(`[AudioCall] ${label} autoplay notice:`, err);
-      const unlockGesture = () => {
-        mediaEl.play().catch(() => {});
-        window.removeEventListener('click', unlockGesture);
-        window.removeEventListener('touchstart', unlockGesture);
-      };
-      window.addEventListener('click', unlockGesture, { once: true });
-      window.addEventListener('touchstart', unlockGesture, { once: true });
-    });
+    mediaEl.play()
+      .then(() => {
+        setAutoplayBlocked(false);
+      })
+      .catch((err) => {
+        console.warn(`[AudioCall] ${label} autoplay blocked by browser:`, err);
+        setAutoplayBlocked(true);
+        const unlockGesture = () => {
+          if (mediaEl) {
+            mediaEl.play()
+              .then(() => setAutoplayBlocked(false))
+              .catch(() => {});
+          }
+          window.removeEventListener('click', unlockGesture);
+          window.removeEventListener('touchstart', unlockGesture);
+        };
+        window.addEventListener('click', unlockGesture, { once: true });
+        window.addEventListener('touchstart', unlockGesture, { once: true });
+      });
   };
 
   // Web Audio Tone generator
@@ -232,6 +243,8 @@ export default function AudioCallModal({
       }).then(() => {
         if (webrtcCallService.localStream) {
           setupMicAnalyser(webrtcCallService.localStream);
+        } else if (webrtcCallService.hardwareError === 'permission_denied') {
+          setMicPermissionError(true);
         }
       });
 
@@ -265,6 +278,8 @@ export default function AudioCallModal({
       }).then(() => {
         if (webrtcCallService.localStream) {
           setupMicAnalyser(webrtcCallService.localStream);
+        } else if (webrtcCallService.hardwareError === 'permission_denied') {
+          setMicPermissionError(true);
         }
         playConnectChime();
       });
@@ -419,6 +434,31 @@ export default function AudioCallModal({
               </span>
             )}
           </div>
+
+          {/* Autoplay blocked banner */}
+          {autoplayBlocked && (
+            <button
+              type="button"
+              onClick={() => {
+                if (remoteAudioRef.current) {
+                  remoteAudioRef.current.play()
+                    .then(() => setAutoplayBlocked(false))
+                    .catch(() => {});
+                }
+              }}
+              className="w-full mt-2 py-1.5 px-3 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs font-semibold flex items-center justify-center space-x-2 animate-bounce cursor-pointer shadow-lg"
+            >
+              <Volume2 className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Audio paused by browser • Tap to unmute</span>
+            </button>
+          )}
+
+          {/* Microphone permission alert */}
+          {micPermissionError && (
+            <div className="w-full mt-2 py-1.5 px-3 rounded-xl bg-rose-500/20 border border-rose-500/50 text-rose-300 text-xs font-medium text-center">
+              <span>Microphone permission denied. Please allow microphone access in your browser settings.</span>
+            </div>
+          )}
         </div>
 
         {/* Center: Pulsing Profile Avatar or Keypad View */}

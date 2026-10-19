@@ -26,6 +26,8 @@ export default function VideoCallModal({
   const [facingMode, setFacingMode] = useState('user');
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const [cameraNotice, setCameraNotice] = useState(null);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -36,16 +38,23 @@ export default function VideoCallModal({
   // Helper to safely play media with user-gesture unlock fallback
   const safePlayMedia = (mediaEl, label = 'media') => {
     if (!mediaEl) return;
-    mediaEl.play().catch((err) => {
-      console.warn(`[VideoCall] ${label} autoplay notice:`, err);
-      const unlockGesture = () => {
-        mediaEl.play().catch(() => {});
-        window.removeEventListener('click', unlockGesture);
-        window.removeEventListener('touchstart', unlockGesture);
-      };
-      window.addEventListener('click', unlockGesture, { once: true });
-      window.addEventListener('touchstart', unlockGesture, { once: true });
-    });
+    mediaEl.play()
+      .then(() => setAutoplayBlocked(false))
+      .catch((err) => {
+        console.warn(`[VideoCall] ${label} autoplay blocked:`, err);
+        setAutoplayBlocked(true);
+        const unlockGesture = () => {
+          if (mediaEl) {
+            mediaEl.play()
+              .then(() => setAutoplayBlocked(false))
+              .catch(() => {});
+          }
+          window.removeEventListener('click', unlockGesture);
+          window.removeEventListener('touchstart', unlockGesture);
+        };
+        window.addEventListener('click', unlockGesture, { once: true });
+        window.addEventListener('touchstart', unlockGesture, { once: true });
+      });
   };
 
   // Play pleasant chime on connect
@@ -185,6 +194,11 @@ export default function VideoCallModal({
         onStatusChange: handleStatusChange
       }).then(() => {
         attachLocalStream();
+        if (webrtcCallService.hardwareError === 'camera_denied') {
+          setCameraNotice('Camera permission denied. Operating in audio-only mode.');
+        } else if (webrtcCallService.hardwareError === 'hardware_unavailable') {
+          setCameraNotice('Microphone and camera devices unavailable.');
+        }
       });
 
       ringTimer = setTimeout(() => {
@@ -214,6 +228,11 @@ export default function VideoCallModal({
       }).then(() => {
         attachLocalStream();
         playVideoChime();
+        if (webrtcCallService.hardwareError === 'camera_denied') {
+          setCameraNotice('Camera permission denied. Operating in audio-only mode.');
+        } else if (webrtcCallService.hardwareError === 'hardware_unavailable') {
+          setCameraNotice('Microphone and camera devices unavailable.');
+        }
       });
     }
 
@@ -287,19 +306,49 @@ export default function VideoCallModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Dedicated Hidden Remote Audio Element for guaranteed bidirectional voice audio */}
-        <audio ref={remoteAudioRef} autoPlay playsInline />
+        <audio ref={remoteAudioRef} autoPlay playsInline muted={false} controls={false} />
 
         {/* Candidate Main Video Feed (Full Screen) */}
         <div className="relative flex-1 bg-gradient-to-b from-[#0B192C] to-[#040911] overflow-hidden flex items-center justify-center">
           
-          {/* Real Remote Video Feed - Always mounted so ref is never null, muted to avoid duplicate audio with remoteAudioRef */}
+          {/* Real Remote Video Feed - Always mounted so ref is never null, autoPlay, playsInline, NOT muted */}
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            muted
+            muted={false}
             className={`w-full h-full object-cover ${hasRemoteVideo ? 'block' : 'hidden'}`}
           />
+
+          {/* Autoplay blocked unpause button */}
+          {autoplayBlocked && (
+            <div className="absolute top-20 inset-x-4 z-40 flex justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  if (remoteVideoRef.current) {
+                    remoteVideoRef.current.play().catch(() => {});
+                  }
+                  if (remoteAudioRef.current) {
+                    remoteAudioRef.current.play().catch(() => {});
+                  }
+                  setAutoplayBlocked(false);
+                }}
+                className="py-2 px-4 rounded-full bg-amber-500 text-slate-950 font-bold text-xs shadow-xl animate-bounce flex items-center space-x-2 cursor-pointer hover:bg-amber-400"
+              >
+                <span>🔊 Audio paused by browser • Tap to unmute</span>
+              </button>
+            </div>
+          )}
+
+          {/* Camera permission or device notice */}
+          {cameraNotice && (
+            <div className="absolute top-20 inset-x-4 z-40 flex justify-center">
+              <div className="py-1.5 px-3 rounded-xl bg-rose-600/90 backdrop-blur-md text-white text-xs font-semibold shadow-md">
+                {cameraNotice}
+              </div>
+            </div>
+          )}
 
           {/* Candidate Placeholder Photo shown when remote video is not yet active */}
           {!hasRemoteVideo && (

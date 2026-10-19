@@ -1369,86 +1369,27 @@ export default function RegistrationWizard({
                   </div>
                 </div>
 
-                {/* Row 2: Community / Caste + Gothra / Lineage — perfectly aligned */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col">
-                    <SearchableSelect 
-                      label="Community / Caste *"
-                      value={
-                        (RELIGION_COMMUNITIES[formData.religion] || []).includes(formData.caste) 
-                          ? formData.caste 
-                          : 'Other'
-                      }
-                      onChange={(val) => {
-                        if (val === 'Other') {
-                          setFormData(prev => ({ ...prev, caste: 'Other', customCaste: '' }));
-                        } else {
-                          setFormData(prev => ({ ...prev, caste: val, customCaste: '' }));
-                        }
-                      }}
-                      options={[
-                        ...(RELIGION_COMMUNITIES[formData.religion] || []),
-                        { value: 'Other', label: '✍️ Other (Type Custom)' }
-                      ]}
-                      placeholder="Select Caste / Community"
-                      searchPlaceholder="Search Caste or Community..."
-                      buttonClassName="h-10"
-                    />
-                  </div>
-
+                {/* Gothra / Lineage (if applicable) */}
+                {(formData.religion === 'Hindu' || formData.religion === 'Jain') && (
                   <div className="flex flex-col">
                     <label className="h-6 flex items-end pb-1 font-semibold text-slate-700 leading-tight truncate">
                       {LINEAGE_LABEL_FOR_RELIGION[formData.religion] || 'Gothra / Lineage'}
                     </label>
-                    {formData.religion === 'Hindu' || formData.religion === 'Jain' ? (
-                      <div>
-                        <input 
-                          type="text"
-                          list="gothra-suggestions"
-                          placeholder={LINEAGE_PLACEHOLDER_FOR_RELIGION[formData.religion] || "e.g. Kashyap"}
-                          value={formData.gothra}
-                          onChange={(e) => setFormData({ ...formData, gothra: e.target.value })}
-                          className="w-full h-10 px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#D4AF37] focus:outline-none text-xs"
-                        />
-                        <datalist id="gothra-suggestions">
-                          {POPULAR_GOTHRAS.map(g => (
-                            <option key={g} value={g} />
-                          ))}
-                        </datalist>
-                      </div>
-                    ) : (
+                    <div>
                       <input 
                         type="text"
-                        placeholder={LINEAGE_PLACEHOLDER_FOR_RELIGION[formData.religion] || "Not Applicable or Parish"}
+                        list="gothra-suggestions"
+                        placeholder={LINEAGE_PLACEHOLDER_FOR_RELIGION[formData.religion] || "e.g. Kashyap"}
                         value={formData.gothra}
                         onChange={(e) => setFormData({ ...formData, gothra: e.target.value })}
                         className="w-full h-10 px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#D4AF37] focus:outline-none text-xs"
                       />
-                    )}
-                  </div>
-                </div>
-
-                {/* Custom Sub-Caste Input if "Other" is chosen */}
-                {(formData.caste === 'Other' || !(RELIGION_COMMUNITIES[formData.religion] || []).includes(formData.caste)) && (
-                  <div className="animate-in fade-in duration-150">
-                    <label className="block text-[10px] font-semibold text-slate-600 mb-1">
-                      Specify {formData.religion} Community / Sub-Caste:
-                    </label>
-                    <input 
-                      type="text"
-                      placeholder={`Type specific ${formData.religion} community / sub-caste`}
-                      value={formData.customCaste || (formData.caste === 'Other' ? '' : formData.caste)}
-                      onChange={(e) => {
-                        const customVal = e.target.value;
-                        setFormData({ 
-                          ...formData, 
-                          caste: customVal ? customVal : 'Other',
-                          customCaste: customVal 
-                        });
-                      }}
-                      className="w-full h-10 px-3 py-2 rounded-xl border border-amber-300 bg-amber-50/60 focus:bg-white focus:ring-2 focus:ring-[#D4AF37] focus:outline-none text-xs text-slate-900 font-medium placeholder-slate-400"
-                      autoFocus
-                    />
+                      <datalist id="gothra-suggestions">
+                        {POPULAR_GOTHRAS.map(g => (
+                          <option key={g} value={g} />
+                        ))}
+                      </datalist>
+                    </div>
                   </div>
                 )}
               </div>

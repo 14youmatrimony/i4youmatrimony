@@ -1087,17 +1087,17 @@ export default function App() {
   const [isCallCaller, setIsCallCaller] = useState(true);
   const [premiumPromptFeature, setPremiumPromptFeature] = useState(null); // 'chat' | 'call' | 'video'
 
-  // Subscribe to real-time WebRTC incoming calls via Supabase Realtime Broadcast
+  // Subscribe to real-time WebRTC incoming calls via Supabase Realtime Broadcast & Cross-tab sync
   useEffect(() => {
-    if (!currentUser?.id) return;
-    webrtcCallService.subscribeToUserInbox(currentUser.id, (callData) => {
+    if (!currentUser) return;
+    webrtcCallService.subscribeToUserInbox(currentUser, (callData) => {
       console.log('[App] Realtime incoming call received:', callData);
       setIncomingCallSession(callData);
     });
     return () => {
       webrtcCallService.unsubscribeUserInbox();
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
 
   // Subscribe to real-time Live Chat messages via Supabase Realtime Broadcast + Cross-tab sync
   useEffect(() => {
