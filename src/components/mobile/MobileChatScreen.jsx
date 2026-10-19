@@ -22,7 +22,7 @@ import { sanitizeChatMessage } from '../../utils/security';
 import { getAppMode } from '../../config/appConfig';
 import { useTheme } from '../../context/ThemeContext';
 import { getTargetCandidateGender, isCandidateMatchingTarget } from '../../utils/genderMatch';
-import { liveChatService } from '../../services/liveChatService';
+import { liveChatService, deduplicateMessageList } from '../../services/liveChatService';
 import { useInterestStatus } from '../../services/interestService';
 
 export default function MobileChatScreen({
@@ -176,7 +176,11 @@ export default function MobileChatScreen({
     autoReplies: []
   };
 
-  const hasIncomingMessage = Boolean(activeConv?.messages?.some(m => m.sender === 'them'));
+  const displayMessages = useMemo(() => {
+    return deduplicateMessageList(activeConv?.messages || []);
+  }, [activeConv?.messages]);
+
+  const hasIncomingMessage = Boolean(displayMessages.some(m => m.sender === 'them'));
   // Live Message is fully active for matrimonial connections
   const canSendMessages = true;
 
@@ -192,7 +196,7 @@ export default function MobileChatScreen({
   useEffect(() => {
     if (!currentUser) return;
     scrollToBottom('smooth');
-  }, [activeConv?.messages, isTyping, currentUser]);
+  }, [displayMessages.length, isTyping, currentUser?.id]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -228,23 +232,37 @@ export default function MobileChatScreen({
 
     const unsubscribeMsg = liveChatService.onMessage((incoming) => {
       if (incoming.senderId === matchId || incoming.senderId === matchRegId) {
+        setIsTyping(false);
+
         const incomingMsg = {
-          id: incoming.id || ('m-' + Date.now()),
+          id: incoming.id || incoming.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
+          tempId: incoming.tempId || incoming.id,
           sender: 'them',
           text: incoming.text,
           time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'read'
+          status: 'read',
+          created_at: new Date(incoming.timestamp || Date.now()).toISOString()
         };
 
         setConversations(prev => {
+          const targetId = matchId || matchRegId;
           const exists = prev.find(c => c.profileId === matchId || c.profileId === matchRegId);
           if (exists) {
             return prev.map(c => {
               if (c.profileId === matchId || c.profileId === matchRegId) {
+                const currentMsgs = c.messages || [];
+                const alreadyExists = currentMsgs.some(m =>
+                  (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
+                  (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
+                  (m.text === incoming.text && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
+                );
+                if (alreadyExists) {
+                  return c.unreadCount !== 0 ? { ...c, unreadCount: 0 } : c;
+                }
                 return {
                   ...c,
                   unreadCount: 0,
-                  messages: [...(c.messages || []), incomingMsg]
+                  messages: deduplicateMessageList([...currentMsgs, incomingMsg])
                 };
               }
               return c;
@@ -253,7 +271,7 @@ export default function MobileChatScreen({
             return [
               ...prev,
               {
-                profileId: matchId,
+                profileId: targetId,
                 unreadCount: 0,
                 messages: [incomingMsg],
                 autoReplies: []
@@ -261,14 +279,13 @@ export default function MobileChatScreen({
             ];
           }
         });
-        setIsTyping(false);
       }
     });
 
     const unsubscribeStatus = liveChatService.onStatus(({ messageId, status }) => {
       setConversations(prev => prev.map(c => ({
         ...c,
-        messages: (c.messages || []).map(m => m.id === messageId ? { ...m, status } : m)
+        messages: (c.messages || []).map(m => (m.id === messageId || m.tempId === messageId) ? { ...m, status } : m)
       })));
     });
 
@@ -284,7 +301,7 @@ export default function MobileChatScreen({
       unsubscribeTyping();
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
-  }, [currentUser, activeProfile?.id, activeProfile?.register_id, activeProfile?.registerId, setConversations]);
+  }, [currentUser?.id, activeProfile?.id, activeProfile?.register_id, activeProfile?.registerId, setConversations]);
 
   // If user is not logged in, display the Login Required screen immediately
   if (!currentUser) {
@@ -322,24 +339,31 @@ export default function MobileChatScreen({
     const cleanText = sanitizeChatMessage(rawText);
     if (!cleanText) return;
 
-    const msgId = 'm-' + Date.now();
+    const msgId = 'm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     const newMsg = {
       id: msgId,
+      tempId: msgId,
       sender: 'me',
       text: cleanText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'sending'
+      status: 'sending',
+      created_at: new Date().toISOString()
     };
 
     setConversations(prev => {
-      const exists = prev.find(c => c.profileId === activeProfile.id);
+      const targetId = activeProfile.id;
+      const exists = prev.find(c => c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id));
       if (exists) {
         return prev.map(c => {
-          if (c.profileId === activeProfile.id) {
+          if (c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id)) {
+            const currentMsgs = c.messages || [];
+            if (currentMsgs.some(m => m.id === msgId || m.tempId === msgId)) {
+              return c;
+            }
             return {
               ...c,
               unreadCount: 0,
-              messages: [...c.messages, newMsg]
+              messages: deduplicateMessageList([...currentMsgs, newMsg])
             };
           }
           return c;
@@ -348,7 +372,7 @@ export default function MobileChatScreen({
         return [
           ...prev,
           {
-            profileId: activeProfile.id,
+            profileId: targetId,
             unreadCount: 0,
             messages: [newMsg],
             autoReplies: [
@@ -374,7 +398,7 @@ export default function MobileChatScreen({
     setTimeout(() => {
       setConversations(prev => prev.map(c => ({
         ...c,
-        messages: (c.messages || []).map(m => m.id === msgId && m.status === 'sending' ? { ...m, status: 'sent' } : m)
+        messages: (c.messages || []).map(m => (m.id === msgId || m.tempId === msgId) && m.status === 'sending' ? { ...m, status: 'sent' } : m)
       })));
     }, 280);
 
@@ -382,7 +406,7 @@ export default function MobileChatScreen({
     setTimeout(() => {
       setConversations(prev => prev.map(c => ({
         ...c,
-        messages: (c.messages || []).map(m => m.id === msgId && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m)
+        messages: (c.messages || []).map(m => (m.id === msgId || m.tempId === msgId) && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m)
       })));
     }, 650);
 
@@ -398,27 +422,34 @@ export default function MobileChatScreen({
       setIsTyping(false);
 
       const replyText = liveChatService.generateContextualMatrimonialReply(cleanText, activeProfile);
+      const replyId = 'rep-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
       const replyMsg = {
-        id: 'rep-' + Date.now(),
+        id: replyId,
+        tempId: replyId,
         sender: 'them',
         text: replyText,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: 'read'
+        status: 'read',
+        created_at: new Date().toISOString()
       };
 
       liveChatService.playReceiveSound();
 
       setConversations(prev => {
-        const exists = prev.find(c => c.profileId === activeProfile.id);
+        const targetId = activeProfile.id;
+        const exists = prev.find(c => c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id));
         if (exists) {
           return prev.map(c => {
-            if (c.profileId === activeProfile.id) {
+            if (c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id)) {
+              const currentMsgs = c.messages || [];
+              const alreadyHasReply = currentMsgs.some(m => m.id === replyId || (m.sender === 'them' && m.text === replyText && Math.abs(new Date(m.created_at || 0).getTime() - Date.now()) < 3000));
+              if (alreadyHasReply) return c;
               return {
                 ...c,
-                messages: [
-                  ...c.messages.map(m => m.id === msgId ? { ...m, status: 'read' } : m),
+                messages: deduplicateMessageList([
+                  ...currentMsgs.map(m => (m.id === msgId || m.tempId === msgId) ? { ...m, status: 'read' } : m),
                   replyMsg
-                ]
+                ])
               };
             }
             return c;
@@ -427,7 +458,7 @@ export default function MobileChatScreen({
           return [
             ...prev,
             {
-              profileId: activeProfile.id,
+              profileId: targetId,
               unreadCount: 0,
               messages: [replyMsg],
               autoReplies: []
@@ -540,7 +571,7 @@ export default function MobileChatScreen({
             <p className="text-slate-500 mt-0.5">End-to-end encrypted under I 4 You matrimonial privacy guarantee.</p>
           </div>
 
-          {activeConv.messages.length === 0 ? (
+          {displayMessages.length === 0 ? (
             <div className="py-12 px-4 text-center space-y-2.5">
               <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-100 to-yellow-50 border border-amber-200 text-[#8C6D1F] mx-auto flex items-center justify-center shadow-xs">
                 <Sparkles className="w-6 h-6 text-[#DFB76C]" />
@@ -553,10 +584,11 @@ export default function MobileChatScreen({
               </p>
             </div>
           ) : (
-            activeConv.messages.map(m => {
+            displayMessages.map((m, index) => {
               const isMe = m.sender === 'me';
+              const uniqueKey = m.id || m.tempId || `msg_${m.sender}_${index}_${m.time || ''}`;
               return (
-                <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                <div key={uniqueKey} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                   <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-sm ${
                     isMe 
                       ? 'bg-[#0B192C] text-white rounded-br-none' 

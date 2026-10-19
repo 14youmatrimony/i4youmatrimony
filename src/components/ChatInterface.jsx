@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Send, 
   Phone, 
@@ -18,7 +18,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import { sanitizeChatMessage } from '../utils/security';
-import { liveChatService } from '../services/liveChatService';
+import { liveChatService, deduplicateMessageList } from '../services/liveChatService';
 import { useInterestStatus } from '../services/interestService';
 
 export default function ChatInterface({ 
@@ -100,6 +100,10 @@ export default function ChatInterface({
     ]
   };
 
+  const displayMessages = useMemo(() => {
+    return deduplicateMessageList(activeConv?.messages || []);
+  }, [activeConv?.messages]);
+
   const scrollToBottom = (behavior = 'smooth') => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTo({
@@ -111,7 +115,7 @@ export default function ChatInterface({
 
   useEffect(() => {
     scrollToBottom('smooth');
-  }, [activeConv?.messages, isTyping]);
+  }, [displayMessages.length, isTyping]);
 
   const storedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('i4u_auth_user') || 'null') : null;
 
@@ -122,23 +126,37 @@ export default function ChatInterface({
 
     const unsubscribeMsg = liveChatService.onMessage((incoming) => {
       if (incoming.senderId === matchId || incoming.senderId === matchRegId) {
+        setIsTyping(false);
+
         const incomingMsg = {
-          id: incoming.id || ('msg-' + Date.now()),
+          id: incoming.id || incoming.tempId || ('msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
+          tempId: incoming.tempId || incoming.id,
           sender: 'them',
           text: incoming.text,
           time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'read'
+          status: 'read',
+          created_at: new Date(incoming.timestamp || Date.now()).toISOString()
         };
 
         setConversations(prev => {
+          const targetId = matchId || matchRegId;
           const exists = prev.find(c => c.profileId === matchId || c.profileId === matchRegId);
           if (exists) {
             return prev.map(c => {
               if (c.profileId === matchId || c.profileId === matchRegId) {
+                const currentMsgs = c.messages || [];
+                const alreadyExists = currentMsgs.some(m =>
+                  (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
+                  (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
+                  (m.text === incoming.text && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
+                );
+                if (alreadyExists) {
+                  return c.unreadCount !== 0 ? { ...c, unreadCount: 0 } : c;
+                }
                 return {
                   ...c,
                   unreadCount: 0,
-                  messages: [...(c.messages || []), incomingMsg]
+                  messages: deduplicateMessageList([...currentMsgs, incomingMsg])
                 };
               }
               return c;
@@ -147,7 +165,7 @@ export default function ChatInterface({
             return [
               ...prev,
               {
-                profileId: matchId,
+                profileId: targetId,
                 unreadCount: 0,
                 messages: [incomingMsg],
                 autoReplies: []
@@ -155,14 +173,13 @@ export default function ChatInterface({
             ];
           }
         });
-        setIsTyping(false);
       }
     });
 
     const unsubscribeStatus = liveChatService.onStatus(({ messageId, status }) => {
       setConversations(prev => prev.map(c => ({
         ...c,
-        messages: (c.messages || []).map(m => m.id === messageId ? { ...m, status } : m)
+        messages: (c.messages || []).map(m => (m.id === messageId || m.tempId === messageId) ? { ...m, status } : m)
       })));
     });
 
@@ -184,35 +201,42 @@ export default function ChatInterface({
     const cleanText = sanitizeChatMessage(rawText);
     if (!cleanText) return;
 
-    const msgId = 'msg-' + Date.now();
+    const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     const newMessage = {
       id: msgId,
+      tempId: msgId,
       sender: 'me',
       text: cleanText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'sending'
+      status: 'sending',
+      created_at: new Date().toISOString()
     };
 
     // Update conversation
     setConversations(prev => {
-      const exists = prev.find(c => c.profileId === activeProfile.id);
+      const targetId = activeProfile.id;
+      const exists = prev.find(c => c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id));
       if (exists) {
         return prev.map(c => {
-          if (c.profileId === activeProfile.id) {
+          if (c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id)) {
+            const currentMsgs = c.messages || [];
+            if (currentMsgs.some(m => m.id === msgId || m.tempId === msgId)) {
+              return c;
+            }
             return {
               ...c,
               unreadCount: 0,
-              messages: [...c.messages, newMessage]
+              messages: deduplicateMessageList([...currentMsgs, newMessage])
             };
           }
           return c;
         });
       } else {
         return [...prev, {
-          profileId: activeProfile.id,
+          profileId: targetId,
           unreadCount: 0,
           messages: [newMessage],
-          autoReplies: activeConv.autoReplies
+          autoReplies: activeConv.autoReplies || []
         }];
       }
     });
@@ -221,7 +245,7 @@ export default function ChatInterface({
 
     // Send via LiveChatService (Supabase Realtime Broadcast + Cross-tab sync)
     liveChatService.sendLiveMessage({
-      sender: storedUser || { id: 'currentUser', name: 'You' },
+      sender: storedUser || currentUser || { id: 'currentUser', name: 'You' },
       recipient: activeProfile,
       message: newMessage
     });
@@ -230,7 +254,7 @@ export default function ChatInterface({
     setTimeout(() => {
       setConversations(prev => prev.map(c => ({
         ...c,
-        messages: (c.messages || []).map(m => m.id === msgId && m.status === 'sending' ? { ...m, status: 'sent' } : m)
+        messages: (c.messages || []).map(m => (m.id === msgId || m.tempId === msgId) && m.status === 'sending' ? { ...m, status: 'sent' } : m)
       })));
     }, 280);
 
@@ -238,7 +262,7 @@ export default function ChatInterface({
     setTimeout(() => {
       setConversations(prev => prev.map(c => ({
         ...c,
-        messages: (c.messages || []).map(m => m.id === msgId && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m)
+        messages: (c.messages || []).map(m => (m.id === msgId || m.tempId === msgId) && (m.status === 'sending' || m.status === 'sent') ? { ...m, status: 'delivered' } : m)
       })));
     }, 650);
 
@@ -254,28 +278,50 @@ export default function ChatInterface({
       setIsTyping(false);
 
       const replyText = liveChatService.generateContextualMatrimonialReply(cleanText, activeProfile);
+      const replyId = 'reply-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
       const replyMessage = {
-        id: 'reply-' + Date.now(),
+        id: replyId,
+        tempId: replyId,
         sender: 'them',
         text: replyText,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: 'read'
+        status: 'read',
+        created_at: new Date().toISOString()
       };
 
       liveChatService.playReceiveSound();
 
-      setConversations(prev => prev.map(c => {
-        if (c.profileId === activeProfile.id) {
-          return {
-            ...c,
-            messages: [
-              ...c.messages.map(m => m.id === msgId ? { ...m, status: 'read' } : m),
-              replyMessage
-            ]
-          };
+      setConversations(prev => {
+        const targetId = activeProfile.id;
+        const exists = prev.find(c => c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id));
+        if (exists) {
+          return prev.map(c => {
+            if (c.profileId === targetId || (activeProfile.register_id && c.profileId === activeProfile.register_id)) {
+              const currentMsgs = c.messages || [];
+              const alreadyHasReply = currentMsgs.some(m => m.id === replyId || (m.sender === 'them' && m.text === replyText && Math.abs(new Date(m.created_at || 0).getTime() - Date.now()) < 3000));
+              if (alreadyHasReply) return c;
+              return {
+                ...c,
+                messages: deduplicateMessageList([
+                  ...currentMsgs.map(m => (m.id === msgId || m.tempId === msgId) ? { ...m, status: 'read' } : m),
+                  replyMessage
+                ])
+              };
+            }
+            return c;
+          });
+        } else {
+          return [
+            ...prev,
+            {
+              profileId: targetId,
+              unreadCount: 0,
+              messages: [replyMessage],
+              autoReplies: []
+            }
+          ];
         }
-        return c;
-      }));
+      });
     }, responseDelay);
   };
 
@@ -488,11 +534,12 @@ export default function ChatInterface({
             </div>
 
             {/* Message Bubbles */}
-            {activeConv.messages.map((msg) => {
+            {displayMessages.map((msg, index) => {
               const isMe = msg.sender === 'me';
+              const uniqueKey = msg.id || msg.tempId || `msg_${msg.sender}_${index}_${msg.time || ''}`;
               return (
                 <div 
-                  key={msg.id}
+                  key={uniqueKey}
                   className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                 >
                   <div 

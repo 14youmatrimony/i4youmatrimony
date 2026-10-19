@@ -39,7 +39,7 @@ import AudioCallModal from './components/calling/AudioCallModal';
 import VideoCallModal from './components/calling/VideoCallModal';
 import IncomingCallModal from './components/calling/IncomingCallModal';
 import { webrtcCallService } from './services/webrtcCallService';
-import { liveChatService } from './services/liveChatService';
+import { liveChatService, deduplicateMessageList } from './services/liveChatService';
 import { interestService } from './services/interestService';
 import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePromptModal';
 import { getAppMode, setAppMode, APP_CONFIG } from './config/appConfig';
@@ -1090,15 +1090,16 @@ export default function App() {
                 String(m.profileId) === String(c.profileId)
               );
               if (idx >= 0) {
-                const existingMsgIds = new Set(merged[idx].messages.map((m) => m.id));
-                const newMsgs = c.messages.filter((m) => !existingMsgIds.has(m.id));
                 merged[idx] = {
                   ...merged[idx],
-                  messages: [...merged[idx].messages, ...newMsgs],
+                  messages: deduplicateMessageList([...(merged[idx].messages || []), ...(c.messages || [])]),
                   unreadCount: Math.max(merged[idx].unreadCount || 0, c.unreadCount || 0)
                 };
               } else {
-                merged.push(c);
+                merged.push({
+                  ...c,
+                  messages: deduplicateMessageList(c.messages || [])
+                });
               }
             });
             return merged;
@@ -1241,38 +1242,64 @@ export default function App() {
     };
   }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
 
+  // Maintain latest refs for tab and chat selection so realtime subscription does not churn
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const activeChatProfileIdRef = useRef(activeChatProfileId);
+  activeChatProfileIdRef.current = activeChatProfileId;
+
   // Subscribe to real-time Live Chat messages via Supabase Realtime Broadcast + Cross-tab sync
   useEffect(() => {
     if (!currentUser) return;
+    const myIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+    if (!myIds.length) return;
+
     liveChatService.subscribeToUserInbox(currentUser);
 
     const unsubscribe = liveChatService.onMessage((incoming) => {
-      console.log('[App] Live chat message received:', incoming);
       const senderId = incoming.senderId;
       const text = incoming.text;
       const senderName = incoming.senderName || 'Member';
 
       if (!senderId || !text) return;
 
+      // Do not process messages sent by ourselves
+      if (myIds.includes(String(senderId))) return;
+
       const incomingMsg = {
-        id: incoming.id || ('m-' + Date.now()),
+        id: incoming.id || incoming.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
+        tempId: incoming.tempId || incoming.id,
         sender: 'them',
         text,
         time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: 'read'
+        status: 'read',
+        created_at: new Date(incoming.timestamp || Date.now()).toISOString()
       };
 
       setConversations(prev => {
-        const exists = prev.find(c => c.profileId === senderId);
-        const isCurrentlyInThisChat = activeTab === 'chat' && activeChatProfileId === senderId;
+        const senderIdStr = String(senderId);
+        const exists = prev.find(c => String(c.profileId) === senderIdStr);
+        const isCurrentlyInThisChat = activeTabRef.current === 'chat' && String(activeChatProfileIdRef.current) === senderIdStr;
 
         if (exists) {
           return prev.map(c => {
-            if (c.profileId === senderId) {
+            if (String(c.profileId) === senderIdStr) {
+              const currentMsgs = c.messages || [];
+              const alreadyExists = currentMsgs.some(m =>
+                (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
+                (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
+                (m.text === text && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
+              );
+              if (alreadyExists) {
+                return isCurrentlyInThisChat && c.unreadCount > 0
+                  ? { ...c, unreadCount: 0 }
+                  : c;
+              }
+
               return {
                 ...c,
                 unreadCount: isCurrentlyInThisChat ? 0 : (c.unreadCount || 0) + 1,
-                messages: [...(c.messages || []), incomingMsg]
+                messages: deduplicateMessageList([...currentMsgs, incomingMsg])
               };
             }
             return c;
@@ -1281,7 +1308,7 @@ export default function App() {
           return [
             ...prev,
             {
-              profileId: senderId,
+              profileId: senderIdStr,
               unreadCount: isCurrentlyInThisChat ? 0 : 1,
               messages: [incomingMsg],
               autoReplies: []
@@ -1291,7 +1318,7 @@ export default function App() {
       });
 
       // Show toast notification if not currently in this chat
-      const isCurrentlyInThisChat = activeTab === 'chat' && activeChatProfileId === senderId;
+      const isCurrentlyInThisChat = activeTabRef.current === 'chat' && String(activeChatProfileIdRef.current) === String(senderId);
       if (!isCurrentlyInThisChat) {
         showToast(`💬 ${senderName}: ${text.length > 40 ? text.slice(0, 40) + '...' : text}`);
       }
@@ -1301,7 +1328,7 @@ export default function App() {
       unsubscribe();
       liveChatService.unsubscribeUserInbox();
     };
-  }, [currentUser, activeTab, activeChatProfileId]);
+  }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
 
   const unreadNotificationsCount = currentUser ? (notifications || []).filter(n => n && !n.isRead).length : 0;
 

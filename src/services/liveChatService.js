@@ -21,8 +21,10 @@ class LiveChatService {
     this.audioCtx = null;
     this.broadcastChannel = null;
     this.pendingAckTimeouts = new Map();
+    this.processedMessageIds = new Set();
+    this.inboxChannels = [];
 
-    // Initialize cross-tab synchronization
+    // Initialize cross-tab synchronization with deduplication
     if (typeof window !== 'undefined' && window.BroadcastChannel) {
       try {
         this.broadcastChannel = new BroadcastChannel('i4u_live_chat_sync');
@@ -30,7 +32,16 @@ class LiveChatService {
           const data = event.data;
           if (!data) return;
           if (data.type === 'message') {
-            this.notifyMessageListeners(data.payload);
+            const payload = data.payload;
+            if (!payload) return;
+            const msgKey = payload.id || `msg_${payload.senderId}_${payload.timestamp}_${payload.text}`;
+            if (this.isMessageProcessed(payload.id, msgKey)) return;
+
+            // Ignore messages from self
+            if (this.currentUserId && String(payload.senderId) === String(this.currentUserId)) {
+              return;
+            }
+            this.notifyMessageListeners(payload);
           } else if (data.type === 'status') {
             this.notifyStatusListeners(data.payload);
           } else if (data.type === 'typing') {
@@ -41,6 +52,23 @@ class LiveChatService {
         console.warn('[LiveChat] BroadcastChannel not supported:', e);
       }
     }
+  }
+
+  /**
+   * Helper to check if a message has already been processed and track it
+   */
+  isMessageProcessed(id, fallbackKey) {
+    const key = id || fallbackKey;
+    if (!key) return false;
+    if (this.processedMessageIds.has(key)) return true;
+    this.processedMessageIds.add(key);
+    if (id) this.processedMessageIds.add(id);
+    if (fallbackKey) this.processedMessageIds.add(fallbackKey);
+    if (this.processedMessageIds.size > 2000) {
+      const firstKey = this.processedMessageIds.values().next().value;
+      this.processedMessageIds.delete(firstKey);
+    }
+    return false;
   }
 
   /**
@@ -114,7 +142,7 @@ class LiveChatService {
    */
   subscribeToUserInbox(user) {
     if (!user) return;
-    const userIds = [user.id, user.registerId, user.register_id].filter(Boolean).map(String);
+    const userIds = Array.from(new Set([user.id, user.registerId, user.register_id].filter(Boolean).map(String)));
     if (!userIds.length) return;
 
     this.unsubscribeUserInbox();
@@ -122,7 +150,6 @@ class LiveChatService {
     this.inboxChannels = [];
 
     if (!isSupabaseConfigured() || !supabase) {
-      console.log('[LiveChat] Supabase not configured, using local live channel');
       return;
     }
 
@@ -136,7 +163,16 @@ class LiveChatService {
         chn
           .on('broadcast', { event: 'new-chat-message' }, ({ payload }) => {
             if (!payload) return;
-            console.log('[LiveChat] Incoming live message received:', payload);
+            const msgKey = payload.id || `msg_${payload.senderId}_${payload.timestamp}_${payload.text}`;
+            if (this.isMessageProcessed(payload.id, msgKey)) {
+              return;
+            }
+
+            // Ignore messages from self
+            if (this.currentUserId && (String(payload.senderId) === String(this.currentUserId) || userIds.includes(String(payload.senderId)))) {
+              return;
+            }
+
             this.playReceiveSound();
             this.notifyMessageListeners(payload);
 
@@ -147,16 +183,13 @@ class LiveChatService {
           })
           .on('broadcast', { event: 'chat-status-ack' }, ({ payload }) => {
             if (!payload) return;
-            console.log('[LiveChat] Message status acknowledged:', payload);
             this.notifyStatusListeners(payload);
           })
           .on('broadcast', { event: 'chat-typing' }, ({ payload }) => {
             if (!payload) return;
             this.notifyTypingListeners(payload);
           })
-          .subscribe((status) => {
-            console.log(`[LiveChat] Realtime channel ${channelName} status:`, status);
-          });
+          .subscribe();
 
         this.inboxChannels.push(chn);
       });
@@ -261,15 +294,23 @@ class LiveChatService {
     const recipientId = String(recipient.id || recipient.register_id || recipient.registerId);
     const convId = [senderId, recipientId].sort().join(':::');
 
+    const msgId = message.id || message.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
+
     const payload = {
       ...message,
-      id: message.id || ('m-' + Date.now()),
+      id: msgId,
+      tempId: message.tempId || msgId,
       senderId,
       senderName: sender.name || 'Member',
       senderPhoto: sender.photo || null,
       recipientId,
       timestamp: Date.now()
     };
+
+    // Mark as processed locally so we don't process or echo back our own sent message
+    this.processedMessageIds.add(msgId);
+    if (message.tempId) this.processedMessageIds.add(message.tempId);
+    this.processedMessageIds.add(`msg_${senderId}_${payload.timestamp}_${payload.text}`);
 
     // 1. Cross-tab sync
     if (this.broadcastChannel) {
@@ -326,6 +367,7 @@ class LiveChatService {
     try {
       const msgItem = {
         id: payload.id,
+        tempId: payload.tempId,
         text: payload.text,
         status: 'delivered',
         created_at: new Date(payload.timestamp).toISOString()
@@ -334,12 +376,12 @@ class LiveChatService {
       this.appendLocalConversationMessage(recipientId, senderId, { ...msgItem, sender: 'them' });
     } catch (e) {}
 
-    // 4. Supabase Realtime broadcast to recipient's inbox channels
-    const recipientIds = [
+    // 4. Supabase Realtime broadcast to recipient's inbox channels (deduplicated)
+    const recipientIds = Array.from(new Set([
       recipient.id,
       recipient.register_id,
       recipient.registerId
-    ].filter(Boolean).map(String);
+    ].filter(Boolean).map(String)));
 
     if (isSupabaseConfigured() && supabase) {
       recipientIds.forEach((targetId) => {
@@ -387,10 +429,16 @@ class LiveChatService {
         }
       }
 
-      const already = conv.messages.some((m) => m.id === msg.id);
+      const already = (conv.messages || []).some((m) => 
+        (msg.id && (m.id === msg.id || m.tempId === msg.id)) ||
+        (msg.tempId && (m.tempId === msg.tempId || m.id === msg.tempId)) ||
+        (m.text === msg.text && Math.abs(new Date(m.created_at || 0).getTime() - new Date(msg.created_at || 0).getTime()) < 2000)
+      );
+
       if (!already) {
         conv.messages.push({
           id: msg.id,
+          tempId: msg.tempId || msg.id,
           sender: msg.sender,
           text: msg.text,
           time: new Date(msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -398,6 +446,8 @@ class LiveChatService {
           created_at: msg.created_at || new Date().toISOString()
         });
       }
+
+      conv.messages = deduplicateMessageList(conv.messages);
 
       localStorage.setItem(key, JSON.stringify(convs));
       localStorage.setItem('i4u_conversations', JSON.stringify(convs));
@@ -492,12 +542,14 @@ class LiveChatService {
 
       const conv = convMap.get(partnerId);
       const alreadyExists = conv.messages.some(
-        (m) => m.id === msg.id || (m.text === msg.text && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(msg.created_at).getTime()) < 3000)
+        (m) => (msg.id && (m.id === msg.id || m.tempId === msg.id)) ||
+               (m.text === msg.text && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(msg.created_at).getTime()) < 3000)
       );
 
       if (!alreadyExists) {
         conv.messages.push({
           id: msg.id,
+          tempId: msg.id,
           sender: isSentByMe ? 'me' : 'them',
           text: msg.text,
           time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -510,7 +562,10 @@ class LiveChatService {
       }
     });
 
-    const result = Array.from(convMap.values());
+    const result = Array.from(convMap.values()).map(c => ({
+      ...c,
+      messages: deduplicateMessageList(c.messages)
+    }));
     return result;
   }
 
@@ -628,6 +683,42 @@ class LiveChatService {
       try { listener(payload); } catch (e) {}
     });
   }
+}
+
+/**
+ * Deduplicate an array of chat messages by unique ID, tempId, or content + timestamp signature.
+ */
+export function deduplicateMessageList(messages) {
+  if (!Array.isArray(messages)) return [];
+  const seenIds = new Set();
+  const seenSignatures = new Set();
+  const result = [];
+
+  for (const m of messages) {
+    if (!m) continue;
+
+    // 1. Check by explicit ID or tempId
+    const primaryId = m.id || m.tempId;
+    if (primaryId) {
+      if (seenIds.has(primaryId)) continue;
+      seenIds.add(primaryId);
+    }
+
+    // 2. Check by content signature (sender + normalized text + approx timestamp or time)
+    const normText = (m.text || '').trim();
+    if (normText) {
+      const timeSignature = m.created_at
+        ? Math.floor(new Date(m.created_at).getTime() / 2000)
+        : (m.time || '');
+      const signature = `${m.sender || 'msg'}__${timeSignature}__${normText}`;
+      if (seenSignatures.has(signature)) continue;
+      seenSignatures.add(signature);
+    }
+
+    result.push(m);
+  }
+
+  return result;
 }
 
 export const liveChatService = new LiveChatService();
