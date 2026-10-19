@@ -32,6 +32,7 @@ import {
 import { calculateLocationMatch } from '../../data/locationData';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { isKundaliApplicableReligion } from '../../data/religionData';
+import { useInterestStatus } from '../../services/interestService';
 
 export default function MobileProfileDetailSheet({
   profile,
@@ -58,6 +59,40 @@ export default function MobileProfileDetailSheet({
   const hasPaidPlan = Boolean(currentUser?.membership && currentUser?.membership !== 'free');
   const isContactUnlocked = Boolean(currentUser?.unlockedContacts?.includes(profile?.id));
   const contactCredits = currentUser?.contactCredits ?? 0;
+
+  const { status: interestStatus, isAccepted: isCallingUnlocked } = useInterestStatus(currentUser, profile);
+  const [callAuthAlert, setCallAuthAlert] = useState(null);
+
+  const handleAttemptCall = (type = 'audio') => {
+    if (isCallingUnlocked) {
+      if (type === 'video' && onStartVideoCall) {
+        onStartVideoCall(profile);
+      } else if (onStartAudioCall) {
+        onStartAudioCall(profile);
+      }
+      return;
+    }
+
+    if (interestStatus === 'pending') {
+      setCallAuthAlert({
+        title: 'Interest Pending Acceptance',
+        message: 'Interest is pending acceptance. You can call once they accept your interest.',
+        status: 'pending'
+      });
+    } else if (interestStatus === 'rejected') {
+      setCallAuthAlert({
+        title: 'Calling Unavailable',
+        message: 'Calling is unavailable as the interest was not accepted.',
+        status: 'rejected'
+      });
+    } else {
+      setCallAuthAlert({
+        title: 'Send Interest to Unlock Calling',
+        message: 'Send an Interest first. Calling is unlocked once accepted.',
+        status: 'none'
+      });
+    }
+  };
 
   if (!profile) return null;
 
@@ -385,25 +420,41 @@ export default function MobileProfileDetailSheet({
             {/* 1. Live Audio Call */}
             <button
               type="button"
-              onClick={() => {
-                if (onStartAudioCall) onStartAudioCall(profile);
-              }}
-              className="py-2 px-1 rounded-xl bg-white/10 hover:bg-emerald-600/30 active:scale-95 border border-white/10 hover:border-emerald-400 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+              onClick={() => handleAttemptCall('audio')}
+              className={`py-2 px-1 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 relative ${
+                isCallingUnlocked
+                  ? 'bg-white/10 hover:bg-emerald-600/30 active:scale-95 border border-white/10 hover:border-emerald-400'
+                  : 'bg-white/5 opacity-60 border border-white/5'
+              }`}
+              title={isCallingUnlocked ? "Live Call (Voice Call)" : "Voice Call locked - requires accepted interest"}
             >
               <Phone className="w-4 h-4 text-emerald-400" />
               <span className="text-[9.5px] font-bold text-white">Live Call</span>
+              {!isCallingUnlocked && (
+                <span className="absolute top-1 right-1 w-3 h-3 bg-amber-500 rounded-full flex items-center justify-center text-slate-950 shadow-xs">
+                  <Lock className="w-2 h-2 text-slate-950 stroke-[3]" />
+                </span>
+              )}
             </button>
 
             {/* 2. Live Video Call */}
             <button
               type="button"
-              onClick={() => {
-                if (onStartVideoCall) onStartVideoCall(profile);
-              }}
-              className="py-2 px-1 rounded-xl bg-white/10 hover:bg-indigo-600/30 active:scale-95 border border-white/10 hover:border-indigo-400 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+              onClick={() => handleAttemptCall('video')}
+              className={`py-2 px-1 rounded-xl text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 relative ${
+                isCallingUnlocked
+                  ? 'bg-white/10 hover:bg-indigo-600/30 active:scale-95 border border-white/10 hover:border-indigo-400'
+                  : 'bg-white/5 opacity-60 border border-white/5'
+              }`}
+              title={isCallingUnlocked ? "Live Video Call (Family Video Meeting)" : "Video Call locked - requires accepted interest"}
             >
               <Video className="w-4 h-4 text-indigo-400" />
               <span className="text-[9.5px] font-bold text-white">Video Call</span>
+              {!isCallingUnlocked && (
+                <span className="absolute top-1 right-1 w-3 h-3 bg-amber-500 rounded-full flex items-center justify-center text-slate-950 shadow-xs">
+                  <Lock className="w-2 h-2 text-slate-950 stroke-[3]" />
+                </span>
+              )}
             </button>
 
             {/* 3. Live Message */}
@@ -1421,24 +1472,38 @@ export default function MobileProfileDetailSheet({
 
         {/* Audio Call Button */}
         <button
-          onClick={() => {
-            if (onStartAudioCall) onStartAudioCall(profile);
-          }}
-          className="p-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
-          title="Live Call (Voice Call)"
+          onClick={() => handleAttemptCall('audio')}
+          className={`p-2.5 rounded-2xl border transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95 relative ${
+            isCallingUnlocked
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+              : 'border-slate-200 bg-slate-100/70 text-slate-400 opacity-60'
+          }`}
+          title={isCallingUnlocked ? "Live Call (Voice Call)" : "Voice Call locked - requires accepted interest"}
         >
           <Phone className="w-5 h-5" />
+          {!isCallingUnlocked && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full flex items-center justify-center text-slate-950 shadow-xs">
+              <Lock className="w-2 h-2 text-slate-950 stroke-[3]" />
+            </span>
+          )}
         </button>
 
         {/* Video Call Button */}
         <button
-          onClick={() => {
-            if (onStartVideoCall) onStartVideoCall(profile);
-          }}
-          className="p-2.5 rounded-2xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
-          title="Live Video Call"
+          onClick={() => handleAttemptCall('video')}
+          className={`p-2.5 rounded-2xl border transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95 relative ${
+            isCallingUnlocked
+              ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+              : 'border-slate-200 bg-slate-100/70 text-slate-400 opacity-60'
+          }`}
+          title={isCallingUnlocked ? "Live Video Call" : "Video Call locked - requires accepted interest"}
         >
           <Video className="w-5 h-5" />
+          {!isCallingUnlocked && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full flex items-center justify-center text-slate-950 shadow-xs">
+              <Lock className="w-2 h-2 text-slate-950 stroke-[3]" />
+            </span>
+          )}
         </button>
 
         {/* Direct Chat Button */}
@@ -1534,6 +1599,60 @@ export default function MobileProfileDetailSheet({
           <div className="text-center text-[10px] text-slate-300 py-1.5 px-3 bg-black/60 rounded-xl border border-white/10 shrink-0 flex items-center justify-center gap-1.5" onClick={e => e.stopPropagation()}>
             <Lock className="w-3 h-3 text-rose-400 shrink-0" />
             <span>Protected Matrimonial Photograph • Capturing screenshots or screen recording is restricted under I 4 You Security Policy</span>
+          </div>
+        </div>
+      )}
+
+      {/* Calling Authorization Required Alert Modal */}
+      {callAuthAlert && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setCallAuthAlert(null)}
+        >
+          <div 
+            className="w-full max-w-sm bg-white border border-slate-200 rounded-3xl p-6 text-center shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 mx-auto flex items-center justify-center mb-4">
+              <Lock className="w-7 h-7 text-[#DFB76C]" />
+            </div>
+
+            <h3 className="font-serif font-bold text-base text-slate-900 mb-2">
+              {callAuthAlert.title}
+            </h3>
+
+            <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+              {callAuthAlert.message}
+            </p>
+
+            <div className="flex items-center gap-2">
+              {callAuthAlert.status === 'none' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCallAuthAlert(null);
+                    if (onRequestSendInterest) {
+                      onRequestSendInterest(profile);
+                    } else if (onToggleInterest) {
+                      onToggleInterest(profile.id);
+                    }
+                  }}
+                  className="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-md hover:brightness-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center space-x-1.5"
+                >
+                  <span>Send Interest</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setCallAuthAlert(null)}
+                className={`py-2.5 px-4 rounded-xl font-bold text-xs border border-slate-200 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer ${
+                  callAuthAlert.status === 'none' ? 'flex-none px-5' : 'w-full'
+                }`}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

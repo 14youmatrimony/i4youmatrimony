@@ -854,7 +854,7 @@ export default function App() {
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [currentUser, setCurrentUser] = useState(checkStoredUserSession);
 
-  // Root-level auth state listener: Synchronizes persistent authentication sessions & tokens
+  // Root-level auth state listener: Synchronizes persistent authentication sessions & tokens across browser sessions and tabs
   useEffect(() => {
     const unsubscribe = initSupabaseAuthListener((event, session) => {
       if (event === 'SIGNED_OUT') {
@@ -868,8 +868,25 @@ export default function App() {
         }
       }
     });
+
+    // Cross-tab auto-login and session persistence synchronization
+    const handleStorageChange = (e) => {
+      if (!e) return;
+      if (e.key === 'i4u_auth_user' || e.key === 'i4u_logged_out' || e.key === 'i4u_current_user_id') {
+        const stored = checkStoredUserSession();
+        if (stored) {
+          setCurrentUser(stored);
+        } else if (localStorage.getItem('i4u_logged_out') === 'true') {
+          setCurrentUser(null);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
     return () => {
       unsubscribe?.();
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, [currentUser]);
 
