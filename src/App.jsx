@@ -1071,16 +1071,136 @@ export default function App() {
   });
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
-  // Synchronize notifications with real loaded profiles
+  // Synchronize notifications, received interests, and chat conversations with backend & profiles
   useEffect(() => {
     if (!currentUser) return;
-    setNotifications(prev => {
-      const hasOldDummy = (prev || []).some(n => n.profileId === 'p1' || n.profileId === 'p2' || (n.title && (n.title.includes('Ananya') || n.title.includes('Rohan Jayasimha'))));
-      if (!prev || prev.length === 0 || hasOldDummy) {
-        return getNotificationsForUser(currentUser, profiles);
-      }
-      return prev;
+    const userIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+    if (!userIds.length) return;
+
+    let isMounted = true;
+
+    // 1. Fetch conversations from Supabase messages table
+    liveChatService.fetchConversationsForUser(currentUser, profiles)
+      .then((loadedConvs) => {
+        if (isMounted && Array.isArray(loadedConvs) && loadedConvs.length > 0) {
+          setConversations((prev) => {
+            const merged = [...prev];
+            loadedConvs.forEach((c) => {
+              const idx = merged.findIndex((m) => 
+                String(m.profileId) === String(c.profileId)
+              );
+              if (idx >= 0) {
+                const existingMsgIds = new Set(merged[idx].messages.map((m) => m.id));
+                const newMsgs = c.messages.filter((m) => !existingMsgIds.has(m.id));
+                merged[idx] = {
+                  ...merged[idx],
+                  messages: [...merged[idx].messages, ...newMsgs],
+                  unreadCount: Math.max(merged[idx].unreadCount || 0, c.unreadCount || 0)
+                };
+              } else {
+                merged.push(c);
+              }
+            });
+            return merged;
+          });
+        }
+      })
+      .catch((e) => console.warn('[App] Error loading conversations:', e));
+
+    // 2. Fetch received interests from backend
+    interestService.getReceivedInterests(currentUser, profiles)
+      .then((records) => {
+        if (!isMounted) return;
+        if (Array.isArray(records) && records.length > 0) {
+          setNotifications((prev) => {
+            const list = Array.isArray(prev) ? [...prev] : [];
+            records.forEach((rec) => {
+              const notifId = `notif_int_${rec.id}`;
+              const exists = list.some(
+                (n) => n.id === notifId || n.id === rec.id || (n.type === 'interest' && String(n.profileId) === String(rec.senderId))
+              );
+              if (!exists) {
+                list.unshift({
+                  id: notifId,
+                  profileId: rec.senderId,
+                  type: 'interest',
+                  title: `💖 Interest from ${rec.sender.name}`,
+                  message: rec.message || `${rec.sender.name} expressed interest in connecting with you.`,
+                  time: new Date(rec.created_at || rec.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  isRead: false,
+                  status: rec.status || 'pending',
+                  timestamp: new Date(rec.created_at || rec.createdAt).getTime()
+                });
+              }
+            });
+            return list;
+          });
+        }
+      })
+      .catch((e) => console.warn('[App] Error loading received interests:', e));
+
+    // 3. Fetch notifications from Supabase notifications table
+    if (isSupabaseConfigured() && supabase) {
+      supabase
+        .from('notifications')
+        .select('*')
+        .or(`recipient_id.in.(${userIds.map((id) => `"${id}"`).join(',')}),recipient_register_id.in.(${userIds.map((id) => `"${id}"`).join(',')})`)
+        .order('created_at', { ascending: false })
+        .limit(30)
+        .then(({ data, error }) => {
+          if (!error && Array.isArray(data) && isMounted && data.length > 0) {
+            setNotifications((prev) => {
+              const list = Array.isArray(prev) ? [...prev] : [];
+              data.forEach((row) => {
+                const notifId = `db_${row.id}`;
+                const exists = list.some((n) => n.id === notifId || n.id === row.id);
+                if (!exists) {
+                  list.unshift({
+                    id: notifId,
+                    profileId: row.metadata?.senderId || row.recipient_id,
+                    type: row.type === 'interest_received' ? 'interest' : (row.type === 'chat_message' ? 'message' : 'match'),
+                    title: row.title,
+                    message: row.message,
+                    time: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    isRead: row.is_read || false,
+                    status: 'pending',
+                    timestamp: new Date(row.created_at).getTime()
+                  });
+                }
+              });
+              return list;
+            });
+          }
+        })
+        .catch(() => {});
+    }
+
+    // 4. Real-time subscription to incoming interests
+    const unsubInterest = interestService.subscribeToInterestInbox(currentUser, (payload) => {
+      console.log('[App] Real-time interest incoming in App.jsx:', payload);
+      const senderName = payload.senderName || 'A Member';
+      showToast(`💖 New Interest from ${senderName}!`);
+
+      setNotifications((prev) => [
+        {
+          id: `live_int_${Date.now()}`,
+          profileId: payload.senderId,
+          type: 'interest',
+          title: `💖 Interest from ${senderName}`,
+          message: payload.message || `${senderName} expressed interest in connecting with you.`,
+          time: 'Just now',
+          isRead: false,
+          status: 'pending',
+          timestamp: Date.now()
+        },
+        ...(Array.isArray(prev) ? prev : [])
+      ]);
     });
+
+    return () => {
+      isMounted = false;
+      unsubInterest();
+    };
   }, [profiles, currentUser]);
 
   // Persist notifications to localStorage
@@ -3689,7 +3809,7 @@ export default function App() {
           {/* Tab 3: Interests & Matches */}
           {activeTab === 'interests' && (
             <MobileInterestsScreen 
-              profiles={filteredProfiles}
+              profiles={profiles}
               currentUser={currentUser}
               onOpenLogin={() => setCurrentScreen('login')}
               interestsSent={interestsSent}
@@ -3710,7 +3830,7 @@ export default function App() {
           {/* Tab 4: Messages / In-App Chat */}
           {activeTab === 'chat' && (
             <MobileChatScreen 
-              profiles={filteredProfiles}
+              profiles={profiles}
               currentUser={currentUser}
               onOpenLogin={() => setCurrentScreen('login')}
               conversations={conversations}

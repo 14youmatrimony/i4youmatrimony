@@ -9,7 +9,7 @@
  * 5. Web Audio API soft chimes for send and delivery
  */
 
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase.js';
 
 class LiveChatService {
   constructor() {
@@ -114,15 +114,12 @@ class LiveChatService {
    */
   subscribeToUserInbox(user) {
     if (!user) return;
-    const userId = user.id || user.registerId || user.register_id;
-    if (!userId) return;
-
-    if (this.currentUserId === userId && this.inboxChannel) {
-      return; // Already actively subscribed
-    }
+    const userIds = [user.id, user.registerId, user.register_id].filter(Boolean).map(String);
+    if (!userIds.length) return;
 
     this.unsubscribeUserInbox();
-    this.currentUserId = userId;
+    this.currentUserId = userIds[0];
+    this.inboxChannels = [];
 
     if (!isSupabaseConfigured() || !supabase) {
       console.log('[LiveChat] Supabase not configured, using local live channel');
@@ -130,45 +127,53 @@ class LiveChatService {
     }
 
     try {
-      const channelName = `user-chat-inbox-${userId}`;
-      this.inboxChannel = supabase.channel(channelName, {
-        config: { broadcast: { self: false } }
-      });
-
-      this.inboxChannel
-        .on('broadcast', { event: 'new-chat-message' }, ({ payload }) => {
-          if (!payload) return;
-          console.log('[LiveChat] Incoming live message received:', payload);
-          this.playReceiveSound();
-          this.notifyMessageListeners(payload);
-
-          // Acknowledge delivery back to sender
-          if (payload.senderId && payload.id) {
-            this.sendDeliveryAck(payload.senderId, payload.id, 'delivered');
-          }
-        })
-        .on('broadcast', { event: 'chat-status-ack' }, ({ payload }) => {
-          if (!payload) return;
-          console.log('[LiveChat] Message status acknowledged:', payload);
-          this.notifyStatusListeners(payload);
-        })
-        .on('broadcast', { event: 'chat-typing' }, ({ payload }) => {
-          if (!payload) return;
-          this.notifyTypingListeners(payload);
-        })
-        .subscribe((status) => {
-          console.log(`[LiveChat] Realtime channel ${channelName} status:`, status);
+      userIds.forEach((targetId) => {
+        const channelName = `user-chat-inbox-${targetId}`;
+        const chn = supabase.channel(channelName, {
+          config: { broadcast: { self: false } }
         });
+
+        chn
+          .on('broadcast', { event: 'new-chat-message' }, ({ payload }) => {
+            if (!payload) return;
+            console.log('[LiveChat] Incoming live message received:', payload);
+            this.playReceiveSound();
+            this.notifyMessageListeners(payload);
+
+            // Acknowledge delivery back to sender
+            if (payload.senderId && payload.id) {
+              this.sendDeliveryAck(payload.senderId, payload.id, 'delivered');
+            }
+          })
+          .on('broadcast', { event: 'chat-status-ack' }, ({ payload }) => {
+            if (!payload) return;
+            console.log('[LiveChat] Message status acknowledged:', payload);
+            this.notifyStatusListeners(payload);
+          })
+          .on('broadcast', { event: 'chat-typing' }, ({ payload }) => {
+            if (!payload) return;
+            this.notifyTypingListeners(payload);
+          })
+          .subscribe((status) => {
+            console.log(`[LiveChat] Realtime channel ${channelName} status:`, status);
+          });
+
+        this.inboxChannels.push(chn);
+      });
     } catch (err) {
       console.warn('[LiveChat] Supabase subscription failed:', err);
     }
   }
 
   unsubscribeUserInbox() {
+    if (Array.isArray(this.inboxChannels) && supabase) {
+      this.inboxChannels.forEach((chn) => {
+        try { supabase.removeChannel(chn); } catch (e) {}
+      });
+      this.inboxChannels = [];
+    }
     if (this.inboxChannel && supabase) {
-      try {
-        supabase.removeChannel(this.inboxChannel);
-      } catch (e) {}
+      try { supabase.removeChannel(this.inboxChannel); } catch (e) {}
       this.inboxChannel = null;
     }
     this.currentUserId = null;
@@ -245,23 +250,28 @@ class LiveChatService {
   }
 
   /**
-   * Transmit live message to recipient via Supabase Broadcast + Local Sync
+   * Transmit live message to recipient via Supabase Broadcast + Messages Table Insert + Local Sync
    */
   async sendLiveMessage({ sender, recipient, message }) {
     if (!sender || !recipient || !message) return false;
 
     this.playSendSound();
 
+    const senderId = String(sender.id || sender.registerId || sender.register_id);
+    const recipientId = String(recipient.id || recipient.register_id || recipient.registerId);
+    const convId = [senderId, recipientId].sort().join(':::');
+
     const payload = {
       ...message,
-      senderId: sender.id || sender.registerId || sender.register_id,
+      id: message.id || ('m-' + Date.now()),
+      senderId,
       senderName: sender.name || 'Member',
       senderPhoto: sender.photo || null,
-      recipientId: recipient.id || recipient.register_id || recipient.registerId,
+      recipientId,
       timestamp: Date.now()
     };
 
-    // Cross-tab sync
+    // 1. Cross-tab sync
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.postMessage({
@@ -271,15 +281,68 @@ class LiveChatService {
       } catch (e) {}
     }
 
-    // Supabase Realtime broadcast to recipient's inbox
+    // 2. Persist message to Supabase 'messages' table
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('messages').insert([
+          {
+            conversation_id: convId,
+            sender_id: senderId,
+            receiver_id: recipientId,
+            text: message.text || '',
+            status: 'delivered',
+            created_at: new Date().toISOString()
+          }
+        ]);
+      } catch (dbErr) {
+        console.warn('[LiveChat] Supabase messages table insert notice:', dbErr);
+      }
+
+      // Record in Supabase notifications table
+      try {
+        await supabase.from('notifications').insert([
+          {
+            recipient_id: recipientId,
+            recipient_register_id: recipient?.register_id || recipient?.registerId || null,
+            type: 'chat_message',
+            title: `💬 New message from ${sender.name || 'Member'}`,
+            message: message.text || 'Sent you a chat message.',
+            metadata: {
+              senderId,
+              senderName: sender.name,
+              senderPhoto: sender.photo,
+              text: message.text
+            },
+            is_read: false,
+            created_at: new Date().toISOString()
+          }
+        ]);
+      } catch (notifErr) {
+        console.warn('[LiveChat] Notification table insert notice:', notifErr);
+      }
+    }
+
+    // 3. Persist to local conversations for sender and recipient
+    try {
+      const msgItem = {
+        id: payload.id,
+        text: payload.text,
+        status: 'delivered',
+        created_at: new Date(payload.timestamp).toISOString()
+      };
+      this.appendLocalConversationMessage(senderId, recipientId, { ...msgItem, sender: 'me' });
+      this.appendLocalConversationMessage(recipientId, senderId, { ...msgItem, sender: 'them' });
+    } catch (e) {}
+
+    // 4. Supabase Realtime broadcast to recipient's inbox channels
     const recipientIds = [
       recipient.id,
       recipient.register_id,
       recipient.registerId
-    ].filter(Boolean);
+    ].filter(Boolean).map(String);
 
     if (isSupabaseConfigured() && supabase) {
-      recipientIds.forEach(targetId => {
+      recipientIds.forEach((targetId) => {
         try {
           const chn = supabase.channel(`user-chat-inbox-${targetId}`);
           chn.subscribe((chnStatus) => {
@@ -299,6 +362,156 @@ class LiveChatService {
     }
 
     return true;
+  }
+
+  appendLocalConversationMessage(ownerId, partnerId, msg) {
+    if (typeof localStorage === 'undefined' || !ownerId || !partnerId) return;
+    try {
+      const key = `i4u_conversations_${ownerId}`;
+      const raw = localStorage.getItem(key);
+      const convs = raw ? JSON.parse(raw) : [];
+
+      let conv = convs.find((c) => String(c.profileId) === String(partnerId));
+
+      if (!conv) {
+        conv = {
+          profileId: String(partnerId),
+          unreadCount: msg.sender === 'them' ? 1 : 0,
+          messages: [],
+          autoReplies: []
+        };
+        convs.push(conv);
+      } else {
+        if (msg.sender === 'them') {
+          conv.unreadCount = (conv.unreadCount || 0) + 1;
+        }
+      }
+
+      const already = conv.messages.some((m) => m.id === msg.id);
+      if (!already) {
+        conv.messages.push({
+          id: msg.id,
+          sender: msg.sender,
+          text: msg.text,
+          time: new Date(msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: msg.status || 'delivered',
+          created_at: msg.created_at || new Date().toISOString()
+        });
+      }
+
+      localStorage.setItem(key, JSON.stringify(convs));
+      localStorage.setItem('i4u_conversations', JSON.stringify(convs));
+    } catch (e) {}
+  }
+
+  /**
+   * Fetch conversations and message history for a user from Supabase & local storage.
+   * Lists conversations where currentUser is EITHER sender_id OR receiver_id.
+   */
+  async fetchConversationsForUser(userOrId, allProfiles = []) {
+    if (!userOrId) return [];
+    const userIds = [
+      userOrId?.id,
+      userOrId?.register_id,
+      userOrId?.registerId
+    ].filter(Boolean).map(String);
+    if (!userIds.length) return [];
+
+    let remoteMessages = [];
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const idQueryStr = userIds.map((id) => `"${id}"`).join(',');
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .or(`sender_id.in.(${idQueryStr}),receiver_id.in.(${idQueryStr})`)
+          .order('created_at', { ascending: true });
+
+        if (!error && Array.isArray(data)) {
+          remoteMessages = data;
+        }
+      } catch (e) {
+        console.warn('[LiveChat] Error fetching remote messages:', e);
+      }
+    }
+
+    // Local conversations from localStorage
+    let localConvs = [];
+    try {
+      userIds.forEach((uid) => {
+        const raw = localStorage.getItem(`i4u_conversations_${uid}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((c) => {
+              if (!localConvs.some((existing) => String(existing.profileId) === String(c.profileId))) {
+                localConvs.push(c);
+              }
+            });
+          }
+        }
+      });
+      if (localConvs.length === 0) {
+        const fallbackRaw = localStorage.getItem('i4u_conversations');
+        if (fallbackRaw) {
+          const parsed = JSON.parse(fallbackRaw);
+          if (Array.isArray(parsed)) localConvs = parsed;
+        }
+      }
+    } catch (e) {}
+
+    const convMap = new Map();
+
+    // Populate existing local conversations
+    if (Array.isArray(localConvs)) {
+      localConvs.forEach((c) => {
+        if (c?.profileId) {
+          convMap.set(String(c.profileId), {
+            profileId: String(c.profileId),
+            unreadCount: c.unreadCount || 0,
+            messages: Array.isArray(c.messages) ? [...c.messages] : [],
+            autoReplies: c.autoReplies || []
+          });
+        }
+      });
+    }
+
+    // Group remote messages by partner ID
+    remoteMessages.forEach((msg) => {
+      const isSentByMe = userIds.includes(String(msg.sender_id));
+      const partnerId = isSentByMe ? String(msg.receiver_id) : String(msg.sender_id);
+
+      if (!convMap.has(partnerId)) {
+        convMap.set(partnerId, {
+          profileId: partnerId,
+          unreadCount: 0,
+          messages: [],
+          autoReplies: []
+        });
+      }
+
+      const conv = convMap.get(partnerId);
+      const alreadyExists = conv.messages.some(
+        (m) => m.id === msg.id || (m.text === msg.text && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(msg.created_at).getTime()) < 3000)
+      );
+
+      if (!alreadyExists) {
+        conv.messages.push({
+          id: msg.id,
+          sender: isSentByMe ? 'me' : 'them',
+          text: msg.text,
+          time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: msg.status || 'read',
+          created_at: msg.created_at
+        });
+        if (!isSentByMe && msg.status !== 'read') {
+          conv.unreadCount = (conv.unreadCount || 0) + 1;
+        }
+      }
+    });
+
+    const result = Array.from(convMap.values());
+    return result;
   }
 
   /**

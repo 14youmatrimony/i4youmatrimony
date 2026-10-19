@@ -119,11 +119,11 @@ export default function MobileNotificationsSheet({
 
   const filteredNotifications = (notifications || []).filter(Boolean).filter(notif => {
     if (activeFilter === 'all') return true;
-    if (activeFilter === 'interest') return notif?.type === 'interest_received';
-    if (activeFilter === 'shortlist') return notif?.type === 'profile_shortlisted';
-    if (activeFilter === 'visitor') return notif?.type === 'profile_visitor';
-    if (activeFilter === 'contact_view') return notif?.type === 'contact_viewed';
-    if (activeFilter === 'message') return notif?.type === 'message_received';
+    if (activeFilter === 'interest') return notif?.type === 'interest_received' || notif?.type === 'interest';
+    if (activeFilter === 'shortlist') return notif?.type === 'profile_shortlisted' || notif?.type === 'shortlist';
+    if (activeFilter === 'visitor') return notif?.type === 'profile_visitor' || notif?.type === 'visitor';
+    if (activeFilter === 'contact_view') return notif?.type === 'contact_viewed' || notif?.type === 'contact';
+    if (activeFilter === 'message') return notif?.type === 'message_received' || notif?.type === 'chat_message' || notif?.type === 'message';
     return true;
   });
 
@@ -225,30 +225,36 @@ export default function MobileNotificationsSheet({
 
   const getNotificationIcon = (type) => {
     switch (type) {
+      case 'interest':
       case 'interest_received':
         return (
           <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-2xs border border-rose-200">
             <Heart className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-rose-600" />
           </div>
         );
+      case 'shortlist':
       case 'profile_shortlisted':
         return (
           <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-2xs border border-amber-200">
             <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-amber-500" />
           </div>
         );
+      case 'visitor':
       case 'profile_visitor':
         return (
           <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 shadow-2xs border border-purple-200">
             <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-purple-600" />
           </div>
         );
+      case 'contact':
       case 'contact_viewed':
         return (
           <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs border border-emerald-200">
             <Eye className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
           </div>
         );
+      case 'message':
+      case 'chat_message':
       case 'message_received':
         return (
           <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 shadow-2xs border border-blue-200">
@@ -266,34 +272,40 @@ export default function MobileNotificationsSheet({
 
   const getCategoryBadge = (type) => {
     switch (type) {
+      case 'interest':
       case 'interest_received':
         return (
           <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-0.5">
             <Heart className="w-2 h-2 sm:w-2.5 sm:h-2.5 fill-rose-600" /> Interest Received
           </span>
         );
+      case 'shortlist':
       case 'profile_shortlisted':
         return (
           <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-0.5">
             <Star className="w-2 h-2 sm:w-2.5 sm:h-2.5 fill-amber-500" /> Shortlisted
           </span>
         );
+      case 'visitor':
       case 'profile_visitor':
         return (
           <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200 flex items-center gap-0.5">
             <Users className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-purple-600" /> Visitor
           </span>
         );
+      case 'contact':
       case 'contact_viewed':
         return (
           <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-0.5">
             <Eye className="w-2 h-2 sm:w-2.5 sm:h-2.5" /> Contact Viewed
           </span>
         );
+      case 'message':
+      case 'chat_message':
       case 'message_received':
         return (
           <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 flex items-center gap-0.5">
-            <MessageCircle className="w-2 h-2 sm:w-2.5 sm:h-2.5 fill-blue-500" /> Message
+            <MessageCircle className="w-2.5 h-2.5 sm:w-2.5 sm:h-2.5 fill-blue-500" /> Message
           </span>
         );
       default:
@@ -304,11 +316,11 @@ export default function MobileNotificationsSheet({
   const safeNotifs = (notifications || []).filter(Boolean);
   const counts = {
     all: safeNotifs.length,
-    interest: safeNotifs.filter(n => n?.type === 'interest_received').length,
-    shortlist: safeNotifs.filter(n => n?.type === 'profile_shortlisted').length,
-    visitor: safeNotifs.filter(n => n?.type === 'profile_visitor').length,
-    contact_view: safeNotifs.filter(n => n?.type === 'contact_viewed').length,
-    message: safeNotifs.filter(n => n?.type === 'message_received').length
+    interest: safeNotifs.filter(n => n?.type === 'interest_received' || n?.type === 'interest').length,
+    shortlist: safeNotifs.filter(n => n?.type === 'profile_shortlisted' || n?.type === 'shortlist').length,
+    visitor: safeNotifs.filter(n => n?.type === 'profile_visitor' || n?.type === 'visitor').length,
+    contact_view: safeNotifs.filter(n => n?.type === 'contact_viewed' || n?.type === 'contact').length,
+    message: safeNotifs.filter(n => n?.type === 'message_received' || n?.type === 'chat_message' || n?.type === 'message').length
   };
 
   const sheetContent = (

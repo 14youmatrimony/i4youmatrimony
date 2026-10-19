@@ -298,6 +298,250 @@ class InterestService {
   }
 
   /**
+   * Fetches incoming interests received by a user.
+   * JOINs sender profile data so the receiver can immediately review candidate details.
+   * Emits the exact required console logs:
+   * "Fetching received interests for user: [userId]"
+   * "Found [count] records for receiver"
+   */
+  async getReceivedInterests(userOrId, allProfiles = []) {
+    if (!userOrId) return [];
+
+    const receiverIds = this.getUserIds(userOrId);
+    if (!receiverIds.length) return [];
+
+    const userId = receiverIds[0];
+    console.log(`Fetching received interests for user: [${userId}]`);
+
+    let rawRecords = [];
+
+    // 1. Query Supabase 'interests' table
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('interests')
+          .select('*')
+          .in('receiver_id', receiverIds)
+          .order('updated_at', { ascending: false });
+
+        if (!error && Array.isArray(data)) {
+          rawRecords = data;
+        } else if (error) {
+          console.warn('[InterestService] Supabase interests query notice:', error.message);
+        }
+      } catch (err) {
+        console.warn('[InterestService] Supabase query error:', err);
+      }
+    }
+
+    // 2. Merge local records for offline / cross-tab fallback
+    const localRecords = this.getLocalRecords().filter((r) =>
+      receiverIds.includes(String(r.receiverId))
+    );
+
+    localRecords.forEach((localRec) => {
+      const exists = rawRecords.some(
+        (r) => String(r.sender_id || r.senderId) === String(localRec.senderId)
+      );
+      if (!exists) {
+        rawRecords.push({
+          id: localRec.id,
+          sender_id: localRec.senderId,
+          receiver_id: localRec.receiverId,
+          status: localRec.status || 'pending',
+          message: localRec.message || '',
+          created_at: localRec.createdAt || localRec.updatedAt || new Date().toISOString(),
+          updated_at: localRec.updatedAt || new Date().toISOString()
+        });
+      }
+    });
+
+    // 3. Check localStorage receiver cache
+    try {
+      const storedReceived = localStorage.getItem(`i4u_received_interests_${userId}`);
+      if (storedReceived) {
+        const parsed = JSON.parse(storedReceived);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((pId) => {
+            const exists = rawRecords.some(
+              (r) => String(r.sender_id || r.senderId) === String(pId)
+            );
+            if (!exists) {
+              rawRecords.push({
+                id: `loc_${pId}`,
+                sender_id: pId,
+                receiver_id: userId,
+                status: 'pending',
+                message: 'Expressed interest in connecting with you.',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 4. Map & JOIN sender profile details
+    const profilesMap = new Map();
+    const missingSenderIds = [];
+
+    if (Array.isArray(allProfiles)) {
+      allProfiles.forEach((p) => {
+        if (!p) return;
+        if (p.id) profilesMap.set(String(p.id), p);
+        if (p.register_id) profilesMap.set(String(p.register_id), p);
+        if (p.registerId) profilesMap.set(String(p.registerId), p);
+      });
+    }
+
+    rawRecords.forEach((rec) => {
+      const sid = String(rec.sender_id || rec.senderId);
+      if (sid && !profilesMap.has(sid) && !missingSenderIds.includes(sid)) {
+        missingSenderIds.push(sid);
+      }
+    });
+
+    // Fetch missing profiles from Supabase if needed
+    if (missingSenderIds.length > 0 && isSupabaseConfigured() && supabase) {
+      try {
+        const { data: dbProfiles } = await supabase
+          .from('profiles')
+          .select('id, register_id, name, age, gender, height, photo, city, district, state, profession, education, verified, aadhaar_verified')
+          .or(`id.in.(${missingSenderIds.map((id) => `"${id}"`).join(',')}),register_id.in.(${missingSenderIds.map((id) => `"${id}"`).join(',')})`);
+
+        if (Array.isArray(dbProfiles)) {
+          dbProfiles.forEach((p) => {
+            if (p?.id) profilesMap.set(String(p.id), p);
+            if (p?.register_id) profilesMap.set(String(p.register_id), p);
+          });
+        }
+      } catch (e) {}
+    }
+
+    // Default fallback avatar
+    const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
+
+    const enriched = rawRecords.map((rec) => {
+      const senderId = String(rec.sender_id || rec.senderId);
+      const receiverId = String(rec.receiver_id || rec.receiverId);
+      const senderProfile = profilesMap.get(senderId);
+
+      return {
+        id: rec.id || `int_${senderId}_${receiverId}`,
+        sender_id: senderId,
+        receiver_id: receiverId,
+        senderId,
+        receiverId,
+        status: rec.status || 'pending',
+        message: rec.message || 'Expressed matrimonial interest in connecting with you.',
+        created_at: rec.created_at || rec.createdAt || new Date().toISOString(),
+        updated_at: rec.updated_at || rec.updatedAt || new Date().toISOString(),
+        sender: senderProfile ? {
+          id: senderProfile.id || senderId,
+          register_id: senderProfile.register_id || senderProfile.registerId || senderId,
+          name: senderProfile.name || 'Verified Member',
+          photo: senderProfile.photo || senderProfile.photo_url || defaultAvatar,
+          age: senderProfile.age || 26,
+          gender: senderProfile.gender || 'Candidate',
+          height: senderProfile.height || "5'5\"",
+          city: senderProfile.city || senderProfile.district || 'India',
+          district: senderProfile.district || senderProfile.city || '',
+          state: senderProfile.state || '',
+          profession: senderProfile.profession || 'Professional',
+          education: senderProfile.education || 'Graduate',
+          verified: Boolean(senderProfile.verified || senderProfile.aadhaar_verified),
+          matchScore: senderProfile.matchScore || 88,
+          gunasMatch: senderProfile.gunasMatch || '28/36 Gunas'
+        } : {
+          id: senderId,
+          register_id: senderId,
+          name: 'Verified Member',
+          photo: defaultAvatar,
+          age: 26,
+          gender: 'Candidate',
+          height: "5'5\"",
+          city: 'India',
+          state: '',
+          profession: 'Professional',
+          education: 'Graduate',
+          verified: true,
+          matchScore: 88,
+          gunasMatch: '28/36 Gunas'
+        }
+      };
+    });
+
+    console.log(`Found [${enriched.length}] records for receiver`);
+    return enriched;
+  }
+
+  /**
+   * Subscribe to real-time incoming interest notifications for a receiver
+   */
+  subscribeToInterestInbox(userOrId, onNewInterest) {
+    if (!userOrId || !onNewInterest) return () => {};
+
+    const receiverIds = this.getUserIds(userOrId);
+    if (!receiverIds.length) return () => {};
+
+    const channels = [];
+
+    if (isSupabaseConfigured() && supabase) {
+      receiverIds.forEach((targetId) => {
+        try {
+          const chn = supabase.channel(`user-interest-inbox-${targetId}`, {
+            config: { broadcast: { self: false } }
+          });
+
+          chn
+            .on('broadcast', { event: 'interest-received' }, ({ payload }) => {
+              if (payload) {
+                console.log('[InterestService] Real-time interest received:', payload);
+                onNewInterest(payload);
+              }
+            })
+            .on('broadcast', { event: 'interest-accepted' }, ({ payload }) => {
+              if (payload) {
+                console.log('[InterestService] Real-time interest accepted:', payload);
+                this.handleRealtimeStatusUpdate(payload);
+                onNewInterest(payload);
+              }
+            })
+            .on('broadcast', { event: 'interest-rejected' }, ({ payload }) => {
+              if (payload) {
+                console.log('[InterestService] Real-time interest rejected:', payload);
+                this.handleRealtimeStatusUpdate(payload);
+                onNewInterest(payload);
+              }
+            })
+            .subscribe();
+
+          channels.push(chn);
+        } catch (e) {
+          console.warn('[InterestService] Channel subscription error:', e);
+        }
+      });
+    }
+
+    // Also listen to local status change events
+    const unsubLocal = this.onStatusChange((update) => {
+      if (update && receiverIds.includes(String(update.userBId))) {
+        onNewInterest(update);
+      }
+    });
+
+    return () => {
+      unsubLocal();
+      if (supabase && channels.length > 0) {
+        channels.forEach((chn) => {
+          try { supabase.removeChannel(chn); } catch (e) {}
+        });
+      }
+    };
+  }
+
+  /**
    * Records interest sent (status: 'pending')
    */
   async sendInterest(sender, receiver, message = '') {
@@ -317,35 +561,105 @@ class InterestService {
 
     records.push({
       id: `int_${Date.now()}`,
-      senderId,
-      receiverId,
-      message,
+      senderId: String(senderId),
+      receiverId: String(receiverId),
+      message: message || '',
       status: 'pending',
       updatedAt: new Date().toISOString()
     });
     this.saveLocalRecords(records);
 
-    // Save to Supabase if table exists
+    // Save to recipient's local storage cache for instant offline visibility
+    try {
+      const recCacheKey = `i4u_received_interests_${receiverId}`;
+      const recList = JSON.parse(localStorage.getItem(recCacheKey) || '[]');
+      if (!recList.includes(String(senderId))) {
+        recList.push(String(senderId));
+        localStorage.setItem(recCacheKey, JSON.stringify(recList));
+      }
+    } catch (e) {}
+
+    // Save to Supabase 'interests' and 'notifications' table
     if (isSupabaseConfigured() && supabase) {
       try {
         await supabase.from('interests').upsert([
           {
-            sender_id: senderId,
-            receiver_id: receiverId,
+            sender_id: String(senderId),
+            receiver_id: String(receiverId),
             status: 'pending',
-            message,
+            message: message || '',
             updated_at: new Date().toISOString()
           }
         ]);
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[InterestService] Supabase interests upsert notice:', e);
+      }
+
+      // Record in notifications table
+      try {
+        const senderName = typeof sender === 'object' ? sender.name : 'A Verified Member';
+        const senderPhoto = typeof sender === 'object' ? (sender.photo || sender.photo_url) : null;
+        await supabase.from('notifications').insert([
+          {
+            recipient_id: String(receiverId),
+            recipient_register_id: receiver?.register_id || receiver?.registerId || null,
+            type: 'interest_received',
+            title: `New Matrimonial Interest from ${senderName}`,
+            message: message || `${senderName} reviewed your profile on I 4 You and expressed interest in connecting.`,
+            metadata: {
+              senderId: String(senderId),
+              senderName,
+              senderPhoto,
+              message: message || ''
+            },
+            is_read: false,
+            created_at: new Date().toISOString()
+          }
+        ]);
+      } catch (notifErr) {
+        console.warn('[InterestService] Supabase notification insert notice:', notifErr);
+      }
+
+      // Broadcast on Supabase realtime channels to recipient
+      const targetIds = [
+        receiverId,
+        receiver?.register_id,
+        receiver?.registerId
+      ].filter(Boolean);
+
+      targetIds.forEach((tid) => {
+        try {
+          const chn = supabase.channel(`user-interest-inbox-${tid}`);
+          chn.subscribe((chnStatus) => {
+            if (chnStatus === 'SUBSCRIBED') {
+              chn.send({
+                type: 'broadcast',
+                event: 'interest-received',
+                payload: {
+                  senderId: String(senderId),
+                  receiverId: String(receiverId),
+                  status: 'pending',
+                  message: message || '',
+                  senderName: typeof sender === 'object' ? sender.name : 'Verified Member',
+                  senderPhoto: typeof sender === 'object' ? sender.photo : null,
+                  timestamp: Date.now()
+                }
+              }).catch(() => {});
+              setTimeout(() => {
+                try { supabase.removeChannel(chn); } catch (e) {}
+              }, 3000);
+            }
+          });
+        } catch (e) {}
+      });
     }
 
-    // Broadcast update
+    // Broadcast update across tabs
     const updatePayload = {
       type: 'interest_status_change',
       payload: {
-        userAId: senderId,
-        userBId: receiverId,
+        userAId: String(senderId),
+        userBId: String(receiverId),
         status: 'pending'
       }
     };
@@ -375,8 +689,8 @@ class InterestService {
 
     records.push({
       id: `int_${Date.now()}`,
-      senderId,
-      receiverId,
+      senderId: String(senderId),
+      receiverId: String(receiverId),
       status: 'accepted',
       updatedAt: new Date().toISOString()
     });
@@ -386,31 +700,90 @@ class InterestService {
     try {
       const acceptedRaw = localStorage.getItem(`i4u_accepted_interests_${receiverId}`) || localStorage.getItem('i4u_accepted_interests');
       const list = acceptedRaw ? JSON.parse(acceptedRaw) : [];
-      if (!list.includes(senderId)) list.push(senderId);
+      if (!list.includes(String(senderId))) list.push(String(senderId));
       localStorage.setItem(`i4u_accepted_interests_${receiverId}`, JSON.stringify(list));
       localStorage.setItem('i4u_accepted_interests', JSON.stringify(list));
     } catch (e) {}
 
-    // Save to Supabase if table exists
+    // Save to Supabase 'interests' table
     if (isSupabaseConfigured() && supabase) {
       try {
         await supabase.from('interests').upsert([
           {
-            sender_id: senderId,
-            receiver_id: receiverId,
+            sender_id: String(senderId),
+            receiver_id: String(receiverId),
             status: 'accepted',
             updated_at: new Date().toISOString()
           }
         ]);
       } catch (e) {}
+
+      // Insert notification for original sender
+      try {
+        const receiverName = typeof receiver === 'object' ? receiver.name : 'A Candidate';
+        await supabase.from('notifications').insert([
+          {
+            recipient_id: String(senderId),
+            recipient_register_id: sender?.register_id || sender?.registerId || null,
+            type: 'interest_accepted',
+            title: `Interest Accepted by ${receiverName}! 🎉`,
+            message: `${receiverName} accepted your interest! Voice and video calling is now unlocked.`,
+            metadata: {
+              responderId: String(receiverId),
+              responderName: receiverName
+            },
+            is_read: false,
+            created_at: new Date().toISOString()
+          }
+        ]);
+      } catch (e) {}
+
+      // Broadcast on Supabase channels
+      const targetIds = [senderId, sender?.register_id, sender?.registerId].filter(Boolean);
+      targetIds.forEach((sid) => {
+        try {
+          const syncChannel = supabase.channel(`user-call-inbox-${sid}`);
+          syncChannel.subscribe((chnStatus) => {
+            if (chnStatus === 'SUBSCRIBED') {
+              syncChannel.send({
+                type: 'broadcast',
+                event: 'interest-accepted',
+                payload: {
+                  responderId: String(receiverId),
+                  status: 'accepted',
+                  timestamp: Date.now()
+                }
+              }).catch(() => {});
+              setTimeout(() => { try { supabase.removeChannel(syncChannel); } catch (e) {} }, 3000);
+            }
+          });
+
+          const intChannel = supabase.channel(`user-interest-inbox-${sid}`);
+          intChannel.subscribe((chnStatus) => {
+            if (chnStatus === 'SUBSCRIBED') {
+              intChannel.send({
+                type: 'broadcast',
+                event: 'interest-accepted',
+                payload: {
+                  userAId: String(receiverId),
+                  userBId: String(senderId),
+                  status: 'accepted',
+                  timestamp: Date.now()
+                }
+              }).catch(() => {});
+              setTimeout(() => { try { supabase.removeChannel(intChannel); } catch (e) {} }, 3000);
+            }
+          });
+        } catch (e) {}
+      });
     }
 
     // Broadcast realtime event across tabs and channels
     const updatePayload = {
       type: 'interest_status_change',
       payload: {
-        userAId: receiverId,
-        userBId: senderId,
+        userAId: String(receiverId),
+        userBId: String(senderId),
         status: 'accepted'
       }
     };
@@ -418,22 +791,6 @@ class InterestService {
       try { this.crossTabChannel.postMessage(updatePayload); } catch (e) {}
     }
     this.notifyListeners(updatePayload.payload);
-
-    // Also broadcast on Supabase channel for cross-device updates
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        const syncChannel = supabase.channel(`user-call-inbox-${senderId}`);
-        syncChannel.send({
-          type: 'broadcast',
-          event: 'interest-accepted',
-          payload: {
-            responderId: receiverId,
-            status: 'accepted',
-            timestamp: Date.now()
-          }
-        }).catch(() => {});
-      } catch (e) {}
-    }
   }
 
   /**
@@ -456,19 +813,33 @@ class InterestService {
 
     records.push({
       id: `int_${Date.now()}`,
-      senderId,
-      receiverId,
+      senderId: String(senderId),
+      receiverId: String(receiverId),
       status: 'rejected',
       updatedAt: new Date().toISOString()
     });
     this.saveLocalRecords(records);
 
+    // Update Supabase
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('interests').upsert([
+          {
+            sender_id: String(senderId),
+            receiver_id: String(receiverId),
+            status: 'rejected',
+            updated_at: new Date().toISOString()
+          }
+        ]);
+      } catch (e) {}
+    }
+
     // Broadcast update
     const updatePayload = {
       type: 'interest_status_change',
       payload: {
-        userAId: receiverId,
-        userBId: senderId,
+        userAId: String(receiverId),
+        userBId: String(senderId),
         status: 'rejected'
       }
     };

@@ -77,13 +77,50 @@ export default function MobileChatScreen({
     });
   }, [profiles, currentUser, targetCandidateGender]);
 
-  // Conversations List Profiles (Strictly Opposite Gender Matches with real messages)
+  // Conversations List Profiles (Opposite Gender Matches or any profile with active conversation messages)
   const chatProfiles = useMemo(() => {
-    return validProfiles.filter(p => conversations.some(c => c.profileId === p.id && c.messages?.length > 0));
-  }, [validProfiles, conversations]);
+    const list = [];
+    const seenIds = new Set();
 
-  const activeProfile = validProfiles.find(p => p.id === activeProfileId || p.register_id === activeProfileId || p.registerId === activeProfileId) 
-    || profiles.find(p => p.id === activeProfileId || p.register_id === activeProfileId || p.registerId === activeProfileId) 
+    conversations.forEach(c => {
+      if (!c.profileId || !Array.isArray(c.messages) || c.messages.length === 0) return;
+      const pid = String(c.profileId);
+      if (currentUser && (pid === String(currentUser.id) || pid === String(currentUser.register_id))) return;
+
+      const matchedProfile = profiles.find(p => 
+        String(p.id) === pid || 
+        (p.register_id && String(p.register_id) === pid) ||
+        (p.registerId && String(p.registerId) === pid)
+      );
+
+      const profileToAdd = matchedProfile || {
+        id: pid,
+        name: 'Member ' + pid,
+        photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+        city: 'India',
+        gunasMatch: '28/36 Gunas',
+        matchScore: 85
+      };
+
+      if (!seenIds.has(String(profileToAdd.id))) {
+        seenIds.add(String(profileToAdd.id));
+        list.push(profileToAdd);
+      }
+    });
+
+    return list;
+  }, [profiles, currentUser, conversations]);
+
+  const activeProfile = validProfiles.find(p => 
+    String(p.id) === String(activeProfileId) || 
+    (p.register_id && String(p.register_id) === String(activeProfileId)) || 
+    (p.registerId && String(p.registerId) === String(activeProfileId))
+  ) 
+    || profiles.find(p => 
+      String(p.id) === String(activeProfileId) || 
+      (p.register_id && String(p.register_id) === String(activeProfileId)) || 
+      (p.registerId && String(p.registerId) === String(activeProfileId))
+    ) 
     || validProfiles[0] 
     || {
       id: activeProfileId || 'placeholder',
@@ -126,7 +163,12 @@ export default function MobileChatScreen({
     }
   };
 
-  const existingConv = conversations.find(c => c.profileId === activeProfile.id || c.profileId === activeProfileId);
+  const existingConv = conversations.find(c => 
+    String(c.profileId) === String(activeProfile.id) || 
+    String(c.profileId) === String(activeProfileId) ||
+    (activeProfile?.register_id && String(c.profileId) === String(activeProfile.register_id)) ||
+    (activeProfile?.registerId && String(c.profileId) === String(activeProfile.registerId))
+  );
   const activeConv = existingConv || {
     profileId: activeProfile.id,
     unreadCount: 0,

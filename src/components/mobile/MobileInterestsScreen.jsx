@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Heart, 
   Send, 
@@ -9,19 +9,21 @@ import {
   MapPin, 
   ShieldCheck,
   UserCheck,
-  Lock
+  Lock,
+  Clock
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { getTargetCandidateGender, isCandidateMatchingTarget, normalizeGender } from '../../utils/genderMatch';
 import { getAppMode } from '../../config/appConfig';
+import { interestService } from '../../services/interestService';
 
 export default function MobileInterestsScreen({
-  profiles,
+  profiles = [],
   currentUser,
   onOpenLogin,
-  interestsSent,
+  interestsSent = [],
   onToggleInterest,
-  shortlisted,
+  shortlisted = [],
   onToggleShortlist,
   onSelectProfile,
   onStartChat,
@@ -35,6 +37,44 @@ export default function MobileInterestsScreen({
   const { triggerScreenshotBlock, screenshotRestricted } = usePhotoPrivacy();
   const [internalSegment, setInternalSegment] = useState('sent'); // 'sent' | 'received' | 'shortlist'
   const [localDeclinedIds, setLocalDeclinedIds] = useState([]);
+  const [liveReceivedInterests, setLiveReceivedInterests] = useState([]);
+  const [isLoadingReceived, setIsLoadingReceived] = useState(false);
+
+  // Fetch received interests on component mount and subscribe to real-time incoming events
+  useEffect(() => {
+    if (!currentUser) return;
+    const userId = currentUser.id || currentUser.register_id || currentUser.registerId;
+    console.log(`Fetching received interests for user: [${userId}]`);
+
+    let isMounted = true;
+    setIsLoadingReceived(true);
+
+    interestService.getReceivedInterests(currentUser, profiles)
+      .then((records) => {
+        if (isMounted) {
+          console.log(`Found [${records.length}] records for receiver`);
+          setLiveReceivedInterests(records);
+          setIsLoadingReceived(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('[MobileInterestsScreen] Error fetching received interests:', err);
+        if (isMounted) setIsLoadingReceived(false);
+      });
+
+    // Real-time listener for incoming interest alerts
+    const unsub = interestService.subscribeToInterestInbox(currentUser, (payload) => {
+      console.log('[MobileInterestsScreen] Real-time incoming interest event received:', payload);
+      interestService.getReceivedInterests(currentUser, profiles).then((records) => {
+        if (isMounted) setLiveReceivedInterests(records);
+      });
+    });
+
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId, profiles]);
 
   // If user is not logged in, display the Login Required screen immediately
   if (!currentUser) {
@@ -98,15 +138,73 @@ export default function MobileInterestsScreen({
 
   const sentProfiles = oppositeGenderProfiles.filter(p => isProfileInList(p, interestsSent));
   const shortlistedProfiles = oppositeGenderProfiles.filter(p => isProfileInList(p, shortlisted));
-  const receivedProfiles = oppositeGenderProfiles.filter(p => 
-    (initialReceivedCandidateIds.includes(p.id) || (p.registerId && initialReceivedCandidateIds.includes(p.registerId))) &&
-    !isProfileInList(p, effectiveDeclinedIds) &&
-    !isProfileInList(p, interestsSent)
-  );
+
+  // Build real received candidate profiles from live backend query
+  const receivedProfiles = useMemo(() => {
+    const list = [];
+    const seenIds = new Set();
+
+    // 1. Process live received interests from Supabase / interestService
+    if (Array.isArray(liveReceivedInterests) && liveReceivedInterests.length > 0) {
+      liveReceivedInterests.forEach((rec) => {
+        const sid = String(rec.senderId || rec.sender_id);
+        if (rec.status === 'rejected') return;
+        if (effectiveDeclinedIds.some(id => String(id) === sid)) return;
+        if (interestsSent.some(id => String(id) === sid) && rec.status !== 'pending') return;
+
+        // Lookup profile in all profiles
+        const matching = profiles.find((p) =>
+          String(p.id) === sid ||
+          (p.register_id && String(p.register_id) === sid) ||
+          (p.registerId && String(p.registerId) === sid)
+        );
+
+        const base = matching || rec.sender || {
+          id: sid,
+          name: 'Verified Member',
+          photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
+          age: 26,
+          city: 'India',
+          gunasMatch: '28/36 Gunas',
+          matchScore: 88
+        };
+
+        const item = {
+          ...base,
+          interestMessage: rec.message || '',
+          interestId: rec.id,
+          interestStatus: rec.status || 'pending',
+          interestCreatedAt: rec.created_at || rec.createdAt
+        };
+
+        if (!seenIds.has(String(item.id))) {
+          seenIds.add(String(item.id));
+          list.push(item);
+        }
+      });
+    }
+
+    // 2. Demo fallback if no remote records and not in production app mode
+    if (list.length === 0 && !getAppMode()) {
+      initialReceivedCandidateIds.forEach((id) => {
+        const p = oppositeGenderProfiles.find((prof) => prof.id === id || prof.registerId === id);
+        if (p && !isProfileInList(p, effectiveDeclinedIds) && !isProfileInList(p, interestsSent)) {
+          if (!seenIds.has(String(p.id))) {
+            seenIds.add(String(p.id));
+            list.push(p);
+          }
+        }
+      });
+    }
+
+    return list;
+  }, [liveReceivedInterests, profiles, effectiveDeclinedIds, interestsSent, initialReceivedCandidateIds, oppositeGenderProfiles]);
+
   const declinedProfiles = oppositeGenderProfiles.filter(p => effectiveDeclinedIds.includes(p.id));
 
   const handleDecline = (profileId, profileName) => {
     setLocalDeclinedIds(prev => (prev.includes(profileId) ? prev : [...prev, profileId]));
+    setLiveReceivedInterests(prev => prev.filter(r => String(r.senderId || r.sender_id) !== String(profileId)));
     if (onDeclineReceivedInterest) {
       onDeclineReceivedInterest(profileId);
     }
@@ -116,6 +214,18 @@ export default function MobileInterestsScreen({
     setLocalDeclinedIds(prev => prev.filter(id => id !== profileId));
     if (onUndoDeclineReceivedInterest) {
       onUndoDeclineReceivedInterest(profileId);
+    }
+  };
+
+  const handleAccept = (profileId) => {
+    setLiveReceivedInterests(prev =>
+      prev.map(r => String(r.senderId || r.sender_id) === String(profileId) ? { ...r, status: 'accepted' } : r)
+    );
+    if (onAcceptReceivedInterest) {
+      onAcceptReceivedInterest(profileId);
+    } else {
+      onToggleInterest(profileId);
+      onStartChat?.(profileId);
     }
   };
 
@@ -217,19 +327,38 @@ export default function MobileInterestsScreen({
 
         {activeSegment === 'received' && (
           <>
-            {receivedProfiles.length === 0 ? (
-              <div className="py-12 px-6 text-center bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 mx-auto flex items-center justify-center">
-                  <Check className="w-6 h-6 stroke-[2.5]" />
+            {isLoadingReceived && receivedProfiles.length === 0 ? (
+              <div className="space-y-3">
+                {[1, 2].map((k) => (
+                  <div key={k} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 animate-pulse">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-14 h-14 rounded-2xl bg-slate-200" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-slate-200 rounded w-1/2" />
+                        <div className="h-3 bg-slate-100 rounded w-1/3" />
+                        <div className="h-3 bg-slate-100 rounded w-1/4" />
+                      </div>
+                    </div>
+                    <div className="flex space-x-2 pt-2 border-t border-slate-100">
+                      <div className="flex-1 h-9 bg-slate-200 rounded-xl" />
+                      <div className="w-24 h-9 bg-slate-100 rounded-xl" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : receivedProfiles.length === 0 ? (
+              <div className="py-14 px-6 text-center bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 text-[#DFB76C] mx-auto flex items-center justify-center">
+                  <Heart className="w-7 h-7 stroke-[2]" />
                 </div>
-                <h4 className="font-serif font-bold text-sm text-slate-900">All Received Interests Handled</h4>
+                <h4 className="font-serif font-bold text-base text-slate-900">No requests yet</h4>
                 <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                  You have responded to all incoming matrimonial connection requests. New interests from compatible matches will show up here.
+                  When members review your profile and send connection requests, they will appear here for you to accept or decline.
                 </p>
               </div>
             ) : (
               receivedProfiles.map(p => (
-                <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-3 shadow-sm transition-all">
+                <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-3 shadow-sm transition-all hover:border-amber-300">
                   <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onSelectProfile(p)}>
                     <img 
                       src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
@@ -253,24 +382,26 @@ export default function MobileInterestsScreen({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-1.5">
                         <h4 className="font-serif font-bold text-sm text-slate-900 truncate">{p.name}</h4>
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        {p.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
                       </div>
                       <p className="text-[11px] text-slate-500">{p.age} yrs • {p.district || p.city}{p.state ? `, ${p.state}` : ''}</p>
-                      <p className="text-[11px] font-bold text-[#8C6D1F] mt-0.5">{p.gunasMatch} ({p.matchScore}% Milan)</p>
+                      <p className="text-[11px] text-slate-500 truncate">{p.profession || 'Professional'}{p.education ? ` • ${p.education}` : ''}</p>
+                      <p className="text-[11px] font-bold text-[#8C6D1F] mt-0.5">{p.gunasMatch || '28/36 Gunas'} ({p.matchScore || 88}% Milan)</p>
                     </div>
                   </div>
+
+                  {p.interestMessage && (
+                    <div className="bg-amber-50/80 border border-amber-200/70 rounded-xl p-2.5 text-xs text-amber-950 italic flex items-start gap-1.5">
+                      <span className="text-amber-500 font-bold not-italic text-sm leading-none">“</span>
+                      <span className="flex-1 not-italic text-[11px] text-slate-700 leading-snug">{p.interestMessage}</span>
+                      <span className="text-amber-500 font-bold not-italic text-sm leading-none">”</span>
+                    </div>
+                  )}
 
                   <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (onAcceptReceivedInterest) {
-                          onAcceptReceivedInterest(p.id);
-                        } else {
-                          onToggleInterest(p.id);
-                          onStartChat(p.id);
-                        }
-                      }}
+                      onClick={() => handleAccept(p.id)}
                       className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
                     >
                       <Check className="w-4 h-4 stroke-[3]" />
