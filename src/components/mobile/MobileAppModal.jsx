@@ -740,6 +740,7 @@ export default function MobileAppModal({
                       onStartVideoCall={onStartVideoCall}
                       onRequestSendInterest={onRequestSendInterest}
                       onToggleInterest={onToggleInterest}
+                      declinedReceivedIds={declinedReceivedIds}
                     />
                   )}
 

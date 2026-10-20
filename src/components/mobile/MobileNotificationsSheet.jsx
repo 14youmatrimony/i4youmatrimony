@@ -127,30 +127,84 @@ export default function MobileNotificationsSheet({
     return true;
   });
 
+  const isSelfProfile = (p) => {
+    if (!p || !currentUser) return false;
+    const uId = String(currentUser.id || '');
+    const uReg = String(currentUser.register_id || currentUser.registerId || '');
+    const pId = String(p.id || p.senderId || '');
+    const pReg = String(p.register_id || p.registerId || '');
+    if (uId && (pId === uId || pReg === uId)) return true;
+    if (uReg && (pId === uReg || pReg === uReg)) return true;
+    if (currentUser.mobile && (p.mobile === currentUser.mobile || p.phone === currentUser.mobile)) return true;
+    return false;
+  };
+
   const getProfile = (profileId, notif = null) => {
     if (!profileId && !notif) return null;
 
-    // 1. Direct ID match (check id, register_id, registerId)
-    if (profileId) {
+    const isUserMale = (currentUser?.gender || '').toLowerCase() === 'male';
+    const defaultPhoto = isUserMale
+      ? 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
+      : 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653762896.jpg';
+
+    // 1. Data Mapping: Check explicit sender or interest_from model on notification
+    const senderData = notif?.sender || notif?.interest_from || notif?.metadata?.sender || notif?.metadata?.interest_from;
+    const rawSenderId = notif?.senderId || senderData?.id || profileId;
+    const effectiveSenderId = (rawSenderId && !isSelfProfile({ id: rawSenderId })) ? rawSenderId : null;
+
+    // Direct ID match in profiles (strictly excluding currentUser to prevent state overlap)
+    if (effectiveSenderId) {
       const match = (profiles || []).find(p => 
-        p && (p.id === profileId || p.register_id === profileId || p.registerId === profileId)
+        p && !isSelfProfile(p) && (
+          String(p.id) === String(effectiveSenderId) || 
+          (p.register_id && String(p.register_id) === String(effectiveSenderId)) || 
+          (p.registerId && String(p.registerId) === String(effectiveSenderId))
+        )
       );
       if (match) return match;
     }
 
-    // 2. Name search if not found by ID
-    const searchString = `${notif?.title || ''} ${notif?.message || ''}`.toLowerCase();
-    if (searchString.trim()) {
+    // If sender or interest_from object is provided, construct the sender profile
+    if (senderData && typeof senderData === 'object' && !isSelfProfile(senderData)) {
+      const sPhoto = senderData.photo || senderData.avatar || senderData.photo_url || defaultPhoto;
+      return {
+        id: effectiveSenderId || senderData.id || `sender-${notif?.id}`,
+        name: senderData.name || senderData.senderName || 'Verified Member',
+        age: senderData.age || 26,
+        gender: senderData.gender || (isUserMale ? 'Female' : 'Male'),
+        profession: senderData.profession || notif?.badge || 'Professional',
+        city: senderData.city || senderData.location || senderData.district || 'Kerala',
+        district: senderData.district || senderData.city || 'Ernakulam',
+        state: senderData.state || 'Kerala',
+        photo: sPhoto,
+        singlePhotos: [sPhoto],
+        about: senderData.about || notif?.quote || notif?.message || 'Authentic matrimony verified profile',
+        verified: Boolean(senderData.verified || senderData.aadhaarVerified || senderData.aadhaar_verified),
+        aadhaarVerified: Boolean(senderData.aadhaarVerified || senderData.aadhaar_verified)
+      };
+    }
+
+    // 2. Extract sender name from title (e.g., "Interest from Arjun" -> "Arjun")
+    const extractSenderName = (title) => {
+      if (!title) return '';
+      return title
+        .replace(/^[💖💬⭐👁️🔔\s]+/, '')
+        .replace(/^(?:(?:New\s+)?(?:Matrimonial\s+)?Interest\s+from|New\s+Message\s+from)\s+/i, '')
+        .replace(/(?:\s+sent|\s+shortlisted|\s+&|\s+viewed|'s|\s+profile|[!💖💬⭐👁️🔔\s]).*$/i, '')
+        .trim();
+    };
+
+    const extractedName = extractSenderName(notif?.title);
+    if (extractedName) {
       const nameMatch = (profiles || []).find(p => 
-        p && p.name && searchString.includes(p.name.toLowerCase().trim())
+        p && !isSelfProfile(p) && p.name && p.name.trim().toLowerCase() === extractedName.toLowerCase()
       );
       if (nameMatch) return nameMatch;
     }
 
-    // 3. Match from profiles by opposite gender
-    const isUserMale = (currentUser?.gender || '').toLowerCase() === 'male';
+    // 3. Match from profiles by opposite gender (strictly excluding currentUser)
     const oppositeCandidates = (profiles || []).filter(p => {
-      if (!p || !p.id) return false;
+      if (!p || !p.id || isSelfProfile(p)) return false;
       const g = (p.gender || '').toLowerCase();
       return isUserMale ? (g === 'female' || g === 'woman') : (g === 'male' || g === 'man');
     });
@@ -161,27 +215,10 @@ export default function MobileNotificationsSheet({
       return oppositeCandidates[0];
     }
 
-    // 4. Any available profile in list
-    if (profiles && profiles.length > 0 && profiles[0]?.id) {
-      return profiles[0];
-    }
-
-    // 5. Fallback candidate object so profile sheet / chat never fails
-    let candidateName = 'Member';
-    if (notif?.title) {
-      const extracted = notif.title.replace(/New Message from\s*/i, '').match(/^([^!💬💖⭐👁️]+?)(?:\s+sent|\s+shortlisted|\s+&|\s+viewed|'s|\s+profile|$)/i);
-      if (extracted && extracted[1]) {
-        candidateName = extracted[1].trim();
-      }
-    }
-
-    const defaultPhoto = isUserMale
-      ? 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
-      : 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653762896.jpg';
-
+    // 4. Safe fallback candidate object with sender name - NEVER logged-in user
     return {
-      id: profileId || notif?.id || 'candidate-profile',
-      name: candidateName,
+      id: effectiveSenderId || notif?.id || 'candidate-profile',
+      name: extractedName || 'Verified Candidate',
       age: 26,
       gender: isUserMale ? 'Female' : 'Male',
       profession: notif?.badge || 'Verified Candidate',
@@ -201,20 +238,24 @@ export default function MobileNotificationsSheet({
       onMarkAsRead(notif.id);
     }
 
-    if (notif?.type === 'message_received') {
+    if (notif?.type === 'message_received' || notif?.type === 'chat_message' || notif?.type === 'message') {
       if (onOpenChat) {
-        onOpenChat(profile?.id || notif.profileId, notif.quote || notif.message);
+        onOpenChat(profile?.id || notif.senderId || notif.profileId, notif.quote || notif.message);
       }
     } else if (
       notif?.type === 'interest_received' || 
+      notif?.type === 'interest' || 
       notif?.type === 'contact_viewed' || 
+      notif?.type === 'contact' ||
       notif?.type === 'profile_shortlisted' || 
-      notif?.type === 'profile_visitor'
+      notif?.type === 'shortlist' ||
+      notif?.type === 'profile_visitor' ||
+      notif?.type === 'visitor'
     ) {
       if (onOpenProfile && profile) {
         onOpenProfile(profile);
-      } else if (onOpenChat && (profile?.id || notif.profileId)) {
-        onOpenChat(profile?.id || notif.profileId);
+      } else if (onOpenChat && (profile?.id || notif.senderId || notif.profileId)) {
+        onOpenChat(profile?.id || notif.senderId || notif.profileId);
       }
     } else {
       if (profile && onOpenProfile) {

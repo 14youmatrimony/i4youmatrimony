@@ -41,6 +41,7 @@ import IncomingCallModal from './components/calling/IncomingCallModal';
 import { webrtcCallService } from './services/webrtcCallService';
 import { liveChatService, deduplicateMessageList } from './services/liveChatService';
 import { interestService } from './services/interestService';
+import { computeUnreadMessagesCount } from './utils/conversationUtils';
 import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePromptModal';
 import { getAppMode, setAppMode, APP_CONFIG } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
