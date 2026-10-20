@@ -853,6 +853,21 @@ export default function App() {
     }
   }, [currentUser?.id]);
 
+  // Clean slate when navigating between tabs or away from chat
+  useEffect(() => {
+    if (activeTab !== 'chat') {
+      setActiveChatProfileId(null);
+      setIsDirectChatOpen(false);
+    }
+  }, [activeTab]);
+
+  // Clean slate on user identity change to strictly prevent data bleeding
+  useEffect(() => {
+    setActiveChatProfileId(null);
+    setSelectedProfile(null);
+    setIsDirectChatOpen(false);
+  }, [currentUser?.id]);
+
   // Root-level auth state listener: Synchronizes persistent authentication sessions & tokens across browser sessions and tabs
   useEffect(() => {
     const unsubscribe = initSupabaseAuthListener((event, session) => {
@@ -1438,6 +1453,8 @@ export default function App() {
     } catch (e) {}
     setCurrentUser(null);
     setSelectedProfile(null);
+    setActiveChatProfileId(null);
+    setIsDirectChatOpen(false);
     setConversations([]);
     setNotifications([]);
     setInterestsSent([]);
@@ -1886,24 +1903,29 @@ export default function App() {
     }
 
     const profile = profiles.find(p => p.id === profileId || p.register_id === profileId || p.registerId === profileId);
-    setActiveChatProfileId(profileId);
+    const targetId = String(profile?.id || profileId);
+    setActiveChatProfileId(targetId);
     setIsDirectChatOpen(true);
     setSelectedProfile(null);
     setCurrentScreen('app');
     setActiveTab('chat');
 
-    // Ensure a conversation thread exists for this profile
+    const convId = [String(currentUser.id), targetId].sort().join(':::');
+
+    // Ensure a conversation thread exists for this profile strictly isolated by targetId & conversation_id
     setConversations(prev => {
-      const existing = prev.find(c => c.profileId === profileId);
+      const existing = prev.find(c => String(c.profileId) === targetId);
       if (!existing) {
         return [...prev, {
-          profileId,
+          profileId: targetId,
+          conversation_id: convId,
+          partnerUser: profile || null,
           unreadCount: 0,
           messages: [],
           autoReplies: []
         }];
       } else {
-        return prev.map(c => c.profileId === profileId ? { ...c, unreadCount: 0 } : c);
+        return prev.map(c => String(c.profileId) === targetId ? { ...c, unreadCount: 0, partnerUser: profile || c.partnerUser, conversation_id: convId } : c);
       }
     });
   };
@@ -2584,9 +2606,23 @@ export default function App() {
     setCurrentUser(updatedUser);
     setInterestsSent(updatedUser.interestsSent || []);
     setShortlisted(updatedUser.shortlisted || []);
-    setConversations(getConversationsForUser(updatedUser));
+
+    // Strictly isolate conversations for real authenticated user (no demo mock bleed)
+    const uid = updatedUser.id || updatedUser.user_id || updatedUser.registerId;
+    let initialConvs = [];
+    try {
+      const cached = localStorage.getItem(`i4u_conversations_${uid}`);
+      if (cached) initialConvs = JSON.parse(cached);
+    } catch (e) {}
+    setConversations(Array.isArray(initialConvs) ? initialConvs : []);
+    liveChatService.fetchConversationsForUser(updatedUser, profiles).then((fresh) => {
+      if (Array.isArray(fresh)) setConversations(fresh);
+    }).catch(() => {});
+
     setNotifications(getNotificationsForUser(updatedUser, profiles));
     setActiveChatProfileId(null);
+    setSelectedProfile(null);
+    setIsDirectChatOpen(false);
     setCurrentScreen('app');
     setActiveTab('feed');
   };

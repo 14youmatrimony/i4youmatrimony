@@ -555,20 +555,29 @@ class LiveChatService {
 
     let messages = [];
 
-    // 1. Supabase messages table with strict two-way isolation
+    // 1. Supabase messages table with strict two-way isolation and active conversationId match
     if (isSupabaseConfigured() && supabase) {
       try {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .or(`and(sender_id.eq."${cId}",receiver_id.eq."${pId}"),and(sender_id.eq."${pId}",receiver_id.eq."${cId}")`)
-          .order('created_at', { ascending: true });
+        let query = supabase.from('messages').select('*');
+        if (conversationId) {
+          query = query.or(`conversation_id.eq."${conversationId}",and(sender_id.eq."${cId}",receiver_id.eq."${pId}"),and(sender_id.eq."${pId}",receiver_id.eq."${cId}")`);
+        } else {
+          query = query.or(`and(sender_id.eq."${cId}",receiver_id.eq."${pId}"),and(sender_id.eq."${pId}",receiver_id.eq."${cId}")`);
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: true });
 
         if (!error && Array.isArray(data)) {
-          // Gatekeeper validation: verify strictly belonging to this two-way pair
+          // Gatekeeper validation: verify strictly belonging to this two-way pair and not self-sent
           messages = data.filter((msg) => {
             const sid = String(msg.sender_id || '');
             const rid = String(msg.receiver_id || '');
+            if (!sid || !rid || sid === rid) return false;
+
+            const msgConvId = msg.conversation_id ? String(msg.conversation_id) : '';
+            if (conversationId && msgConvId && msgConvId === String(conversationId)) {
+              return true;
+            }
             const isValidPair = (sid === cId && rid === pId) || (sid === pId && rid === cId);
             return isValidPair;
           });
@@ -578,18 +587,26 @@ class LiveChatService {
       }
     }
 
-    // 2. Local storage messages strictly isolated to current user's profile
+    // 2. Local storage messages strictly isolated to current authenticated user and active conversation
     try {
       const localKey = `i4u_conversations_${cId}`;
       const raw = localStorage.getItem(localKey);
       if (raw) {
         const convs = JSON.parse(raw);
-        const conv = convs.find((c) => String(c.profileId) === pId);
+        const conv = convs.find((c) => 
+          (conversationId && String(c.conversation_id || c.conversationId) === String(conversationId)) ||
+          String(c.profileId) === pId ||
+          (c.partnerUser && String(c.partnerUser.id) === pId)
+        );
         if (conv && Array.isArray(conv.messages)) {
           conv.messages.forEach((localMsg) => {
             const sid = String(localMsg.sender_id || (localMsg.sender === 'me' ? cId : pId));
             const rid = String(localMsg.receiver_id || (localMsg.sender === 'me' ? pId : cId));
-            const isValidPair = (sid === cId && rid === pId) || (sid === pId && rid === cId);
+            if (!sid || !rid || sid === rid) return;
+
+            const msgConvId = localMsg.conversation_id ? String(localMsg.conversation_id) : '';
+            const matchesConv = conversationId && msgConvId && msgConvId === String(conversationId);
+            const isValidPair = matchesConv || (sid === cId && rid === pId) || (sid === pId && rid === cId);
             if (isValidPair) {
               const exists = messages.some((m) =>
                 (localMsg.id && (m.id === localMsg.id || m.tempId === localMsg.id)) ||
