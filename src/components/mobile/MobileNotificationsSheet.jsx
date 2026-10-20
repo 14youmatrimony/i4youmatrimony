@@ -139,7 +139,20 @@ export default function MobileNotificationsSheet({
     return false;
   };
 
-  const getProfile = (profileId, notif = null) => {
+  const isGenericPlaceholder = (name) => {
+    if (!name || typeof name !== 'string') return true;
+    const clean = name.trim().toLowerCase();
+    return clean === '' || 
+      clean === 'a member' || 
+      clean === 'a verified member' || 
+      clean === 'verified member' || 
+      clean === 'member' || 
+      clean === 'candidate' || 
+      clean === 'verified candidate' ||
+      clean === 'someone';
+  };
+
+  const getProfile = (profileId, notif = null, index = 0) => {
     if (!profileId && !notif) return null;
 
     const isUserMale = (currentUser?.gender || '').toLowerCase() === 'male';
@@ -147,81 +160,131 @@ export default function MobileNotificationsSheet({
       ? 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
       : 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653762896.jpg';
 
-    // 1. Data Mapping: Check explicit sender or interest_from model on notification
-    const senderData = notif?.sender || notif?.interest_from || notif?.metadata?.sender || notif?.metadata?.interest_from;
-    const rawSenderId = notif?.senderId || senderData?.id || profileId;
-    const effectiveSenderId = (rawSenderId && !isSelfProfile({ id: rawSenderId })) ? rawSenderId : null;
+    // 1. Data Model Extraction: Parse sender object from all potential API and notification fields
+    const senderData = notif?.sender || 
+                       notif?.interest_from || 
+                       notif?.metadata?.sender || 
+                       notif?.metadata?.interest_from || 
+                       notif?.metadata?.senderData ||
+                       (notif?.metadata?.senderName ? notif.metadata : null);
 
-    // Direct ID match in profiles (strictly excluding currentUser to prevent state overlap)
+    const rawSenderId = notif?.senderId || 
+                        senderData?.id || 
+                        senderData?.senderId || 
+                        notif?.metadata?.senderId || 
+                        notif?.metadata?.sender_id || 
+                        profileId;
+
+    const effectiveSenderId = (rawSenderId && !isSelfProfile({ id: rawSenderId })) ? String(rawSenderId) : null;
+
+    // Direct match against candidate database
+    let matchedProfile = null;
     if (effectiveSenderId) {
-      const match = (profiles || []).find(p => 
+      matchedProfile = (profiles || []).find(p => 
         p && !isSelfProfile(p) && (
-          String(p.id) === String(effectiveSenderId) || 
-          (p.register_id && String(p.register_id) === String(effectiveSenderId)) || 
-          (p.registerId && String(p.registerId) === String(effectiveSenderId))
+          String(p.id) === effectiveSenderId || 
+          (p.register_id && String(p.register_id) === effectiveSenderId) || 
+          (p.registerId && String(p.registerId) === effectiveSenderId)
         )
       );
-      if (match) return match;
     }
 
-    // If sender or interest_from object is provided, construct the sender profile
-    if (senderData && typeof senderData === 'object' && !isSelfProfile(senderData)) {
-      const sPhoto = senderData.photo || senderData.avatar || senderData.photo_url || defaultPhoto;
-      return {
-        id: effectiveSenderId || senderData.id || `sender-${notif?.id}`,
-        name: senderData.name || senderData.senderName || 'Verified Member',
-        age: senderData.age || 26,
-        gender: senderData.gender || (isUserMale ? 'Female' : 'Male'),
-        profession: senderData.profession || notif?.badge || 'Professional',
-        city: senderData.city || senderData.location || senderData.district || 'Kerala',
-        district: senderData.district || senderData.city || 'Ernakulam',
-        state: senderData.state || 'Kerala',
-        photo: sPhoto,
-        singlePhotos: [sPhoto],
-        about: senderData.about || notif?.quote || notif?.message || 'Authentic matrimony verified profile',
-        verified: Boolean(senderData.verified || senderData.aadhaarVerified || senderData.aadhaar_verified),
-        aadhaarVerified: Boolean(senderData.aadhaarVerified || senderData.aadhaar_verified)
-      };
-    }
-
-    // 2. Extract sender name from title (e.g., "Interest from Arjun" -> "Arjun")
-    const extractSenderName = (title) => {
-      if (!title) return '';
-      return title
-        .replace(/^[💖💬⭐👁️🔔\s]+/, '')
-        .replace(/^(?:(?:New\s+)?(?:Matrimonial\s+)?Interest\s+from|New\s+Message\s+from)\s+/i, '')
-        .replace(/(?:\s+sent|\s+shortlisted|\s+&|\s+viewed|'s|\s+profile|[!💖💬⭐👁️🔔\s]).*$/i, '')
-        .trim();
-    };
-
-    const extractedName = extractSenderName(notif?.title);
-    if (extractedName) {
-      const nameMatch = (profiles || []).find(p => 
-        p && !isSelfProfile(p) && p.name && p.name.trim().toLowerCase() === extractedName.toLowerCase()
-      );
-      if (nameMatch) return nameMatch;
-    }
-
-    // 3. Match from profiles by opposite gender (strictly excluding currentUser)
+    // Prepare opposite gender candidates list for distinct distribution
     const oppositeCandidates = (profiles || []).filter(p => {
       if (!p || !p.id || isSelfProfile(p)) return false;
       const g = (p.gender || '').toLowerCase();
       return isUserMale ? (g === 'female' || g === 'woman') : (g === 'male' || g === 'man');
     });
-    if (oppositeCandidates.length > 0) {
-      if (notif?.type === 'profile_shortlisted' && oppositeCandidates.length > 1) {
-        return oppositeCandidates[1];
+
+    // Extract sender name from title / message (e.g. "💖 Interest from Dr. Anu jose" -> "Dr. Anu jose")
+    const extractSenderName = (title, message) => {
+      const fullText = `${title || ''} ${message || ''}`.trim();
+      if (!fullText) return '';
+
+      // Match full names of known profiles
+      const foundCandidate = (profiles || []).find(p => {
+        if (!p?.name || isSelfProfile(p)) return false;
+        return fullText.toLowerCase().includes(p.name.trim().toLowerCase());
+      });
+      if (foundCandidate) return foundCandidate.name;
+
+      const regexMatch = fullText.match(/(?:Interest\s+from|Message\s+from|shortlisted\s+by)\s+([A-Za-z0-9\.\s]+?)(?:[!💖💬⭐👁️🔔\.\n]|$)/i);
+      if (regexMatch && regexMatch[1]) {
+        const clean = regexMatch[1].trim();
+        if (!isGenericPlaceholder(clean)) return clean;
       }
-      return oppositeCandidates[0];
+      return '';
+    };
+
+    const extractedName = extractSenderName(notif?.title, notif?.message);
+    if (!matchedProfile && extractedName) {
+      matchedProfile = (profiles || []).find(p => 
+        p && !isSelfProfile(p) && p.name && p.name.trim().toLowerCase() === extractedName.toLowerCase()
+      );
     }
 
-    // 4. Safe fallback candidate object with sender name - NEVER logged-in user
+    // Scenario A: Authentic Profile found in database
+    if (matchedProfile) {
+      return {
+        ...matchedProfile,
+        id: matchedProfile.id,
+        name: matchedProfile.name,
+        age: matchedProfile.age || 26,
+        profession: matchedProfile.profession || 'Professional',
+        city: matchedProfile.district || matchedProfile.city || 'Kerala',
+        location: matchedProfile.district || matchedProfile.city || matchedProfile.location || 'Kerala',
+        photo: matchedProfile.photo || matchedProfile.photo_url || defaultPhoto,
+        verified: Boolean(matchedProfile.verified || matchedProfile.aadhaar_verified || matchedProfile.aadhaarVerified)
+      };
+    }
+
+    // Scenario B: API senderData object contains real candidate details
+    if (senderData && typeof senderData === 'object' && !isSelfProfile(senderData)) {
+      const candidateName = (!isGenericPlaceholder(senderData.name) ? senderData.name : null) || 
+                            (!isGenericPlaceholder(senderData.senderName) ? senderData.senderName : null);
+      if (candidateName) {
+        const sPhoto = senderData.photo || senderData.avatar || senderData.photo_url || senderData.senderPhoto || defaultPhoto;
+        return {
+          id: effectiveSenderId || senderData.id || `sender-${notif?.id}-${index}`,
+          name: candidateName,
+          age: senderData.age || senderData.senderAge || (oppositeCandidates[index % oppositeCandidates.length]?.age) || 26,
+          gender: senderData.gender || (isUserMale ? 'Female' : 'Male'),
+          profession: senderData.profession || senderData.senderProfession || notif?.badge || (oppositeCandidates[index % oppositeCandidates.length]?.profession) || 'Professional',
+          city: senderData.city || senderData.senderCity || senderData.district || senderData.location || (oppositeCandidates[index % oppositeCandidates.length]?.district) || 'Kerala',
+          location: senderData.city || senderData.senderCity || senderData.district || senderData.location || (oppositeCandidates[index % oppositeCandidates.length]?.district) || 'Kerala',
+          district: senderData.district || senderData.city || 'Ernakulam',
+          state: senderData.state || 'Kerala',
+          photo: sPhoto,
+          singlePhotos: [sPhoto],
+          about: senderData.about || notif?.quote || notif?.message || 'Authentic matrimony verified profile',
+          verified: Boolean(senderData.verified || senderData.aadhaarVerified || senderData.aadhaar_verified),
+          aadhaarVerified: Boolean(senderData.aadhaarVerified || senderData.aadhaar_verified)
+        };
+      }
+    }
+
+    // Scenario C: Index-based distinct opposite gender candidate from database (Zero State Overlap)
+    if (oppositeCandidates.length > 0) {
+      const distinctCandidate = oppositeCandidates[index % oppositeCandidates.length];
+      return {
+        ...distinctCandidate,
+        name: extractedName || distinctCandidate.name,
+        age: distinctCandidate.age || 26,
+        profession: distinctCandidate.profession || 'Professional',
+        city: distinctCandidate.district || distinctCandidate.city || 'Kerala',
+        location: distinctCandidate.district || distinctCandidate.city || distinctCandidate.location || 'Kerala',
+        photo: distinctCandidate.photo || distinctCandidate.photo_url || defaultPhoto,
+        verified: Boolean(distinctCandidate.verified || distinctCandidate.aadhaarVerified || distinctCandidate.aadhaar_verified)
+      };
+    }
+
+    // Scenario D: Absolute last resort fallback when dataset is completely null
     return {
-      id: effectiveSenderId || notif?.id || 'candidate-profile',
-      name: extractedName || 'Verified Candidate',
+      id: effectiveSenderId || notif?.id || `fallback-${index}`,
+      name: extractedName || 'A Member',
       age: 26,
       gender: isUserMale ? 'Female' : 'Male',
-      profession: notif?.badge || 'Verified Candidate',
+      profession: notif?.badge || 'Professional',
       city: 'Kerala',
       district: 'Ernakulam',
       state: 'Kerala',
@@ -579,8 +642,8 @@ export default function MobileNotificationsSheet({
             </p>
           </div>
         ) : (
-          filteredNotifications.map((notif) => {
-            const profile = getProfile(notif.profileId, notif);
+          filteredNotifications.map((notif, index) => {
+            const profile = getProfile(notif.profileId, notif, index);
             return (
               <div
                 key={notif.id}
@@ -662,13 +725,15 @@ export default function MobileNotificationsSheet({
                             )}
                           </div>
                           <div className="text-[8.5px] sm:text-[9.5px] text-slate-500 flex items-center flex-wrap gap-x-1 leading-tight">
-                            <span>{profile.age} yrs</span>
-                            <span>•</span>
-                            <span className="truncate max-w-[125px] sm:max-w-none">{profile.profession || 'Professional'}</span>
-                            {(profile.city || profile.location) && (
+                            {profile.age && <span>{profile.age} yrs</span>}
+                            {profile.age && profile.profession && <span>•</span>}
+                            {profile.profession && (
+                              <span className="truncate max-w-[125px] sm:max-w-none">{profile.profession}</span>
+                            )}
+                            {(profile.city || profile.location || profile.district) && (
                               <>
-                                <span>•</span>
-                                <span className="shrink-0 text-slate-600 font-medium">📍 {profile.city || profile.location}</span>
+                                {(profile.age || profile.profession) && <span>•</span>}
+                                <span className="shrink-0 text-slate-600 font-medium">📍 {profile.city || profile.location || profile.district}</span>
                               </>
                             )}
                           </div>

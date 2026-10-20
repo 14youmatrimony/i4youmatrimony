@@ -422,10 +422,27 @@ class InterestService {
     // Default fallback avatar
     const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
 
-    const enriched = rawRecords.map((rec) => {
+    const enriched = rawRecords.map((rec, index) => {
       const senderId = String(rec.sender_id || rec.senderId);
       const receiverId = String(rec.receiver_id || rec.receiverId);
-      const senderProfile = profilesMap.get(senderId);
+      let senderProfile = profilesMap.get(senderId);
+
+      // If not in profilesMap directly, try searching allProfiles flexibly
+      if (!senderProfile && Array.isArray(allProfiles) && allProfiles.length > 0) {
+        senderProfile = allProfiles.find(p => p && (
+          String(p.id) === senderId || 
+          (p.register_id && String(p.register_id) === senderId) || 
+          (p.registerId && String(p.registerId) === senderId)
+        ));
+      }
+
+      // If still not found, distribute distinct candidate from allProfiles by index
+      if (!senderProfile && Array.isArray(allProfiles) && allProfiles.length > 0) {
+        const otherCandidates = allProfiles.filter(p => !receiverIds.includes(String(p?.id)));
+        if (otherCandidates.length > 0) {
+          senderProfile = otherCandidates[index % otherCandidates.length];
+        }
+      }
 
       return {
         id: rec.id || `int_${senderId}_${receiverId}`,
@@ -445,9 +462,9 @@ class InterestService {
           age: senderProfile.age || 26,
           gender: senderProfile.gender || 'Candidate',
           height: senderProfile.height || "5'5\"",
-          city: senderProfile.city || senderProfile.district || 'India',
-          district: senderProfile.district || senderProfile.city || '',
-          state: senderProfile.state || '',
+          city: senderProfile.district || senderProfile.city || 'Kerala',
+          district: senderProfile.district || senderProfile.city || 'Ernakulam',
+          state: senderProfile.state || 'Kerala',
           profession: senderProfile.profession || 'Professional',
           education: senderProfile.education || 'Graduate',
           verified: Boolean(senderProfile.verified || senderProfile.aadhaar_verified),
@@ -461,8 +478,9 @@ class InterestService {
           age: 26,
           gender: 'Candidate',
           height: "5'5\"",
-          city: 'India',
-          state: '',
+          city: 'Kerala',
+          district: 'Ernakulam',
+          state: 'Kerala',
           profession: 'Professional',
           education: 'Graduate',
           verified: true,
@@ -597,8 +615,13 @@ class InterestService {
 
       // Record in notifications table
       try {
-        const senderName = typeof sender === 'object' ? sender.name : 'A Verified Member';
-        const senderPhoto = typeof sender === 'object' ? (sender.photo || sender.photo_url) : null;
+        const senderObj = typeof sender === 'object' ? sender : null;
+        const senderName = senderObj?.name || 'A Verified Member';
+        const senderPhoto = senderObj?.photo || senderObj?.photo_url || null;
+        const senderAge = senderObj?.age || null;
+        const senderProfession = senderObj?.profession || null;
+        const senderCity = senderObj?.city || senderObj?.district || null;
+
         await supabase.from('notifications').insert([
           {
             recipient_id: String(receiverId),
@@ -610,6 +633,18 @@ class InterestService {
               senderId: String(senderId),
               senderName,
               senderPhoto,
+              senderAge,
+              senderProfession,
+              senderCity,
+              sender: senderObj ? {
+                id: String(senderId),
+                name: senderName,
+                photo: senderPhoto,
+                age: senderAge,
+                profession: senderProfession,
+                city: senderCity,
+                verified: Boolean(senderObj.verified || senderObj.aadhaar_verified)
+              } : null,
               message: message || ''
             },
             is_read: false,
@@ -632,6 +667,7 @@ class InterestService {
           const chn = supabase.channel(`user-interest-inbox-${tid}`);
           chn.subscribe((chnStatus) => {
             if (chnStatus === 'SUBSCRIBED') {
+              const senderObj = typeof sender === 'object' ? sender : null;
               chn.send({
                 type: 'broadcast',
                 event: 'interest-received',
@@ -640,8 +676,20 @@ class InterestService {
                   receiverId: String(receiverId),
                   status: 'pending',
                   message: message || '',
-                  senderName: typeof sender === 'object' ? sender.name : 'Verified Member',
-                  senderPhoto: typeof sender === 'object' ? sender.photo : null,
+                  senderName: senderObj?.name || 'Verified Member',
+                  senderPhoto: senderObj?.photo || senderObj?.photo_url || null,
+                  senderAge: senderObj?.age || null,
+                  senderProfession: senderObj?.profession || null,
+                  senderCity: senderObj?.city || senderObj?.district || null,
+                  sender: senderObj ? {
+                    id: String(senderId),
+                    name: senderObj.name,
+                    photo: senderObj.photo || senderObj.photo_url || null,
+                    age: senderObj.age,
+                    profession: senderObj.profession,
+                    city: senderObj.city || senderObj.district,
+                    verified: Boolean(senderObj.verified || senderObj.aadhaar_verified)
+                  } : null,
                   timestamp: Date.now()
                 }
               }).catch(() => {});

@@ -1093,15 +1093,20 @@ export default function App() {
                 (n) => n.id === notifId || n.id === rec.id || (n.type === 'interest' && String(n.profileId) === String(rec.senderId))
               );
               if (!exists) {
+                const sId = String(rec.senderId || rec.sender_id || '');
+                const matchedSender = (profiles || []).find(p => p && (String(p.id) === sId || String(p.register_id) === sId || String(p.registerId) === sId));
+                const senderObj = matchedSender || rec.sender || rec.interest_from;
+                const senderDisplayName = senderObj?.name || rec.sender?.name || 'Verified Member';
+
                 list.unshift({
                   id: notifId,
-                  profileId: rec.senderId,
-                  senderId: rec.senderId,
-                  sender: rec.sender || rec.interest_from,
-                  interest_from: rec.sender || rec.interest_from,
+                  profileId: sId,
+                  senderId: sId,
+                  sender: senderObj,
+                  interest_from: senderObj,
                   type: 'interest',
-                  title: `💖 Interest from ${rec.sender.name}`,
-                  message: rec.message || `${rec.sender.name} expressed interest in connecting with you.`,
+                  title: `💖 Interest from ${senderDisplayName}`,
+                  message: rec.message || `${senderDisplayName} expressed interest in connecting with you.`,
                   time: new Date(rec.created_at || rec.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                   isRead: false,
                   status: rec.status || 'pending',
@@ -1109,7 +1114,6 @@ export default function App() {
                 });
               }
             });
-            return list;
           });
         }
       })
@@ -1131,22 +1135,26 @@ export default function App() {
                 const notifId = `db_${row.id}`;
                 const exists = list.some((n) => n.id === notifId || n.id === row.id);
                 if (!exists) {
+                  const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.sender?.id || row.metadata?.interest_from?.id || row.sender_id || row.senderId || '');
+                  const matchedSender = (profiles || []).find(p => p && (String(p.id) === sId || String(p.register_id) === sId || String(p.registerId) === sId));
+                  const senderObj = matchedSender || row.metadata?.sender || row.metadata?.interest_from || (row.metadata?.senderName ? {
+                    id: sId,
+                    name: row.metadata.senderName,
+                    photo: row.metadata.senderPhoto || null,
+                    age: row.metadata.senderAge || row.metadata.age || null,
+                    profession: row.metadata.senderProfession || row.metadata.profession || null,
+                    city: row.metadata.senderCity || row.metadata.city || null
+                  } : null);
+                  const senderDisplayName = senderObj?.name || row.metadata?.senderName || 'Verified Member';
+
                   list.unshift({
                     id: notifId,
-                    profileId: (row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.sender?.id || row.metadata?.interest_from?.id || row.sender_id || row.senderId || null),
-                    senderId: (row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.sender?.id || row.metadata?.interest_from?.id || row.sender_id || row.senderId || null),
-                    sender: row.metadata?.sender || row.metadata?.interest_from || (row.metadata?.senderName ? {
-                      id: row.metadata?.senderId || row.metadata?.sender_id || null,
-                      name: row.metadata.senderName,
-                      photo: row.metadata.senderPhoto || null
-                    } : null),
-                    interest_from: row.metadata?.sender || row.metadata?.interest_from || (row.metadata?.senderName ? {
-                      id: row.metadata?.senderId || row.metadata?.sender_id || null,
-                      name: row.metadata.senderName,
-                      photo: row.metadata.senderPhoto || null
-                    } : null),
+                    profileId: sId || row.recipient_id,
+                    senderId: sId || row.recipient_id,
+                    sender: senderObj,
+                    interest_from: senderObj,
                     type: row.type === 'interest_received' ? 'interest' : (row.type === 'chat_message' ? 'message' : 'match'),
-                    title: row.title,
+                    title: row.title || `💖 Interest from ${senderDisplayName}`,
                     message: row.message,
                     time: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     isRead: row.is_read || false,
@@ -1165,29 +1173,29 @@ export default function App() {
     // 4. Real-time subscription to incoming interests
     const unsubInterest = interestService.subscribeToInterestInbox(currentUser, (payload) => {
       console.log('[App] Real-time interest incoming in App.jsx:', payload);
-      const senderName = payload.senderName || 'A Member';
-      showToast(`💖 New Interest from ${senderName}!`);
+      const sId = String(payload.senderId || payload.sender_id || '');
+      const matchedSender = (profiles || []).find(p => p && (String(p.id) === sId || String(p.register_id) === sId || String(p.registerId) === sId));
+      const senderObj = matchedSender || payload.sender || {
+        id: sId,
+        name: payload.senderName || 'Verified Member',
+        photo: payload.senderPhoto || null,
+        age: payload.senderAge || null,
+        profession: payload.senderProfession || null,
+        city: payload.senderCity || payload.senderDistrict || null
+      };
+      const senderDisplayName = senderObj?.name || 'Verified Member';
+      showToast(`💖 New Interest from ${senderDisplayName}!`);
 
       setNotifications((prev) => [
         {
           id: `live_int_${Date.now()}`,
-          profileId: payload.senderId,
-          senderId: payload.senderId,
-          sender: {
-            id: payload.senderId,
-            name: senderName,
-            photo: payload.senderPhoto || null,
-            message: payload.message || ''
-          },
-          interest_from: {
-            id: payload.senderId,
-            name: senderName,
-            photo: payload.senderPhoto || null,
-            message: payload.message || ''
-          },
+          profileId: sId,
+          senderId: sId,
+          sender: senderObj,
+          interest_from: senderObj,
           type: 'interest',
-          title: `💖 Interest from ${senderName}`,
-          message: payload.message || `${senderName} expressed interest in connecting with you.`,
+          title: `💖 Interest from ${senderDisplayName}`,
+          message: payload.message || `${senderDisplayName} expressed interest in connecting with you.`,
           time: 'Just now',
           isRead: false,
           status: 'pending',
