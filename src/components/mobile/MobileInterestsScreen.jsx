@@ -158,22 +158,32 @@ export default function MobileInterestsScreen({
     // 1. Process live received interests from Supabase / interestService
     if (Array.isArray(liveReceivedInterests) && liveReceivedInterests.length > 0) {
       liveReceivedInterests.forEach((rec) => {
-        const sid = String(rec.senderId || rec.sender_id);
-        if (rec.status === 'rejected') return;
+        const sid = String(rec.senderId || rec.sender_id || '');
+        if (!sid || rec.status === 'rejected') return;
+        // Never allow currentUser to be considered as sender (prevents state overlap!)
+        if (isSelfProfile({ id: sid })) return;
         if (effectiveDeclinedIds.some(id => String(id) === sid)) return;
         if (interestsSent.some(id => String(id) === sid) && rec.status !== 'pending') return;
 
-        // Lookup profile in all profiles
+        // Lookup profile in all profiles (strictly excluding currentUser!)
         const matching = profiles.find((p) =>
-          String(p.id) === sid ||
-          (p.register_id && String(p.register_id) === sid) ||
-          (p.registerId && String(p.registerId) === sid)
+          !isSelfProfile(p) && (
+            String(p.id) === sid ||
+            (p.register_id && String(p.register_id) === sid) ||
+            (p.registerId && String(p.registerId) === sid)
+          )
         );
 
-        const base = matching || rec.sender || {
+        // Data Mapping: Extract sender or interest_from details from API response
+        const senderData = rec.sender || rec.interest_from;
+        const defaultAvatar = isMaleUser 
+          ? 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
+          : 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653762896.jpg';
+
+        const base = matching || senderData || {
           id: sid,
           name: 'Verified Member',
-          photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
+          photo: defaultAvatar,
           age: 26,
           city: 'India',
           gunasMatch: '28/36 Gunas',
@@ -182,6 +192,14 @@ export default function MobileInterestsScreen({
 
         const item = {
           ...base,
+          id: base.id || sid,
+          name: base.name || senderData?.name || 'Verified Member',
+          age: base.age || senderData?.age || 26,
+          profession: base.profession || senderData?.profession || 'Professional',
+          city: base.city || base.district || senderData?.location || senderData?.city || 'India',
+          district: base.district || base.city || senderData?.district || '',
+          state: base.state || senderData?.state || '',
+          photo: base.photo || base.avatar || senderData?.photo || senderData?.avatar || defaultAvatar,
           interestMessage: rec.message || '',
           interestId: rec.id,
           interestStatus: rec.status || 'pending',
