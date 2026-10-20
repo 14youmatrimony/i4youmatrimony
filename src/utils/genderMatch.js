@@ -23,7 +23,7 @@ const KNOWN_FEMALE_FIRST_NAMES = new Set([
 ]);
 
 const KNOWN_MALE_FIRST_NAMES = new Set([
-  'nikhil', 'rohan', 'karthik', 'kartik', 'arjun', 'vikram', 'vikramaditya',
+  'nikhil', 'rohan', 'karthik', 'kartik', 'arjun', 'arun', 'amal', 'vikram', 'vikramaditya',
   'aditya', 'devendra', 'sunil', 'rahul', 'amit', 'mattayi', 'sachin',
   'varun', 'deepak', 'rajesh', 'manoj', 'suresh', 'ramesh', 'vishal',
   'vivek', 'anand', 'sanjay', 'pradeep', 'vijay', 'ashok', 'harish',

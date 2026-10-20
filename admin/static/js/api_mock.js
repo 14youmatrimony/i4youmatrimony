@@ -579,8 +579,16 @@
     if (!p) return true;
     const id = String(p.id || '').toLowerCase().trim();
     const name = String(p.name || '').toLowerCase().trim();
-    const phone = String(p.phone || p.mobile || '').replace(/\D/g, '');
-    if (p.isDemo === true || p.is_demo === true || p.isDemo === 'true') return true;
+
+    // 1. Explicit demo flag
+    if (p.isDemo === true || p.is_demo === true || p.isDemo === 'true' || p.is_demo === 'true') return true;
+
+    // 2. Real registered candidate IDs are authentic and never demo
+    if (id.startsWith('usr_') || id.startsWith('i4y')) {
+      return false;
+    }
+
+    // 3. Known demo/mock IDs
     if (
       /^p[0-9]+$/.test(id) ||
       id.startsWith('demo-') ||
@@ -597,37 +605,31 @@
       id === 'p_1791395066369' ||
       id === 'i4y1008_1791482054640'
     ) return true;
-    const demoNames = [
-      'mattayi', 'chakku', 'arjun', 'priya sharma', 'priya sharma (archived)',
-      'dr. ananya kulkarni', 'ananya kulkarni', 'aditya sengupta', 'meera nambiar',
-      'meera venkatraman', 'kabir oberoi', 'kabir singh sodhi', 'priyanka rathore',
-      'dr. siddharth nair', 'siddharth nair', 'tanvi deshmukh', 'rohan jayasimha',
-      'rohan mehta', 'rohan verma', 'simran kaur', 'sneha iyer', 'vikramaditya rao',
-      'priya deshmukh', 'arjun nambiar', 'tanvi chawla', 'aditya verma', 'meera bhatt',
-      'karthik reddy', 'sunil joshi', 'pooja agarwal', 'devendra patil', 'nikhil sharma',
-      'test candidate', 'test registration', 'test probe', 'supabase live test user', 'test sdk user',
-      'verified member', 'verified profile'
+
+    // 4. Match only explicit dummy test candidate names
+    const testDummyNames = [
+      'test candidate',
+      'test registration',
+      'test probe',
+      'supabase live test user',
+      'test sdk user',
+      'demo test'
     ];
-    if (demoNames.includes(name) || name === 'verified member' || name === 'verified profile' || name.startsWith('verified member')) return true;
-    const demoPhones = [
-      '9876543210', '9820145678', '9819012345', '9845012345', 
-      '9811098765', '9414034567', '9447056789', '9822067890', 
-      '9123456780', '9422018273', '9833411223', '9845099881',
-      '9900233445', '9823066778', '9745522119', '9811244556',
-      '9876512340', '9898033441', '9849088772', '9422155667',
-      '9830044112', '9822488990', '9872033221', '9810122334'
-    ];
-    if (demoPhones.includes(phone)) return true;
+    if (testDummyNames.includes(name)) return true;
+
     return false;
   }
 
-  const STORAGE_KEY = 'i4you_admin_store_v4';
+  const STORAGE_KEY = 'i4you_admin_store_v5';
 
-  // Proactively evict all legacy store versions from localStorage that contained mock profiles
+  // Proactively evict all legacy store versions from localStorage that contained mock profiles or outdated filtered sets
   try {
+    localStorage.removeItem('i4you_admin_store_v4');
     localStorage.removeItem('i4you_admin_store_v3');
     localStorage.removeItem('i4you_admin_store_v2');
     localStorage.removeItem('i4you_admin_store_v1');
+    localStorage.removeItem('i4u_cached_profiles');
+  } catch (e) {}
     localStorage.removeItem('i4u_cached_profiles');
   } catch (e) {}
 
@@ -1394,8 +1396,10 @@
             const matchPhone = (p.phone || '').includes(q);
             const matchCity = (p.city || '').toLowerCase().includes(q);
             const matchDistrict = (p.district || '').toLowerCase().includes(q);
+            const matchGender = (p.gender || '').toLowerCase().includes(q);
+            const matchProfession = (p.profession || '').toLowerCase().includes(q);
             const matchId = (p.id || '').toLowerCase().includes(q);
-            if (!matchName && !matchPhone && !matchCity && !matchDistrict && !matchId) return false;
+            if (!matchName && !matchPhone && !matchCity && !matchDistrict && !matchGender && !matchProfession && !matchId) return false;
           }
 
           if (status !== 'all') {
@@ -1403,7 +1407,19 @@
           }
 
           if (gender !== 'all') {
-            if ((p.gender || '').toLowerCase() !== gender) return false;
+            const pGen = (p.gender || '').toLowerCase().trim();
+            const filterGen = gender.toLowerCase().trim();
+            const isMaleFilter = ['male', 'gents', 'gent', 'men', 'man', 'm', 'groom'].includes(filterGen);
+            const isFemaleFilter = ['female', 'ladies', 'lady', 'women', 'woman', 'f', 'bride'].includes(filterGen);
+
+            const isProfileMale = ['male', 'gents', 'gent', 'men', 'man', 'm', 'groom'].includes(pGen) ||
+              (!pGen && ['arjun', 'amal', 'arun', 'nikhil', 'rohan', 'karthik', 'aditya'].some(n => (p.name || '').toLowerCase().includes(n)));
+            const isProfileFemale = ['female', 'ladies', 'lady', 'women', 'woman', 'f', 'bride'].includes(pGen) ||
+              (!pGen && ['priya', 'anu', 'akku', 'rosemol', 'tinu', 'anjana', 'amartha'].some(n => (p.name || '').toLowerCase().includes(n)));
+
+            if (isMaleFilter && !isProfileMale) return false;
+            if (isFemaleFilter && !isProfileFemale) return false;
+            if (!isMaleFilter && !isFemaleFilter && pGen !== filterGen) return false;
           }
 
           if (verified === 'pending_aadhaar' || verified === 'pending') {

@@ -485,9 +485,13 @@ export function isDemoProfile(p) {
   if (!p) return true;
   const id = String(p.id || '').toLowerCase().trim();
   const name = String(p.name || '').toLowerCase().trim();
-  const phone = String(p.phone || p.mobile || '').replace(/\D/g, '');
 
-  if (p.isDemo === true || p.is_demo === true || p.isDemo === 'true') return true;
+  if (p.isDemo === true || p.is_demo === true || p.isDemo === 'true' || p.is_demo === 'true') return true;
+
+  // Real registered candidate IDs must never be flagged as demo
+  if (id.startsWith('usr_') || id.startsWith('i4y')) {
+    return false;
+  }
 
   // Match demo IDs
   if (
@@ -509,60 +513,16 @@ export function isDemoProfile(p) {
     return true;
   }
 
-  // Match demo candidate names
-  const demoNames = [
-    'mattayi',
-    'chakku',
-    'arjun',
-    'priya sharma',
-    'priya sharma (archived)',
-    'dr. ananya kulkarni',
-    'ananya kulkarni',
-    'aditya sengupta',
-    'meera nambiar',
-    'meera venkatraman',
-    'kabir oberoi',
-    'kabir singh sodhi',
-    'priyanka rathore',
-    'dr. siddharth nair',
-    'siddharth nair',
-    'tanvi deshmukh',
-    'rohan jayasimha',
-    'rohan mehta',
-    'rohan verma',
-    'simran kaur',
-    'sneha iyer',
-    'vikramaditya rao',
-    'priya deshmukh',
-    'arjun nambiar',
-    'tanvi chawla',
-    'aditya verma',
-    'meera bhatt',
-    'karthik reddy',
-    'sunil joshi',
-    'pooja agarwal',
-    'devendra patil',
-    'nikhil sharma',
+  // Match only explicit dummy test candidate names
+  const testDummyNames = [
     'test candidate',
     'test registration',
     'test probe',
     'supabase live test user',
     'test sdk user',
-    'verified member',
-    'verified profile'
+    'demo test'
   ];
-  if (demoNames.includes(name) || name === 'verified member' || name === 'verified profile' || name.startsWith('verified member')) return true;
-
-  // Match demo phone numbers
-  const demoPhones = [
-    '9876543210', '9820145678', '9819012345', '9845012345', 
-    '9811098765', '9414034567', '9447056789', '9822067890', 
-    '9123456780', '9422018273', '9833411223', '9845099881',
-    '9900233445', '9823066778', '9745522119', '9811244556',
-    '9876512340', '9898033441', '9849088772', '9422155667',
-    '9830044112', '9822488990', '9872033221', '9810122334'
-  ];
-  if (demoPhones.includes(phone)) return true;
+  if (testDummyNames.includes(name)) return true;
 
   return false;
 }
@@ -584,16 +544,7 @@ export async function purgeDemoProfilesFromSupabase() {
     ];
     await supabase.from('profiles').delete().in('id', demoIds);
     await supabase.from('profiles').delete().in('name', [
-      'Mattayi', 'Chakku', 'arjun',
-      'Priya Sharma', 'Priya Sharma (Archived)', 'Dr. Ananya Kulkarni', 'Aditya Sengupta', 
-      'Meera Nambiar', 'Meera Venkatraman', 'Kabir Oberoi', 'Kabir Singh Sodhi',
-      'Priyanka Rathore', 'Dr. Siddharth Nair', 'Tanvi Deshmukh', 
-      'Rohan Jayasimha', 'Rohan Mehta', 'Rohan Verma', 'Simran Kaur',
-      'Sneha Iyer', 'Vikramaditya Rao', 'Priya Deshmukh', 'Arjun Nambiar',
-      'Tanvi Chawla', 'Aditya Verma', 'Meera Bhatt', 'Karthik Reddy',
-      'Sunil Joshi', 'Pooja Agarwal', 'Devendra Patil', 'Nikhil Sharma',
-      'Test Candidate', 'Test Registration', 'Test Probe', 'Supabase Live Test User', 'Test SDK User',
-      'Verified Member', 'Verified Profile'
+      'Test Candidate', 'Test Registration', 'Test Probe', 'Supabase Live Test User', 'Test SDK User'
     ]);
   } catch (err) {
     console.warn('[purgeDemoProfilesFromSupabase] Notice:', err);
