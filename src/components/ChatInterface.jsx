@@ -440,6 +440,22 @@ export default function ChatInterface({
                   onClick={() => {
                     setActiveProfileId(profile.id);
                     setMobileShowChat(true);
+
+                    // Mark conversation as read immediately on click
+                    setConversations(prev => (prev || []).map(c => {
+                      const pid = String(c.profileId);
+                      const isTarget = pid === String(profile.id) || 
+                        (profile.register_id && pid === String(profile.register_id)) ||
+                        (profile.registerId && pid === String(profile.registerId));
+                      if (isTarget) {
+                        return {
+                          ...c,
+                          unreadCount: 0,
+                          messages: (c.messages || []).map(m => ({ ...m, status: 'read' }))
+                        };
+                      }
+                      return c;
+                    }));
                   }}
                   className={`p-3.5 flex items-start space-x-3 cursor-pointer transition-colors ${
                     isSelected ? 'bg-amber-50/70 border-l-4 border-[#D4AF37]' : 'hover:bg-white'

@@ -121,9 +121,20 @@ export default function MobileInterestsScreen({
     ? currentUser.receivedInterests
     : (getAppMode() ? [] : (isMaleUser ? ['p1', 'p3', 'p5'] : ['p2', 'p4', 'p6']));
 
+  const isSelfProfile = (p) => {
+    if (!p || !currentUser) return false;
+    const uId = String(currentUser.id || '');
+    const uReg = String(currentUser.register_id || currentUser.registerId || '');
+    const pId = String(p.id || '');
+    const pReg = String(p.register_id || p.registerId || '');
+    if (uId && (pId === uId || pReg === uId)) return true;
+    if (uReg && (pId === uReg || pReg === uReg)) return true;
+    if (currentUser.mobile && (p.mobile === currentUser.mobile || p.phone === currentUser.mobile)) return true;
+    return false;
+  };
+
   const oppositeGenderProfiles = profiles.filter(p => {
-    if (currentUser?.id && p.id === currentUser.id) return false;
-    if (currentUser?.mobile && (p.mobile === currentUser.mobile || p.phone === currentUser.mobile)) return false;
+    if (isSelfProfile(p)) return false;
     return isCandidateMatchingTarget(p.gender, targetCandidateGender);
   });
 

@@ -848,7 +848,7 @@ export default function MobileNotificationsSheet({
                     )}
 
                     {/* Scenario 4: Message Received */}
-                    {notif?.type === 'message_received' && (
+                    {(notif?.type === 'message_received' || notif?.type === 'chat_message' || notif?.type === 'message') && (
                       <>
                         {profile && onOpenChat && (
                           <button
