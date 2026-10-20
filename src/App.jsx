@@ -367,10 +367,15 @@ export default function App() {
   // Splash screen state: active on initial load
   const [showSplash, setShowSplash] = useState(true);
 
+  // Authenticated user state initialized synchronously to avoid TDZ errors across child hooks
+  const [currentUser, setCurrentUser] = useState(checkStoredUserSession);
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+
   // Initialize currentScreen based on existing user session:
   // If user is already authenticated, start on 'app' to prevent any momentary flicker
   const [currentScreen, setCurrentScreen] = useState(() => {
-    const hasSession = Boolean(checkStoredUserSession());
+    const hasSession = Boolean(currentUser || checkStoredUserSession());
     if (hasSession) return 'app';
     const initialMode = getInitialViewMode();
     return initialMode === 'app' ? 'login' : 'app';
@@ -477,7 +482,7 @@ export default function App() {
     }
     lastProfilesSyncRef.current = now;
     try {
-      const currentAuthId = currentUser?.id || currentUser?.user_id;
+      const currentAuthId = currentUser?.id || currentUser?.user_id || currentUserRef.current?.id || currentUserRef.current?.user_id;
       const liveList = await fetchLiveProfiles(currentAuthId);
       if (Array.isArray(liveList) && liveList.length > 0) {
         setProfiles(liveList);
@@ -827,7 +832,6 @@ export default function App() {
   });
   const [activeChatProfileId, setActiveChatProfileId] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
-  const [currentUser, setCurrentUser] = useState(checkStoredUserSession);
 
   // Synchronize conversations state strictly scoped to the active user
   useEffect(() => {

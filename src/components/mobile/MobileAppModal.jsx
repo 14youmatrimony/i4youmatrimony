@@ -196,8 +196,6 @@ export default function MobileAppModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   const totalUnreadChatCount = useMemo(() => {
     return computeUnreadMessagesCount(conversations, currentUser, profiles, declinedReceivedIds);
   }, [conversations, currentUser, profiles, declinedReceivedIds]);
@@ -208,6 +206,8 @@ export default function MobileAppModal({
       n && n.type === 'interest' && !n.isRead && n.status !== 'declined'
     ).length;
   }, [currentUser, notifications]);
+
+  if (!isOpen) return null;
 
   return (
     <div 
