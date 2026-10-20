@@ -1521,9 +1521,7 @@ export default function MobileProfileDetailSheet({
         {/* Connect / Live Instant Message Button */}
         <button
           onClick={() => {
-            if (isInterested) {
-              onToggleInterest(profile.id);
-            } else if (onRequestSendInterest) {
+            if (onRequestSendInterest) {
               onRequestSendInterest(profile);
             } else {
               onToggleInterest(profile.id);

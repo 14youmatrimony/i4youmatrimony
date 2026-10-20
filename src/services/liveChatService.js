@@ -531,6 +531,9 @@ class LiveChatService {
       }
 
       conv.messages = deduplicateMessageList(conv.messages);
+      conv.unreadCount = (conv.messages || []).filter(m => 
+        (m.sender === 'them' || String(m.sender_id) === String(partnerId)) && m.status !== 'read'
+      ).length;
 
       localStorage.setItem(key, JSON.stringify(convs));
       // Purge legacy un-scoped key to prevent cross-account contamination
@@ -687,6 +690,18 @@ class LiveChatService {
       // Strictly skip invalid or self-conversations
       if (!partnerId || userIds.includes(partnerId)) return;
 
+      // If allProfiles is provided and has entries, ignore orphan messages from non-existent profiles
+      if (Array.isArray(allProfiles) && allProfiles.length > 0) {
+        const partnerExists = allProfiles.some(p => 
+          p && (
+            String(p.id) === partnerId || 
+            (p.register_id && String(p.register_id) === partnerId) ||
+            (p.registerId && String(p.registerId) === partnerId)
+          )
+        );
+        if (!partnerExists) return;
+      }
+
       if (!convMap.has(partnerId)) {
         convMap.set(partnerId, {
           profileId: partnerId,
@@ -716,17 +731,99 @@ class LiveChatService {
           status: msg.status || 'read',
           created_at: msg.created_at
         });
-        if (!isSentByMe && msg.status !== 'read') {
-          conv.unreadCount = (conv.unreadCount || 0) + 1;
-        }
       }
     });
 
-    const result = Array.from(convMap.values()).map(c => ({
-      ...c,
-      messages: deduplicateMessageList(c.messages)
-    }));
+    const result = [];
+    for (const conv of convMap.values()) {
+      const cleanMsgs = deduplicateMessageList(conv.messages || []);
+      // Strictly omit empty conversations with zero messages from the list
+      if (cleanMsgs.length === 0) continue;
+
+      const matchedProfile = Array.isArray(allProfiles) ? allProfiles.find(p => 
+        p && (
+          String(p.id) === conv.profileId || 
+          (p.register_id && String(p.register_id) === conv.profileId) ||
+          (p.registerId && String(p.registerId) === conv.profileId)
+        )
+      ) : null;
+
+      // Strictly derive unreadCount from actual unread incoming messages
+      const actualUnread = cleanMsgs.filter(m => 
+        (m.sender === 'them' || (m.sender_id && !userIds.includes(String(m.sender_id)))) && 
+        m.status !== 'read'
+      ).length;
+
+      result.push({
+        ...conv,
+        partnerUser: matchedProfile || conv.partnerUser,
+        unreadCount: actualUnread,
+        messages: cleanMsgs
+      });
+    }
+
+    // Atomically persist sanitized conversations to local cache
+    try {
+      userIds.forEach((uid) => {
+        localStorage.setItem(`i4u_conversations_${uid}`, JSON.stringify(result));
+      });
+    } catch (e) {}
+
     return result;
+  }
+
+  /**
+   * Mark all unread messages in a conversation as read both locally and in Supabase
+   */
+  async markConversationAsRead({ currentUserId, partnerUserId, conversationId }) {
+    if (!currentUserId || !partnerUserId) return;
+    const currentIdStr = String(currentUserId);
+    const partnerIdStr = String(partnerUserId);
+
+    // 1. Supabase database update
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        let query = supabase
+          .from('messages')
+          .update({ status: 'read' })
+          .eq('receiver_id', currentIdStr)
+          .eq('sender_id', partnerIdStr)
+          .neq('status', 'read');
+
+        if (conversationId) {
+          query = query.eq('conversation_id', conversationId);
+        }
+        await query;
+      } catch (e) {
+        console.warn('[LiveChat] Error updating read status in DB:', e);
+      }
+    }
+
+    // 2. Synchronize localStorage cache atomically
+    try {
+      const key = `i4u_conversations_${currentIdStr}`;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const updated = parsed.map(c => {
+            if (String(c.profileId) === partnerIdStr) {
+              return {
+                ...c,
+                unreadCount: 0,
+                messages: (c.messages || []).map(m => 
+                  (m.sender === 'them' || String(m.sender_id) === partnerIdStr) 
+                    ? { ...m, status: 'read' } 
+                    : m
+                )
+              };
+            }
+            return c;
+          });
+          localStorage.setItem(key, JSON.stringify(updated));
+        }
+      }
+    } catch (e) {}
   }
 
   /**

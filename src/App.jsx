@@ -96,6 +96,9 @@ export const getNotificationsForUser = (user, availableProfiles = []) => {
       id: 'notif-interest-' + c1.id,
       type: 'interest_received',
       profileId: c1.id,
+      senderId: c1.id,
+      sender: c1,
+      interest_from: c1,
       title: `${c1.name} sent you an Interest! 💖`,
       message: `${c1.name} reviewed your profile and shared family values. Expressed interest in taking things forward.`,
       quote: `“Namaste ${firstName}! I liked your profile and career aspirations. Our family in ${c1.city || 'Kerala'} would love to connect with yours!”`,
@@ -111,6 +114,9 @@ export const getNotificationsForUser = (user, availableProfiles = []) => {
       id: 'notif-shortlist-' + c2.id,
       type: 'profile_shortlisted',
       profileId: c2.id,
+      senderId: c2.id,
+      sender: c2,
+      interest_from: c2,
       title: `${c2.name} shortlisted your profile! ⭐`,
       message: `${c2.name} added your profile to private shortlist for family horoscope matching.`,
       quote: '“Profile shortlisted for weekend family discussion & astrology review.”',
@@ -126,6 +132,9 @@ export const getNotificationsForUser = (user, availableProfiles = []) => {
       id: 'notif-contact-' + c3.id,
       type: 'contact_viewed',
       profileId: c3.id,
+      senderId: c3.id,
+      sender: c3,
+      interest_from: c3,
       title: 'Contact Details Viewed 👁️',
       message: `${c3.name} & family viewed your verified phone number & astrological horoscope.`,
       quote: 'Verified contact accessed via Aadhaar matrimonial authentication protocol.',
@@ -1086,6 +1095,9 @@ export default function App() {
                 list.unshift({
                   id: notifId,
                   profileId: rec.senderId,
+                  senderId: rec.senderId,
+                  sender: rec.sender || rec.interest_from,
+                  interest_from: rec.sender || rec.interest_from,
                   type: 'interest',
                   title: `💖 Interest from ${rec.sender.name}`,
                   message: rec.message || `${rec.sender.name} expressed interest in connecting with you.`,
@@ -1120,7 +1132,18 @@ export default function App() {
                 if (!exists) {
                   list.unshift({
                     id: notifId,
-                    profileId: row.metadata?.senderId || row.recipient_id,
+                    profileId: (row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.sender?.id || row.metadata?.interest_from?.id || row.sender_id || row.senderId || null),
+                    senderId: (row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.sender?.id || row.metadata?.interest_from?.id || row.sender_id || row.senderId || null),
+                    sender: row.metadata?.sender || row.metadata?.interest_from || (row.metadata?.senderName ? {
+                      id: row.metadata?.senderId || row.metadata?.sender_id || null,
+                      name: row.metadata.senderName,
+                      photo: row.metadata.senderPhoto || null
+                    } : null),
+                    interest_from: row.metadata?.sender || row.metadata?.interest_from || (row.metadata?.senderName ? {
+                      id: row.metadata?.senderId || row.metadata?.sender_id || null,
+                      name: row.metadata.senderName,
+                      photo: row.metadata.senderPhoto || null
+                    } : null),
                     type: row.type === 'interest_received' ? 'interest' : (row.type === 'chat_message' ? 'message' : 'match'),
                     title: row.title,
                     message: row.message,
@@ -1148,6 +1171,19 @@ export default function App() {
         {
           id: `live_int_${Date.now()}`,
           profileId: payload.senderId,
+          senderId: payload.senderId,
+          sender: {
+            id: payload.senderId,
+            name: senderName,
+            photo: payload.senderPhoto || null,
+            message: payload.message || ''
+          },
+          interest_from: {
+            id: payload.senderId,
+            name: senderName,
+            photo: payload.senderPhoto || null,
+            message: payload.message || ''
+          },
           type: 'interest',
           title: `💖 Interest from ${senderName}`,
           message: payload.message || `${senderName} expressed interest in connecting with you.`,
@@ -1563,10 +1599,11 @@ export default function App() {
 
   const handleDeclineInterestNotification = (notifId) => {
     const notif = notifications.find(n => n.id === notifId);
-    if (notif?.profileId) {
-      setDeclinedReceivedIds(prev => (prev.includes(notif.profileId) ? prev : [...prev, notif.profileId]));
+    const targetSenderId = notif?.senderId || notif?.profileId;
+    if (targetSenderId) {
+      setDeclinedReceivedIds(prev => (prev.includes(targetSenderId) ? prev : [...prev, targetSenderId]));
       if (currentUser) {
-        interestService.rejectInterest(currentUser, notif.profileId).catch(err => console.warn('[App] rejectInterest error:', err));
+        interestService.rejectInterest(currentUser, targetSenderId).catch(err => console.warn('[App] rejectInterest error:', err));
       }
     }
     setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true, status: 'declined' } : n));
@@ -1852,16 +1889,58 @@ export default function App() {
       ? profileOrId 
       : profiles.find(p => p.id === profileOrId || p.registerId === profileOrId || p.register_id === profileOrId);
     if (!candidate) return;
-    const isAlready = Boolean(
-      interestsSent.includes(candidate.id) || 
-      (candidate.registerId && interestsSent.includes(candidate.registerId)) ||
-      (candidate.register_id && interestsSent.includes(candidate.register_id))
-    );
-    if (isAlready) {
-      handleToggleInterest(candidate.id);
-      return;
-    }
     setInterestModalCandidate(candidate);
+  };
+
+  // Handle accepting an incoming interest from candidate
+  const handleAcceptIncomingInterest = (profileId, replyMessage) => {
+    const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId) || interestModalCandidate;
+    const targetId = profile?.id || profileId;
+    const targetRegId = profile?.registerId || profile?.register_id;
+
+    setDeclinedReceivedIds(prev => prev.filter(id => id !== targetId && id !== targetRegId));
+    setNotifications(prev => prev.map(n => 
+      (n.profileId === targetId || (targetRegId && n.profileId === targetRegId)) 
+        ? { ...n, isRead: true, status: 'accepted' } 
+        : n
+    ));
+    setInterestsSent(prev => {
+      if (prev.includes(targetId) || (targetRegId && prev.includes(targetRegId))) {
+        return prev;
+      }
+      return [...prev, targetId];
+    });
+
+    if (currentUser && profile) {
+      interestService.acceptInterest(currentUser, profile).catch(err => console.warn('[App] acceptInterest error:', err));
+    }
+
+    if (replyMessage && replyMessage.trim()) {
+      const cleanMsg = replyMessage.trim();
+      setConversations(prev => {
+        const existing = prev.find(c => c.profileId === targetId || (targetRegId && c.profileId === targetRegId));
+        const newMsg = {
+          id: 'msg_' + Date.now(),
+          sender: 'me',
+          text: cleanMsg,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        if (existing) {
+          return prev.map(c => (c.profileId === targetId || (targetRegId && c.profileId === targetRegId))
+            ? { ...c, messages: [...(c.messages || []), newMsg] }
+            : c
+          );
+        }
+        return [...prev, {
+          profileId: targetId,
+          unreadCount: 0,
+          messages: [newMsg]
+        }];
+      });
+    }
+
+    setInterestModalCandidate(null);
+    showToast('Accepted interest from ' + (profile?.name || 'candidate') + '! Calling & Chat unlocked ✨');
   };
 
   // Confirm sending interest with chosen/customized message
@@ -3188,7 +3267,15 @@ export default function App() {
                 candidate={interestModalCandidate}
                 currentUser={currentUser}
                 isAlreadyInterested={isProfileInterested(interestModalCandidate)}
+                isIncomingInterest={Boolean(
+                  notifications.some(n => 
+                    n.type === 'interest_received' && 
+                    n.status !== 'accepted' && 
+                    (n.profileId === interestModalCandidate.id || n.profileId === interestModalCandidate.registerId || n.profileId === interestModalCandidate.register_id)
+                  )
+                )}
                 onSendInterest={handleConfirmSendInterest}
+                onAcceptInterest={handleAcceptIncomingInterest}
                 onClose={() => setInterestModalCandidate(null)}
                 isWebsiteModal={true}
               />
@@ -3703,7 +3790,15 @@ export default function App() {
                   candidate={interestModalCandidate}
                   currentUser={currentUser}
                   isAlreadyInterested={isProfileInterested(interestModalCandidate)}
+                  isIncomingInterest={Boolean(
+                    notifications.some(n => 
+                      n.type === 'interest_received' && 
+                      n.status !== 'accepted' && 
+                      (n.profileId === interestModalCandidate.id || n.profileId === interestModalCandidate.registerId || n.profileId === interestModalCandidate.register_id)
+                    )
+                  )}
                   onSendInterest={handleConfirmSendInterest}
+                  onAcceptInterest={handleAcceptIncomingInterest}
                   onClose={() => setInterestModalCandidate(null)}
                   isWebsiteModal={false}
                 />

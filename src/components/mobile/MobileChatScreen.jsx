@@ -24,6 +24,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { getTargetCandidateGender, isCandidateMatchingTarget } from '../../utils/genderMatch';
 import { liveChatService, deduplicateMessageList } from '../../services/liveChatService';
 import { useInterestStatus } from '../../services/interestService';
+import { getActiveConversations } from '../../utils/conversationUtils';
 
 export default function MobileChatScreen({
   profiles,
@@ -40,7 +41,8 @@ export default function MobileChatScreen({
   onStartAudioCall,
   onStartVideoCall,
   onRequestSendInterest,
-  onToggleInterest
+  onToggleInterest,
+  declinedReceivedIds = []
 }) {
   const isProduction = getAppMode();
   const { bottomBarStyle, accent, isDarkMode } = useTheme();
@@ -77,31 +79,14 @@ export default function MobileChatScreen({
     });
   }, [profiles, currentUser, targetCandidateGender]);
 
-  // Conversations List Profiles (Opposite Gender Matches or any profile with active conversation messages)
+  // Active, verified conversations with valid messages (Strictly aligned with badge count)
+  const activeConversationsList = useMemo(() => {
+    return getActiveConversations(conversations, currentUser, profiles, declinedReceivedIds);
+  }, [conversations, currentUser, profiles, declinedReceivedIds]);
+
   const chatProfiles = useMemo(() => {
-    const list = [];
-    const seenIds = new Set();
-
-    conversations.forEach(c => {
-      if (!c.profileId || !Array.isArray(c.messages) || c.messages.length === 0) return;
-      const pid = String(c.profileId);
-      if (currentUser && (pid === String(currentUser.id) || pid === String(currentUser.register_id))) return;
-
-      const matchedProfile = profiles.find(p => 
-        String(p.id) === pid || 
-        (p.register_id && String(p.register_id) === pid) ||
-        (p.registerId && String(p.registerId) === pid)
-      );
-
-      const profileToAdd = matchedProfile || c.partnerUser;
-      if (profileToAdd && !seenIds.has(String(profileToAdd.id))) {
-        seenIds.add(String(profileToAdd.id));
-        list.push(profileToAdd);
-      }
-    });
-
-    return list;
-  }, [profiles, currentUser, conversations]);
+    return activeConversationsList.map(c => c.partnerUser);
+  }, [activeConversationsList]);
 
   // Strictly resolve chat partner (partnerUser), ensuring currentUser is never resolved as partner
   const partnerUser = useMemo(() => {
@@ -212,6 +197,32 @@ export default function MobileChatScreen({
     if (!currentUser?.id || !partnerUser?.id || !activeConversationId) {
       return;
     }
+
+    // Mark conversation and messages as read atomically
+    liveChatService.markConversationAsRead({
+      currentUserId: currentUser.id,
+      partnerUserId: partnerUser.id,
+      conversationId: activeConversationId
+    });
+
+    setConversations(prev => (prev || []).map(c => {
+      const pid = String(c.profileId);
+      const isMatch = pid === String(partnerUser.id) || 
+        (partnerUser.register_id && pid === String(partnerUser.register_id)) ||
+        (partnerUser.registerId && pid === String(partnerUser.registerId));
+      if (isMatch) {
+        return {
+          ...c,
+          unreadCount: 0,
+          messages: (c.messages || []).map(m => 
+            (m.sender === 'them' || String(m.sender_id) === String(partnerUser.id)) 
+              ? { ...m, status: 'read' } 
+              : m
+          )
+        };
+      }
+      return c;
+    }));
 
     let isMounted = true;
     setIsLoadingMessages(true);
@@ -856,7 +867,11 @@ export default function MobileChatScreen({
           isDarkMode ? 'bg-slate-900/90 border-slate-800 divide-slate-800' : 'bg-white border-slate-200 divide-slate-100'
         }`}>
           {chatProfiles.map(profile => {
-            const conv = conversations.find(c => c.profileId === profile.id);
+            const conv = activeConversationsList.find(c => 
+              String(c.profileId) === String(profile.id) || 
+              (profile.register_id && String(c.profileId) === String(profile.register_id)) ||
+              (profile.registerId && String(c.profileId) === String(profile.registerId))
+            );
             const lastMsg = conv?.messages?.[conv.messages.length - 1];
 
             return (
@@ -866,6 +881,22 @@ export default function MobileChatScreen({
                   setActiveProfileId(profile.id);
                   setInConversation(true);
                   setIsDirectChatOpen?.(true);
+
+                  // Mark this conversation as read immediately on click
+                  setConversations(prev => (prev || []).map(c => {
+                    const pid = String(c.profileId);
+                    const isTarget = pid === String(profile.id) || 
+                      (profile.register_id && pid === String(profile.register_id)) ||
+                      (profile.registerId && pid === String(profile.registerId));
+                    if (isTarget) {
+                      return {
+                        ...c,
+                        unreadCount: 0,
+                        messages: (c.messages || []).map(m => ({ ...m, status: 'read' }))
+                      };
+                    }
+                    return c;
+                  }));
                 }}
                 className={`p-3 flex items-center space-x-3 cursor-pointer transition-colors ${
                   isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'

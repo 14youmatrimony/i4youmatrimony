@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, 
   Maximize2, 
@@ -36,6 +36,7 @@ import MobileThemeSettingsSheet from './MobileThemeSettingsSheet';
 import SendInterestModal from '../SendInterestModal';
 import AadhaarVerificationScreen from '../AadhaarVerificationScreen';
 import { useTheme } from '../../context/ThemeContext';
+import { computeUnreadMessagesCount } from '../../utils/conversationUtils';
 
 export default function MobileAppModal({
   isOpen,
@@ -197,7 +198,16 @@ export default function MobileAppModal({
 
   if (!isOpen) return null;
 
-  const totalUnreadChatCount = conversations?.reduce((acc, c) => acc + (c.unreadCount || 0), 0) || 0;
+  const totalUnreadChatCount = useMemo(() => {
+    return computeUnreadMessagesCount(conversations, currentUser, profiles, declinedReceivedIds);
+  }, [conversations, currentUser, profiles, declinedReceivedIds]);
+
+  const pendingReceivedInterestsCount = useMemo(() => {
+    if (!currentUser) return 0;
+    return (notifications || []).filter(n => 
+      n && n.type === 'interest' && !n.isRead && n.status !== 'declined'
+    ).length;
+  }, [currentUser, notifications]);
 
   return (
     <div 
@@ -413,7 +423,7 @@ export default function MobileAppModal({
                     setActiveTab(tabId);
                   }}
                   unreadCount={currentUser ? totalUnreadChatCount : 0}
-                  interestCount={currentUser ? interestsSent.length : 0}
+                  interestCount={currentUser ? pendingReceivedInterestsCount : 0}
                   unreadNotificationsCount={currentUser ? unreadNotificationsCount : 0}
                   onOpenNotifications={() => setIsNotificationsOpen(true)}
                   currentUser={currentUser}
@@ -621,7 +631,18 @@ export default function MobileAppModal({
                           candidate={interestModalCandidate}
                           currentUser={currentUser}
                           isAlreadyInterested={Boolean(interestModalCandidate && (interestsSent.includes(interestModalCandidate.id) || (interestModalCandidate.registerId && interestsSent.includes(interestModalCandidate.registerId)) || (interestModalCandidate.register_id && interestsSent.includes(interestModalCandidate.register_id))))}
+                          isIncomingInterest={Boolean(
+                            notifications && notifications.some(n => 
+                              n.type === 'interest_received' && 
+                              n.status !== 'accepted' && 
+                              (n.profileId === interestModalCandidate.id || n.profileId === interestModalCandidate.registerId || n.profileId === interestModalCandidate.register_id)
+                            )
+                          )}
                           onSendInterest={(candId, msg) => {
+                            if (onToggleInterest) onToggleInterest(candId);
+                            if (setInterestModalCandidate) setInterestModalCandidate(null);
+                          }}
+                          onAcceptInterest={(candId, msg) => {
                             if (onToggleInterest) onToggleInterest(candId);
                             if (setInterestModalCandidate) setInterestModalCandidate(null);
                           }}
