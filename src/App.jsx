@@ -2949,7 +2949,16 @@ export default function App() {
     return profiles;
   }, [profiles, currentUser]);
 
-  const totalUnreadChatCount = currentUser ? conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0) : 0;
+  const totalUnreadChatCount = useMemo(() => {
+    return computeUnreadMessagesCount(conversations, currentUser, profiles, declinedReceivedIds);
+  }, [conversations, currentUser, profiles, declinedReceivedIds]);
+
+  const pendingReceivedInterestsCount = useMemo(() => {
+    if (!currentUser) return 0;
+    return (notifications || []).filter(n => 
+      n && n.type === 'interest' && !n.isRead && n.status !== 'declined'
+    ).length;
+  }, [currentUser, notifications]);
 
   return (
     <ThemeProvider>
@@ -3583,7 +3592,7 @@ export default function App() {
             setActiveTab(tabId);
           }}
           unreadCount={totalUnreadChatCount}
-          interestCount={currentUser ? interestsSent.length : 0}
+          interestCount={pendingReceivedInterestsCount}
           unreadNotificationsCount={unreadNotificationsCount}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
           currentUser={currentUser}

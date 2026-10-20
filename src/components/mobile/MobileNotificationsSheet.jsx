@@ -643,7 +643,7 @@ export default function MobileNotificationsSheet({
                     >
                       <div className="flex items-center space-x-1.5 min-w-0 flex-1">
                         <img 
-                          src={profile.photo} 
+                          src={profile.photo || profile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400'} 
                           alt={profile.name}
                           onContextMenu={(e) => {
                             e.preventDefault();
@@ -664,11 +664,11 @@ export default function MobileNotificationsSheet({
                           <div className="text-[8.5px] sm:text-[9.5px] text-slate-500 flex items-center flex-wrap gap-x-1 leading-tight">
                             <span>{profile.age} yrs</span>
                             <span>•</span>
-                            <span className="truncate max-w-[125px] sm:max-w-none">{profile.profession}</span>
-                            {profile.city && (
+                            <span className="truncate max-w-[125px] sm:max-w-none">{profile.profession || 'Professional'}</span>
+                            {(profile.city || profile.location) && (
                               <>
                                 <span>•</span>
-                                <span className="shrink-0 text-slate-600 font-medium">📍 {profile.city}</span>
+                                <span className="shrink-0 text-slate-600 font-medium">📍 {profile.city || profile.location}</span>
                               </>
                             )}
                           </div>
