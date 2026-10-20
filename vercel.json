@@ -39,7 +39,7 @@
       "destination": "/super-admin.html"
     },
     {
-      "source": "/((?!admin-assets|static|assets|super-admin\\.html|.*\\..*).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]

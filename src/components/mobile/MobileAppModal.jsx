@@ -63,6 +63,8 @@ export default function MobileAppModal({
   setConversations,
   activeChatProfileId,
   setActiveChatProfileId,
+  activeChatId = null,
+  setActiveChatId,
   isDirectChatOpen,
   setIsDirectChatOpen,
   notifications,
@@ -725,6 +727,7 @@ export default function MobileAppModal({
                   {/* Tab 4: Messages / Chat */}
                   {activeTab === 'chat' && (
                     <MobileChatScreen 
+                      key={`modal-chat-${activeChatProfileId || 'none'}-${activeChatId || 'default'}`}
                       profiles={filteredProfiles || profiles}
                       currentUser={currentUser}
                       onOpenLogin={onOpenLogin}
@@ -732,6 +735,8 @@ export default function MobileAppModal({
                       setConversations={setConversations}
                       activeProfileId={activeChatProfileId}
                       setActiveProfileId={setActiveChatProfileId}
+                      activeChatId={activeChatId}
+                      setActiveChatId={setActiveChatId}
                       onSelectProfile={onSelectProfile}
                       isDirectChatOpen={isDirectChatOpen}
                       setIsDirectChatOpen={setIsDirectChatOpen}

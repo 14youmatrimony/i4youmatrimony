@@ -281,8 +281,114 @@ export const checkStoredUserSession = () => {
   }
 };
 
+/**
+ * Parameterized Route & Deep Link Strategy
+ * Parses pathname, parameterized query parameters (?chat_id=..., ?user_id=..., ?tab=..., ?screen=..., ?reset=...),
+ * and hash without throwing errors or 404 for SPA routing.
+ */
+export const parseRouteParams = (urlString = (typeof window !== 'undefined' ? window.location.href : '')) => {
+  try {
+    if (!urlString || typeof window === 'undefined') return { viewMode: null };
+    const url = new URL(urlString, window.location?.origin || 'http://localhost');
+    const rawPath = (url.pathname || '').toLowerCase().replace(/^\/+|\/+$/g, '');
+    const segments = rawPath.split('/').filter(Boolean);
+    const params = url.searchParams;
+
+    // 1. Admin redirect detection
+    if (segments.length > 0 && ['admin', 'super-admin', 'superadmin', 'admin-console', 'admin-portal'].includes(segments[0])) {
+      return { isAdmin: true, viewMode: 'website' };
+    }
+
+    let viewMode = null;
+    let currentScreen = null;
+    let activeTab = null;
+    let targetChatUserId = null;
+    let targetChatId = null;
+    let targetProfileId = null;
+
+    // 2. Parse Path Segments (e.g. /app, /app/chat/:id, /chat/:id, /profile/:id)
+    if (segments.length > 0) {
+      if (segments[0] === 'app' || segments[0] === 'mobile') {
+        viewMode = 'app';
+        if (segments[1] === 'chat') {
+          activeTab = 'chat';
+          if (segments[2]) targetChatUserId = segments[2];
+          if (segments[3]) targetChatId = segments[3];
+        } else if (segments[1] === 'profile') {
+          if (segments[2]) targetProfileId = segments[2];
+        } else if (['feed', 'search', 'interests', 'chat', 'account'].includes(segments[1])) {
+          activeTab = segments[1];
+        } else if (['login', 'register', 'offers', 'verify-aadhaar'].includes(segments[1])) {
+          currentScreen = segments[1];
+        }
+      } else if (segments[0] === 'chat') {
+        viewMode = 'app';
+        activeTab = 'chat';
+        if (segments[1]) targetChatUserId = segments[1];
+        if (segments[2]) targetChatId = segments[2];
+      } else if (segments[0] === 'profile') {
+        if (segments[1]) targetProfileId = segments[1];
+      } else if (['feed', 'search', 'interests', 'account'].includes(segments[0])) {
+        viewMode = 'app';
+        activeTab = segments[0];
+      } else if (['login', 'register', 'offers', 'verify-aadhaar'].includes(segments[0])) {
+        currentScreen = segments[0];
+      }
+    }
+
+    // 3. Parse Query Parameters (e.g. ?mode=app, ?tab=chat, ?chat_id=..., ?user_id=...)
+    const modeParam = (params.get('mode') || params.get('view') || '').toLowerCase();
+    if (modeParam === 'app' || params.has('app')) viewMode = 'app';
+    if (modeParam === 'website') viewMode = 'website';
+
+    const tabParam = (params.get('tab') || '').toLowerCase();
+    if (['feed', 'search', 'interests', 'chat', 'account'].includes(tabParam)) {
+      activeTab = tabParam;
+      viewMode = 'app';
+    }
+
+    const screenParam = (params.get('screen') || '').toLowerCase();
+    if (['login', 'register', 'offers', 'verify-aadhaar', 'app'].includes(screenParam)) {
+      currentScreen = screenParam;
+    }
+
+    const qChatId = params.get('chat_id') || params.get('chatId') || params.get('conversation_id') || params.get('conversationId');
+    const qUserId = params.get('user_id') || params.get('userId') || params.get('sender_id') || params.get('senderId') || params.get('target_id');
+    if (qChatId || qUserId) {
+      viewMode = 'app';
+      activeTab = 'chat';
+      if (qChatId) targetChatId = qChatId;
+      if (qUserId) targetChatUserId = qUserId;
+    }
+
+    const qProfileId = params.get('profile') || params.get('profile_id') || params.get('profileId') || params.get('id');
+    if (qProfileId && !qChatId && !qUserId) {
+      targetProfileId = qProfileId;
+    }
+
+    // 4. Parse Hash
+    const hash = (url.hash || '').replace('#', '').toLowerCase();
+    if (hash === 'app') viewMode = 'app';
+    if (hash === 'website') viewMode = 'website';
+
+    return {
+      isAdmin: false,
+      viewMode,
+      currentScreen,
+      activeTab,
+      targetChatUserId,
+      targetChatId,
+      targetProfileId,
+      hasReset: params.has('reset'),
+      hasReload: params.has('reload')
+    };
+  } catch (e) {
+    return { viewMode: null };
+  }
+};
+
 export default function App() {
-  // Initialize viewMode from pathname (/app), URL search (?mode=app), hash (#app), or localStorage
+  // Initialize viewMode from URL strategy (pathname, params, hash, or localStorage)
   const getInitialViewMode = () => {
     try {
       // Check Capacitor native platform
@@ -290,44 +396,13 @@ export default function App() {
         return 'app';
       }
 
-      // Clean up any legacy admin routes or redirects
-      const path = (window.location.pathname || '').toLowerCase().replace(/^\/+|\/+$/g, '');
-      if (['admin', 'super-admin', 'superadmin', 'admin-console', 'admin-portal'].includes(path)) {
+      const route = parseRouteParams();
+      if (route.isAdmin) {
         window.location.href = '/super-admin.html';
         return 'website';
       }
-      if (path === 'app' || path === 'mobile') {
-        return 'app';
-      }
-
-      // Check search parameters (?mode=app | ?mode=website)
-      const params = new URLSearchParams(window.location.search);
-      const modeParam = (params.get('mode') || params.get('view') || '').toLowerCase();
-      if (modeParam === 'admin' || params.has('admin')) {
-        params.delete('mode');
-        params.delete('admin');
-        const newSearch = params.toString() ? `?${params.toString()}` : '';
-        window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`);
-        return 'website';
-      }
-      if (modeParam === 'app' || params.has('app')) {
-        return 'app';
-      }
-      if (modeParam === 'website') {
-        return 'website';
-      }
-
-      // Check URL hash (#app | #website)
-      const hash = window.location.hash.replace('#', '').toLowerCase();
-      if (hash === 'admin') {
-        window.history.replaceState({}, '', window.location.pathname);
-        return 'website';
-      }
-      if (hash === 'app') {
-        return 'app';
-      }
-      if (hash === 'website') {
-        return 'website';
+      if (route.viewMode) {
+        return route.viewMode;
       }
 
       // Check localStorage
@@ -345,7 +420,7 @@ export default function App() {
 
   const [viewMode, setViewModeState] = useState(getInitialViewMode); // 'website' | 'app'
 
-  const setViewMode = (mode) => {
+  const setViewMode = useCallback((mode) => {
     const targetMode = mode === 'app' ? 'app' : 'website';
     setViewModeState(targetMode);
     try {
@@ -360,7 +435,7 @@ export default function App() {
       url.searchParams.delete('admin');
       window.history.pushState({}, '', url.toString());
     } catch (e) {}
-  };
+  }, []);
 
   const [deviceMode, setDeviceMode] = useState('fit'); // 'fit' | 'ios' | 'android' | 'wide'
 
@@ -372,9 +447,10 @@ export default function App() {
   const currentUserRef = useRef(currentUser);
   currentUserRef.current = currentUser;
 
-  // Initialize currentScreen based on existing user session:
-  // If user is already authenticated, start on 'app' to prevent any momentary flicker
+  // Initialize currentScreen based on existing user session and route parameters:
   const [currentScreen, setCurrentScreen] = useState(() => {
+    const route = parseRouteParams();
+    if (route.currentScreen) return route.currentScreen;
     const hasSession = Boolean(currentUser || checkStoredUserSession());
     if (hasSession) return 'app';
     const initialMode = getInitialViewMode();
@@ -382,19 +458,21 @@ export default function App() {
   });
 
   // Smooth post-splash transition handler:
-  // Silently check auth state and route to main dashboard or login accordingly
+  // Respects parameterized deep-link routes and authenticates state
   const handleSplashFinish = useCallback(() => {
     setShowSplash(false);
     const authenticatedUser = checkStoredUserSession();
+    const route = parseRouteParams();
+
     if (authenticatedUser) {
-      // If ALREADY logged in: Proceed directly to the main Home / Dashboard
       setCurrentUser(prev => prev || authenticatedUser);
-      setCurrentScreen('app');
-      setActiveTab('feed');
+      setCurrentScreen(route.currentScreen || 'app');
+      setActiveTab(route.activeTab || 'feed');
     } else {
-      // If NOT logged in: Route to Login if in Mobile App mode; otherwise stay on website view
-      const isMobileApp = getInitialViewMode() === 'app';
-      if (isMobileApp) {
+      const isMobileApp = (route.viewMode || getInitialViewMode()) === 'app';
+      if (route.currentScreen) {
+        setCurrentScreen(route.currentScreen);
+      } else if (isMobileApp) {
         setCurrentScreen('login');
       } else {
         setCurrentScreen('app');
@@ -402,7 +480,11 @@ export default function App() {
     }
   }, []);
 
-  const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'search' | 'interests' | 'chat' | 'account'
+  const [activeTab, setActiveTab] = useState(() => {
+    const route = parseRouteParams();
+    return route.activeTab || 'feed';
+  }); // 'feed' | 'search' | 'interests' | 'chat' | 'account'
+
   const [interestsSegment, setInterestsSegment] = useState('sent'); // 'sent' | 'received' | 'shortlist'
   const [isAppModalOpen, setIsAppModalOpen] = useState(false); // 80% screen mobile app modal over website
 
@@ -831,7 +913,19 @@ export default function App() {
     }
   });
   const [activeChatProfileId, setActiveChatProfileId] = useState(null);
+  const [activeChatId, setActiveChatId] = useState(null);
   const [selectedProfile, setSelectedProfile] = useState(null);
+
+  // Dedicated chat state cleaner: ensures any existing global chat state/cache is completely cleared before rendering a new chat
+  const clearGlobalChatState = useCallback(() => {
+    setActiveChatProfileId(null);
+    setActiveChatId(null);
+    setIsDirectChatOpen(false);
+    try {
+      sessionStorage.removeItem('i4u_active_chat_id');
+      sessionStorage.removeItem('i4u_active_partner_id');
+    } catch (e) {}
+  }, []);
 
   // Synchronize conversations state strictly scoped to the active user
   useEffect(() => {
@@ -856,17 +950,15 @@ export default function App() {
   // Clean slate when navigating between tabs or away from chat
   useEffect(() => {
     if (activeTab !== 'chat') {
-      setActiveChatProfileId(null);
-      setIsDirectChatOpen(false);
+      clearGlobalChatState();
     }
-  }, [activeTab]);
+  }, [activeTab, clearGlobalChatState]);
 
   // Clean slate on user identity change to strictly prevent data bleeding
   useEffect(() => {
-    setActiveChatProfileId(null);
+    clearGlobalChatState();
     setSelectedProfile(null);
-    setIsDirectChatOpen(false);
-  }, [currentUser?.id]);
+  }, [currentUser?.id, clearGlobalChatState]);
 
   // Root-level auth state listener: Synchronizes persistent authentication sessions & tokens across browser sessions and tabs
   useEffect(() => {
@@ -1894,41 +1986,129 @@ export default function App() {
     }
   };
 
-  // Start chat directly with candidate
-  const handleStartChat = (profileId, initialMessage = null) => {
+  // Start chat directly with candidate with full isolation and state clearing
+  const handleStartChat = useCallback((profileId, initialMessage = null, explicitChatId = null, extraData = {}) => {
     if (!currentUser) {
       showToast('🔒 Please sign in first to chat with members');
       setCurrentScreen('login');
       return;
     }
 
-    const profile = profiles.find(p => p.id === profileId || p.register_id === profileId || p.registerId === profileId);
-    const targetId = String(profile?.id || profileId);
-    setActiveChatProfileId(targetId);
-    setIsDirectChatOpen(true);
-    setSelectedProfile(null);
-    setCurrentScreen('app');
-    setActiveTab('chat');
+    const targetId = String(
+      (typeof profileId === 'object' ? (profileId?.id || profileId?.userId || profileId?.user_id) : profileId) || ''
+    );
+    if (!targetId && !explicitChatId) return;
 
-    const convId = [String(currentUser.id), targetId].sort().join(':::');
+    // 1. Ensure any existing global chat state/cache is completely cleared before rendering the new chat
+    clearGlobalChatState();
+
+    const profile = profiles.find(p => 
+      p && (
+        String(p.id) === targetId || 
+        String(p.register_id) === targetId || 
+        String(p.registerId) === targetId
+      )
+    ) || (typeof profileId === 'object' && profileId.id ? profileId : null);
+
+    const partner = profile || {
+      id: targetId,
+      name: extraData.senderName || extraData.name || 'Candidate',
+      photo: extraData.senderPhoto || extraData.photo || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
+      onlineStatus: 'Online'
+    };
+
+    const convId = explicitChatId || [String(currentUser.id), targetId].sort().join(':::');
 
     // Ensure a conversation thread exists for this profile strictly isolated by targetId & conversation_id
     setConversations(prev => {
-      const existing = prev.find(c => String(c.profileId) === targetId);
+      const list = Array.isArray(prev) ? prev : [];
+      const existing = list.find(c => String(c.profileId) === targetId || (convId && c.conversation_id === convId));
       if (!existing) {
-        return [...prev, {
+        return [...list, {
           profileId: targetId,
           conversation_id: convId,
-          partnerUser: profile || null,
+          partnerUser: partner,
           unreadCount: 0,
           messages: [],
           autoReplies: []
         }];
       } else {
-        return prev.map(c => String(c.profileId) === targetId ? { ...c, unreadCount: 0, partnerUser: profile || c.partnerUser, conversation_id: convId } : c);
+        return list.map(c => 
+          (String(c.profileId) === targetId || (convId && c.conversation_id === convId))
+            ? { ...c, unreadCount: 0, partnerUser: partner, conversation_id: convId } 
+            : c
+        );
       }
     });
-  };
+
+    setActiveChatProfileId(targetId);
+    setActiveChatId(convId);
+    setIsDirectChatOpen(true);
+    setSelectedProfile(null);
+    setCurrentScreen('app');
+    setActiveTab('chat');
+    setViewMode('app');
+  }, [currentUser, profiles, clearGlobalChatState, setViewMode, showToast]);
+
+  // Push notification tap handler: FCM onMessageOpenedApp
+  // Accurately extracts exact chat_id and user_id from the notification payload,
+  // clears existing global chat state, and directly passes them to the chat screen
+  useEffect(() => {
+    const unsub = fcmNotificationService.onMessageOpenedApp(({ chatId, userId, data }) => {
+      console.log('[App] Push notification tapped (onMessageOpenedApp):', { chatId, userId, data });
+      if (!userId && !chatId) return;
+
+      const extraData = {
+        senderName: data?.senderName || data?.sender_name || data?.name || data?.title,
+        senderPhoto: data?.senderPhoto || data?.sender_photo || data?.photo || data?.avatar,
+        ...data
+      };
+
+      // Completely clear existing global chat state and directly route to the exact chat
+      handleStartChat(userId, null, chatId, extraData);
+    });
+
+    return () => unsub();
+  }, [handleStartChat]);
+
+  // Parameterized routes & deep links strategy (SPA routing handler)
+  useEffect(() => {
+    const applyRouteFromUrl = () => {
+      const parsed = parseRouteParams();
+      if (parsed.isAdmin) {
+        window.location.href = '/super-admin.html';
+        return;
+      }
+      if (parsed.viewMode) {
+        setViewModeState(parsed.viewMode);
+      }
+      if (parsed.activeTab) {
+        setActiveTab(parsed.activeTab);
+      }
+      if (parsed.currentScreen) {
+        setCurrentScreen(parsed.currentScreen);
+      }
+      if (parsed.targetChatUserId || parsed.targetChatId) {
+        handleStartChat(parsed.targetChatUserId, null, parsed.targetChatId);
+      } else if (parsed.targetProfileId) {
+        const found = profiles.find(p => p && (
+          String(p.id) === String(parsed.targetProfileId) || 
+          String(p.register_id) === String(parsed.targetProfileId) || 
+          String(p.registerId) === String(parsed.targetProfileId)
+        ));
+        if (found) setSelectedProfile(found);
+      }
+    };
+
+    applyRouteFromUrl();
+
+    window.addEventListener('popstate', applyRouteFromUrl);
+    window.addEventListener('hashchange', applyRouteFromUrl);
+    return () => {
+      window.removeEventListener('popstate', applyRouteFromUrl);
+      window.removeEventListener('hashchange', applyRouteFromUrl);
+    };
+  }, [profiles, handleStartChat]);
 
   // Open Authentic Matrimonial Interest Message Composer Modal
   const handleOpenSendInterest = (profileOrId) => {
@@ -3392,6 +3572,8 @@ export default function App() {
               setConversations={setConversations}
               activeChatProfileId={activeChatProfileId}
               setActiveChatProfileId={setActiveChatProfileId}
+              activeChatId={activeChatId}
+              setActiveChatId={setActiveChatId}
               isDirectChatOpen={isDirectChatOpen}
               setIsDirectChatOpen={setIsDirectChatOpen}
               notifications={notifications}
@@ -3955,6 +4137,7 @@ export default function App() {
           {/* Tab 4: Messages / In-App Chat */}
           {activeTab === 'chat' && (
             <MobileChatScreen 
+              key={`chat-screen-${activeChatProfileId || 'none'}-${activeChatId || 'default'}`}
               profiles={profiles}
               currentUser={currentUser}
               onOpenLogin={() => setCurrentScreen('login')}
@@ -3962,6 +4145,8 @@ export default function App() {
               setConversations={setConversations}
               activeProfileId={activeChatProfileId}
               setActiveProfileId={setActiveChatProfileId}
+              activeChatId={activeChatId}
+              setActiveChatId={setActiveChatId}
               onSelectProfile={handleSelectProfile}
               isDirectChatOpen={isDirectChatOpen}
               setIsDirectChatOpen={setIsDirectChatOpen}

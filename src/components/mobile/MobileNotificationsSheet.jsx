@@ -268,7 +268,8 @@ export default function MobileNotificationsSheet({
       const distinctCandidate = oppositeCandidates[index % oppositeCandidates.length];
       return {
         ...distinctCandidate,
-        name: extractedName || distinctCandidate.name,
+        id: effectiveSenderId || distinctCandidate.id, // Strictly preserve authentic sender ID to prevent misrouting
+        name: extractedName || (effectiveSenderId ? (senderData?.name || distinctCandidate.name) : distinctCandidate.name),
         age: distinctCandidate.age || 26,
         profession: distinctCandidate.profession || 'Professional',
         city: distinctCandidate.district || distinctCandidate.city || 'Kerala',
@@ -301,9 +302,12 @@ export default function MobileNotificationsSheet({
       onMarkAsRead(notif.id);
     }
 
+    const exactUserId = notif?.user_id || notif?.userId || notif?.sender_id || notif?.senderId || profile?.id || notif?.profileId;
+    const exactChatId = notif?.chat_id || notif?.chatId || notif?.conversation_id || notif?.conversationId;
+
     if (notif?.type === 'message_received' || notif?.type === 'chat_message' || notif?.type === 'message') {
       if (onOpenChat) {
-        onOpenChat(profile?.id || notif.senderId || notif.profileId, notif.quote || notif.message);
+        onOpenChat(exactUserId, notif.quote || notif.message, exactChatId);
       }
     } else if (
       notif?.type === 'interest_received' || 
@@ -317,8 +321,8 @@ export default function MobileNotificationsSheet({
     ) {
       if (onOpenProfile && profile) {
         onOpenProfile(profile);
-      } else if (onOpenChat && (profile?.id || notif.senderId || notif.profileId)) {
-        onOpenChat(profile?.id || notif.senderId || notif.profileId);
+      } else if (onOpenChat && exactUserId) {
+        onOpenChat(exactUserId, null, exactChatId);
       }
     } else {
       if (profile && onOpenProfile) {
@@ -770,7 +774,7 @@ export default function MobileNotificationsSheet({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
-                                  onOpenChat(profile.id);
+                                  onOpenChat(notif?.user_id || notif?.userId || notif?.senderId || profile.id, null, notif?.chat_id || notif?.chatId || notif?.conversation_id);
                                 }}
                                 className="text-[9px] sm:text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#0B192C] text-[#DFB76C] hover:bg-black transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                               >
@@ -870,7 +874,7 @@ export default function MobileNotificationsSheet({
                             onClick={(e) => {
                               e.stopPropagation();
                               if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
-                              onOpenChat(profile.id);
+                              onOpenChat(notif?.user_id || notif?.userId || notif?.senderId || profile.id, null, notif?.chat_id || notif?.chatId || notif?.conversation_id);
                             }}
                             className="px-2.5 py-1 rounded-lg bg-slate-900 text-[#DFB76C] hover:bg-black font-bold text-[9px] sm:text-[10px] transition-colors cursor-pointer flex items-center gap-0.5"
                           >
@@ -902,7 +906,7 @@ export default function MobileNotificationsSheet({
                             onClick={(e) => {
                               e.stopPropagation();
                               if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
-                              onOpenChat(profile.id);
+                              onOpenChat(notif?.user_id || notif?.userId || notif?.senderId || profile.id, null, notif?.chat_id || notif?.chatId || notif?.conversation_id);
                             }}
                             className="px-2.5 py-1 rounded-lg bg-[#0B192C] hover:bg-slate-900 text-[#DFB76C] font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
                           >
@@ -921,7 +925,7 @@ export default function MobileNotificationsSheet({
                             onClick={(e) => {
                               e.stopPropagation();
                               if (!notif.isRead && onMarkAsRead) onMarkAsRead(notif.id);
-                              onOpenChat(profile.id, notif.quote || notif.message);
+                              onOpenChat(notif?.user_id || notif?.userId || notif?.senderId || profile.id, notif.quote || notif.message, notif?.chat_id || notif?.chatId || notif?.conversation_id);
                             }}
                             className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
                           >
