@@ -3905,6 +3905,7 @@ export default function App() {
               onStartVideoCall={handleStartVideoCall}
               onRequestSendInterest={handleOpenSendInterest}
               onToggleInterest={handleToggleInterest}
+              declinedReceivedIds={declinedReceivedIds}
             />
           )}
 

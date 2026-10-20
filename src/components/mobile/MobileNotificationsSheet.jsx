@@ -692,7 +692,7 @@ export default function MobileNotificationsSheet({
                   {/* Action Buttons Row */}
                   <div className="pt-1 flex flex-wrap items-center gap-1 sm:gap-1.5">
                     {/* Scenario 1: Interest Received */}
-                    {notif?.type === 'interest_received' && (
+                    {(notif?.type === 'interest_received' || notif?.type === 'interest') && (
                       <>
                         {notif.status === 'accepted' ? (
                           <div className="flex items-center space-x-1 flex-wrap gap-1">
@@ -736,7 +736,7 @@ export default function MobileNotificationsSheet({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (onAcceptInterest) onAcceptInterest(notif.id, profile?.id || notif.profileId);
+                                if (onAcceptInterest) onAcceptInterest(notif.id, profile?.id || notif.senderId || notif.profileId);
                               }}
                               className="px-2 sm:px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-[9px] sm:text-[10px] shadow-2xs transition-all cursor-pointer flex items-center gap-0.5"
                             >
@@ -774,7 +774,7 @@ export default function MobileNotificationsSheet({
                     )}
 
                     {/* Scenario 2: Profile Shortlisted */}
-                    {notif?.type === 'profile_shortlisted' && (
+                    {(notif?.type === 'profile_shortlisted' || notif?.type === 'shortlist') && (
                       <>
                         <button
                           type="button"
@@ -816,7 +816,7 @@ export default function MobileNotificationsSheet({
                     )}
 
                     {/* Scenario 3: Contact Viewed */}
-                    {notif?.type === 'contact_viewed' && (
+                    {(notif?.type === 'contact_viewed' || notif?.type === 'contact') && (
                       <>
                         {profile && onOpenProfile && (
                           <button

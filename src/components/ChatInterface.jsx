@@ -127,6 +127,9 @@ export default function ChatInterface({
   const existingConv = partnerUser?.id ? conversations.find(c => 
     String(c.profileId) === String(partnerUser.id) || 
     (partnerUser.register_id && String(c.profileId) === String(partnerUser.register_id)) ||
+    (partnerUser.registerId && String(c.profileId) === String(partnerUser.registerId))
+  ) : null;
+
   // Isolated messages state strictly for the active conversation
   const [messages, setMessages] = useState([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -140,6 +143,32 @@ export default function ChatInterface({
     if (!currentUser?.id || !partnerUser?.id || !activeConversationId) {
       return;
     }
+
+    // Mark conversation and messages as read atomically
+    liveChatService.markConversationAsRead({
+      currentUserId: currentUser.id,
+      partnerUserId: partnerUser.id,
+      conversationId: activeConversationId
+    });
+
+    setConversations(prev => (prev || []).map(c => {
+      const pid = String(c.profileId);
+      const isMatch = pid === String(partnerUser.id) || 
+        (partnerUser.register_id && pid === String(partnerUser.register_id)) ||
+        (partnerUser.registerId && pid === String(partnerUser.registerId));
+      if (isMatch) {
+        return {
+          ...c,
+          unreadCount: 0,
+          messages: (c.messages || []).map(m => 
+            (m.sender === 'them' || String(m.sender_id) === String(partnerUser.id)) 
+              ? { ...m, status: 'read' } 
+              : m
+          )
+        };
+      }
+      return c;
+    }));
 
     let isMounted = true;
     setIsLoadingMessages(true);
