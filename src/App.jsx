@@ -42,6 +42,7 @@ import { webrtcCallService } from './services/webrtcCallService';
 import { liveChatService, deduplicateMessageList } from './services/liveChatService';
 import { interestService } from './services/interestService';
 import { computeUnreadMessagesCount } from './utils/conversationUtils';
+import { fcmNotificationService } from './services/fcmNotificationService';
 import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePromptModal';
 import { getAppMode, setAppMode, APP_CONFIG } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
@@ -476,7 +477,8 @@ export default function App() {
     }
     lastProfilesSyncRef.current = now;
     try {
-      const liveList = await fetchLiveProfiles();
+      const currentAuthId = currentUser?.id || currentUser?.user_id;
+      const liveList = await fetchLiveProfiles(currentAuthId);
       if (Array.isArray(liveList) && liveList.length > 0) {
         setProfiles(liveList);
         try {
@@ -486,7 +488,7 @@ export default function App() {
     } catch (e) {
       console.warn('[Sync Profiles Error]:', e);
     }
-  }, []);
+  }, [currentUser?.id, currentUser?.user_id]);
 
   // Ensure any legacy demo profiles in Supabase are completely purged
   useEffect(() => {
@@ -1258,7 +1260,13 @@ export default function App() {
   // Subscribe to real-time Live Chat messages via Supabase Realtime Broadcast + Cross-tab sync
   useEffect(() => {
     if (!currentUser) return;
-    const myIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+    const myIds = [
+      currentUser.id,
+      currentUser.user_id,
+      currentUser.userId,
+      currentUser.register_id,
+      currentUser.registerId
+    ].filter(Boolean).map(String);
     if (!myIds.length) return;
 
     liveChatService.subscribeToUserInbox(currentUser);
@@ -1273,8 +1281,8 @@ export default function App() {
 
       if (!senderId || !text) return;
 
-      // Do not process messages sent by ourselves or not intended for us
-      if (myIds.includes(senderId)) return;
+      // Do not process messages sent by ourselves or not intended for us (WHERE user_id != current_user_id)
+      if (myIds.includes(senderId) || isSelfProfile({ id: senderId }, currentUser)) return;
       if (receiverId && !myIds.includes(receiverId)) return;
 
       const incomingMsg = {
@@ -1332,6 +1340,15 @@ export default function App() {
         }
       });
 
+      // Notify foreground listeners across screens and tabs
+      fcmNotificationService.dispatchForegroundNotification({
+        type: 'fcm_chat_message',
+        senderId,
+        senderName,
+        text,
+        incomingMsg
+      });
+
       // Show toast notification if not currently in this chat
       const isCurrentlyInThisChat = activeTabRef.current === 'chat' && String(activeChatProfileIdRef.current) === senderId;
       if (!isCurrentlyInThisChat) {
@@ -1343,7 +1360,7 @@ export default function App() {
       unsubscribe();
       liveChatService.unsubscribeUserInbox();
     };
-  }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
+  }, [currentUser?.id, currentUser?.user_id, currentUser?.userId, currentUser?.register_id, currentUser?.registerId]);
 
   const unreadNotificationsCount = currentUser ? (notifications || []).filter(n => n && !n.isRead).length : 0;
 

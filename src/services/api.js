@@ -680,15 +680,24 @@ export function deduplicateProfiles(list) {
 /**
  * Fetch all active profiles from Supabase first, with fallback to Flask backend & offline cache
  * Excludes all demo profiles - returns only real registered candidates.
+ * Explicitly filters out currently authenticated user (WHERE user_id != current_user_id AND id != current_user_id).
  */
-export async function fetchLiveProfiles() {
-  // 1. Direct Supabase query (Port 443 HTTPS - Works universally without backend)
+export async function fetchLiveProfiles(currentUserId = null) {
+  // 1. Direct Supabase PostgreSQL query (Port 443 HTTPS - Works universally without backend)
   if (isSupabaseConfigured()) {
     try {
-      const fetchPromise = supabase
+      let query = supabase
         .from('profiles')
         .select(CANDIDATE_FEED_COLUMNS)
-        .eq('status', 'active')
+        .eq('status', 'active');
+
+      if (currentUserId) {
+        const uidStr = String(currentUserId).trim();
+        // Explicitly filter out currently authenticated user from backend PostgreSQL query
+        query = query.neq('id', uidStr).neq('user_id', uidStr);
+      }
+
+      const fetchPromise = query
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -702,7 +711,14 @@ export async function fetchLiveProfiles() {
       if (!error && Array.isArray(data) && data.length > 0) {
         const rawList = data
           .map(mapSupabaseRowToProfile)
-          .filter(p => !isDemoProfile(p));
+          .filter(p => {
+            if (isDemoProfile(p)) return false;
+            if (currentUserId) {
+              const uidStr = String(currentUserId).trim();
+              if (String(p.id) === uidStr || (p.user_id && String(p.user_id) === uidStr)) return false;
+            }
+            return true;
+          });
         const liveList = deduplicateProfiles(rawList);
 
         if (liveList.length > 0) {
@@ -719,10 +735,18 @@ export async function fetchLiveProfiles() {
 
   // 2. Fallback to Python backend (local dev only)
   try {
-    const data = await safeFetchJson(`${API_BASE}/public/profiles`, {}, 1500);
+    const queryParam = currentUserId ? `?exclude_user_id=${encodeURIComponent(currentUserId)}` : '';
+    const data = await safeFetchJson(`${API_BASE}/public/profiles${queryParam}`, {}, 1500);
     if (data && data.success && Array.isArray(data.profiles) && data.profiles.length > 0) {
       const rawList = data.profiles
-        .filter(p => !isDemoProfile(p))
+        .filter(p => {
+          if (isDemoProfile(p)) return false;
+          if (currentUserId) {
+            const uidStr = String(currentUserId).trim();
+            if (String(p.id) === uidStr || (p.user_id && String(p.user_id) === uidStr)) return false;
+          }
+          return true;
+        })
         .map(p => ({
           ...p,
           familyDetails: p.familyDetails || {

@@ -10,21 +10,26 @@
  */
 
 import { deduplicateMessageList } from '../services/liveChatService';
+import { isSelfProfile } from './genderMatch';
 
 /**
- * Validates if a conversation thread is active, verified, and renderable
+ * Validates if a conversation thread is active, verified, and renderable.
+ * Explicitly filters out current authenticated user (WHERE user_id != current_user_id)
+ * so their own profile does not appear in active chats.
  */
 export function isConversationActiveAndRenderable(c, currentUser, profiles = [], declinedReceivedIds = []) {
   if (!c || !c.profileId || !currentUser) return false;
 
   const currentUserId = String(currentUser.id || '');
+  const currentAuthId = String(currentUser.user_id || currentUser.userId || '');
   const currentUserRegId = currentUser.register_id || currentUser.registerId ? String(currentUser.register_id || currentUser.registerId) : null;
-  const userIds = [currentUserId, currentUserRegId].filter(Boolean);
+  const userIds = [currentUserId, currentAuthId, currentUserRegId].filter(Boolean);
 
   const pid = String(c.profileId);
 
-  // Strictly exclude self-conversations
+  // Strictly exclude self-conversations by profile ID
   if (userIds.includes(pid)) return false;
+  if (isSelfProfile({ id: pid }, currentUser)) return false;
 
   // Strictly require at least one real message
   if (!Array.isArray(c.messages) || c.messages.length === 0) return false;
@@ -51,6 +56,10 @@ export function isConversationActiveAndRenderable(c, currentUser, profiles = [],
 
   const partnerIdStr = String(partner.id);
   if (userIds.includes(partnerIdStr)) return false;
+  if (partner.user_id && userIds.includes(String(partner.user_id))) return false;
+
+  // Explicitly filter out current user so their own profile never appears in active chats
+  if (isSelfProfile(partner, currentUser)) return false;
 
   return true;
 }
@@ -58,13 +67,15 @@ export function isConversationActiveAndRenderable(c, currentUser, profiles = [],
 /**
  * Returns an array of active, verified conversations with attached partner profiles
  * and accurate unread counts derived strictly from unread incoming messages.
+ * Sorted with newest conversations first.
  */
 export function getActiveConversations(conversations = [], currentUser, profiles = [], declinedReceivedIds = []) {
   if (!currentUser || !Array.isArray(conversations)) return [];
 
   const currentUserId = String(currentUser.id || '');
+  const currentAuthId = String(currentUser.user_id || currentUser.userId || '');
   const currentUserRegId = currentUser.register_id || currentUser.registerId ? String(currentUser.register_id || currentUser.registerId) : null;
-  const userIds = [currentUserId, currentUserRegId].filter(Boolean);
+  const userIds = [currentUserId, currentAuthId, currentUserRegId].filter(Boolean);
 
   const seenIds = new Set();
   const activeList = [];
@@ -84,8 +95,9 @@ export function getActiveConversations(conversations = [], currentUser, profiles
     );
 
     const partner = matchedProfile || c.partnerUser;
-    const partnerIdStr = String(partner.id);
+    if (!partner || isSelfProfile(partner, currentUser)) continue;
 
+    const partnerIdStr = String(partner.id);
     if (seenIds.has(partnerIdStr)) continue;
     seenIds.add(partnerIdStr);
 
@@ -105,6 +117,15 @@ export function getActiveConversations(conversations = [], currentUser, profiles
       unreadCount: actualUnread
     });
   }
+
+  // Sort conversations descending by latest message timestamp (newest active chats on top)
+  activeList.sort((a, b) => {
+    const lastA = a.messages?.[a.messages.length - 1];
+    const lastB = b.messages?.[b.messages.length - 1];
+    const timeA = new Date(lastA?.created_at || lastA?.timestamp || 0).getTime();
+    const timeB = new Date(lastB?.created_at || lastB?.timestamp || 0).getTime();
+    return timeB - timeA;
+  });
 
   return activeList;
 }

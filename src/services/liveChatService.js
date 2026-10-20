@@ -10,6 +10,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
+import { isSelfProfile } from '../utils/genderMatch.js';
 
 class LiveChatService {
   constructor() {
@@ -615,11 +616,15 @@ class LiveChatService {
   /**
    * Fetch conversations and message history for a user from Supabase & local storage.
    * Lists conversations where currentUser is EITHER sender_id OR receiver_id.
+   * Explicitly filters out current authenticated user (WHERE user_id != current_user_id)
+   * so their own profile does not appear in active chats.
    */
   async fetchConversationsForUser(userOrId, allProfiles = []) {
     if (!userOrId) return [];
     const userIds = [
       userOrId?.id,
+      userOrId?.user_id,
+      userOrId?.userId,
       userOrId?.register_id,
       userOrId?.registerId
     ].filter(Boolean).map(String);
@@ -636,7 +641,8 @@ class LiveChatService {
           .order('created_at', { ascending: true });
 
         if (!error && Array.isArray(data)) {
-          remoteMessages = data;
+          // Explicitly filter out messages where sender and receiver are the same user
+          remoteMessages = data.filter(m => String(m.sender_id) !== String(m.receiver_id));
         }
       } catch (e) {
         console.warn('[LiveChat] Error fetching remote messages:', e);
@@ -652,8 +658,8 @@ class LiveChatService {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
             parsed.forEach((c) => {
-              // Ensure we strictly exclude conversations with self
-              if (c?.profileId && !userIds.includes(String(c.profileId))) {
+              // Ensure we strictly exclude conversations with self (WHERE user_id != current_user_id)
+              if (c?.profileId && !userIds.includes(String(c.profileId)) && !isSelfProfile({ id: c.profileId }, userOrId)) {
                 if (!localConvs.some((existing) => String(existing.profileId) === String(c.profileId))) {
                   localConvs.push(c);
                 }
@@ -671,7 +677,7 @@ class LiveChatService {
     // Populate existing local conversations
     if (Array.isArray(localConvs)) {
       localConvs.forEach((c) => {
-        if (c?.profileId && !userIds.includes(String(c.profileId))) {
+        if (c?.profileId && !userIds.includes(String(c.profileId)) && !isSelfProfile({ id: c.profileId }, userOrId)) {
           convMap.set(String(c.profileId), {
             profileId: String(c.profileId),
             unreadCount: c.unreadCount || 0,
@@ -687,8 +693,8 @@ class LiveChatService {
       const isSentByMe = userIds.includes(String(msg.sender_id));
       const partnerId = isSentByMe ? String(msg.receiver_id) : String(msg.sender_id);
 
-      // Strictly skip invalid or self-conversations
-      if (!partnerId || userIds.includes(partnerId)) return;
+      // Strictly skip invalid or self-conversations (WHERE user_id != current_user_id)
+      if (!partnerId || userIds.includes(partnerId) || isSelfProfile({ id: partnerId }, userOrId)) return;
 
       // If allProfiles is provided and has entries, ignore orphan messages from non-existent profiles
       if (Array.isArray(allProfiles) && allProfiles.length > 0) {
@@ -748,6 +754,10 @@ class LiveChatService {
         )
       ) : null;
 
+      const partnerObj = matchedProfile || conv.partnerUser;
+      // Strictly ensure the authenticated user's own profile never appears in active chats
+      if (!partnerObj || isSelfProfile(partnerObj, userOrId)) continue;
+
       // Strictly derive unreadCount from actual unread incoming messages
       const actualUnread = cleanMsgs.filter(m => 
         (m.sender === 'them' || (m.sender_id && !userIds.includes(String(m.sender_id)))) && 
@@ -756,11 +766,18 @@ class LiveChatService {
 
       result.push({
         ...conv,
-        partnerUser: matchedProfile || conv.partnerUser,
+        partnerUser: partnerObj,
         unreadCount: actualUnread,
         messages: cleanMsgs
       });
     }
+
+    // Sort conversations descending by latest message timestamp
+    result.sort((a, b) => {
+      const timeA = new Date(a.messages?.[a.messages.length - 1]?.created_at || a.messages?.[a.messages.length - 1]?.timestamp || 0).getTime();
+      const timeB = new Date(b.messages?.[b.messages.length - 1]?.created_at || b.messages?.[b.messages.length - 1]?.timestamp || 0).getTime();
+      return timeB - timeA;
+    });
 
     // Atomically persist sanitized conversations to local cache
     try {

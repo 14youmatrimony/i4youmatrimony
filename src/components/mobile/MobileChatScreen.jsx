@@ -21,10 +21,11 @@ const POPULAR_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '
 import { sanitizeChatMessage } from '../../utils/security';
 import { getAppMode } from '../../config/appConfig';
 import { useTheme } from '../../context/ThemeContext';
-import { getTargetCandidateGender, isCandidateMatchingTarget } from '../../utils/genderMatch';
+import { getTargetCandidateGender, isCandidateMatchingTarget, isSelfProfile } from '../../utils/genderMatch';
 import { liveChatService, deduplicateMessageList } from '../../services/liveChatService';
 import { useInterestStatus } from '../../services/interestService';
 import { getActiveConversations } from '../../utils/conversationUtils';
+import { fcmNotificationService } from '../../services/fcmNotificationService';
 
 export default function MobileChatScreen({
   profiles,
@@ -79,14 +80,58 @@ export default function MobileChatScreen({
     });
   }, [profiles, currentUser, targetCandidateGender]);
 
+  // Real-time foreground FCM push notification & Live Chat message stream listener
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    // 1. Subscribe to FCM foreground push notifications to automatically refresh the chat list in real-time
+    const unsubFCM = fcmNotificationService.subscribeToForegroundFCM(() => {
+      liveChatService.fetchConversationsForUser(currentUser, profiles).then((freshConvs) => {
+        if (Array.isArray(freshConvs)) {
+          setConversations(freshConvs);
+        }
+      }).catch(() => {});
+    });
+
+    // 2. Subscribe to incoming live messages via Supabase Realtime / WebSockets
+    const unsubMsg = liveChatService.onMessage(() => {
+      liveChatService.fetchConversationsForUser(currentUser, profiles).then((freshConvs) => {
+        if (Array.isArray(freshConvs)) {
+          setConversations(freshConvs);
+        }
+      }).catch(() => {});
+    });
+
+    return () => {
+      unsubFCM();
+      unsubMsg();
+    };
+  }, [currentUser, profiles, setConversations]);
+
   // Active, verified conversations with valid messages (Strictly aligned with badge count)
   const activeConversationsList = useMemo(() => {
     return getActiveConversations(conversations, currentUser, profiles, declinedReceivedIds);
   }, [conversations, currentUser, profiles, declinedReceivedIds]);
 
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Strictly filtered active conversations excluding current user's own profile and matching search query
+  const filteredChatConversations = useMemo(() => {
+    return activeConversationsList.filter(conv => {
+      const partner = conv.partnerUser;
+      if (!partner || isSelfProfile(partner, currentUser)) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase().trim();
+      const nameMatch = partner.name?.toLowerCase().includes(q);
+      const lastMsg = conv?.messages?.[conv.messages.length - 1];
+      const msgMatch = lastMsg?.text?.toLowerCase().includes(q);
+      return nameMatch || msgMatch;
+    });
+  }, [activeConversationsList, currentUser, searchQuery]);
+
   const chatProfiles = useMemo(() => {
-    return activeConversationsList.map(c => c.partnerUser);
-  }, [activeConversationsList]);
+    return filteredChatConversations.map(c => c.partnerUser);
+  }, [filteredChatConversations]);
 
   // Strictly resolve chat partner (partnerUser), ensuring currentUser is never resolved as partner
   const partnerUser = useMemo(() => {
@@ -95,13 +140,17 @@ export default function MobileChatScreen({
     const currentUserRegId = currentUser.register_id || currentUser.registerId ? String(currentUser.register_id || currentUser.registerId) : null;
     const targetId = String(activeProfileId);
 
-    // Strictly ensure partner is NOT current user
-    if (targetId === currentUserId || (currentUserRegId && targetId === currentUserRegId)) {
+    // Strictly ensure partner is NOT current user (WHERE user_id != current_user_id)
+    if (
+      targetId === currentUserId || 
+      (currentUserRegId && targetId === currentUserRegId) ||
+      isSelfProfile({ id: targetId }, currentUser)
+    ) {
       return null;
     }
 
     const found = profiles.find(p => 
-      p && (
+      p && !isSelfProfile(p, currentUser) && (
         String(p.id) === targetId ||
         (p.register_id && String(p.register_id) === targetId) ||
         (p.registerId && String(p.registerId) === targetId)
@@ -113,14 +162,14 @@ export default function MobileChatScreen({
         ...found,
         id: String(found.id || targetId),
         name: found.name || 'Candidate',
-        photo: found.photo || found.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+        photo: found.photo || found.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
         onlineStatus: found.onlineStatus || 'Online'
       };
     }
 
     // Check if partner exists in active conversation object
     const conv = conversations.find(c => String(c.profileId) === targetId);
-    if (conv?.partnerUser) {
+    if (conv?.partnerUser && !isSelfProfile(conv.partnerUser, currentUser)) {
       return conv.partnerUser;
     }
 
@@ -843,6 +892,8 @@ export default function MobileChatScreen({
         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
         <input 
           type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search matches & chats..."
           className={`w-full pl-9 pr-3 py-2 rounded-xl text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none shadow-sm ${
             isDarkMode ? 'bg-slate-900 border border-slate-800 text-white placeholder-slate-400' : 'bg-white border border-slate-200'
@@ -850,33 +901,36 @@ export default function MobileChatScreen({
         />
       </div>
 
-      {chatProfiles.length === 0 ? (
+      {filteredChatConversations.length === 0 ? (
         <div className={`py-16 px-6 text-center space-y-3.5 rounded-2xl border shadow-xs mt-2 ${
           isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
         }`}>
           <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-100 to-yellow-50 border border-[#D4AF37]/40 text-[#8C6D1F] mx-auto flex items-center justify-center shadow-xs">
             <MessageCircle className="w-7 h-7 text-[#DFB76C]" />
           </div>
-          <h3 className={`font-serif font-bold text-base ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>No Conversations Yet</h3>
+          <h3 className={`font-serif font-bold text-base ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+            {searchQuery.trim() ? 'No Matching Chats' : 'No Conversations Yet'}
+          </h3>
           <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-            Send an interest to compatible profiles or accept incoming requests to start private, family-verified chats.
+            {searchQuery.trim() 
+              ? `No chats found matching "${searchQuery}".` 
+              : 'Send an interest to compatible profiles or accept incoming requests to start private, family-verified chats.'}
           </p>
         </div>
       ) : (
         <div className={`rounded-2xl border overflow-hidden divide-y shadow-sm ${
           isDarkMode ? 'bg-slate-900/90 border-slate-800 divide-slate-800' : 'bg-white border-slate-200 divide-slate-100'
         }`}>
-          {chatProfiles.map(profile => {
-            const conv = activeConversationsList.find(c => 
-              String(c.profileId) === String(profile.id) || 
-              (profile.register_id && String(c.profileId) === String(profile.register_id)) ||
-              (profile.registerId && String(c.profileId) === String(profile.registerId))
-            );
+          {filteredChatConversations.map(conv => {
+            const profile = conv.partnerUser;
+            if (!profile || isSelfProfile(profile, currentUser)) return null;
+
             const lastMsg = conv?.messages?.[conv.messages.length - 1];
+            const isLastMsgFromMe = lastMsg && (lastMsg.sender === 'me' || String(lastMsg.sender_id) === String(currentUser?.id));
 
             return (
               <div
-                key={profile.id}
+                key={conv.profileId || profile.id}
                 onClick={() => {
                   setActiveProfileId(profile.id);
                   setInConversation(true);
@@ -904,7 +958,7 @@ export default function MobileChatScreen({
               >
                 <div className="relative shrink-0">
                   <img 
-                    src={profile.photo} 
+                    src={profile.photo || profile.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'} 
                     alt={profile.name}
                     className="w-12 h-12 rounded-full object-cover ring-2 ring-[#DFB76C]/50" 
                   />
@@ -913,39 +967,44 @@ export default function MobileChatScreen({
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <h4 className={`font-serif font-bold text-sm truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                      {profile.name}
-                    </h4>
-                    <span className="text-[10px] text-slate-400">
-                      {lastMsg ? lastMsg.time : profile.lastActive}
+                    <div className="flex items-center space-x-1.5 min-w-0">
+                      <h4 className={`font-serif font-bold text-sm truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        {profile.name}
+                      </h4>
+                      {profile.verified && (
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-400 shrink-0 ml-2">
+                      {lastMsg?.time || ''}
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                    {lastMsg ? lastMsg.text : `${profile.district || profile.city}, ${profile.state}`}
-                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className={`text-[12px] truncate pr-2 ${
+                      conv.unreadCount > 0 
+                        ? 'font-semibold text-slate-900 dark:text-white' 
+                        : 'text-slate-500 dark:text-slate-400'
+                    }`}>
+                      {isLastMsgFromMe && (
+                        <span className="text-slate-400 font-normal">You: </span>
+                      )}
+                      {lastMsg?.text || 'No messages yet'}
+                    </p>
 
-                  <div className="flex items-center space-x-1.5 mt-1">
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 font-bold border border-amber-200">
-                      {profile.gunasMatch}
-                    </span>
-                    <span className="text-[9px] text-[#8C6D1F] font-bold">
-                      {profile.matchScore}% Match
-                    </span>
+                    {conv?.unreadCount > 0 && (
+                      <span 
+                        className="w-5 h-5 rounded-full text-[10px] font-extrabold flex items-center justify-center shrink-0 ml-2"
+                        style={{
+                          backgroundColor: accent?.primary || '#D4AF37',
+                          color: accent?.badgeText === 'text-white' ? '#FFFFFF' : '#0B192C'
+                        }}
+                      >
+                        {conv.unreadCount}
+                      </span>
+                    )}
                   </div>
                 </div>
-
-                {conv?.unreadCount > 0 && (
-                  <span 
-                    className="w-5 h-5 rounded-full text-[10px] font-extrabold flex items-center justify-center shrink-0"
-                    style={{
-                      backgroundColor: accent?.primary || '#D4AF37',
-                      color: accent?.badgeText === 'text-white' ? '#FFFFFF' : '#0B192C'
-                    }}
-                  >
-                    {conv.unreadCount}
-                  </span>
-                )}
               </div>
             );
           })}

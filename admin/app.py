@@ -289,10 +289,21 @@ def options_handler(subpath):
 
 @app.route('/api/public/profiles', methods=['GET'])
 def api_public_profiles():
-    """Returns active candidate profiles formatted for the mobile match feed."""
+    """Returns active candidate profiles formatted for the mobile match feed, explicitly filtering out the current user."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM profiles WHERE status = 'active' ORDER BY match_score DESC, created_at DESC")
+    current_user_id = request.args.get('current_user_id') or request.args.get('user_id') or request.args.get('exclude_user_id')
+    if current_user_id:
+        clean_uid = str(current_user_id).strip()
+        cursor.execute("""
+            SELECT * FROM profiles 
+            WHERE status = 'active' 
+              AND id != ? 
+              AND (user_id IS NULL OR user_id != ?) 
+            ORDER BY match_score DESC, created_at DESC
+        """, (clean_uid, clean_uid))
+    else:
+        cursor.execute("SELECT * FROM profiles WHERE status = 'active' ORDER BY match_score DESC, created_at DESC")
     rows = list_from_rows(cursor.fetchall())
     conn.close()
 
