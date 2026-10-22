@@ -241,48 +241,32 @@ export default function MobileNotificationsSheet({
     // Scenario B: API senderData object contains real candidate details
     if (senderData && typeof senderData === 'object' && !isSelfProfile(senderData)) {
       const candidateName = (!isGenericPlaceholder(senderData.name) ? senderData.name : null) || 
-                            (!isGenericPlaceholder(senderData.senderName) ? senderData.senderName : null);
-      if (candidateName) {
-        const sPhoto = senderData.photo || senderData.avatar || senderData.photo_url || senderData.senderPhoto || defaultPhoto;
-        return {
-          id: effectiveSenderId || senderData.id || `sender-${notif?.id}-${index}`,
-          name: candidateName,
-          age: senderData.age || senderData.senderAge || (oppositeCandidates[index % oppositeCandidates.length]?.age) || 26,
-          gender: senderData.gender || (isUserMale ? 'Female' : 'Male'),
-          profession: senderData.profession || senderData.senderProfession || notif?.badge || (oppositeCandidates[index % oppositeCandidates.length]?.profession) || 'Professional',
-          city: senderData.city || senderData.senderCity || senderData.district || senderData.location || (oppositeCandidates[index % oppositeCandidates.length]?.district) || 'Kerala',
-          location: senderData.city || senderData.senderCity || senderData.district || senderData.location || (oppositeCandidates[index % oppositeCandidates.length]?.district) || 'Kerala',
-          district: senderData.district || senderData.city || 'Ernakulam',
-          state: senderData.state || 'Kerala',
-          photo: sPhoto,
-          singlePhotos: [sPhoto],
-          about: senderData.about || notif?.quote || notif?.message || 'Authentic matrimony verified profile',
-          verified: Boolean(senderData.verified || senderData.aadhaarVerified || senderData.aadhaar_verified),
-          aadhaarVerified: Boolean(senderData.aadhaarVerified || senderData.aadhaar_verified)
-        };
-      }
-    }
-
-    // Scenario C: Index-based distinct opposite gender candidate from database (Zero State Overlap)
-    if (oppositeCandidates.length > 0) {
-      const distinctCandidate = oppositeCandidates[index % oppositeCandidates.length];
+                            (!isGenericPlaceholder(senderData.senderName) ? senderData.senderName : null) ||
+                            extractedName;
+      const sPhoto = senderData.photo || senderData.avatar || senderData.photo_url || senderData.senderPhoto || defaultPhoto;
       return {
-        ...distinctCandidate,
-        id: effectiveSenderId || distinctCandidate.id, // Strictly preserve authentic sender ID to prevent misrouting
-        name: extractedName || (effectiveSenderId ? (senderData?.name || distinctCandidate.name) : distinctCandidate.name),
-        age: distinctCandidate.age || 26,
-        profession: distinctCandidate.profession || 'Professional',
-        city: distinctCandidate.district || distinctCandidate.city || 'Kerala',
-        location: distinctCandidate.district || distinctCandidate.city || distinctCandidate.location || 'Kerala',
-        photo: distinctCandidate.photo || distinctCandidate.photo_url || defaultPhoto,
-        verified: Boolean(distinctCandidate.verified || distinctCandidate.aadhaarVerified || distinctCandidate.aadhaar_verified)
+        id: effectiveSenderId || senderData.id || `sender-${notif?.id}-${index}`,
+        name: candidateName || 'Verified Member',
+        age: senderData.age || senderData.senderAge || 26,
+        gender: senderData.gender || (isUserMale ? 'Female' : 'Male'),
+        profession: senderData.profession || senderData.senderProfession || notif?.badge || 'Professional',
+        city: senderData.city || senderData.senderCity || senderData.district || 'Kerala',
+        location: senderData.city || senderData.senderCity || senderData.district || 'Kerala',
+        district: senderData.district || senderData.city || 'Ernakulam',
+        state: senderData.state || 'Kerala',
+        photo: sPhoto,
+        singlePhotos: [sPhoto],
+        about: senderData.about || notif?.quote || notif?.message || 'Authentic matrimony verified profile',
+        verified: Boolean(senderData.verified || senderData.aadhaarVerified || senderData.aadhaar_verified),
+        aadhaarVerified: Boolean(senderData.aadhaarVerified || senderData.aadhaar_verified)
       };
     }
 
-    // Scenario D: Absolute last resort fallback when dataset is completely null
+    // Scenario C: Clean authentic fallback for sender without borrowing another candidate's identity
+    const fallbackName = extractedName || notif?.metadata?.senderName || notif?.title?.replace(/^.*from\s+/i, '')?.split(/[!💖⭐👁️🔔]/)[0]?.trim() || 'Verified Member';
     return {
-      id: effectiveSenderId || notif?.id || `fallback-${index}`,
-      name: extractedName || 'A Member',
+      id: effectiveSenderId || profileId || notif?.id || `sender-${index}`,
+      name: fallbackName,
       age: 26,
       gender: isUserMale ? 'Female' : 'Male',
       profession: notif?.badge || 'Professional',
@@ -302,7 +286,16 @@ export default function MobileNotificationsSheet({
       onMarkAsRead(notif.id);
     }
 
-    const exactUserId = notif?.user_id || notif?.userId || notif?.sender_id || notif?.senderId || profile?.id || notif?.profileId;
+    // Strictly resolve target candidate user ID (never falling back to current user)
+    const currentUid = String(currentUser?.id || '');
+    const candidateId = notif?.senderId || 
+                        notif?.sender_id || 
+                        notif?.metadata?.senderId || 
+                        notif?.metadata?.sender_id || 
+                        notif?.interest_from?.id || 
+                        profile?.id || 
+                        notif?.profileId;
+    const exactUserId = (candidateId && String(candidateId) !== currentUid) ? candidateId : (profile?.id || candidateId);
     const exactChatId = notif?.chat_id || notif?.chatId || notif?.conversation_id || notif?.conversationId;
 
     if (notif?.type === 'message_received' || notif?.type === 'chat_message' || notif?.type === 'message') {

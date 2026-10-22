@@ -1433,3 +1433,135 @@ export async function verifyCashfreeLink(linkId) {
     invoice_no: `INV-2026-${String(linkId).slice(-6)}`
   };
 }
+
+// ==========================================
+// AUDITED BACKEND MESSAGES & INTERESTS APIS
+// Extracts sender_id directly from JWT token
+// ==========================================
+
+/**
+ * Send chat message via authenticated backend (FastAPI / Flask).
+ * sender_id is extracted strictly from the JWT Bearer token on backend.
+ */
+export async function sendBackendMessage({ receiver_id, text, conversation_id = null }) {
+  const token = getStoredAuthToken();
+  const res = await safeFetchJson(`${API_BASE}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({
+      receiver_id: String(receiver_id),
+      text: String(text || '').trim(),
+      ...(conversation_id ? { conversation_id: String(conversation_id) } : {})
+    })
+  }, 2500);
+
+  return res;
+}
+
+/**
+ * Fetch messages for conversation from backend with two-way isolation.
+ */
+export async function fetchBackendMessages({ partner_id, conversation_id = null }) {
+  const token = getStoredAuthToken();
+  const query = new URLSearchParams({ partner_id: String(partner_id) });
+  if (conversation_id) query.set('conversation_id', String(conversation_id));
+
+  const res = await safeFetchJson(`${API_BASE}/messages?${query.toString()}`, {
+    method: 'GET',
+    headers: {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    }
+  }, 2500);
+
+  return res?.data || [];
+}
+
+/**
+ * Fetch all conversations for authenticated user from backend.
+ */
+export async function fetchBackendConversations() {
+  const token = getStoredAuthToken();
+  const res = await safeFetchJson(`${API_BASE}/conversations`, {
+    method: 'GET',
+    headers: {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    }
+  }, 2500);
+
+  return res?.data || [];
+}
+
+/**
+ * Express interest via authenticated backend.
+ * sender_id is extracted strictly from the JWT Bearer token on backend.
+ */
+export async function sendBackendInterest({ receiver_id, message = '' }) {
+  const token = getStoredAuthToken();
+  const res = await safeFetchJson(`${API_BASE}/interests`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({
+      receiver_id: String(receiver_id),
+      message: String(message || '').trim()
+    })
+  }, 2500);
+
+  return res;
+}
+
+/**
+ * Respond to interest (accept/reject) via authenticated backend.
+ * The respondent's receiver_id is extracted strictly from JWT on backend.
+ */
+export async function respondBackendInterest({ sender_id, action = 'accept' }) {
+  const token = getStoredAuthToken();
+  const res = await safeFetchJson(`${API_BASE}/interests/respond`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({
+      sender_id: String(sender_id),
+      action: String(action).toLowerCase()
+    })
+  }, 2500);
+
+  return res;
+}
+
+/**
+ * Fetch interests received by authenticated user from backend.
+ */
+export async function fetchBackendReceivedInterests() {
+  const token = getStoredAuthToken();
+  const res = await safeFetchJson(`${API_BASE}/interests/received`, {
+    method: 'GET',
+    headers: {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    }
+  }, 2500);
+
+  return res?.data || [];
+}
+
+/**
+ * Fetch interests sent by authenticated user from backend.
+ */
+export async function fetchBackendSentInterests() {
+  const token = getStoredAuthToken();
+  const res = await safeFetchJson(`${API_BASE}/interests/sent`, {
+    method: 'GET',
+    headers: {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    }
+  }, 2500);
+
+  return res?.data || [];
+}

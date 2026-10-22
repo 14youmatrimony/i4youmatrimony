@@ -694,7 +694,8 @@
     'religion', 'caste', 'mother_tongue', 'state', 'city', 'district', 'native_address',
     'education', 'education_category', 'profession', 'company', 'annual_income',
     'marital_status', 'diet', 'body_type', 'verified', 'govt_id_verified', 'aadhaar_verified',
-    'aadhaar_status', 'aadhaar_rejection_reason', 'status', 'photo', 'photo_url', 'created_at', 'updated_at'
+    'aadhaar_status', 'aadhaar_rejection_reason', 'aadhaar_front_image', 'aadhaar_back_image',
+    'status', 'photo', 'photo_url', 'created_at', 'updated_at'
   ].join(',');
   const SUPABASE_REST = `https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/profiles?select=${LIGHTWEIGHT_PROFILE_COLS}&order=created_at.desc`;
   const SUPABASE_OFFERS = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/offers';
@@ -1380,6 +1381,13 @@
 
       // 4. /api/users
       if (pathname === '/api/users' && method === 'GET') {
+        if (!store.profiles || store.profiles.length === 0) {
+          try {
+            await syncProfilesFromSupabase();
+          } catch (e) {
+            console.warn('[Admin Engine] Initial sync on /api/users notice:', e);
+          }
+        }
         const q = (params.get('q') || params.get('query') || '').trim().toLowerCase();
         const status = (params.get('status') || 'all').toLowerCase();
         const gender = (params.get('gender') || 'all').toLowerCase();
@@ -1422,15 +1430,15 @@
             if (!isMaleFilter && !isFemaleFilter && pGen !== filterGen) return false;
           }
 
-          if (verified === 'pending_aadhaar' || verified === 'pending') {
+          if (verified === 'pending_aadhaar' || verified === 'pending' || verified === 'unverified_aadhaar') {
             const isPending = p.aadhaar_status === 'sent_back' || 
                               p.aadhaar_status === 'pending' || 
                               p.aadhaar_status === 'pending_aadhaar' || 
-                              (p.verified == 0 && p.aadhaar_verified == 0);
+                              (p.aadhaar_verified != 1 && p.aadhaar_status !== 'approved');
             if (!isPending) return false;
-          } else if (verified === 'sent_back') {
+          } else if (verified === 'sent_back' || verified === 'rejected') {
             if (p.aadhaar_status !== 'sent_back') return false;
-          } else if (verified === 'verified' || verified === 'approved') {
+          } else if (verified === 'verified' || verified === 'approved' || verified === 'aadhaar' || verified === 'aadhaar_verified') {
             if (p.aadhaar_verified != 1 && p.aadhaar_status !== 'approved') return false;
           }
 

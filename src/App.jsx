@@ -925,6 +925,10 @@ export default function App() {
       sessionStorage.removeItem('i4u_active_chat_id');
       sessionStorage.removeItem('i4u_active_partner_id');
     } catch (e) {}
+    try {
+      interestService.clearCache();
+      liveChatService.clearCache();
+    } catch (e) {}
   }, []);
 
   // Synchronize conversations state strictly scoped to the active user
@@ -1254,6 +1258,7 @@ export default function App() {
                 const exists = list.some((n) => n && (n.id === notifId || n.id === row.id));
                 if (!exists) {
                   const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.sender?.id || row.metadata?.interest_from?.id || row.sender_id || row.senderId || '');
+                  if (!sId || userIds.includes(sId)) return;
                   const matchedSender = (profiles || []).find(p => p && (String(p.id) === sId || String(p.register_id) === sId || String(p.registerId) === sId));
                   const senderObj = matchedSender || row.metadata?.sender || row.metadata?.interest_from || (row.metadata?.senderName ? {
                     id: sId,
@@ -1267,8 +1272,8 @@ export default function App() {
 
                   list.unshift({
                     id: notifId,
-                    profileId: sId || row.recipient_id,
-                    senderId: sId || row.recipient_id,
+                    profileId: sId,
+                    senderId: sId,
                     sender: senderObj,
                     interest_from: senderObj,
                     type: row.type === 'interest_received' ? 'interest' : (row.type === 'chat_message' ? 'message' : 'match'),
@@ -1900,6 +1905,12 @@ export default function App() {
       handleOpenRegister();
       return;
     }
+    // Completely clear existing chat state, caches, and previous session artifacts
+    clearGlobalChatState();
+    try {
+      interestService.clearCache();
+    } catch (e) {}
+
     const resolved = typeof profile === 'string'
       ? profiles.find(p => p.id === profile || p.register_id === profile || p.registerId === profile)
       : profile;
@@ -3425,6 +3436,7 @@ export default function App() {
             {/* Overlays in Website Mode */}
             {selectedProfile && (
               <ProfileModal 
+                key={`website-profile-modal-${selectedProfile.id || selectedProfile.register_id || selectedProfile.registerId}`}
                 profile={selectedProfile}
                 currentUser={currentUser}
                 onClose={() => setSelectedProfile(null)}
@@ -3928,6 +3940,7 @@ export default function App() {
               {/* Mobile Profile Detail Sheet Modal */}
               {selectedProfile && (
                 <MobileProfileDetailSheet 
+                  key={`mobile-profile-detail-${selectedProfile.id || selectedProfile.register_id || selectedProfile.registerId}`}
                   profile={selectedProfile}
                   currentUser={currentUser}
                   onClose={() => setSelectedProfile(null)}

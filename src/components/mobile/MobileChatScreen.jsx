@@ -251,6 +251,9 @@ export default function MobileChatScreen({
     // 5. STATE CLEANUP ON ROUTE / PROFILE CHANGE:
     // Immediately clear messages state on switch or unmount to eliminate lingering messages
     setMessages([]);
+    setInputText('');
+    setShowEmojiPicker(false);
+    setIsTyping(false);
 
     if (!inConversation || !currentUser?.id || !partnerUser?.id || !activeConversationId) {
       return;

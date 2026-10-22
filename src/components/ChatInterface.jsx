@@ -139,6 +139,9 @@ export default function ChatInterface({
     // 5. STATE CLEANUP ON ROUTE / PROFILE CHANGE:
     // Immediately clear messages state on switch or unmount to eliminate lingering messages
     setMessages([]);
+    setMessageInput('');
+    setShowEmojiPicker(false);
+    setIsTyping(false);
 
     if (!currentUser?.id || !partnerUser?.id || !activeConversationId) {
       return;

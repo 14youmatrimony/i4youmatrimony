@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, 
   ShieldCheck, 
@@ -62,6 +62,16 @@ export default function MobileProfileDetailSheet({
 
   const { status: interestStatus, isAccepted: isCallingUnlocked } = useInterestStatus(currentUser, profile);
   const [callAuthAlert, setCallAuthAlert] = useState(null);
+
+  // Clean slate on profile change to eliminate lingering state from previous profile sessions
+  useEffect(() => {
+    setActiveTab('about');
+    setShowShareSheet(false);
+    setCopiedLink(false);
+    setCurrentSinglePhotoIdx(0);
+    setFullscreenPhoto(null);
+    setCallAuthAlert(null);
+  }, [profile?.id, profile?.registerId, profile?.register_id]);
 
   const handleAttemptCall = (type = 'audio') => {
     if (isCallingUnlocked) {

@@ -1,7 +1,8 @@
 import os
 import json
 import sqlite3
-from datetime import datetime
+import uuid
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Tuple
 
 try:
@@ -470,6 +471,38 @@ def init_postgres_tables(conn):
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS interests (
+        id VARCHAR(100) PRIMARY KEY,
+        sender_id VARCHAR(100) NOT NULL,
+        receiver_id VARCHAR(100) NOT NULL,
+        status VARCHAR(30) DEFAULT 'pending',
+        message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(sender_id, receiver_id)
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_interests_sender ON interests (sender_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_interests_receiver ON interests (receiver_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_interests_status ON interests (status);")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS messages (
+        id VARCHAR(100) PRIMARY KEY,
+        conversation_id VARCHAR(100),
+        sender_id VARCHAR(100) NOT NULL,
+        receiver_id VARCHAR(100) NOT NULL,
+        text TEXT NOT NULL,
+        status VARCHAR(30) DEFAULT 'delivered',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages (sender_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages (receiver_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages (conversation_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages (created_at);")
     conn.commit()
 
     # Migration for existing Postgres installations
@@ -689,6 +722,38 @@ def init_sqlite_tables(conn):
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS interests (
+        id VARCHAR(100) PRIMARY KEY,
+        sender_id VARCHAR(100) NOT NULL,
+        receiver_id VARCHAR(100) NOT NULL,
+        status VARCHAR(30) DEFAULT 'pending',
+        message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(sender_id, receiver_id)
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_interests_sender ON interests (sender_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_interests_receiver ON interests (receiver_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_interests_status ON interests (status);")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS messages (
+        id VARCHAR(100) PRIMARY KEY,
+        conversation_id VARCHAR(100),
+        sender_id VARCHAR(100) NOT NULL,
+        receiver_id VARCHAR(100) NOT NULL,
+        text TEXT NOT NULL,
+        status VARCHAR(30) DEFAULT 'delivered',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages (sender_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages (receiver_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages (conversation_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages (created_at);")
     conn.commit()
 
     # Migration for existing SQLite installations: add detail columns if missing
@@ -1774,6 +1839,361 @@ def delete_membership_plan_db(plan_id: str) -> bool:
         cursor.execute("DELETE FROM membership_plans WHERE id = ?", (plan_id,))
         conn.commit()
         return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+# ==========================================
+# AUDITED MESSAGES & INTERESTS OPERATIONS
+# ==========================================
+
+def save_message_db(sender_id: str, receiver_id: str, text: str, conversation_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Saves an authenticated chat message to PostgreSQL/SQLite database.
+    sender_id is strictly derived from the authenticated JWT token.
+    Columns sender_id and receiver_id are explicitly mapped and never swapped.
+    """
+    clean_sender = str(sender_id).strip()
+    clean_receiver = str(receiver_id).strip()
+    clean_text = str(text or '').strip()
+
+    if not clean_sender or not clean_receiver:
+        raise ValueError("sender_id and receiver_id are required")
+    if clean_sender == clean_receiver:
+        raise ValueError("Cannot send message to oneself (sender_id equals receiver_id)")
+
+    conv_id = conversation_id or ':::'.join(sorted([clean_sender, clean_receiver]))
+    msg_id = f"msg_{uuid.uuid4().hex}"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO messages (id, conversation_id, sender_id, receiver_id, text, status, created_at)
+            VALUES (?, ?, ?, ?, ?, 'delivered', ?)
+            """,
+            (msg_id, conv_id, clean_sender, clean_receiver, clean_text, now_iso)
+        )
+        conn.commit()
+        return {
+            'id': msg_id,
+            'conversation_id': conv_id,
+            'sender_id': clean_sender,
+            'receiver_id': clean_receiver,
+            'text': clean_text,
+            'status': 'delivered',
+            'created_at': now_iso
+        }
+    finally:
+        conn.close()
+
+
+def get_messages_for_pair_db(user_id: str, partner_id: str, conversation_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    Queries messages between an authenticated user and their conversation partner.
+    Audited SELECT query guarantees two-way isolation:
+    (sender_id = user_id AND receiver_id = partner_id) OR (sender_id = partner_id AND receiver_id = user_id)
+    """
+    clean_user = str(user_id).strip()
+    clean_partner = str(partner_id).strip()
+
+    if not clean_user or not clean_partner:
+        return []
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        if conversation_id:
+            cursor.execute(
+                """
+                SELECT id, conversation_id, sender_id, receiver_id, text, status, created_at
+                FROM messages
+                WHERE conversation_id = ?
+                  AND ((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?))
+                ORDER BY created_at ASC
+                """,
+                (conversation_id, clean_user, clean_partner, clean_partner, clean_user)
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT id, conversation_id, sender_id, receiver_id, text, status, created_at
+                FROM messages
+                WHERE ((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?))
+                ORDER BY created_at ASC
+                """,
+                (clean_user, clean_partner, clean_partner, clean_user)
+            )
+
+        rows = cursor.fetchall()
+        result = []
+        for r in rows:
+            result.append({
+                'id': str(r['id']),
+                'conversation_id': r['conversation_id'],
+                'sender_id': str(r['sender_id']),
+                'receiver_id': str(r['receiver_id']),
+                'text': r['text'],
+                'status': r['status'],
+                'created_at': str(r['created_at'])
+            })
+        return result
+    finally:
+        conn.close()
+
+
+def get_conversations_for_user_db(user_id: str) -> List[Dict[str, Any]]:
+    """
+    Lists all messages involving the authenticated user as either sender_id OR receiver_id.
+    Excludes messages where sender and receiver are identical.
+    """
+    clean_user = str(user_id).strip()
+    if not clean_user:
+        return []
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, conversation_id, sender_id, receiver_id, text, status, created_at
+            FROM messages
+            WHERE (sender_id = ? OR receiver_id = ?)
+              AND sender_id <> receiver_id
+            ORDER BY created_at ASC
+            """,
+            (clean_user, clean_user)
+        )
+        rows = cursor.fetchall()
+        result = []
+        for r in rows:
+            result.append({
+                'id': str(r['id']),
+                'conversation_id': r['conversation_id'],
+                'sender_id': str(r['sender_id']),
+                'receiver_id': str(r['receiver_id']),
+                'text': r['text'],
+                'status': r['status'],
+                'created_at': str(r['created_at'])
+            })
+        return result
+    finally:
+        conn.close()
+
+
+def save_interest_db(sender_id: str, receiver_id: str, message: str = '') -> Dict[str, Any]:
+    """
+    Records matrimonial interest in database.
+    sender_id is strictly extracted from authenticated JWT.
+    sender_id and receiver_id columns are mapped explicitly.
+    """
+    clean_sender = str(sender_id).strip()
+    clean_receiver = str(receiver_id).strip()
+    clean_msg = str(message or '').strip()
+
+    if not clean_sender or not clean_receiver:
+        raise ValueError("sender_id and receiver_id are required")
+    if clean_sender == clean_receiver:
+        raise ValueError("Cannot send interest to oneself")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, sender_id, receiver_id, status, message, created_at, updated_at
+            FROM interests
+            WHERE sender_id = ? AND receiver_id = ?
+            """,
+            (clean_sender, clean_receiver)
+        )
+        existing = cursor.fetchone()
+
+        if existing:
+            interest_id = str(existing['id'])
+            cursor.execute(
+                """
+                UPDATE interests
+                SET status = 'pending', message = ?, updated_at = ?
+                WHERE sender_id = ? AND receiver_id = ?
+                """,
+                (clean_msg, now_iso, clean_sender, clean_receiver)
+            )
+            created_at = str(existing['created_at'])
+        else:
+            interest_id = f"int_{uuid.uuid4().hex}"
+            cursor.execute(
+                """
+                INSERT INTO interests (id, sender_id, receiver_id, status, message, created_at, updated_at)
+                VALUES (?, ?, ?, 'pending', ?, ?, ?)
+                """,
+                (interest_id, clean_sender, clean_receiver, clean_msg, now_iso, now_iso)
+            )
+            created_at = now_iso
+
+        conn.commit()
+        return {
+            'id': interest_id,
+            'sender_id': clean_sender,
+            'receiver_id': clean_receiver,
+            'status': 'pending',
+            'message': clean_msg,
+            'created_at': created_at,
+            'updated_at': now_iso
+        }
+    finally:
+        conn.close()
+
+
+def respond_interest_db(receiver_id: str, sender_id: str, action: str) -> Optional[Dict[str, Any]]:
+    """
+    Responds to an interest (accept/reject).
+    The authenticated caller is the RECEIVER of the interest.
+    sender_id is the original sender.
+    Columns are strictly audited: WHERE sender_id = ? AND receiver_id = ?
+    """
+    clean_receiver = str(receiver_id).strip()
+    clean_sender = str(sender_id).strip()
+    clean_action = str(action or '').lower().strip()
+    new_status = 'accepted' if clean_action in ('accept', 'accepted') else 'rejected'
+
+    if not clean_receiver or not clean_sender:
+        raise ValueError("receiver_id and sender_id are required")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE interests
+            SET status = ?, updated_at = ?
+            WHERE sender_id = ? AND receiver_id = ?
+            """,
+            (new_status, now_iso, clean_sender, clean_receiver)
+        )
+        conn.commit()
+
+        cursor.execute(
+            """
+            SELECT id, sender_id, receiver_id, status, message, created_at, updated_at
+            FROM interests
+            WHERE sender_id = ? AND receiver_id = ?
+            """,
+            (clean_sender, clean_receiver)
+        )
+        row = cursor.fetchone()
+        if not row:
+            # If not already in DB, create the responded entry
+            interest_id = f"int_{uuid.uuid4().hex}"
+            cursor.execute(
+                """
+                INSERT INTO interests (id, sender_id, receiver_id, status, message, created_at, updated_at)
+                VALUES (?, ?, ?, ?, '', ?, ?)
+                """,
+                (interest_id, clean_sender, clean_receiver, new_status, now_iso, now_iso)
+            )
+            conn.commit()
+            return {
+                'id': interest_id,
+                'sender_id': clean_sender,
+                'receiver_id': clean_receiver,
+                'status': new_status,
+                'message': '',
+                'created_at': now_iso,
+                'updated_at': now_iso
+            }
+
+        return {
+            'id': str(row['id']),
+            'sender_id': str(row['sender_id']),
+            'receiver_id': str(row['receiver_id']),
+            'status': str(row['status']),
+            'message': str(row['message'] or ''),
+            'created_at': str(row['created_at']),
+            'updated_at': str(row['updated_at'])
+        }
+    finally:
+        conn.close()
+
+
+def get_received_interests_db(receiver_id: str) -> List[Dict[str, Any]]:
+    """
+    Fetches interests received by the authenticated user.
+    receiver_id is from authenticated token.
+    WHERE receiver_id = ? AND sender_id <> receiver_id
+    """
+    clean_receiver = str(receiver_id).strip()
+    if not clean_receiver:
+        return []
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, sender_id, receiver_id, status, message, created_at, updated_at
+            FROM interests
+            WHERE receiver_id = ? AND sender_id <> receiver_id
+            ORDER BY updated_at DESC
+            """,
+            (clean_receiver,)
+        )
+        rows = cursor.fetchall()
+        result = []
+        for r in rows:
+            result.append({
+                'id': str(r['id']),
+                'sender_id': str(r['sender_id']),
+                'receiver_id': str(r['receiver_id']),
+                'status': str(r['status']),
+                'message': str(r['message'] or ''),
+                'created_at': str(r['created_at']),
+                'updated_at': str(r['updated_at'])
+            })
+        return result
+    finally:
+        conn.close()
+
+
+def get_sent_interests_db(sender_id: str) -> List[Dict[str, Any]]:
+    """
+    Fetches interests sent by the authenticated user.
+    sender_id is from authenticated token.
+    WHERE sender_id = ? AND sender_id <> receiver_id
+    """
+    clean_sender = str(sender_id).strip()
+    if not clean_sender:
+        return []
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, sender_id, receiver_id, status, message, created_at, updated_at
+            FROM interests
+            WHERE sender_id = ? AND sender_id <> receiver_id
+            ORDER BY updated_at DESC
+            """,
+            (clean_sender,)
+        )
+        rows = cursor.fetchall()
+        result = []
+        for r in rows:
+            result.append({
+                'id': str(r['id']),
+                'sender_id': str(r['sender_id']),
+                'receiver_id': str(r['receiver_id']),
+                'status': str(r['status']),
+                'message': str(r['message'] or ''),
+                'created_at': str(r['created_at']),
+                'updated_at': str(r['updated_at'])
+            })
+        return result
     finally:
         conn.close()
 

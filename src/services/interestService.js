@@ -10,6 +10,11 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase.js';
+import {
+  sendBackendInterest,
+  respondBackendInterest,
+  fetchBackendReceivedInterests
+} from './api.js';
 
 class InterestService {
   constructor() {
@@ -87,6 +92,27 @@ class InterestService {
       this.statusCache.set(pairKey, status);
     }
     this.notifyListeners(payload);
+  }
+
+  /**
+   * Completely clears the in-memory relationship status cache.
+   * Crucial when navigating between different member profiles or switching users
+   * to eliminate data crossover and prevent stale authorization flags.
+   */
+  clearCache() {
+    this.statusCache.clear();
+    console.log('[InterestService] Status cache completely cleared');
+  }
+
+  /**
+   * Clears cached status for a specific user pair.
+   */
+  clearPairCache(userA, userB) {
+    const pairKey = this.getPairKey(userA, userB);
+    if (pairKey) {
+      this.statusCache.delete(pairKey);
+      console.log(`[InterestService] Cleared status cache for pair: ${pairKey}`);
+    }
   }
 
   /**
@@ -436,12 +462,9 @@ class InterestService {
         ));
       }
 
-      // If still not found, distribute distinct candidate from allProfiles by index
-      if (!senderProfile && Array.isArray(allProfiles) && allProfiles.length > 0) {
-        const otherCandidates = allProfiles.filter(p => !receiverIds.includes(String(p?.id)));
-        if (otherCandidates.length > 0) {
-          senderProfile = otherCandidates[index % otherCandidates.length];
-        }
+      // If still not found in pool, check if rec already carries authentic sender details
+      if (!senderProfile && (rec.sender || rec.interest_from)) {
+        senderProfile = rec.sender || rec.interest_from;
       }
 
       return {
@@ -613,6 +636,9 @@ class InterestService {
         console.warn('[InterestService] Supabase interests upsert notice:', e);
       }
 
+      // Synchronize with secure backend (FastAPI / PostgreSQL)
+      sendBackendInterest({ receiver_id: String(receiverId), message: message || '' }).catch(() => {});
+
       // Record in notifications table
       try {
         const senderObj = typeof sender === 'object' ? sender : null;
@@ -766,6 +792,9 @@ class InterestService {
         ]);
       } catch (e) {}
 
+      // Synchronize with secure backend (FastAPI / PostgreSQL)
+      respondBackendInterest({ sender_id: String(senderId), action: 'accept' }).catch(() => {});
+
       // Insert notification for original sender
       try {
         const receiverName = typeof receiver === 'object' ? receiver.name : 'A Candidate';
@@ -880,6 +909,9 @@ class InterestService {
           }
         ]);
       } catch (e) {}
+
+      // Synchronize with secure backend (FastAPI / PostgreSQL)
+      respondBackendInterest({ sender_id: String(senderId), action: 'reject' }).catch(() => {});
     }
 
     // Broadcast update

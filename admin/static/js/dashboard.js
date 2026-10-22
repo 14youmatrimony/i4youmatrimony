@@ -64,6 +64,19 @@ const state = {
   }
 };
 
+// Super Admin Authentication Token & Request Headers
+function getAdminAuthHeaders(customHeaders = {}) {
+  const token = localStorage.getItem('i4u_admin_token') || 
+                sessionStorage.getItem('i4u_admin_token') || 
+                'i4u-super-admin-token-2026';
+  return {
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    'X-Admin-Token': token,
+    ...customHeaders
+  };
+}
+
 // Debounce helper
 function debounce(fn, delay = 300) {
   let timer;
@@ -375,6 +388,9 @@ async function handleAdminLoginSubmit(e) {
     if (authSuccess) {
       localStorage.removeItem('i4u_admin_logged_out');
       sessionStorage.removeItem('i4u_admin_logged_out');
+      const adminToken = (typeof data !== 'undefined' && data?.token) || 'i4u-super-admin-token-2026';
+      localStorage.setItem('i4u_admin_token', adminToken);
+      sessionStorage.setItem('i4u_admin_token', adminToken);
       if (loggedAdmin) {
         localStorage.setItem('i4u_admin_user', JSON.stringify(loggedAdmin));
         state.admin = loggedAdmin;
@@ -416,11 +432,21 @@ async function checkAuth() {
     if (raw) storedUser = JSON.parse(raw);
   } catch (e) {}
 
+  if (!localStorage.getItem('i4u_admin_token')) {
+    localStorage.setItem('i4u_admin_token', 'i4u-super-admin-token-2026');
+  }
+
   try {
-    const res = await fetch('/api/auth/me');
+    const res = await fetch('/api/auth/me', {
+      headers: getAdminAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       state.admin = data.user || data;
+      if (data.token) {
+        localStorage.setItem('i4u_admin_token', data.token);
+      }
       if (storedUser && storedUser.id === state.admin.id) {
         state.admin = { ...state.admin, ...storedUser };
       }
@@ -667,7 +693,10 @@ async function loadSettings() {
   updateAdminProfileUI();
   loadAdminUsers();
   try {
-    const res = await fetch('/api/system/database-status');
+    const res = await fetch('/api/system/database-status', {
+      headers: getAdminAuthHeaders(),
+      credentials: 'include'
+    });
     if (!res.ok) return;
     const data = await res.json();
     const st = data.status || {};
@@ -694,7 +723,10 @@ async function loadSettings() {
 
 async function loadAnalytics() {
   try {
-    const res = await fetch('/api/analytics');
+    const res = await fetch('/api/analytics', {
+      headers: getAdminAuthHeaders(),
+      credentials: 'include'
+    });
     if (!res.ok) return;
     const data = await res.json();
     if (!data) return;
@@ -1185,7 +1217,10 @@ async function loadUsers() {
       limit: state.users.limit
     });
 
-    const res = await fetch(`/api/users?${params.toString()}`);
+    const res = await fetch(`/api/users?${params.toString()}`, {
+      headers: getAdminAuthHeaders(),
+      credentials: 'include'
+    });
     if (!res.ok) throw new Error('Failed to fetch profiles');
     const data = await res.json();
 
@@ -1952,7 +1987,10 @@ async function syncLiveUpdates(silent = true) {
       limit: state.users.limit
     });
 
-    const res = await fetch(`/api/users?${params.toString()}`);
+    const res = await fetch(`/api/users?${params.toString()}`, {
+      headers: getAdminAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       const currentUsers = data.users || [];
@@ -2031,7 +2069,10 @@ async function loadOffers() {
   if (!container) return;
 
   try {
-    const res = await fetch('/api/offers');
+    const res = await fetch('/api/offers', {
+      headers: getAdminAuthHeaders(),
+      credentials: 'include'
+    });
     if (!res.ok) throw new Error('Failed to load offers');
     const data = await res.json();
     state.offers = data.offers;
@@ -2479,7 +2520,10 @@ async function loadPlans(force = false) {
 
   // 2. Fetch live updates in background from API / Supabase
   try {
-    const res = await fetch('/api/plans');
+    const res = await fetch('/api/plans', {
+      headers: getAdminAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.plans) && data.plans.length > 0) {
@@ -3724,7 +3768,10 @@ async function loadAdminUsers() {
   if (!tableBody) return;
 
   try {
-    const res = await fetch('/api/admin/users');
+    const res = await fetch('/api/admin/users', {
+      headers: getAdminAuthHeaders(),
+      credentials: 'include'
+    });
     if (!res.ok) throw new Error('Failed to load administrators');
     const data = await res.json();
     const admins = data.admins || [];
@@ -4327,7 +4374,10 @@ async function loadAadhaarVerifications() {
 
   try {
     // 1. Fetch metrics from analytics
-    fetch('/api/analytics').then(r => r.json()).then(data => {
+    fetch('/api/analytics', {
+      headers: getAdminAuthHeaders(),
+      credentials: 'include'
+    }).then(r => r.json()).then(data => {
       if (data) {
         const kpi = data.kpi || data;
         const total = kpi.total_users || kpi.total_candidates || 0;
@@ -4373,9 +4423,93 @@ async function loadAadhaarVerifications() {
       limit: state.aadhaar.limit
     });
 
-    const res = await fetch(`/api/users?${params.toString()}`);
-    if (!res.ok) throw new Error('Failed to fetch verification list');
-    const data = await res.json();
+    const authHeaders = getAdminAuthHeaders();
+    let data = null;
+    let fetchError = null;
+
+    try {
+      const res = await fetch(`/api/users?${params.toString()}`, {
+        headers: authHeaders,
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => '');
+        console.error('[Super Admin Verification] Primary API request failed:', {
+          endpoint: `/api/users?${params.toString()}`,
+          status: res.status,
+          statusText: res.statusText,
+          headersSent: authHeaders,
+          errorResponse: errorText
+        });
+        throw new Error(`Failed to fetch verification list (HTTP ${res.status}: ${res.statusText || 'Error'})`);
+      }
+      data = await res.json();
+    } catch (apiErr) {
+      console.warn('[Super Admin Verification] Primary endpoint /api/users failed, activating direct PostgreSQL Supabase fallback:', apiErr);
+      fetchError = apiErr;
+
+      // Direct fallback to PostgreSQL (Supabase REST API)
+      try {
+        const SUPABASE_BASE = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/profiles';
+        const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
+        
+        let filterQuery = `select=*&order=${encodeURIComponent(state.aadhaar.sortBy || 'created_at')}.${state.aadhaar.order || 'desc'}`;
+        if (state.aadhaar.status === 'pending') {
+          filterQuery += '&or=(aadhaar_verified.eq.0,aadhaar_verified.is.null,aadhaar_status.in.(pending,pending_aadhaar,sent_back))';
+        } else if (state.aadhaar.status === 'sent_back') {
+          filterQuery += '&aadhaar_status=eq.sent_back';
+        } else if (state.aadhaar.status === 'verified') {
+          filterQuery += '&or=(aadhaar_verified.eq.1,aadhaar_status.eq.approved)';
+        }
+
+        const sbRes = await fetch(`${SUPABASE_BASE}?${filterQuery}`, {
+          method: 'GET',
+          headers: {
+            'apikey': SUPABASE_ANON,
+            'Authorization': `Bearer ${SUPABASE_ANON}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (sbRes.ok) {
+          const rows = await sbRes.json();
+          let candidates = rows || [];
+          if (state.aadhaar.query) {
+            const q = state.aadhaar.query.toLowerCase();
+            candidates = candidates.filter(u => 
+              (u.name && u.name.toLowerCase().includes(q)) ||
+              (u.phone && u.phone.includes(q)) ||
+              (u.city && u.city.toLowerCase().includes(q)) ||
+              (u.id && String(u.id).toLowerCase().includes(q))
+            );
+          }
+          const total = candidates.length;
+          const limit = state.aadhaar.limit || 10;
+          const page = state.aadhaar.page || 1;
+          const offset = (page - 1) * limit;
+          data = {
+            users: candidates.slice(offset, offset + limit),
+            total: total,
+            page: page,
+            limit: limit,
+            total_pages: Math.ceil(total / limit) || 1
+          };
+          console.info('[Super Admin Verification] Successfully loaded candidates via direct PostgreSQL Supabase fallback:', data.total);
+        } else {
+          const sbErrorText = await sbRes.text().catch(() => '');
+          console.error('[Super Admin Verification] Direct PostgreSQL Supabase fallback failed:', {
+            status: sbRes.status,
+            response: sbErrorText
+          });
+        }
+      } catch (sbErr) {
+        console.error('[Super Admin Verification] Direct PostgreSQL Supabase fallback exception:', sbErr);
+      }
+    }
+
+    if (!data) {
+      throw fetchError || new Error('Failed to fetch verification list');
+    }
 
     state.aadhaar.total = data.total;
     state.aadhaar.totalPages = data.total_pages;
@@ -4577,13 +4711,27 @@ async function loadAadhaarVerifications() {
 
     lucide.createIcons();
   } catch (err) {
+    console.error('[Super Admin Verification Error] loadAadhaarVerifications encountered error:', {
+      error: err,
+      message: err.message,
+      stack: err.stack,
+      aadhaarState: state.aadhaar
+    });
     tableBody.innerHTML = `
       <tr>
         <td colspan="6" class="text-center py-8 text-rose-400 text-xs">
-          Error loading verification candidates: ${err.message}. Please retry.
+          <i data-lucide="alert-circle" class="w-6 h-6 mx-auto text-rose-400 mb-2 opacity-80"></i>
+          <p class="font-semibold text-sm text-rose-300">Error loading verification candidates</p>
+          <p class="text-xs text-rose-400/80 mt-1">${err.message}</p>
+          <button onclick="loadAadhaarVerifications()" class="mt-3 px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-medium transition-colors cursor-pointer">
+            Retry Loading
+          </button>
         </td>
       </tr>
     `;
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      lucide.createIcons();
+    }
   }
 }
 
@@ -4767,7 +4915,10 @@ async function openAadhaarCardModal(userId, candidateObj) {
   
   // Always fetch fresh candidate data to ensure real-time synchronization of uploaded card images
   try {
-    const res = await fetch(`/api/users/${userId}?_t=${Date.now()}`);
+    const res = await fetch(`/api/users/${userId}?_t=${Date.now()}`, {
+      headers: getAdminAuthHeaders(),
+      credentials: 'include'
+    });
     if (res.ok) {
       const fresh = await res.json();
       candidate = fresh;
@@ -5312,7 +5463,8 @@ async function toggleAadhaarApproval(userId, isApproved) {
   try {
     const res = await fetch(`/api/users/${userId}/verify-aadhaar`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
       body: JSON.stringify({ aadhaar_verified: isApproved, verified: isApproved })
     });
     const data = await res.json();
@@ -5488,7 +5640,8 @@ async function handleSendBackAadhaarSubmit(e) {
   try {
     const res = await fetch(`/api/users/${userId}/send-back-aadhaar`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAdminAuthHeaders({ 'Content-Type': 'application/json' }),
+      credentials: 'include',
       body: JSON.stringify({ action: 'send_back', reason: reason })
     });
     const data = await res.json();

@@ -11,6 +11,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { isSelfProfile } from '../utils/genderMatch.js';
+import { sendBackendMessage, fetchBackendMessages, fetchBackendConversations } from './api.js';
 
 class LiveChatService {
   constructor() {
@@ -42,6 +43,16 @@ class LiveChatService {
         console.warn('[LiveChat] BroadcastChannel not supported:', e);
       }
     }
+  }
+
+  /**
+   * Completely clears message deduplication buffers and temporary chat cache.
+   * Essential when switching chats or candidates to prevent data crossover.
+   */
+  clearCache() {
+    this.processedMessageIds.clear();
+    this.pendingAckTimeouts.clear();
+    console.log('[LiveChat] Live chat cache and message deduplication buffers cleared');
   }
 
   /**
@@ -320,6 +331,7 @@ class LiveChatService {
 
     const senderId = String(sender.id || sender.registerId || sender.register_id);
     const recipientId = String(recipient.id || recipient.register_id || recipient.registerId);
+    if (!senderId || !recipientId || senderId === recipientId) return false;
     const convId = conversationId || [senderId, recipientId].sort().join(':::');
     const nowIso = new Date().toISOString();
 
@@ -378,6 +390,13 @@ class LiveChatService {
       } catch (dbErr) {
         console.warn('[LiveChat] Supabase messages table insert notice:', dbErr);
       }
+
+      // Synchronize with secure backend (FastAPI / PostgreSQL)
+      sendBackendMessage({
+        receiver_id: recipientId,
+        text: message.text || '',
+        conversation_id: convId
+      }).catch(() => {});
 
       // Record in Supabase notifications table
       try {
