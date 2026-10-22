@@ -1066,14 +1066,15 @@ export default function App() {
     if (!profileOrId) return false;
     const p = typeof profileOrId === 'object' 
       ? profileOrId 
-      : profiles.find(item => item.id === profileOrId || item.registerId === profileOrId || item.register_id === profileOrId);
+      : profiles.find(item => item && (item.id === profileOrId || item.registerId === profileOrId || item.register_id === profileOrId));
     const targetId = typeof profileOrId === 'string' ? profileOrId : (p?.id || profileOrId?.id);
     const regId = p?.registerId || p?.register_id || profileOrId?.registerId || profileOrId?.register_id;
     const candidateId = p?.id || profileOrId?.id;
+    const list = Array.isArray(interestsSent) ? interestsSent : [];
     return Boolean(
-      (targetId && interestsSent.includes(targetId)) ||
-      (candidateId && interestsSent.includes(candidateId)) ||
-      (regId && interestsSent.includes(regId))
+      (targetId && list.includes(targetId)) ||
+      (candidateId && list.includes(candidateId)) ||
+      (regId && list.includes(regId))
     );
   }, [interestsSent, profiles]);
 
@@ -1082,14 +1083,15 @@ export default function App() {
     if (!profileOrId) return false;
     const p = typeof profileOrId === 'object' 
       ? profileOrId 
-      : profiles.find(item => item.id === profileOrId || item.registerId === profileOrId || item.register_id === profileOrId);
+      : profiles.find(item => item && (item.id === profileOrId || item.registerId === profileOrId || item.register_id === profileOrId));
     const targetId = typeof profileOrId === 'string' ? profileOrId : (p?.id || profileOrId?.id);
     const regId = p?.registerId || p?.register_id || profileOrId?.registerId || profileOrId?.register_id;
     const candidateId = p?.id || profileOrId?.id;
+    const list = Array.isArray(shortlisted) ? shortlisted : [];
     return Boolean(
-      (targetId && shortlisted.includes(targetId)) ||
-      (candidateId && shortlisted.includes(candidateId)) ||
-      (regId && shortlisted.includes(regId))
+      (targetId && list.includes(targetId)) ||
+      (candidateId && list.includes(candidateId)) ||
+      (regId && list.includes(regId))
     );
   }, [shortlisted, profiles]);
   const [toastMessage, setToastMessage] = useState('');
@@ -1164,7 +1166,7 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasOldDummy = parsed.some(n => n.profileId === 'p1' || n.profileId === 'p2' || (n.title && (n.title.includes('Ananya') || n.title.includes('Rohan Jayasimha'))));
+          const hasOldDummy = parsed.some(n => n && (n.profileId === 'p1' || n.profileId === 'p2' || (n.title && (n.title.includes('Ananya') || n.title.includes('Rohan Jayasimha')))));
           if (!hasOldDummy) {
             return parsed.filter(n => n && typeof n === 'object' && n.type);
           }
@@ -1201,9 +1203,10 @@ export default function App() {
           setNotifications((prev) => {
             const list = Array.isArray(prev) ? [...prev] : [];
             records.forEach((rec) => {
+              if (!rec) return;
               const notifId = `notif_int_${rec.id}`;
               const exists = list.some(
-                (n) => n.id === notifId || n.id === rec.id || (n.type === 'interest' && String(n.profileId) === String(rec.senderId))
+                (n) => n && (n.id === notifId || n.id === rec.id || (n.type === 'interest' && String(n.profileId) === String(rec.senderId)))
               );
               if (!exists) {
                 const sId = String(rec.senderId || rec.sender_id || '');
@@ -1227,6 +1230,7 @@ export default function App() {
                 });
               }
             });
+            return list;
           });
         }
       })
@@ -1245,8 +1249,9 @@ export default function App() {
             setNotifications((prev) => {
               const list = Array.isArray(prev) ? [...prev] : [];
               data.forEach((row) => {
+                if (!row) return;
                 const notifId = `db_${row.id}`;
-                const exists = list.some((n) => n.id === notifId || n.id === row.id);
+                const exists = list.some((n) => n && (n.id === notifId || n.id === row.id));
                 if (!exists) {
                   const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.sender?.id || row.metadata?.interest_from?.id || row.sender_id || row.senderId || '');
                   const matchedSender = (profiles || []).find(p => p && (String(p.id) === sId || String(p.register_id) === sId || String(p.registerId) === sId));
@@ -1418,11 +1423,13 @@ export default function App() {
         if (exists) {
           return prev.map(c => {
             if (String(c.profileId) === senderIdStr) {
-              const currentMsgs = c.messages || [];
+              const currentMsgs = Array.isArray(c.messages) ? c.messages : [];
               const alreadyExists = currentMsgs.some(m =>
-                (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
-                (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
-                (m.text === text && String(m.sender_id) === senderId && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
+                m && (
+                  (incomingMsg.id && (m.id === incomingMsg.id || m.tempId === incomingMsg.id)) ||
+                  (incomingMsg.tempId && (m.tempId === incomingMsg.tempId || m.id === incomingMsg.tempId)) ||
+                  (m.text === text && String(m.sender_id) === senderId && Math.abs(new Date(m.created_at || m.time || 0).getTime() - new Date(incomingMsg.created_at).getTime()) < 3000)
+                )
               );
               if (alreadyExists) {
                 return isCurrentlyInThisChat && c.unreadCount > 0
@@ -1910,17 +1917,19 @@ export default function App() {
     const targetId = profile?.id || profileId;
     const targetRegId = profile?.registerId || profile?.register_id;
 
+    const list = Array.isArray(interestsSent) ? interestsSent : [];
     const isAlready = Boolean(
-      interestsSent.includes(targetId) ||
-      (targetRegId && interestsSent.includes(targetRegId))
+      list.includes(targetId) ||
+      (targetRegId && list.includes(targetRegId))
     );
 
     if (isAlready) {
-      setInterestsSent(prev => prev.filter(id => id !== targetId && id !== targetRegId));
+      setInterestsSent(prev => (Array.isArray(prev) ? prev : []).filter(id => id !== targetId && id !== targetRegId));
       showToast(`Interest withdrawn`);
     } else {
       setInterestsSent(prev => {
-        const cleaned = prev.filter(id => id !== targetId && id !== targetRegId);
+        const arr = Array.isArray(prev) ? prev : [];
+        const cleaned = arr.filter(id => id !== targetId && id !== targetRegId);
         return [...cleaned, targetId];
       });
       showToast(`Interest sent to ${profile?.name || 'profile'}! ✨`);
@@ -1946,14 +1955,15 @@ export default function App() {
 
       // Ensure a conversation thread exists
       setConversations(prev => {
-        if (!prev.find(c => c.profileId === targetId || (targetRegId && c.profileId === targetRegId))) {
-          return [...prev, {
+        const arr = Array.isArray(prev) ? prev : [];
+        if (!arr.find(c => c && (c.profileId === targetId || (targetRegId && c.profileId === targetRegId)))) {
+          return [...arr, {
             profileId: targetId,
             unreadCount: 0,
             messages: []
           }];
         }
-        return prev;
+        return arr;
       });
     }
   };
@@ -2126,21 +2136,22 @@ export default function App() {
 
   // Handle accepting an incoming interest from candidate
   const handleAcceptIncomingInterest = (profileId, replyMessage) => {
-    const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId) || interestModalCandidate;
+    const profile = profiles.find(p => p && (p.id === profileId || p.registerId === profileId || p.register_id === profileId)) || interestModalCandidate;
     const targetId = profile?.id || profileId;
     const targetRegId = profile?.registerId || profile?.register_id;
 
-    setDeclinedReceivedIds(prev => prev.filter(id => id !== targetId && id !== targetRegId));
-    setNotifications(prev => prev.map(n => 
-      (n.profileId === targetId || (targetRegId && n.profileId === targetRegId)) 
+    setDeclinedReceivedIds(prev => (Array.isArray(prev) ? prev : []).filter(id => id !== targetId && id !== targetRegId));
+    setNotifications(prev => (Array.isArray(prev) ? prev : []).map(n => 
+      n && (n.profileId === targetId || (targetRegId && n.profileId === targetRegId)) 
         ? { ...n, isRead: true, status: 'accepted' } 
         : n
     ));
     setInterestsSent(prev => {
-      if (prev.includes(targetId) || (targetRegId && prev.includes(targetRegId))) {
-        return prev;
+      const arr = Array.isArray(prev) ? prev : [];
+      if (arr.includes(targetId) || (targetRegId && arr.includes(targetRegId))) {
+        return arr;
       }
-      return [...prev, targetId];
+      return [...arr, targetId];
     });
 
     if (currentUser && profile) {
@@ -2150,7 +2161,8 @@ export default function App() {
     if (replyMessage && replyMessage.trim()) {
       const cleanMsg = replyMessage.trim();
       setConversations(prev => {
-        const existing = prev.find(c => c.profileId === targetId || (targetRegId && c.profileId === targetRegId));
+        const arr = Array.isArray(prev) ? prev : [];
+        const existing = arr.find(c => c && (c.profileId === targetId || (targetRegId && c.profileId === targetRegId)));
         const newMsg = {
           id: 'msg_' + Date.now(),
           sender: 'me',
@@ -2158,12 +2170,12 @@ export default function App() {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         if (existing) {
-          return prev.map(c => (c.profileId === targetId || (targetRegId && c.profileId === targetRegId))
+          return arr.map(c => c && (c.profileId === targetId || (targetRegId && c.profileId === targetRegId))
             ? { ...c, messages: [...(c.messages || []), newMsg] }
             : c
           );
         }
-        return [...prev, {
+        return [...arr, {
           profileId: targetId,
           unreadCount: 0,
           messages: [newMsg]
@@ -2177,12 +2189,13 @@ export default function App() {
 
   // Confirm sending interest with chosen/customized message
   const handleConfirmSendInterest = (profileId, customMessage) => {
-    const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId) || interestModalCandidate;
+    const profile = profiles.find(p => p && (p.id === profileId || p.registerId === profileId || p.register_id === profileId)) || interestModalCandidate;
     const targetId = profile?.id || profileId;
     const targetRegId = profile?.registerId || profile?.register_id;
 
     setInterestsSent(prev => {
-      const cleaned = prev.filter(id => id !== targetId && id !== targetRegId);
+      const arr = Array.isArray(prev) ? prev : [];
+      const cleaned = arr.filter(id => id !== targetId && id !== targetRegId);
       return [...cleaned, targetId];
     });
     setInterestModalCandidate(null);
@@ -2537,22 +2550,50 @@ export default function App() {
         blurPhotosForUnconnected: photosData.blurPhotosForUnconnected
       });
 
-      // If Supabase Storage returned a permanent URL (https://...), update currentUser state seamlessly
+      // If Supabase Storage returned a permanent URL (https://...), update currentUser and profile feeds seamlessly
       if (syncResult && syncResult.photo && syncResult.photo.startsWith('http')) {
+        const finalPhotoUrl = syncResult.photo;
+        const finalSingles = Array.isArray(syncResult.singlePhotos) && syncResult.singlePhotos.length > 0
+          ? syncResult.singlePhotos
+          : (Array.isArray(currentUser?.singlePhotos) && currentUser.singlePhotos.length > 0
+              ? [finalPhotoUrl, ...currentUser.singlePhotos.slice(1)]
+              : [finalPhotoUrl]);
+
         setCurrentUser(prev => {
           if (!prev) return prev;
           const refined = {
             ...prev,
-            photo: syncResult.photo,
-            photo_url: syncResult.photo,
-            singlePhotos: Array.isArray(prev.singlePhotos) && prev.singlePhotos.length > 0
-              ? [syncResult.photo, ...prev.singlePhotos.slice(1)]
-              : [syncResult.photo]
+            photo: finalPhotoUrl,
+            photo_url: finalPhotoUrl,
+            singlePhotos: finalSingles
           };
           try {
             localStorage.setItem('i4u_auth_user', JSON.stringify(refined));
           } catch (e) {}
           return refined;
+        });
+
+        // Immediately reflect in profiles list & cache so feed and filters display the permanent URL
+        setProfiles(prevProfiles => {
+          if (!Array.isArray(prevProfiles)) return prevProfiles;
+          const uid = currentUser?.id;
+          const regId = currentUser?.registerId || currentUser?.register_id;
+          const phone = currentUser?.mobile || currentUser?.phone;
+          const updated = prevProfiles.map(p => {
+            if (p && ((uid && p.id === uid) || (regId && (p.registerId === regId || p.register_id === regId)) || (phone && (p.phone === phone || p.mobile === phone)))) {
+              return {
+                ...p,
+                photo: finalPhotoUrl,
+                photo_url: finalPhotoUrl,
+                singlePhotos: finalSingles
+              };
+            }
+            return p;
+          });
+          try {
+            localStorage.setItem('i4u_cached_profiles', JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
         });
       }
     } catch (err) {
@@ -3523,7 +3564,10 @@ export default function App() {
                 currentUser={currentUser}
                 isAlreadyInterested={isProfileInterested(interestModalCandidate)}
                 isIncomingInterest={Boolean(
+                  interestModalCandidate &&
+                  Array.isArray(notifications) &&
                   notifications.some(n => 
+                    n &&
                     n.type === 'interest_received' && 
                     n.status !== 'accepted' && 
                     (n.profileId === interestModalCandidate.id || n.profileId === interestModalCandidate.registerId || n.profileId === interestModalCandidate.register_id)
@@ -4048,7 +4092,10 @@ export default function App() {
                   currentUser={currentUser}
                   isAlreadyInterested={isProfileInterested(interestModalCandidate)}
                   isIncomingInterest={Boolean(
+                    interestModalCandidate &&
+                    Array.isArray(notifications) &&
                     notifications.some(n => 
+                      n &&
                       n.type === 'interest_received' && 
                       n.status !== 'accepted' && 
                       (n.profileId === interestModalCandidate.id || n.profileId === interestModalCandidate.registerId || n.profileId === interestModalCandidate.register_id)

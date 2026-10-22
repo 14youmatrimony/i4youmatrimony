@@ -632,9 +632,12 @@ export default function MobileAppModal({
                           isOpen={Boolean(interestModalCandidate)}
                           candidate={interestModalCandidate}
                           currentUser={currentUser}
-                          isAlreadyInterested={Boolean(interestModalCandidate && (interestsSent.includes(interestModalCandidate.id) || (interestModalCandidate.registerId && interestsSent.includes(interestModalCandidate.registerId)) || (interestModalCandidate.register_id && interestsSent.includes(interestModalCandidate.register_id))))}
+                          isAlreadyInterested={Boolean(interestModalCandidate && Array.isArray(interestsSent) && (interestsSent.includes(interestModalCandidate.id) || (interestModalCandidate.registerId && interestsSent.includes(interestModalCandidate.registerId)) || (interestModalCandidate.register_id && interestsSent.includes(interestModalCandidate.register_id))))}
                           isIncomingInterest={Boolean(
-                            notifications && notifications.some(n => 
+                            interestModalCandidate &&
+                            Array.isArray(notifications) && 
+                            notifications.some(n => 
+                              n &&
                               n.type === 'interest_received' && 
                               n.status !== 'accepted' && 
                               (n.profileId === interestModalCandidate.id || n.profileId === interestModalCandidate.registerId || n.profileId === interestModalCandidate.register_id)

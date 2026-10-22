@@ -138,8 +138,8 @@ export default function MobileInterestsScreen({
         if (!sid || rec.status === 'rejected') return;
         // Never allow currentUser to be considered as sender (prevents state overlap!)
         if (isSelfProfile({ id: sid })) return;
-        if (effectiveDeclinedIds.some(id => String(id) === sid)) return;
-        if (interestsSent.some(id => String(id) === sid) && rec.status !== 'pending') return;
+        if (Array.isArray(effectiveDeclinedIds) && effectiveDeclinedIds.some(id => String(id) === sid)) return;
+        if (Array.isArray(interestsSent) && interestsSent.some(id => String(id) === sid) && rec.status !== 'pending') return;
 
         // Lookup profile in all profiles (strictly excluding currentUser!)
         const matching = profiles.find((p) =>

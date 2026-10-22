@@ -46,11 +46,12 @@ export default function SendInterestModal({
         '[]'
       );
       const candIds = [candidate.id, candidate.registerId, candidate.register_id].filter(Boolean).map(String);
-      if (candIds.some(id => sentList.includes(id))) return true;
+      if (Array.isArray(candIds) && Array.isArray(sentList) && candIds.some(id => sentList.includes(id))) return true;
 
       const records = JSON.parse(localStorage.getItem('i4u_interests_records') || '[]');
       const userIds = [currentUser.id, currentUser.registerId, currentUser.register_id].filter(Boolean).map(String);
-      return records.some(r =>
+      return Array.isArray(records) && records.some(r =>
+        r &&
         userIds.includes(String(r.senderId)) &&
         candIds.includes(String(r.receiverId))
       );
@@ -68,11 +69,12 @@ export default function SendInterestModal({
         localStorage.getItem(`i4u_received_interests_${currentUser.id}`) || '[]'
       );
       const candIds = [candidate.id, candidate.registerId, candidate.register_id].filter(Boolean).map(String);
-      if (candIds.some(id => recList.includes(id))) return true;
+      if (Array.isArray(candIds) && Array.isArray(recList) && candIds.some(id => recList.includes(id))) return true;
 
       const records = JSON.parse(localStorage.getItem('i4u_interests_records') || '[]');
       const userIds = [currentUser.id, currentUser.registerId, currentUser.register_id].filter(Boolean).map(String);
-      return records.some(r =>
+      return Array.isArray(records) && records.some(r =>
+        r &&
         candIds.includes(String(r.senderId)) &&
         userIds.includes(String(r.receiverId)) &&
         r.status !== 'accepted'

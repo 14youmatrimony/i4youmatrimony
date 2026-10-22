@@ -167,11 +167,11 @@ class InterestService {
       const targetUid = idsB[0];
       const sentRaw = localStorage.getItem(`i4u_interests_sent_${currentUid}`) || localStorage.getItem('i4u_interests_sent');
       const sentList = sentRaw ? JSON.parse(sentRaw) : [];
-      const hasSent = idsB.some((id) => sentList.includes(id));
+      const hasSent = Array.isArray(idsB) && Array.isArray(sentList) && idsB.some((id) => sentList.includes(id));
 
       const acceptedRaw = localStorage.getItem(`i4u_accepted_interests_${currentUid}`) || localStorage.getItem('i4u_accepted_interests');
       const acceptedList = acceptedRaw ? JSON.parse(acceptedRaw) : [];
-      const hasAccepted = idsB.some((id) => acceptedList.includes(id));
+      const hasAccepted = Array.isArray(idsB) && Array.isArray(acceptedList) && idsB.some((id) => acceptedList.includes(id));
 
       if (hasAccepted) {
         if (pairKey) this.statusCache.set(pairKey, 'accepted');
@@ -185,7 +185,7 @@ class InterestService {
 
       const declinedRaw = localStorage.getItem('i4u_declined_received_ids');
       const declinedList = declinedRaw ? JSON.parse(declinedRaw) : [];
-      if (idsB.some((id) => declinedList.includes(id))) {
+      if (Array.isArray(idsB) && Array.isArray(declinedList) && idsB.some((id) => declinedList.includes(id))) {
         if (pairKey) this.statusCache.set(pairKey, 'rejected');
         return 'rejected';
       }
@@ -228,21 +228,21 @@ class InterestService {
       const currentUid = idsA[0];
       const acceptedRaw = localStorage.getItem(`i4u_accepted_interests_${currentUid}`) || localStorage.getItem('i4u_accepted_interests');
       const acceptedList = acceptedRaw ? JSON.parse(acceptedRaw) : [];
-      if (idsB.some((id) => acceptedList.includes(id))) {
+      if (Array.isArray(idsB) && Array.isArray(acceptedList) && idsB.some((id) => acceptedList.includes(id))) {
         if (pairKey) this.statusCache.set(pairKey, 'accepted');
         return 'accepted';
       }
 
       const sentRaw = localStorage.getItem(`i4u_interests_sent_${currentUid}`) || localStorage.getItem('i4u_interests_sent');
       const sentList = sentRaw ? JSON.parse(sentRaw) : [];
-      if (idsB.some((id) => sentList.includes(id))) {
+      if (Array.isArray(idsB) && Array.isArray(sentList) && idsB.some((id) => sentList.includes(id))) {
         if (pairKey) this.statusCache.set(pairKey, 'pending');
         return 'pending';
       }
 
       const declinedRaw = localStorage.getItem('i4u_declined_received_ids');
       const declinedList = declinedRaw ? JSON.parse(declinedRaw) : [];
-      if (idsB.some((id) => declinedList.includes(id))) {
+      if (Array.isArray(idsB) && Array.isArray(declinedList) && idsB.some((id) => declinedList.includes(id))) {
         if (pairKey) this.statusCache.set(pairKey, 'rejected');
         return 'rejected';
       }
@@ -340,8 +340,8 @@ class InterestService {
     );
 
     localRecords.forEach((localRec) => {
-      const exists = rawRecords.some(
-        (r) => String(r.sender_id || r.senderId) === String(localRec.senderId)
+      const exists = Array.isArray(rawRecords) && rawRecords.some(
+        (r) => r && String(r.sender_id || r.senderId) === String(localRec.senderId)
       );
       if (!exists) {
         rawRecords.push({
@@ -363,8 +363,8 @@ class InterestService {
         const parsed = JSON.parse(storedReceived);
         if (Array.isArray(parsed)) {
           parsed.forEach((pId) => {
-            const exists = rawRecords.some(
-              (r) => String(r.sender_id || r.senderId) === String(pId)
+            const exists = Array.isArray(rawRecords) && rawRecords.some(
+              (r) => r && String(r.sender_id || r.senderId) === String(pId)
             );
             if (!exists) {
               rawRecords.push({

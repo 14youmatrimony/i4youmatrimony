@@ -115,14 +115,22 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
     // 3. Automatically persist to 'profiles' table if userId provided AND this is an avatar upload
     if (userId && bucketName === 'avatars') {
       try {
-        await supabase
+        const uid = String(userId).trim();
+        const isRegId = uid.toUpperCase().startsWith('I4Y');
+        let query = supabase
           .from('profiles')
           .update({
             photo: publicUrl,
             photo_url: publicUrl,
             updated_at: new Date().toISOString()
-          })
-          .or(`id.eq.${userId},register_id.eq.${userId}`);
+          });
+
+        if (isRegId) {
+          query = query.or(`register_id.ilike.${uid},id.eq.${uid}`);
+        } else {
+          query = query.or(`id.eq.${uid},register_id.eq.${uid},phone.eq.${uid}`);
+        }
+        await query;
       } catch (dbErr) {
         console.warn('[storageService] Failed to update profiles table with photo_url:', dbErr);
       }

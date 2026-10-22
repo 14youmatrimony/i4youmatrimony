@@ -983,21 +983,23 @@ export async function updateLivePhotos(photoData) {
       }
 
       let singlePhotos = photoData.singlePhotos;
+      let finalSinglePhotos = Array.isArray(singlePhotos) ? [...singlePhotos] : [];
       if (Array.isArray(singlePhotos)) {
         const compressed = await Promise.all(
-          singlePhotos.map(p => compressBase64Image(p, 1080, 0.8))
+          singlePhotos.map(p => (typeof p === 'string' && p.startsWith('data:image')) ? compressBase64Image(p, 1080, 0.8) : p)
         );
         // Ensure index 0 matches primary photo if primary photo became a storage publicUrl
-        if (photo && compressed.length > 0 && compressed[0] !== photo && (compressed[0].startsWith('data:') || compressed[0].includes('unsplash.com'))) {
+        if (photo && compressed.length > 0 && compressed[0] !== photo) {
           compressed[0] = photo;
         }
+        finalSinglePhotos = compressed;
         singlePhotos = JSON.stringify(compressed);
       }
 
       let familyPhotos = photoData.familyPhotos;
       if (Array.isArray(familyPhotos)) {
         const compressedFamily = await Promise.all(
-          familyPhotos.map(p => compressBase64Image(p, 1080, 0.8))
+          familyPhotos.map(p => (typeof p === 'string' && p.startsWith('data:image')) ? compressBase64Image(p, 1080, 0.8) : p)
         );
         familyPhotos = JSON.stringify(compressedFamily);
       }
@@ -1038,7 +1040,7 @@ export async function updateLivePhotos(photoData) {
         const saved = localStorage.getItem('i4u_auth_user');
         if (saved) {
           const parsed = JSON.parse(saved);
-          let parsedSingles = photoData.singlePhotos;
+          let parsedSingles = finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos;
           if (typeof parsedSingles === 'string') {
             try { parsedSingles = JSON.parse(parsedSingles); } catch(e) {}
           }
@@ -1053,7 +1055,13 @@ export async function updateLivePhotos(photoData) {
         }
       } catch (e) {}
 
-      return { success: true, photo, singlePhotos: photoData.singlePhotos, familyPhotos: photoData.familyPhotos };
+      return { 
+        success: true, 
+        photo, 
+        photo_url: photo, 
+        singlePhotos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos, 
+        familyPhotos: photoData.familyPhotos 
+      };
     } catch (sbErr) {
       console.warn('[Supabase Photo Sync Warning]:', sbErr.message);
     }

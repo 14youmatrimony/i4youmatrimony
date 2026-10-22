@@ -98,6 +98,13 @@ export async function registerWithRegisterId(formData) {
     }
   }
 
+  let singlePhotosList = Array.isArray(formData.singlePhotos) ? [...formData.singlePhotos] : [];
+  if (publicPhotoUrl && singlePhotosList.length > 0 && (singlePhotosList[0]?.startsWith('data:') || singlePhotosList[0]?.startsWith('blob:'))) {
+    singlePhotosList[0] = publicPhotoUrl;
+  } else if (publicPhotoUrl && singlePhotosList.length === 0) {
+    singlePhotosList = [publicPhotoUrl];
+  }
+
   const profilePayload = {
     id: profileId,
     name: sanitizeInput(formData.fullName || formData.name, { maxLength: 100 }),
@@ -126,7 +133,7 @@ export async function registerWithRegisterId(formData) {
     selfie_match_score: formData.selfieScore || null,
     photo: publicPhotoUrl,
     photo_url: publicPhotoUrl,
-    single_photos: Array.isArray(formData.singlePhotos) ? JSON.stringify(formData.singlePhotos) : (formData.single_photos || null),
+    single_photos: singlePhotosList.length > 0 ? JSON.stringify(singlePhotosList) : (formData.single_photos || null),
     family_photos: Array.isArray(formData.familyPhotos) ? JSON.stringify(formData.familyPhotos) : (formData.family_photos || null),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -178,7 +185,7 @@ export async function registerWithRegisterId(formData) {
     religion: profilePayload.religion,
     caste: profilePayload.caste,
     photo: profilePayload.photo,
-    singlePhotos: formData.singlePhotos || [],
+    singlePhotos: singlePhotosList.length > 0 ? singlePhotosList : (formData.singlePhotos || []),
     familyPhotos: formData.familyPhotos || [],
     verified: true,
     mobileVerified: true,
