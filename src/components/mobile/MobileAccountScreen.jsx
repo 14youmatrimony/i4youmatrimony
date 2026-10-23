@@ -15,26 +15,18 @@ import {
   EyeOff,
   Check, 
   AlertCircle,
-  Phone,
   Camera,
-  Upload,
-  Plus,
   Trash2,
-  Star,
   X,
-  HeartHandshake,
   Users,
   Bell,
   Crown,
   CreditCard,
   FileText,
-  Tag,
   Palette,
   Scale,
   Scan,
-  Heart,
-  Briefcase,
-  GraduationCap
+  Heart
 } from 'lucide-react';
 import TermsAndConditionsModal from '../common/TermsAndConditionsModal';
 import LoginScreen from '../LoginScreen';
@@ -48,7 +40,6 @@ import { updateLiveUserProfile, syncProfileToSupabase } from '../../services/api
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { useTheme } from '../../context/ThemeContext';
 import { isKundaliApplicableReligion } from '../../data/religionData';
-import { optimizeImageFile } from '../../utils/imageOptimizer';
 
 export default function MobileAccountScreen({
   currentUser,
@@ -130,8 +121,6 @@ export default function MobileAccountScreen({
   const { 
     screenshotRestricted, 
     setScreenshotRestricted, 
-    watermarkEnabled, 
-    setWatermarkEnabled,
     triggerScreenshotBlock
   } = usePhotoPrivacy();
 
@@ -191,90 +180,6 @@ export default function MobileAccountScreen({
       });
     }
   };
-
-  const handleAddSinglePhoto = (url) => {
-    if (currentSinglePhotos.length >= 5) {
-      alert("Maximum 5 single photos allowed.");
-      return;
-    }
-    applyPhotoUpdate([...currentSinglePhotos, url], currentFamilyPhotos);
-  };
-
-  const handleRemoveSinglePhoto = (idx) => {
-    if (currentSinglePhotos.length <= 1) {
-      alert("At least 1 single profile photo is required.");
-      return;
-    }
-    const next = currentSinglePhotos.filter((_, i) => i !== idx);
-    applyPhotoUpdate(next, currentFamilyPhotos);
-  };
-
-  const handleSetMainSinglePhoto = (idx) => {
-    if (idx === 0) return;
-    const selected = currentSinglePhotos[idx];
-    const remaining = currentSinglePhotos.filter((_, i) => i !== idx);
-    applyPhotoUpdate([selected, ...remaining], currentFamilyPhotos);
-  };
-
-  const handleSingleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (currentSinglePhotos.length >= 5) {
-      alert("Maximum 5 single photos allowed.");
-      return;
-    }
-    try {
-      const result = await optimizeImageFile(file, {
-        maxDimension: 1200,
-        targetMaxKB: 180,
-        initialQuality: 0.85
-      });
-      if (result?.dataUrl) {
-        handleAddSinglePhoto(result.dataUrl);
-      }
-    } catch (err) {
-      console.error("Account photo upload error:", err);
-    } finally {
-      e.target.value = '';
-    }
-  };
-
-  const handleAddFamilyPhoto = (url) => {
-    if (currentFamilyPhotos.length >= 2) {
-      alert("Maximum 2 family photos allowed.");
-      return;
-    }
-    applyPhotoUpdate(currentSinglePhotos, [...currentFamilyPhotos, url]);
-  };
-
-  const handleRemoveFamilyPhoto = (idx) => {
-    const next = currentFamilyPhotos.filter((_, i) => i !== idx);
-    applyPhotoUpdate(currentSinglePhotos, next);
-  };
-
-  const handleFamilyFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (currentFamilyPhotos.length >= 2) {
-      alert("Maximum 2 family photos allowed.");
-      return;
-    }
-    try {
-      const result = await optimizeImageFile(file, {
-        maxDimension: 1200,
-        targetMaxKB: 180,
-        initialQuality: 0.85
-      });
-      if (result?.dataUrl) {
-        handleAddFamilyPhoto(result.dataUrl);
-      }
-    } catch (err) {
-      console.error("Account family photo upload error:", err);
-    } finally {
-      e.target.value = '';
-    }
-  };
-
 
   if (subView === 'edit_reg') {
     return (

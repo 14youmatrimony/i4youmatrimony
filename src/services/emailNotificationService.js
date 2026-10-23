@@ -239,7 +239,7 @@ export function generateRegistrationEmailHtml({ name, registerId }) {
 /**
  * Beautiful HTML template for In-App Notification Alerts
  */
-export function generateInAppNotificationEmailHtml({ title, message, senderName, profileLink }) {
+export function generateInAppNotificationEmailHtml({ title, message, profileLink }) {
   return `
     <!DOCTYPE html>
     <html>

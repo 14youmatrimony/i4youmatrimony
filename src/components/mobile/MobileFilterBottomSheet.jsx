@@ -6,12 +6,8 @@ import {
   MapPin, 
   ShieldCheck, 
   GraduationCap, 
-  Briefcase, 
   Sparkles,
   Heart,
-  Calendar,
-  DollarSign,
-  UserCheck,
   Camera,
   Users,
   Laptop,
@@ -21,8 +17,7 @@ import {
   Phone
 } from 'lucide-react';
 import { STATES_AND_CITIES, getDistrictsForState } from '../../data/locationData';
-import { RELIGION_COMMUNITIES } from '../../data/religionData';
-import { RELIGIONS, MOTHER_TONGUES, EDUCATION_CATEGORIES } from '../RegistrationWizard';
+import { RELIGIONS, EDUCATION_CATEGORIES } from '../RegistrationWizard';
 import SearchableSelect from '../common/SearchableSelect';
 import DualRangeSlider from '../common/DualRangeSlider';
 
@@ -171,14 +166,6 @@ export default function MobileFilterBottomSheet({
   const districts = useMemo(() => {
     return getDistrictsForState(selectedState);
   }, [selectedState]);
-
-  const availableCastes = useMemo(() => {
-    if (selectedReligion && selectedReligion !== 'All Religions' && RELIGION_COMMUNITIES[selectedReligion]) {
-      return RELIGION_COMMUNITIES[selectedReligion];
-    }
-    const allCastes = Array.from(new Set(Object.values(RELIGION_COMMUNITIES).flat()));
-    return allCastes.sort();
-  }, [selectedReligion]);
 
   if (!isOpen) return null;
 

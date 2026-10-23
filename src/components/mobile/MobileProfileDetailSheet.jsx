@@ -6,28 +6,23 @@ import {
   Briefcase, 
   GraduationCap, 
   Heart, 
-  Send, 
   MessageCircle, 
   Sparkles, 
   Check, 
-  Share2,
-  Calendar,
-  Building,
-  CheckCircle2,
-  Users,
-  Compass,
-  Star,
-  HeartHandshake,
-  Phone,
-  Lock,
-  EyeOff,
-  ChevronRight,
-  Camera,
-  X,
-  Crown,
-  Zap,
-  AlertCircle,
-  Video
+  Share2, 
+  CheckCircle2, 
+  Users, 
+  HeartHandshake, 
+  Phone, 
+  Lock, 
+  EyeOff, 
+  ChevronRight, 
+  Camera, 
+  X, 
+  Crown, 
+  Zap, 
+  AlertCircle, 
+  Video 
 } from 'lucide-react';
 import { calculateLocationMatch } from '../../data/locationData';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
@@ -50,7 +45,7 @@ export default function MobileProfileDetailSheet({
   onOpenOffers,
   onUnlockContact
 }) {
-  const { triggerScreenshotBlock, screenshotRestricted, watermarkEnabled } = usePhotoPrivacy();
+  const { triggerScreenshotBlock, screenshotRestricted } = usePhotoPrivacy();
   const [activeTab, setActiveTab] = useState('about');
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);

@@ -45,7 +45,6 @@ export default function WebsiteView({
   onLogout,
   onOpenAppModal
 }) {
-  const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeCity, setActiveCity] = useState('');
 
   // Featured Profile for Hero Card (Strict opposite gender of logged-in user or bride by default)
@@ -61,24 +60,6 @@ export default function WebsiteView({
       element.scrollIntoView({ behavior: 'smooth' });
     }
   };
-
-  // Scroll to top
-  const handleScrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // Monitor scroll position
-  React.useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 400) {
-        setShowScrollTop(true);
-      } else {
-        setShowScrollTop(false);
-      }
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   return (
     <div className="website-view-root min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-[#DFB76C]/30 selection:text-[#0B192C]">

@@ -7,7 +7,6 @@ import {
   Check, 
   ChevronRight, 
   ChevronLeft, 
-  ChevronDown,
   Sparkles,
   ShieldCheck,
   Layers,
@@ -18,12 +17,9 @@ import {
   Heart,
   Camera,
   X,
-  Upload,
   Plus,
   Trash2,
   Star,
-  Image as ImageIcon,
-  ArrowRight,
   Lock,
   Eye,
   EyeOff,
@@ -31,7 +27,6 @@ import {
   Copy,
   CheckCircle2,
   Mail,
-  Info,
   AlertCircle
 } from 'lucide-react';
 import SearchableSelect from './common/SearchableSelect';
@@ -40,7 +35,7 @@ import { sanitizeInput, sanitizePhone, sanitizeEmail } from '../utils/security';
 import { optimizeImageFile } from '../utils/imageOptimizer';
 import { registerWithRegisterId } from '../services/authService';
 import SelfieVerificationSection from './SelfieVerificationSection';
-import { STATES_AND_CITIES, getTownsForDistrict } from '../data/locationData';
+import { STATES_AND_CITIES } from '../data/locationData';
 import { 
   ALL_INDIA_RELIGIONS, 
   RELIGION_COMMUNITIES, 
@@ -757,16 +752,6 @@ export default function RegistrationWizard({
   };
 
   // Single Photos (Max 5) Handlers
-  const handleAddSinglePhoto = (url) => {
-    const existing = (formData.singlePhotos || []).filter(p => p !== url);
-    const updated = [url, ...existing].slice(0, 5);
-    setFormData(prev => ({
-      ...prev,
-      singlePhotos: updated,
-      photo: url
-    }));
-  };
-
   const handleRemoveSinglePhoto = (idx) => {
     const updated = (formData.singlePhotos || []).filter((_, i) => i !== idx);
     setFormData(prev => ({

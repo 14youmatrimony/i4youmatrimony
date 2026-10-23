@@ -4,12 +4,7 @@ import {
   Lock, 
   Sparkles, 
   MapPin, 
-  CheckCircle2, 
-  UserCheck, 
-  EyeOff, 
-  HeartHandshake,
-  Layers,
-  FileCheck2
+  CheckCircle2
 } from 'lucide-react';
 
 export default function WebsitePillarsOfTrust() {

@@ -9,8 +9,7 @@ import {
   RotateCcw,
   Palette,
   CheckCircle2,
-  LayoutGrid,
-  Square
+  LayoutGrid
 } from 'lucide-react';
 import { useTheme, ACCENT_PALETTES, BOTTOM_BAR_STYLES, FEED_LAYOUTS } from '../../context/ThemeContext';
 
@@ -25,8 +24,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
     feedLayout,
     setFeedLayout,
     resetTheme,
-    accent,
-    isDarkMode
+    accent
   } = useTheme();
 
   const [activeTab, setActiveTab] = useState('palette'); // 'palette' | 'layout' | 'bar'

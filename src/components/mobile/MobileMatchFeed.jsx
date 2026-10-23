@@ -9,28 +9,20 @@ import {
   ShieldCheck, 
   Sparkles, 
   MessageCircle, 
-  Navigation,
   Plus, 
-  Pencil, 
   EyeOff, 
-  Trash2, 
-  X, 
   Camera, 
   Video, 
   CheckCircle2, 
   Filter, 
   RotateCcw, 
   SlidersHorizontal, 
-  Lock,
-  Crown,
-  ChevronRight,
-  Tag,
-  FileCheck2,
-  ShieldAlert,
-  LayoutGrid,
-  Square,
-  Phone,
-  Zap
+  Lock, 
+  Crown, 
+  ChevronRight, 
+  FileCheck2, 
+  LayoutGrid, 
+  Square 
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { calculateLocationMatch } from '../../data/locationData';
@@ -39,8 +31,7 @@ import {
   getTargetCandidateGender, 
   isCandidateMatchingTarget, 
   getTargetGenderLabel, 
-  isSelfProfile, 
-  resolveProfileGender 
+  isSelfProfile 
 } from '../../utils/genderMatch';
 import { isDemoProfile } from '../../services/api';
 
@@ -72,7 +63,7 @@ export default function MobileMatchFeed({
   currentScreen = 'app'
 }) {
   const { feedLayout, setFeedLayout } = useTheme();
-  const { triggerScreenshotBlock, screenshotRestricted, watermarkEnabled } = usePhotoPrivacy();
+  const { triggerScreenshotBlock, screenshotRestricted } = usePhotoPrivacy();
   
   // Dynamic active offer from Python Admin Database
   const activeOffer = useMemo(() => {

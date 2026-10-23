@@ -4,19 +4,13 @@ import {
   MapPin, 
   Briefcase, 
   GraduationCap, 
-  Send, 
-  Check, 
   ShieldCheck, 
   Sparkles, 
   SlidersHorizontal, 
-  ChevronRight, 
   MessageCircle, 
-  Building2, 
-  Filter, 
   Search, 
   IndianRupee, 
   RotateCcw, 
-  Star, 
   Compass,
   X,
   Utensils,
@@ -31,7 +25,6 @@ import { sanitizeSearchTerm } from '../../utils/security';
 import { 
   getTargetCandidateGender, 
   isCandidateMatchingTarget, 
-  normalizeGender, 
   isSelfProfile 
 } from '../../utils/genderMatch';
 import { isDemoProfile } from '../../services/api';

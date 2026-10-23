@@ -7,8 +7,6 @@ import {
   Trash2, 
   EyeOff, 
   Eye, 
-  Plus, 
-  Play, 
   Pause, 
   Volume2, 
   VolumeX, 
@@ -16,12 +14,10 @@ import {
   ShieldCheck, 
   Send, 
   Heart, 
-  MoreVertical, 
   Clock, 
   AlertTriangle, 
   Image as ImageIcon,
-  Check,
-  CheckCheck
+  Check
 } from 'lucide-react';
 
 // Sample background gradients for WhatsApp-style text status
@@ -912,11 +908,11 @@ export function WhatsAppStatusEditorSheet({
             <button
               type="button"
               onClick={handleSave}
-              disabled={activeTab === 'text' ? !caption.trim() : !mediaUrl && !caption.trim()}
+              disabled={isProcessing || (activeTab === 'text' ? !caption.trim() : !mediaUrl && !caption.trim())}
               className="px-5 py-2 rounded-xl text-xs font-bold bg-[#D4AF37] text-[#0B192C] hover:bg-[#DFB76C] transition-all shadow-md flex items-center space-x-1.5 disabled:opacity-40 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>{initialStatus ? 'Update Status' : 'Share Status'}</span>
+              <span>{isProcessing ? 'Processing...' : (initialStatus ? 'Update Status' : 'Share Status')}</span>
             </button>
           </div>
         </div>
@@ -950,7 +946,7 @@ export function WhatsAppStatusContextMenu({
   onViewProfile,
   isWebsite = false
 }) {
-  const { profile, isOwnStatus, hasStatus } = menuData || {};
+  const { profile, isOwnStatus } = menuData || {};
 
   const menuContent = (
     <div 

@@ -14,7 +14,6 @@ import {
   Globe,
   Check,
   Key,
-  Shield,
   Sparkles,
   AlertCircle,
   Loader2

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, Check, AlertCircle, Loader2, Save, User, 
-  MapPin, Briefcase, GraduationCap, Heart, Sparkles 
+  MapPin, Briefcase, Sparkles 
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { fetchLiveUserProfile, updateLiveUserProfile } from '../services/api';
 
 /**

@@ -12,9 +12,6 @@ import {
   PhoneCall, 
   Check, 
   Copy,
-  Heart,
-  Search,
-  Flame,
   LogOut,
   Edit3
 } from 'lucide-react';

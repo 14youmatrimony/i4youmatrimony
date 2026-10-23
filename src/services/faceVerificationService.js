@@ -286,7 +286,6 @@ function extractBiometricsFromFace(faceCanvas) {
   // 3. Anatomical Zone Structural Gradients (5 Horizontal Bands)
   // Bands: 0: Forehead, 1: Eyes/Brows, 2: Nose, 3: Mouth/Lips, 4: Jawline/Chin
   const bandGradients = [0, 0, 0, 0, 0];
-  const bandWeights = [0.10, 0.35, 0.25, 0.20, 0.10];
   const bandProfiles = [[], [], [], [], []];
 
   // 64-zone (8x8) energy grid for fine-grained correlation

@@ -4,7 +4,6 @@
  */
 
 import { INITIAL_PROFILES } from '../data/mockProfiles.js';
-import { getAppMode } from '../config/appConfig';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { uploadProfilePhoto } from './storageService';
 import { optimizeBase64String } from '../utils/imageOptimizer';
@@ -1027,7 +1026,7 @@ export async function updateLivePhotos(photoData) {
       } else {
         query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
       }
-      const { data, error } = await query.select();
+      const { error } = await query.select();
 
       if (error) {
         console.warn('[Supabase Photo Sync Warning]:', error.message);
@@ -1178,7 +1177,7 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
         query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
       }
 
-      const { data, error } = await query.select();
+      const { error } = await query.select();
 
       if (error) {
         console.error('[updateLiveUserProfile] Supabase update error:', error.message);

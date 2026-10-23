@@ -3,18 +3,8 @@ import {
   X, 
   Maximize2, 
   Smartphone, 
-  Sparkles, 
   CheckCircle2, 
-  ShieldCheck, 
-  Crown,
-  Monitor,
-  Flame,
-  Search,
-  Heart,
-  MessageCircle,
-  User,
-  SlidersHorizontal,
-  ChevronRight
+  Monitor
 } from 'lucide-react';
 import { MobileBottomNavigationIndicator } from './MobileStatusBar';
 import MobileAppShell from './MobileAppShell';

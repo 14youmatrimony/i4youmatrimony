@@ -1,16 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Heart, 
-  Send, 
   Check, 
   X, 
   MessageCircle, 
-  Sparkles, 
-  MapPin, 
   ShieldCheck,
-  UserCheck,
-  Lock,
-  Clock
+  Lock
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { getTargetCandidateGender, isCandidateMatchingTarget, normalizeGender } from '../../utils/genderMatch';

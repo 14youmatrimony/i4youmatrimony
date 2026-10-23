@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Smartphone, CheckCircle2, QrCode, X } from 'lucide-react';
+import { Download, Smartphone, CheckCircle2, X } from 'lucide-react';
 
 export default function AppDownloadCard({ onSwitchToAppMode, className = '' }) {
   const [downloading, setDownloading] = useState(false);

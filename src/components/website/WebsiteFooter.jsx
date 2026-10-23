@@ -7,13 +7,10 @@ import {
   Mail, 
   MapPin, 
   HeartHandshake, 
-  MessageSquare,
-  Award,
-  ChevronRight,
-  Smartphone,
-  LogOut,
-  FileText,
-  Scale
+  Award, 
+  Smartphone, 
+  LogOut, 
+  FileText
 } from 'lucide-react';
 import TermsAndConditionsModal from '../common/TermsAndConditionsModal';
 

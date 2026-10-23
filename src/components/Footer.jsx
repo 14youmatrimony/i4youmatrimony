@@ -5,9 +5,7 @@ import {
   HeartHandshake, 
   PhoneCall, 
   Mail, 
-  MapPin, 
-  Sparkles,
-  ChevronRight
+  Sparkles
 } from 'lucide-react';
 
 export default function Footer({ setCurrentScreen }) {

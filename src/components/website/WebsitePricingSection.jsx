@@ -3,14 +3,12 @@ import {
   Crown, 
   Sparkles, 
   Check, 
-  X,
+  X, 
   ShieldCheck, 
   Zap, 
   ArrowRight, 
-  Copy,
-  Clock,
-  HeartHandshake,
-  Lock
+  HeartHandshake, 
+  Lock 
 } from 'lucide-react';
 import { MEMBERSHIP_PLANS } from '../../data/plansData';
 

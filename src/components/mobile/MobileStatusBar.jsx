@@ -1,38 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Wifi, BatteryMedium, Signal, Sparkles } from 'lucide-react';
-
-/**
- * Custom hook to maintain realistic live digital clock updated every minute
- */
-function useLiveTime(fallback = '9:41') {
-  const [time, setTime] = useState(() => {
-    try {
-      const now = new Date();
-      return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    } catch {
-      return fallback;
-    }
-  });
-
-  useEffect(() => {
-    const update = () => {
-      try {
-        const now = new Date();
-        setTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
-      } catch {
-        setTime(fallback);
-      }
-    };
-    const timer = setInterval(update, 30000);
-    return () => clearInterval(timer);
-  }, [fallback]);
-
-  return time;
-}
+import React, { useMemo } from 'react';
 
 /**
  * MobileTopStatusBar
- * Disabled / Removed per user request to provide a clean edge-to-edge native view.
+ * Clean edge-to-edge native view.
  */
 export function MobileTopStatusBar() {
   return null;

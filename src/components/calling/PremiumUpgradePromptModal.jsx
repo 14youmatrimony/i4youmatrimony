@@ -5,11 +5,9 @@ import {
   MessageCircle, 
   Phone, 
   Video, 
-  ShieldCheck, 
   Sparkles, 
   CheckCircle2, 
-  ArrowRight,
-  Lock
+  ArrowRight
 } from 'lucide-react';
 
 export default function PremiumUpgradePromptModal({

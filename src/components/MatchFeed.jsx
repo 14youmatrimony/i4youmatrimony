@@ -11,9 +11,7 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Eye,
-  MessageCircle,
-  Building2,
-  Filter
+  MessageCircle
 } from 'lucide-react';
 
 export default function MatchFeed({ 

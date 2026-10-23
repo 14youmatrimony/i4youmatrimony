@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  Heart, 
   Search, 
   MessageCircle, 
   UserPlus, 

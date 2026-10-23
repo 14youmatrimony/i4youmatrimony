@@ -9,10 +9,7 @@ import {
   CheckCircle2, 
   CreditCard, 
   PhoneCall, 
-  Mail, 
-  Building2, 
-  Download,
-  ExternalLink
+  Mail
 } from 'lucide-react';
 
 export default function TermsAndConditionsModal({

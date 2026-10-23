@@ -630,8 +630,6 @@
     localStorage.removeItem('i4you_admin_store_v1');
     localStorage.removeItem('i4u_cached_profiles');
   } catch (e) {}
-    localStorage.removeItem('i4u_cached_profiles');
-  } catch (e) {}
 
   function loadStore() {
     try {

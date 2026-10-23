@@ -11,8 +11,7 @@ import {
   AlertCircle, 
   Edit2, 
   X,
-  CheckCircle2,
-  Heart
+  CheckCircle2
 } from 'lucide-react';
 import { sendPhoneOtp, verifyPhoneOtp } from '../services/phoneAuth';
 import { isSupabaseConfigured } from '../services/supabase';
@@ -39,7 +38,6 @@ export default function RegisterPhoneVerification({
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [isLiveMode, setIsLiveMode] = useState(isSupabaseConfigured());
   const [showSimulatedSms, setShowSimulatedSms] = useState(false);
-  const [isRegionRestricted, setIsRegionRestricted] = useState(false);
 
   const phoneInputRef = useRef(null);
   const otpInputsRef = useRef([]);

@@ -11,7 +11,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { isSelfProfile } from '../utils/genderMatch.js';
-import { sendBackendMessage, fetchBackendMessages, fetchBackendConversations } from './api.js';
+import { sendBackendMessage } from './api.js';
 
 class LiveChatService {
   constructor() {
@@ -885,7 +885,6 @@ class LiveChatService {
   generateContextualMatrimonialReply(userText, profile) {
     const text = (userText || '').toLowerCase().trim();
     const city = profile.district || profile.city || 'our hometown';
-    const profileName = (profile.name || 'Candidate').split(' ')[0];
 
     // Greetings
     if (/^(hai|haii|hello|hi|hey|heyy|namaste|vanakkam|namaskaram|pranam)/i.test(text)) {

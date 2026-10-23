@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Edit2,
   Check,
-  Flame,
   AlertCircle
 } from 'lucide-react';
 import { 
@@ -40,9 +39,7 @@ export default function MobileVerificationScreen({
   const [showSimulatedSms, setShowSimulatedSms] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [isLiveMode, setIsLiveMode] = useState(isSupabaseConfigured());
-  const [otpSent, setOtpSent] = useState(false);
   const [isRegionRestricted, setIsRegionRestricted] = useState(false);
-  const [isBillingError, setIsBillingError] = useState(false);
 
   const otpInputsRef = useRef([]);
 
@@ -74,9 +71,7 @@ export default function MobileVerificationScreen({
         setIsLiveMode(!res.isSimulated);
         setConfirmationResult(res.confirmationResult);
         setTimer(45);
-        setOtpSent(true);
         setIsRegionRestricted(Boolean(res.realSmsFailed));
-        setIsBillingError(Boolean(res.isBillingError));
         if (res.isSimulated) {
           setShowSimulatedSms(true);
           const defaultOtp = phone === '9123456780' ? '913724' : '482916';
@@ -90,7 +85,6 @@ export default function MobileVerificationScreen({
         setShowSimulatedSms(true);
         setOtp(['4', '8', '2', '9', '1', '6']);
         setTimer(45);
-        setOtpSent(true);
       }
     } catch (err) {
       console.warn('Fallback activated for registration OTP:', err);
@@ -98,7 +92,6 @@ export default function MobileVerificationScreen({
       setShowSimulatedSms(true);
       setOtp(['4', '8', '2', '9', '1', '6']);
       setTimer(45);
-      setOtpSent(true);
     } finally {
       setLoading(false);
     }

@@ -12,22 +12,13 @@ import {
   AlertCircle,
   FileCheck2,
   CheckCircle2,
-  KeyRound,
-  Eye,
-  EyeOff,
-  Upload,
   UploadCloud,
-  FileText,
-  Image as ImageIcon,
   Trash2,
   Camera,
   X,
   FileUp,
-  CheckCircle,
   Clock,
-  User,
-  Shield,
-  BadgeCheck
+  User
 } from 'lucide-react';
 import { 
   generateAadhaarOtp, 
@@ -35,9 +26,7 @@ import {
   formatAadhaarDisplay,
   formatAadhaar,
   isLiveAadhaarConfigured,
-  getActiveAadhaarProvider,
-  saveSurepassToken,
-  getSurepassToken 
+  getActiveAadhaarProvider
 } from '../services/surepassAadhaar';
 import { optimizeImageFile } from '../utils/imageOptimizer';
 import {
@@ -242,7 +231,6 @@ export default function AadhaarVerificationScreen({
   const [loading, setLoading] = useState(false);
   const [verified, setVerified] = useState(() => Boolean(isAlreadyApproved || isAlreadyPending));
   const [showSimulatedSms, setShowSimulatedSms] = useState(false);
-  const [showMaskedNumber, setShowMaskedNumber] = useState(false);
 
   // Manual Card Upload States
   const [manualName, setManualName] = useState(
@@ -255,7 +243,6 @@ export default function AadhaarVerificationScreen({
   const [frontPreview, setFrontPreview] = useState(() => registrationData?.aadhaar_front_image || registrationData?.frontDocumentPreview || null);
   const [backFile, setBackFile] = useState(null);
   const [backPreview, setBackPreview] = useState(() => registrationData?.aadhaar_back_image || registrationData?.backDocumentPreview || null);
-  const [fastDemoApproval, setFastDemoApproval] = useState(false);
   const [isManualVerified, setIsManualVerified] = useState(() => Boolean(isAlreadyPending));
   const frontFileInputRef = useRef(null);
   const backFileInputRef = useRef(null);

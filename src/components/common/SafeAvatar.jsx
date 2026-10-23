@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { User } from 'lucide-react';
 
 const DEFAULT_FEMALE = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
 const DEFAULT_MALE = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400';
@@ -51,8 +50,6 @@ export default function SafeAvatar({
       setHasError(true);
     }
   };
-
-  const initial = (alt || 'U').trim().charAt(0).toUpperCase();
 
   return (
     <div 

@@ -3,10 +3,8 @@ import {
   Heart, 
   Sparkles, 
   Star, 
-  Quote, 
   MapPin, 
-  Calendar,
-  CheckCircle2
+  Calendar
 } from 'lucide-react';
 
 export default function WebsiteSuccessStories() {

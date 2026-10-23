@@ -5,17 +5,13 @@ import {
   Star, 
   Eye, 
   MessageCircle, 
-  Check, 
   CheckCheck, 
   X, 
   ChevronRight, 
   ChevronLeft, 
-  ShieldCheck, 
-  Trash2, 
-  Clock,
-  Users,
-  Lock,
-  Sparkles
+  Users, 
+  Lock, 
+  Sparkles 
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import NotificationCard from './NotificationCard';
@@ -192,13 +188,6 @@ export default function MobileNotificationsSheet({
         )
       );
     }
-
-    // Prepare opposite gender candidates list for distinct distribution
-    const oppositeCandidates = (profiles || []).filter(p => {
-      if (!p || !p.id || isSelfProfile(p)) return false;
-      const g = (p.gender || '').toLowerCase();
-      return isUserMale ? (g === 'female' || g === 'woman') : (g === 'male' || g === 'man');
-    });
 
     // Extract sender name from title / message (e.g. "💖 Interest from Dr. Anu jose" -> "Dr. Anu jose")
     const extractSenderName = (title, message) => {

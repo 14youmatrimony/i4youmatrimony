@@ -12,8 +12,7 @@ import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import {
   sendBackendInterest,
-  respondBackendInterest,
-  fetchBackendReceivedInterests
+  respondBackendInterest
 } from './api.js';
 
 class InterestService {

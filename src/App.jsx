@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, updateLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile } from './services/api';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { uploadProfilePhoto } from './services/storageService';
 import { logoutUser, persistUserSession } from './services/authService';
@@ -44,7 +44,7 @@ import { interestService } from './services/interestService';
 import { computeUnreadMessagesCount } from './utils/conversationUtils';
 import { fcmNotificationService } from './services/fcmNotificationService';
 import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePromptModal';
-import { getAppMode, setAppMode, APP_CONFIG } from './config/appConfig';
+import { getAppMode, setAppMode } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
 
 import { 
@@ -53,18 +53,15 @@ import {
   DEMO_USER, 
   DEMO_USER_FEMALE, 
   DEMO_USER_MALE, 
-  getConversationsForUser,
-  CONVERSATIONS_FOR_FEMALE,
-  CONVERSATIONS_FOR_MALE 
+  getConversationsForUser 
 } from './data/mockProfiles';
 import { 
   getTargetCandidateGender, 
   isCandidateMatchingTarget, 
   normalizeGender, 
-  isSelfProfile, 
-  resolveProfileGender 
+  isSelfProfile 
 } from './utils/genderMatch';
-import { Sparkles, Crown, ShieldCheck } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 // Live sample notifications: Interest received, Profile shortlisted, Contact viewed, and Chat message (Tailored strictly to opposite gender real candidates)
 export const getNotificationsForUser = (user, availableProfiles = []) => {
@@ -1142,7 +1139,6 @@ export default function App() {
   const [selectedProfession, setSelectedProfession] = useState('All Professions');
   const [minIncome, setMinIncome] = useState('All Incomes');
   const [selectedDiet, setSelectedDiet] = useState('All');
-  const [selectedManglik, setSelectedManglik] = useState('All');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [photoOnly, setPhotoOnly] = useState(false);
   const [selectedWorkMode, setSelectedWorkMode] = useState('All');
@@ -2774,7 +2770,6 @@ export default function App() {
         localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
       } catch (e) {}
 
-      const isMale = (updated.gender || '').toLowerCase() === 'male';
       setInterestsSent([]);
       setShortlisted([]);
       setConversations([]);
@@ -2857,7 +2852,6 @@ export default function App() {
         }
       } catch (e) {}
 
-      const isMale = (updated.gender || '').toLowerCase() === 'male';
       setInterestsSent([]);
       setShortlisted([]);
       setConversations([]);

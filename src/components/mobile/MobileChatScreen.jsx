@@ -11,16 +11,13 @@ import {
   CheckCheck, 
   Clock,
   MessageCircle,
-  MessageSquareOff,
   Lock,
-  Crown,
   Smile
 } from 'lucide-react';
 
 import { sanitizeChatMessage } from '../../utils/security';
-import { getAppMode } from '../../config/appConfig';
 import { useTheme } from '../../context/ThemeContext';
-import { getTargetCandidateGender, isCandidateMatchingTarget, isSelfProfile } from '../../utils/genderMatch';
+import { isSelfProfile } from '../../utils/genderMatch';
 import { liveChatService, deduplicateMessageList } from '../../services/liveChatService';
 import { useInterestStatus } from '../../services/interestService';
 import { getActiveConversations } from '../../utils/conversationUtils';
@@ -48,9 +45,7 @@ export default function MobileChatScreen({
   onToggleInterest,
   declinedReceivedIds = []
 }) {
-  const isProduction = getAppMode();
   const { bottomBarStyle, accent, isDarkMode } = useTheme();
-  const hasPaidPlan = Boolean(currentUser?.membership && currentUser?.membership !== 'free');
   const [inConversation, setInConversation] = useState(isDirectChatOpen);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -69,19 +64,6 @@ export default function MobileChatScreen({
       setIsDirectChatOpen?.(true);
     }
   }, [inConversation, isDirectChatOpen, setIsDirectChatOpen]);
-
-  const targetCandidateGender = useMemo(() => {
-    return getTargetCandidateGender(currentUser);
-  }, [currentUser]);
-
-  // Strict opposite gender candidate filtering for chats
-  const validProfiles = useMemo(() => {
-    return profiles.filter(p => {
-      if (currentUser?.id && p.id === currentUser.id) return false;
-      if (currentUser?.mobile && (p.mobile === currentUser.mobile || p.phone === currentUser.mobile)) return false;
-      return isCandidateMatchingTarget(p.gender, targetCandidateGender);
-    });
-  }, [profiles, currentUser, targetCandidateGender]);
 
   // Real-time foreground FCM push notification & Live Chat message stream listener
   useEffect(() => {
@@ -131,10 +113,6 @@ export default function MobileChatScreen({
       return nameMatch || msgMatch;
     });
   }, [activeConversationsList, currentUser, searchQuery]);
-
-  const chatProfiles = useMemo(() => {
-    return filteredChatConversations.map(c => c.partnerUser);
-  }, [filteredChatConversations]);
 
   // Strictly resolve chat partner (partnerUser), ensuring currentUser is never resolved as partner
   const partnerUser = useMemo(() => {
@@ -233,14 +211,6 @@ export default function MobileChatScreen({
     (partnerUser.register_id && String(c.profileId) === String(partnerUser.register_id)) ||
     (partnerUser.registerId && String(c.profileId) === String(partnerUser.registerId))
   ) : null;
-
-  const activeConv = existingConv || {
-    profileId: partnerUser?.id || '',
-    partnerUser: partnerUser,
-    unreadCount: 0,
-    messages: [],
-    autoReplies: []
-  };
 
   // Dedicated messages state strictly isolated to the currently active conversation
   const [messages, setMessages] = useState([]);
@@ -407,7 +377,6 @@ export default function MobileChatScreen({
     return deduplicateMessageList(messages);
   }, [messages]);
 
-  const hasIncomingMessage = Boolean(displayMessages.some(m => String(m.sender_id) !== String(currentUser?.id) && m.sender !== 'me'));
   // Live Message is fully active for matrimonial connections
   const canSendMessages = true;
 
