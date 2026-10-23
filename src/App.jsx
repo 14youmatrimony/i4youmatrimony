@@ -1309,23 +1309,30 @@ export default function App() {
       const senderDisplayName = senderObj?.name || 'Verified Member';
       showToast(`💖 New Interest from ${senderDisplayName}!`);
 
-      setNotifications((prev) => [
-        {
-          id: `live_int_${Date.now()}`,
-          profileId: sId,
-          senderId: sId,
-          sender: senderObj,
-          interest_from: senderObj,
-          type: 'interest',
-          title: `💖 Interest from ${senderDisplayName}`,
-          message: payload.message || `${senderDisplayName} expressed interest in connecting with you.`,
-          time: 'Just now',
-          isRead: false,
-          status: 'pending',
-          timestamp: Date.now()
-        },
-        ...(Array.isArray(prev) ? prev : [])
-      ]);
+      setNotifications((prev) => {
+        const list = Array.isArray(prev) ? prev : [];
+        const isDuplicate = list.some(
+          (n) => n && ((payload.id && n.id === payload.id) || (n.type === 'interest' && String(n.profileId) === sId && n.status === 'pending'))
+        );
+        if (isDuplicate) return list;
+        return [
+          {
+            id: payload.id || `live_int_${Date.now()}`,
+            profileId: sId,
+            senderId: sId,
+            sender: senderObj,
+            interest_from: senderObj,
+            type: 'interest',
+            title: `💖 Interest from ${senderDisplayName}`,
+            message: payload.message || `${senderDisplayName} expressed interest in connecting with you.`,
+            time: 'Just now',
+            isRead: false,
+            status: 'pending',
+            timestamp: Date.now()
+          },
+          ...list
+        ];
+      });
     });
 
     return () => {
@@ -1487,11 +1494,15 @@ export default function App() {
 
   const unreadNotificationsCount = currentUser ? (notifications || []).filter(n => n && !n.isRead).length : 0;
 
+  const toastTimeoutRef = useRef(null);
   const showToast = (msg) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
     setToastMessage(msg);
-    setTimeout(() => {
+    toastTimeoutRef.current = setTimeout(() => {
       setToastMessage('');
-    }, 3000);
+    }, 3200);
   };
 
   // Toggle between Production Mode (Store Ready) and Demo Mode (Test Data)
@@ -1814,81 +1825,116 @@ export default function App() {
     handleStartChat(targetId);
   };
 
-  const handleSimulateNotification = (type) => {
+  const handleSimulateNotification = (type = 'interest') => {
     const id = 'sim-' + Date.now();
+    const isUserMale = (currentUser?.gender || '').toLowerCase() === 'male';
     let newNotif;
     if (type === 'interest') {
+      const candidate = isUserMale
+        ? { id: 'p5', name: 'Priyanka Rathore', age: 28, loc: 'Sikar', quote: '“Namaste Arun! Really liked your family profile and interests.”' }
+        : { id: 'p2', name: 'Rohan Jayasimha', age: 29, loc: 'Bengaluru', quote: '“Namaste Priya! Found your profile and values highly compatible.”' };
       newNotif = {
         id,
         type: 'interest_received',
-        profileId: 'p5',
+        profileId: candidate.id,
         title: 'New Interest Received! 💖',
-        message: 'Priyanka Rathore (28, Sikar) sent you an Interest.',
-        quote: '“Namaste Arun! Really liked your family profile and interests.”',
+        message: `${candidate.name} (${candidate.age}, ${candidate.loc}) sent you an Interest.`,
+        quote: candidate.quote,
         time: 'Just now',
         isRead: false,
         status: 'pending',
         badge: 'New Match'
       };
-      showToast('🔔 New Interest received from Priyanka Rathore!');
+      showToast(`🔔 New Interest received from ${candidate.name}!`);
     } else if (type === 'shortlist') {
+      const candidate = isUserMale
+        ? { id: 'p1', name: 'Dr. Ananya Kulkarni', quote: '“Shortlisted for Sunday horoscope & compatibility discussion.”' }
+        : { id: 'p4', name: 'Dr. Arjun Nair', quote: '“Shortlisted your profile for family and horoscope review.”' };
       newNotif = {
         id,
         type: 'profile_shortlisted',
-        profileId: 'p1',
+        profileId: candidate.id,
         title: 'Profile Shortlisted ⭐',
-        message: 'Dr. Ananya Kulkarni shortlisted your profile for parent review.',
-        quote: '“Shortlisted for Sunday horoscope & compatibility discussion.”',
+        message: `${candidate.name} shortlisted your profile for parent review.`,
+        quote: candidate.quote,
         time: 'Just now',
         isRead: false,
         status: 'pending',
         badge: 'Top Match'
       };
-      showToast('⭐ Dr. Ananya shortlisted your profile!');
+      showToast(`⭐ ${candidate.name} shortlisted your profile!`);
     } else if (type === 'visitor') {
+      const candidate = isUserMale
+        ? { id: 'p7', name: 'Dr. Zoya Farooqui' }
+        : { id: 'p6', name: 'Karthik Menon' };
       newNotif = {
         id,
         type: 'profile_visitor',
-        profileId: 'p7',
+        profileId: candidate.id,
         title: 'Profile Visitor 👁️',
-        message: 'Dr. Zoya Farooqui viewed your matrimonial profile.',
+        message: `${candidate.name} viewed your matrimonial profile.`,
         quote: '“Visited your profile and explored family & career background.”',
         time: 'Just now',
         isRead: false,
         status: 'pending',
         badge: 'New Visitor'
       };
-      showToast('👁️ Dr. Zoya Farooqui visited your profile!');
+      showToast(`👁️ ${candidate.name} visited your profile!`);
     } else if (type === 'contact_view') {
+      const candidate = isUserMale
+        ? { id: 'p3', name: 'Meera Venkatraman' }
+        : { id: 'p2', name: 'Rohan Jayasimha' };
       newNotif = {
         id,
         type: 'contact_viewed',
-        profileId: 'p3',
+        profileId: candidate.id,
         title: 'Contact Viewed 👁️',
-        message: 'Meera Venkatraman & family viewed your contact phone number.',
+        message: `${candidate.name} & family viewed your contact phone number.`,
         quote: 'Phone number verified via UIDAI matrimonial authentication.',
         time: 'Just now',
         isRead: false,
         status: 'pending',
         badge: 'Verified Contact'
       };
-      showToast('👁️ Meera Venkatraman viewed your contact details!');
+      showToast(`👁️ ${candidate.name} viewed your contact details!`);
     } else {
+      const candidate = isUserMale
+        ? { id: 'p5', name: 'Priyanka' }
+        : { id: 'p2', name: 'Rohan' };
       newNotif = {
         id,
         type: 'message_received',
-        profileId: 'p2',
+        profileId: candidate.id,
         title: 'New Chat Message 💬',
-        message: 'Rohan Jayasimha sent you a message: "Are you free to speak?"',
-        quote: '“Namaste Arun! Would you be free for a brief call with my sister and parents?”',
+        message: `${candidate.name} sent you a message: "Are you free to speak?"`,
+        quote: `“Namaste! Would you be free for a brief call with my sister and parents?”`,
         time: 'Just now',
         isRead: false,
         status: 'pending',
         badge: 'New Message'
       };
-      showToast('💬 New message received from Rohan!');
+      showToast(`💬 New message received from ${candidate.name}!`);
     }
-    setNotifications(prev => [newNotif, ...prev]);
+
+    // Deduplicate: replace identical simulated item if already pending or prepend
+    setNotifications((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      const filtered = list.filter((n) => !(n && n.profileId === newNotif.profileId && n.type === newNotif.type && n.status === 'pending'));
+      return [newNotif, ...filtered];
+    });
+
+    // Also dispatch to FCM notification service for Web Push testing
+    fcmNotificationService.dispatchForegroundNotification({
+      type: newNotif.type,
+      title: newNotif.title,
+      body: newNotif.message,
+      data: {
+        chat_id: `chat_${newNotif.profileId}`,
+        user_id: newNotif.profileId,
+        sender_id: newNotif.profileId,
+        type: newNotif.type
+      }
+    });
   };
 
   // Open Registration flow starting with Mobile Number Verification
@@ -3748,7 +3794,7 @@ export default function App() {
 
             {/* Floating Toast Notification */}
             {toastMessage && (
-              <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-none max-w-md w-[90%]">
+              <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[80] animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-none max-w-md w-[90%]">
                 <div className="bg-[#0B192C]/95 text-white px-4 py-3 rounded-2xl shadow-2xl border border-[#D4AF37]/50 flex items-center space-x-2.5 text-xs font-semibold backdrop-blur-md">
                   <Sparkles className="w-4 h-4 text-[#DFB76C] shrink-0" />
                   <span className="truncate">{toastMessage}</span>
@@ -3785,7 +3831,7 @@ export default function App() {
 
         {/* Floating Mobile Toast Notification */}
         {toastMessage && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-none w-[90%]">
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[80] animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-none w-[90%]">
             <div className="bg-[#0B192C]/95 text-white px-3.5 py-2.5 rounded-2xl shadow-xl border border-[#D4AF37]/50 flex items-center space-x-2 text-xs font-semibold backdrop-blur-md">
               <Sparkles className="w-3.5 h-3.5 text-[#DFB76C] shrink-0" />
               <span className="truncate">{toastMessage}</span>
@@ -3903,7 +3949,7 @@ export default function App() {
           onOpenLogin={() => setCurrentScreen('login')}
           deviceType={deviceMode}
           activeFiltersCount={activeFiltersCount}
-          hideFloatingNotification={Boolean(selectedProfile || isDirectChatOpen || activeTab === 'chat')}
+          hideFloatingNotification={Boolean(selectedProfile || isDirectChatOpen || activeTab === 'chat' || isNotificationsOpen)}
           hideBottomNav={Boolean(activeTab === 'chat' && isDirectChatOpen)}
           overlays={
             <>

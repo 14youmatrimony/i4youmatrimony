@@ -432,7 +432,7 @@ export default function MobileAppModal({
                   onOpenFilter={() => setIsFilterSheetOpen(true)}
                   deviceType="ios"
                   activeFiltersCount={activeFiltersCount}
-                  hideFloatingNotification={Boolean(selectedProfile || isDirectChatOpen || activeTab === 'chat')}
+                  hideFloatingNotification={Boolean(selectedProfile || isDirectChatOpen || activeTab === 'chat' || isNotificationsOpen)}
                   hideBottomNav={Boolean(activeTab === 'chat' && isDirectChatOpen)}
                   overlays={
                     <>

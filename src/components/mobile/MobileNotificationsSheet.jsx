@@ -14,7 +14,8 @@ import {
   Trash2, 
   Clock,
   Users,
-  Lock
+  Lock,
+  Sparkles
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import NotificationCard from './NotificationCard';
@@ -470,6 +471,18 @@ export default function MobileNotificationsSheet({
         </div>
 
         <div className="flex items-center space-x-1 shrink-0">
+          {currentUser && onSimulateNotification && (
+            <button
+              type="button"
+              onClick={() => onSimulateNotification('interest')}
+              className="text-[9px] sm:text-[9.5px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-lg bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 text-[#DFB76C] border border-[#DFB76C]/40 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+              title="Simulate incoming matrimonial interest for testing"
+            >
+              <Sparkles className="w-2.5 h-2.5 text-[#DFB76C]" />
+              <span className="hidden xs:inline">Test Interest</span>
+              <span className="xs:hidden">Test</span>
+            </button>
+          )}
           {unreadCount > 0 && onMarkAllAsRead && (
             <button
               type="button"
