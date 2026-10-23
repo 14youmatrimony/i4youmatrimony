@@ -1333,6 +1333,18 @@ export default function App() {
           ...list
         ];
       });
+
+      // Deliver native web push notification for background delivery
+      fcmNotificationService.showWebNotification({
+        title: `💖 New Interest from ${senderDisplayName}!`,
+        body: payload.message || `${senderDisplayName} expressed interest in connecting with you.`,
+        data: {
+          chat_id: `chat_${sId}`,
+          user_id: sId,
+          sender_id: sId,
+          type: 'interest'
+        }
+      });
     });
 
     return () => {
@@ -2137,6 +2149,11 @@ export default function App() {
 
     return () => unsub();
   }, [handleStartChat]);
+
+  // Register Service Worker for FCM and background Web Push delivery
+  useEffect(() => {
+    fcmNotificationService.registerServiceWorker();
+  }, []);
 
   // Parameterized routes & deep links strategy (SPA routing handler)
   useEffect(() => {

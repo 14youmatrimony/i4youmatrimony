@@ -217,6 +217,74 @@ class FCMNotificationService {
     });
   }
 
+  /**
+   * Register Service Worker for background push notifications
+   */
+  async registerServiceWorker() {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
+    try {
+      const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+      console.log('[FCMService] Service worker registered successfully:', reg.scope);
+      return reg;
+    } catch (err) {
+      console.warn('[FCMService] Service worker registration note:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Request push notification permission from user
+   */
+  async requestNotificationPermission() {
+    if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+    try {
+      if (Notification.permission === 'granted') return 'granted';
+      const permission = await Notification.requestPermission();
+      return permission;
+    } catch (e) {
+      console.warn('[FCMService] Request permission error:', e);
+      return 'denied';
+    }
+  }
+
+  /**
+   * Show native system Web Notification (foreground or background)
+   */
+  async showWebNotification({ title, body, icon, data = {}, tag }) {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    const notifTitle = title || 'I 4 You Matrimony';
+    const options = {
+      body: body || 'You have a new update.',
+      icon: icon || '/brand-logo.png',
+      badge: '/favicon.png',
+      tag: tag || data.id || `notif_${Date.now()}`,
+      data,
+      renotify: true
+    };
+
+    // Prefer service worker showNotification for robust background delivery
+    try {
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        if (registration && typeof registration.showNotification === 'function') {
+          return await registration.showNotification(notifTitle, options);
+        }
+      }
+    } catch (e) {}
+
+    // Fallback to Window Notification API
+    try {
+      const n = new Notification(notifTitle, options);
+      n.onclick = () => {
+        window.focus();
+        this.handleNotificationTap(data);
+        n.close();
+      };
+    } catch (e) {}
+  }
+
   dispatchForegroundNotification(payload) {
     if (!payload) return;
     this.notifyListeners(payload);
@@ -229,6 +297,15 @@ class FCMNotificationService {
         window.dispatchEvent(new CustomEvent('fcm_notification_received', { detail: payload }));
       }
     } catch (e) {}
+
+    // Deliver background web push notification if permitted and tab is hidden or backgrounded
+    if (typeof document !== 'undefined' && (document.visibilityState === 'hidden' || payload.forceWebPush)) {
+      this.showWebNotification({
+        title: payload.title,
+        body: payload.body || payload.message,
+        data: payload.data || payload
+      });
+    }
   }
 }
 
