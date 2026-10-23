@@ -17,6 +17,9 @@ import {
   Lock
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
+import NotificationCard from './NotificationCard';
+
+export { NotificationCard };
 
 export default function MobileNotificationsSheet({
   isOpen,
