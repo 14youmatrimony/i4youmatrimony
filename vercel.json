@@ -2,9 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "outputDirectory": "dist",
-  "buildCommand": "vite build",
+  "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "cleanUrls": true,
   "headers": [
     {
       "source": "/(.*)",
@@ -31,7 +30,15 @@
       "destination": "/super-admin.html"
     },
     {
+      "source": "/super-admin/:path*",
+      "destination": "/super-admin.html"
+    },
+    {
       "source": "/superadmin",
+      "destination": "/super-admin.html"
+    },
+    {
+      "source": "/superadmin/:path*",
       "destination": "/super-admin.html"
     },
     {
@@ -39,7 +46,11 @@
       "destination": "/super-admin.html"
     },
     {
-      "source": "/(.*)",
+      "source": "/admin/:path*",
+      "destination": "/super-admin.html"
+    },
+    {
+      "source": "/((?!assets|static|admin-assets|super-admin\\.html|admin\\.html|firebase-messaging-sw\\.js|sw\\.js|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

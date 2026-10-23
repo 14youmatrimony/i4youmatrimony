@@ -29,6 +29,9 @@
     "@capacitor/cli": "^6.2.2",
     "oxlint": "^1.81.0"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "overrides": {
     "tar": ">=7.5.3",
     "glob": ">=10.4.5"
