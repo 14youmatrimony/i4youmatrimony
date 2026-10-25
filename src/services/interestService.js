@@ -466,49 +466,56 @@ class InterestService {
         senderProfile = rec.sender || rec.interest_from;
       }
 
+      const sName = (senderProfile?.name && senderProfile.name.toLowerCase() !== 'verified member')
+        ? senderProfile.name
+        : (rec.sender_name || rec.senderName || 'Candidate');
+
+      const sPhoto = senderProfile?.photo || senderProfile?.photo_url || rec.sender_photo || defaultAvatar;
+      const sAge = senderProfile?.age || rec.sender_age || 26;
+      const sProf = senderProfile?.profession || rec.sender_profession || 'Professional';
+      const sLoc = senderProfile?.district || senderProfile?.city || rec.sender_location || 'Kerala';
+      const sVer = Boolean(senderProfile?.verified || senderProfile?.aadhaar_verified);
+
+      const senderObject = {
+        id: senderProfile?.id || senderId,
+        register_id: senderProfile?.register_id || senderProfile?.registerId || senderId,
+        name: sName,
+        photo: sPhoto,
+        age: sAge,
+        gender: senderProfile?.gender || 'Candidate',
+        height: senderProfile?.height || "5'5\"",
+        city: sLoc,
+        district: senderProfile?.district || sLoc,
+        state: senderProfile?.state || 'Kerala',
+        location: sLoc,
+        profession: sProf,
+        education: senderProfile?.education || 'Graduate',
+        verified: sVer,
+        aadhaarVerified: sVer,
+        matchScore: senderProfile?.matchScore || 88,
+        gunasMatch: senderProfile?.gunasMatch || '28/36 Gunas'
+      };
+
+      const notifUniqueId = rec.notification_id || `interest_${rec.id || senderId}_${receiverId}`;
+
       return {
-        id: rec.id || `int_${senderId}_${receiverId}`,
+        id: notifUniqueId,
+        notification_id: notifUniqueId,
         sender_id: senderId,
         receiver_id: receiverId,
         senderId,
         receiverId,
+        sender_name: sName,
+        sender_photo: sPhoto,
+        sender_age: sAge,
+        sender_profession: sProf,
+        sender_location: sLoc,
         status: rec.status || 'pending',
-        message: rec.message || 'Expressed matrimonial interest in connecting with you.',
+        message: rec.message || `Expressed matrimonial interest in connecting with you.`,
         created_at: rec.created_at || rec.createdAt || new Date().toISOString(),
         updated_at: rec.updated_at || rec.updatedAt || new Date().toISOString(),
-        sender: senderProfile ? {
-          id: senderProfile.id || senderId,
-          register_id: senderProfile.register_id || senderProfile.registerId || senderId,
-          name: senderProfile.name || 'Verified Member',
-          photo: senderProfile.photo || senderProfile.photo_url || defaultAvatar,
-          age: senderProfile.age || 26,
-          gender: senderProfile.gender || 'Candidate',
-          height: senderProfile.height || "5'5\"",
-          city: senderProfile.district || senderProfile.city || 'Kerala',
-          district: senderProfile.district || senderProfile.city || 'Ernakulam',
-          state: senderProfile.state || 'Kerala',
-          profession: senderProfile.profession || 'Professional',
-          education: senderProfile.education || 'Graduate',
-          verified: Boolean(senderProfile.verified || senderProfile.aadhaar_verified),
-          matchScore: senderProfile.matchScore || 88,
-          gunasMatch: senderProfile.gunasMatch || '28/36 Gunas'
-        } : {
-          id: senderId,
-          register_id: senderId,
-          name: 'Verified Member',
-          photo: defaultAvatar,
-          age: 26,
-          gender: 'Candidate',
-          height: "5'5\"",
-          city: 'Kerala',
-          district: 'Ernakulam',
-          state: 'Kerala',
-          profession: 'Professional',
-          education: 'Graduate',
-          verified: true,
-          matchScore: 88,
-          gunasMatch: '28/36 Gunas'
-        }
+        sender: senderObject,
+        profile: senderObject
       };
     });
 
@@ -641,7 +648,7 @@ class InterestService {
       // Record in notifications table
       try {
         const senderObj = typeof sender === 'object' ? sender : null;
-        const senderName = senderObj?.name || 'A Verified Member';
+        const senderName = (senderObj?.name && senderObj.name.toLowerCase() !== 'verified member') ? senderObj.name : 'Candidate';
         const senderPhoto = senderObj?.photo || senderObj?.photo_url || null;
         const senderAge = senderObj?.age || null;
         const senderProfession = senderObj?.profession || null;
@@ -693,6 +700,7 @@ class InterestService {
           chn.subscribe((chnStatus) => {
             if (chnStatus === 'SUBSCRIBED') {
               const senderObj = typeof sender === 'object' ? sender : null;
+              const senderDisplayName = (senderObj?.name && senderObj.name.toLowerCase() !== 'verified member') ? senderObj.name : 'Candidate';
               chn.send({
                 type: 'broadcast',
                 event: 'interest-received',
@@ -701,7 +709,7 @@ class InterestService {
                   receiverId: String(receiverId),
                   status: 'pending',
                   message: message || '',
-                  senderName: senderObj?.name || 'Verified Member',
+                  senderName: senderDisplayName,
                   senderPhoto: senderObj?.photo || senderObj?.photo_url || null,
                   senderAge: senderObj?.age || null,
                   senderProfession: senderObj?.profession || null,

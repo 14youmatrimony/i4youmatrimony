@@ -13,6 +13,7 @@ import {
   Users,
   Trash2
 } from 'lucide-react';
+import { addCacheBuster } from '../../utils/cacheBuster';
 
 /**
  * NotificationCard
@@ -40,8 +41,39 @@ export default function NotificationCard({
   // Normalize notification data between simple item mode and rich notif mode
   const notif = propNotif || item || {};
   const profile = propProfile || notif.profile || notif.sender;
-  const isRead = propIsRead !== undefined ? propIsRead : Boolean(notif.isRead);
+  const isRead = propIsRead !== undefined ? propIsRead : Boolean(notif.isRead || notif.is_read);
   const status = notif.status || 'pending';
+
+  // Dynamic variable bindings for sender details
+  const senderName = notif.sender_name || notif.senderName || notif.sender?.name || profile?.name || null;
+  const candidateName = (senderName && !['verified member', 'a verified member', 'member'].includes(senderName.toLowerCase().trim()))
+    ? senderName
+    : (profile?.name || 'Candidate');
+
+  const rawPhoto = profile?.photo || profile?.photo_url || notif.sender_photo || notif.senderPhoto || notif.sender_image || profile?.avatar || notif.sender?.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
+  const candidatePhoto = addCacheBuster(rawPhoto);
+
+  const displayAge = profile?.age || notif.sender_age || notif.senderAge || notif.sender?.age || null;
+  const displayProfession = profile?.profession || notif.sender_profession || notif.senderProfession || notif.sender?.profession || null;
+  const displayLocation = profile?.district || profile?.city || profile?.location || notif.sender_location || notif.sender_city || notif.sender_district || notif.sender?.city || null;
+  const isVerified = Boolean(profile?.aadhaarVerified || profile?.verified || profile?.aadhaar_verified || notif.sender_verified || notif.sender?.verified);
+
+  // Compute clean dynamic title without hardcoded 'Verified Member'
+  const computedTitle = (() => {
+    if (notif.title && !notif.title.toLowerCase().includes('verified member')) {
+      return notif.title;
+    }
+    if (notif.type === 'message' || notif.type === 'chat_message' || notif.type === 'message_received') {
+      return `💬 Message from ${candidateName}`;
+    }
+    if (notif.type === 'shortlist' || notif.type === 'profile_shortlisted') {
+      return `⭐ ${candidateName} shortlisted your profile!`;
+    }
+    if (notif.type === 'contact' || notif.type === 'contact_viewed') {
+      return `👁️ Contact Details Viewed by ${candidateName}`;
+    }
+    return `💖 Interest from ${candidateName}!`;
+  })();
 
   const defaultIcon = () => {
     switch (notif.type) {
@@ -184,7 +216,7 @@ export default function NotificationCard({
       {/* Notification Content Body */}
       <div className="space-y-1 pl-6 sm:pl-7">
         <h4 className="text-[11px] sm:text-[12px] font-bold text-slate-900 leading-snug group-hover:text-[#8C6D1F] transition-colors">
-          {notif.title || 'Interest from Verified Member'}
+          {computedTitle}
         </h4>
         {(notif.message || notif.subtitle) && (
           <p className="text-[10px] sm:text-[10.5px] text-slate-600 leading-normal">
@@ -193,20 +225,21 @@ export default function NotificationCard({
         )}
 
         {/* Candidate Mini Profile Card */}
-        {profile && (
+        {(profile || notif.sender_name || notif.sender_photo) && (
           <div
             onClick={(e) => {
               e.stopPropagation();
-              if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
-              if (onOpenProfile) onOpenProfile(profile);
+              if (!isRead && onMarkAsRead) onMarkAsRead(notif.notification_id || notif.id);
+              if (onOpenProfile) onOpenProfile(profile || notif.sender || notif);
             }}
             className="my-1.5 p-1.5 bg-slate-50 hover:bg-amber-50/70 rounded-lg border border-slate-200 hover:border-[#DFB76C]/70 flex items-center justify-between gap-1.5 cursor-pointer transition-colors group/card shadow-2xs"
             title="Click to view full candidate profile"
           >
             <div className="flex items-center space-x-1.5 min-w-0 flex-1">
               <img
-                src={profile.photo || profile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400'}
-                alt={profile.name}
+                key={candidatePhoto}
+                src={candidatePhoto}
+                alt={candidateName}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   triggerScreenshotBlock?.('right-click');
@@ -217,22 +250,22 @@ export default function NotificationCard({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-1">
                   <span className="text-[10.5px] sm:text-[11.5px] font-bold text-slate-900 truncate group-hover/card:text-[#8C6D1F] transition-colors">
-                    {profile.name}
+                    {candidateName}
                   </span>
-                  {(profile.aadhaarVerified || profile.verified) && (
+                  {isVerified && (
                     <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600 shrink-0" title="Aadhaar Verified" />
                   )}
                 </div>
                 <div className="text-[8.5px] sm:text-[9.5px] text-slate-500 flex items-center flex-wrap gap-x-1 leading-tight">
-                  {profile.age && <span>{profile.age} yrs</span>}
-                  {profile.age && profile.profession && <span>•</span>}
-                  {profile.profession && (
-                    <span className="truncate max-w-[125px] sm:max-w-none">{profile.profession}</span>
+                  {displayAge && <span>{displayAge} yrs</span>}
+                  {displayAge && displayProfession && <span>•</span>}
+                  {displayProfession && (
+                    <span className="truncate max-w-[125px] sm:max-w-none">{displayProfession}</span>
                   )}
-                  {(profile.city || profile.location || profile.district) && (
+                  {displayLocation && (
                     <>
-                      {(profile.age || profile.profession) && <span>•</span>}
-                      <span className="shrink-0 text-slate-600 font-medium">📍 {profile.city || profile.location || profile.district}</span>
+                      {(displayAge || displayProfession) && <span>•</span>}
+                      <span className="shrink-0 text-slate-600 font-medium">📍 {displayLocation}</span>
                     </>
                   )}
                 </div>

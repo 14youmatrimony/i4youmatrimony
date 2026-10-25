@@ -1700,3 +1700,203 @@ export async function fetchBackendSentInterests() {
 
   return res?.data || [];
 }
+
+/**
+ * Dynamically fetches all real notifications for a user from PostgreSQL backend/database.
+ * Ensures dynamic binding for sender's name, photo, age, profession, and location,
+ * and strictly unique notification_id / id to prevent duplication and UI looping.
+ */
+export async function fetchUserNotifications(userId, allProfiles = []) {
+  if (!userId) return [];
+  const cleanId = String(userId).trim();
+
+  // 1. Try FastAPI/Flask backend with PostgreSQL
+  try {
+    const res = await safeFetchJson(`${API_BASE}/public/notifications?userId=${encodeURIComponent(cleanId)}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    }, 3000);
+
+    if (res && res.success && Array.isArray(res.data)) {
+      return res.data;
+    }
+  } catch (backendErr) {
+    console.warn('[fetchUserNotifications] Backend notice:', backendErr.message);
+  }
+
+  // 2. Direct Supabase / PostgreSQL fallback
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const userIds = [cleanId];
+      // Query notifications table
+      const { data: notifRows } = await supabase
+        .from('notifications')
+        .select('*')
+        .or(`recipient_id.in.(${userIds.map(id => `"${id}"`).join(',')}),recipient_register_id.in.(${userIds.map(id => `"${id}"`).join(',')})`)
+        .order('created_at', { ascending: false })
+        .limit(40);
+
+      // Query interests table
+      const { data: interestRows } = await supabase
+        .from('interests')
+        .select('*')
+        .in('receiver_id', userIds)
+        .order('updated_at', { ascending: false })
+        .limit(40);
+
+      const combined = [];
+      const seen = new Set();
+
+      // Helper to map profile
+      const findProfile = (senderId) => {
+        if (!senderId) return null;
+        return (allProfiles || []).find(p => p && (
+          String(p.id) === String(senderId) ||
+          (p.register_id && String(p.register_id) === String(senderId)) ||
+          (p.registerId && String(p.registerId) === String(senderId))
+        ));
+      };
+
+      (interestRows || []).forEach(row => {
+        const sId = String(row.sender_id || row.senderId);
+        if (!sId || userIds.includes(sId)) return;
+        const intId = `interest_${row.id || sId}`;
+        if (seen.has(intId)) return;
+        seen.add(intId);
+
+        const matched = findProfile(sId);
+        const sName = matched?.name || (row.metadata?.senderName) || 'Candidate';
+        const sPhoto = matched?.photo || matched?.photo_url || (row.metadata?.senderPhoto) || null;
+        const sAge = matched?.age || 26;
+        const sProfession = matched?.profession || 'Professional';
+        const sLocation = matched?.district || matched?.city || matched?.state || 'Kerala';
+        const sVerified = Boolean(matched?.verified || matched?.aadhaar_verified);
+
+        const senderObj = {
+          id: sId,
+          name: sName,
+          photo: sPhoto,
+          age: sAge,
+          profession: sProfession,
+          city: sLocation,
+          district: matched?.district || sLocation,
+          location: sLocation,
+          verified: sVerified,
+          aadhaarVerified: sVerified
+        };
+
+        combined.push({
+          notification_id: intId,
+          id: intId,
+          profileId: sId,
+          senderId: sId,
+          sender_id: sId,
+          sender_name: sName,
+          sender_photo: sPhoto,
+          sender_age: sAge,
+          sender_profession: sProfession,
+          sender_location: sLocation,
+          sender: senderObj,
+          profile: senderObj,
+          type: 'interest',
+          title: `💖 Interest from ${sName}!`,
+          message: row.message || `${sName} expressed matrimonial interest in connecting with you.`,
+          is_read: false,
+          isRead: false,
+          status: row.status || 'pending',
+          created_at: row.created_at || row.updated_at || new Date().toISOString()
+        });
+      });
+
+      (notifRows || []).forEach(row => {
+        const notifId = `db_${row.id}`;
+        if (seen.has(notifId)) return;
+        seen.add(notifId);
+
+        const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.sender_id || '');
+        const matched = findProfile(sId);
+        const sName = matched?.name || row.metadata?.senderName || 'Candidate';
+        const sPhoto = matched?.photo || matched?.photo_url || row.metadata?.senderPhoto || null;
+        const sAge = matched?.age || row.metadata?.senderAge || 26;
+        const sProfession = matched?.profession || row.metadata?.senderProfession || 'Professional';
+        const sLocation = matched?.district || matched?.city || row.metadata?.senderCity || 'Kerala';
+
+        const senderObj = {
+          id: sId,
+          name: sName,
+          photo: sPhoto,
+          age: sAge,
+          profession: sProfession,
+          city: sLocation,
+          location: sLocation
+        };
+
+        combined.push({
+          notification_id: notifId,
+          id: notifId,
+          profileId: sId,
+          senderId: sId,
+          sender_id: sId,
+          sender_name: sName,
+          sender_photo: sPhoto,
+          sender_age: sAge,
+          sender_profession: sProfession,
+          sender_location: sLocation,
+          sender: senderObj,
+          profile: senderObj,
+          type: row.type || 'interest',
+          title: row.title || `New Notification from ${sName}`,
+          message: row.message || '',
+          is_read: Boolean(row.is_read),
+          isRead: Boolean(row.is_read),
+          status: 'pending',
+          created_at: row.created_at || new Date().toISOString()
+        });
+      });
+
+      return combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } catch (e) {
+      console.warn('[fetchUserNotifications] Supabase fallback error:', e);
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Mark notification as read via backend API and Supabase
+ */
+export async function markNotificationAsReadApi(notificationId, userId) {
+  if (!notificationId) return;
+  try {
+    safeFetchJson(`${API_BASE}/public/notifications/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notification_id: notificationId, userId })
+    }, 2000).catch(() => {});
+  } catch (e) {}
+
+  if (isSupabaseConfigured() && supabase) {
+    const rawId = String(notificationId).replace('db_', '').replace('notif_', '');
+    supabase.from('notifications').update({ is_read: true }).eq('id', rawId).catch(() => {});
+  }
+}
+
+/**
+ * Delete / dismiss notification via backend API
+ */
+export async function deleteNotificationApi(notificationId, userId) {
+  if (!notificationId) return;
+  try {
+    safeFetchJson(`${API_BASE}/public/notifications/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notification_id: notificationId, userId })
+    }, 2000).catch(() => {});
+  } catch (e) {}
+
+  if (isSupabaseConfigured() && supabase) {
+    const rawId = String(notificationId).replace('db_', '').replace('notif_', '');
+    supabase.from('notifications').delete().eq('id', rawId).catch(() => {});
+  }
+}

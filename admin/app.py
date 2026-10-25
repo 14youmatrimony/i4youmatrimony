@@ -1823,6 +1823,86 @@ def api_public_update_profile():
         conn.close()
         return jsonify({'error': str(e)}), 500
 
+
+@app.route('/api/public/notifications', methods=['GET'])
+def api_public_notifications():
+    """
+    Fetches real matrimonial notifications dynamically for a user from PostgreSQL.
+    Extracts real sender name, photo, age, profession, and location.
+    Applies image cache-busting to prevent stale cached avatars.
+    """
+    user_id = request.args.get('userId') or request.args.get('user_id') or request.args.get('id')
+    if not user_id:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1]
+            try:
+                import jwt
+                payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+                user_id = payload.get('sub') or payload.get('user_id')
+            except Exception:
+                pass
+
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Missing userId parameter', 'data': []}), 400
+
+    notifs = database.get_user_notifications_db(user_id)
+
+    # Apply cache-busting to sender photos
+    for n in notifs:
+        up_at = n.get('created_at')
+        ts = int(time.time() * 1000)
+        if up_at:
+            try:
+                ts = int(datetime.fromisoformat(str(up_at).replace('Z', '+00:00')).timestamp() * 1000)
+            except Exception:
+                pass
+
+        def cb(url):
+            if not url or not isinstance(url, str):
+                return url
+            clean = url.strip()
+            if clean.startswith('data:') or clean.startswith('blob:'):
+                return clean
+            sep = '&' if '?' in clean else '?'
+            if 't=' in clean:
+                import re
+                return re.sub(r'([?&])t=\d+', r'\g<1>t=' + str(ts), clean)
+            return f"{clean}{sep}t={ts}"
+
+        if n.get('sender_photo'):
+            n['sender_photo'] = cb(n['sender_photo'])
+        if n.get('sender') and isinstance(n['sender'], dict) and n['sender'].get('photo'):
+            n['sender']['photo'] = cb(n['sender']['photo'])
+        if n.get('profile') and isinstance(n['profile'], dict) and n['profile'].get('photo'):
+            n['profile']['photo'] = cb(n['profile']['photo'])
+
+    response = jsonify({
+        'success': True,
+        'count': len(notifs),
+        'data': notifs
+    })
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
+
+@app.route('/api/public/notifications/read', methods=['POST'])
+def api_public_notifications_mark_read():
+    data = request.get_json(silent=True) or {}
+    notif_id = data.get('notification_id') or data.get('id')
+    user_id = data.get('userId') or data.get('user_id')
+    database.mark_notification_read_db(notif_id, user_id)
+    return jsonify({'success': True, 'message': 'Notification marked as read'})
+
+
+@app.route('/api/public/notifications/delete', methods=['POST', 'DELETE'])
+def api_public_notifications_delete():
+    data = request.get_json(silent=True) or {}
+    notif_id = data.get('notification_id') or data.get('id') or request.args.get('notification_id') or request.args.get('id')
+    user_id = data.get('userId') or data.get('user_id') or request.args.get('userId')
+    database.delete_notification_db(notif_id, user_id)
+    return jsonify({'success': True, 'message': 'Notification deleted successfully'})
+
 @app.route('/api/public/account/delete', methods=['POST'])
 def api_public_delete_account():
     """

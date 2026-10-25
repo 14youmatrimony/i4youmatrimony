@@ -613,6 +613,39 @@ async def fastapi_update_profile(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/public/notifications")
+def fastapi_public_notifications(userId: Optional[str] = None, user_id: Optional[str] = None):
+    """Fetches real matrimonial notifications dynamically for a user from PostgreSQL."""
+    target_uid = userId or user_id
+    if not target_uid:
+        raise HTTPException(status_code=400, detail="Missing userId query parameter")
+
+    notifs = database.get_user_notifications_db(target_uid)
+    return {
+        "success": True,
+        "count": len(notifs),
+        "data": notifs
+    }
+
+
+@app.post("/api/public/notifications/read")
+async def fastapi_public_notifications_read(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    notif_id = data.get('notification_id') or data.get('id')
+    user_id = data.get('userId') or data.get('user_id')
+    database.mark_notification_read_db(notif_id, user_id)
+    return {"success": True, "message": "Notification marked as read"}
+
+
+@app.delete("/api/public/notifications/{notification_id}")
+def fastapi_public_notifications_delete(notification_id: str, userId: Optional[str] = None):
+    database.delete_notification_db(notification_id, userId)
+    return {"success": True, "message": "Notification deleted successfully"}
+
+
 @app.get("/api/health")
 def api_health():
     """System health check and database engine metadata."""

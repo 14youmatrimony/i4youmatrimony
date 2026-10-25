@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, deleteNotificationApi } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { uploadProfilePhoto } from './services/storageService';
@@ -64,90 +64,8 @@ import {
 } from './utils/genderMatch';
 import { Sparkles } from 'lucide-react';
 
-// Live sample notifications: Interest received, Profile shortlisted, Contact viewed, and Chat message (Tailored strictly to opposite gender real candidates)
-export const getNotificationsForUser = (user, availableProfiles = []) => {
-  if (!user) return [];
-  const isMale = (user?.gender || '').toLowerCase() === 'male';
-  
-  const pool = (Array.isArray(availableProfiles) && availableProfiles.length > 0)
-    ? availableProfiles
-    : INITIAL_PROFILES;
-
-  const oppositeProfiles = (pool || []).filter(p => {
-    if (!p || !p.id) return false;
-    if (isSelfProfile(p, user)) return false;
-    const g = (p.gender || '').toLowerCase();
-    return isMale ? (g === 'female' || g === 'woman') : (g === 'male' || g === 'man');
-  });
-
-  if (!oppositeProfiles.length) {
-    return [];
-  }
-
-  const c1 = oppositeProfiles[0];
-  const c2 = oppositeProfiles[1];
-  const c3 = oppositeProfiles[2];
-
-  const firstName = user?.name ? user.name.split(' ')[0] : 'there';
-  const list = [];
-
-  if (c1) {
-    list.push({
-      id: 'notif-interest-' + c1.id,
-      type: 'interest_received',
-      profileId: c1.id,
-      senderId: c1.id,
-      sender: c1,
-      interest_from: c1,
-      title: `${c1.name} sent you an Interest! 💖`,
-      message: `${c1.name} reviewed your profile and shared family values. Expressed interest in taking things forward.`,
-      quote: `“Namaste ${firstName}! I liked your profile and career aspirations. Our family in ${c1.city || 'Kerala'} would love to connect with yours!”`,
-      time: '12m ago',
-      isRead: false,
-      status: 'pending',
-      badge: c1.profession || 'Universal Match'
-    });
-  }
-
-  if (c2 && c2.id !== c1.id) {
-    list.push({
-      id: 'notif-shortlist-' + c2.id,
-      type: 'profile_shortlisted',
-      profileId: c2.id,
-      senderId: c2.id,
-      sender: c2,
-      interest_from: c2,
-      title: `${c2.name} shortlisted your profile! ⭐`,
-      message: `${c2.name} added your profile to private shortlist for family horoscope matching.`,
-      quote: '“Profile shortlisted for weekend family discussion & astrology review.”',
-      time: '45m ago',
-      isRead: false,
-      status: 'pending',
-      badge: c2.profession || 'Shortlisted'
-    });
-  }
-
-  if (c3 && c3.id !== c1.id && c3.id !== c2.id) {
-    list.push({
-      id: 'notif-contact-' + c3.id,
-      type: 'contact_viewed',
-      profileId: c3.id,
-      senderId: c3.id,
-      sender: c3,
-      interest_from: c3,
-      title: 'Contact Details Viewed 👁️',
-      message: `${c3.name} & family viewed your verified phone number & astrological horoscope.`,
-      quote: 'Verified contact accessed via Aadhaar matrimonial authentication protocol.',
-      time: '2h ago',
-      isRead: false,
-      status: 'pending',
-      badge: 'Aadhaar Verified'
-    });
-  }
-
-  return list;
-};
-
+// Real notification state initializer: No hardcoded or mock arrays
+export const getNotificationsForUser = () => [];
 export const INITIAL_NOTIFICATIONS = [];
 
 // Pan-India authentic candidate status stories (Photo, Video max 60s, and Text)
@@ -1269,32 +1187,36 @@ export default function App() {
   const [isPhotoManagerOpen, setIsPhotoManagerOpen] = useState(false);
   const [photoManagerTab, setPhotoManagerTab] = useState('single');
 
-  // Mobile Notifications State
+  // Mobile Notifications State: Strictly dynamic, no mock arrays
   const [notifications, setNotifications] = useState(() => {
     try {
       const savedUser = localStorage.getItem('i4u_auth_user');
       if (!savedUser) return [];
-      const u = JSON.parse(savedUser);
-      if (u.id === 'demo-priya' || u.id === 'demo-rohan' || u.id === 'demo_user' || u.name === 'Priya Sharma' || u.mobile === '9876543210' || u.isDemo) return [];
       const saved = localStorage.getItem('i4u_notifications');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasOldDummy = parsed.some(n => n && (n.profileId === 'p1' || n.profileId === 'p2' || (n.title && (n.title.includes('Ananya') || n.title.includes('Rohan Jayasimha')))));
-          if (!hasOldDummy) {
-            return parsed.filter(n => n && typeof n === 'object' && n.type);
-          }
+          // Strictly exclude old mock notifications and enforce clean objects
+          const clean = parsed.filter(n => 
+            n && typeof n === 'object' && n.type && 
+            !String(n.id || '').startsWith('notif-interest-') && 
+            !String(n.id || '').startsWith('notif-shortlist-') && 
+            !String(n.id || '').startsWith('notif-contact-')
+          );
+          return clean;
         }
       }
-      return getNotificationsForUser(u, INITIAL_PROFILES);
     } catch (e) {}
     return [];
   });
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
-  // Synchronize notifications, received interests, and chat conversations with backend & profiles
+  // Synchronize notifications, received interests, and chat conversations with PostgreSQL backend & profiles
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      setNotifications([]);
+      return;
+    }
     const userIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
     if (!userIds.length) return;
 
@@ -1309,139 +1231,89 @@ export default function App() {
       })
       .catch((e) => console.warn('[App] Error loading conversations:', e));
 
-    // 2. Fetch received interests from backend
-    interestService.getReceivedInterests(currentUser, profiles)
+    // 2. Fetch real dynamic notifications from PostgreSQL backend API
+    fetchUserNotifications(currentUser.id || currentUser.register_id, profiles)
       .then((records) => {
-        if (!isMounted) return;
-        if (Array.isArray(records) && records.length > 0) {
-          setNotifications((prev) => {
-            const list = Array.isArray(prev) ? [...prev] : [];
-            records.forEach((rec) => {
-              if (!rec) return;
-              const notifId = `notif_int_${rec.id}`;
-              const exists = list.some(
-                (n) => n && (n.id === notifId || n.id === rec.id || (n.type === 'interest' && String(n.profileId) === String(rec.senderId)))
-              );
-              if (!exists) {
-                const sId = String(rec.senderId || rec.sender_id || '');
-                const matchedSender = (profiles || []).find(p => p && (String(p.id) === sId || String(p.register_id) === sId || String(p.registerId) === sId));
-                const senderObj = matchedSender || rec.sender || rec.interest_from;
-                const senderDisplayName = senderObj?.name || rec.sender?.name || 'Verified Member';
-
-                list.unshift({
-                  id: notifId,
-                  profileId: sId,
-                  senderId: sId,
-                  sender: senderObj,
-                  interest_from: senderObj,
-                  type: 'interest',
-                  title: `💖 Interest from ${senderDisplayName}`,
-                  message: rec.message || `${senderDisplayName} expressed interest in connecting with you.`,
-                  time: new Date(rec.created_at || rec.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  isRead: false,
-                  status: rec.status || 'pending',
-                  timestamp: new Date(rec.created_at || rec.createdAt).getTime()
-                });
-              }
-            });
-            return list;
+        if (!isMounted || !Array.isArray(records)) return;
+        setNotifications((prev) => {
+          const map = new Map();
+          // Preserve any existing local read status
+          (prev || []).forEach(n => {
+            const k = n?.notification_id || n?.id;
+            if (k) map.set(k, n);
           });
-        }
-      })
-      .catch((e) => console.warn('[App] Error loading received interests:', e));
-
-    // 3. Fetch notifications from Supabase notifications table
-    if (isSupabaseConfigured() && supabase) {
-      supabase
-        .from('notifications')
-        .select('*')
-        .or(`recipient_id.in.(${userIds.map((id) => `"${id}"`).join(',')}),recipient_register_id.in.(${userIds.map((id) => `"${id}"`).join(',')})`)
-        .order('created_at', { ascending: false })
-        .limit(30)
-        .then(({ data, error }) => {
-          if (!error && Array.isArray(data) && isMounted && data.length > 0) {
-            setNotifications((prev) => {
-              const list = Array.isArray(prev) ? [...prev] : [];
-              data.forEach((row) => {
-                if (!row) return;
-                const notifId = `db_${row.id}`;
-                const exists = list.some((n) => n && (n.id === notifId || n.id === row.id));
-                if (!exists) {
-                  const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.sender?.id || row.metadata?.interest_from?.id || row.sender_id || row.senderId || '');
-                  if (!sId || userIds.includes(sId)) return;
-                  const matchedSender = (profiles || []).find(p => p && (String(p.id) === sId || String(p.register_id) === sId || String(p.registerId) === sId));
-                  const senderObj = matchedSender || row.metadata?.sender || row.metadata?.interest_from || (row.metadata?.senderName ? {
-                    id: sId,
-                    name: row.metadata.senderName,
-                    photo: row.metadata.senderPhoto || null,
-                    age: row.metadata.senderAge || row.metadata.age || null,
-                    profession: row.metadata.senderProfession || row.metadata.profession || null,
-                    city: row.metadata.senderCity || row.metadata.city || null
-                  } : null);
-                  const senderDisplayName = senderObj?.name || row.metadata?.senderName || 'Verified Member';
-
-                  list.unshift({
-                    id: notifId,
-                    profileId: sId,
-                    senderId: sId,
-                    sender: senderObj,
-                    interest_from: senderObj,
-                    type: row.type === 'interest_received' ? 'interest' : (row.type === 'chat_message' ? 'message' : 'match'),
-                    title: row.title || `💖 Interest from ${senderDisplayName}`,
-                    message: row.message,
-                    time: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    isRead: row.is_read || false,
-                    status: 'pending',
-                    timestamp: new Date(row.created_at).getTime()
-                  });
-                }
-              });
-              return list;
+          // Merge newly fetched dynamic records from PostgreSQL
+          records.forEach(rec => {
+            if (!rec) return;
+            const notifId = rec.notification_id || rec.id || `notif_${rec.sender_id || rec.senderId}_${rec.created_at}`;
+            const existing = map.get(notifId);
+            map.set(notifId, {
+              ...rec,
+              notification_id: notifId,
+              id: notifId,
+              isRead: existing?.isRead !== undefined ? existing.isRead : Boolean(rec.is_read || rec.isRead),
+              status: existing?.status || rec.status || 'pending'
             });
-          }
-        })
-        .catch(() => {});
-    }
+          });
+          return Array.from(map.values()).sort((a, b) => {
+            const tA = new Date(a.created_at || a.timestamp || 0).getTime();
+            const tB = new Date(b.created_at || b.timestamp || 0).getTime();
+            return tB - tA;
+          });
+        });
+      })
+      .catch((e) => console.warn('[App] Error loading notifications:', e));
 
-    // 4. Real-time subscription to incoming interests
+    // 3. Real-time subscription to incoming interests
     const unsubInterest = interestService.subscribeToInterestInbox(currentUser, (payload) => {
-      console.log('[App] Real-time interest incoming in App.jsx:', payload);
       const sId = String(payload.senderId || payload.sender_id || '');
       const matchedSender = (profiles || []).find(p => p && (String(p.id) === sId || String(p.register_id) === sId || String(p.registerId) === sId));
       const senderObj = matchedSender || payload.sender || {
         id: sId,
-        name: payload.senderName || 'Verified Member',
+        name: payload.senderName || 'Candidate',
         photo: payload.senderPhoto || null,
         age: payload.senderAge || null,
         profession: payload.senderProfession || null,
         city: payload.senderCity || payload.senderDistrict || null
       };
-      const senderDisplayName = senderObj?.name || 'Verified Member';
+      const senderDisplayName = senderObj?.name || payload.senderName || 'Candidate';
       showToast(`💖 New Interest from ${senderDisplayName}!`);
 
       setNotifications((prev) => {
-        const list = Array.isArray(prev) ? prev : [];
-        const isDuplicate = list.some(
-          (n) => n && ((payload.id && n.id === payload.id) || (n.type === 'interest' && String(n.profileId) === sId && n.status === 'pending'))
-        );
-        if (isDuplicate) return list;
-        return [
-          {
-            id: payload.id || `live_int_${Date.now()}`,
-            profileId: sId,
-            senderId: sId,
-            sender: senderObj,
-            interest_from: senderObj,
-            type: 'interest',
-            title: `💖 Interest from ${senderDisplayName}`,
-            message: payload.message || `${senderDisplayName} expressed interest in connecting with you.`,
-            time: 'Just now',
-            isRead: false,
-            status: 'pending',
-            timestamp: Date.now()
-          },
-          ...list
-        ];
+        const notifId = payload.notification_id || payload.id || `live_int_${sId}_${Date.now()}`;
+        const map = new Map();
+        (prev || []).forEach(n => {
+          const k = n?.notification_id || n?.id;
+          if (k) map.set(k, n);
+        });
+        map.set(notifId, {
+          notification_id: notifId,
+          id: notifId,
+          profileId: sId,
+          senderId: sId,
+          sender_id: sId,
+          sender_name: senderDisplayName,
+          sender_photo: senderObj.photo,
+          sender_age: senderObj.age,
+          sender_profession: senderObj.profession,
+          sender_location: senderObj.city,
+          sender: senderObj,
+          profile: senderObj,
+          interest_from: senderObj,
+          type: 'interest',
+          title: `💖 Interest from ${senderDisplayName}`,
+          message: payload.message || `${senderDisplayName} expressed interest in connecting with you.`,
+          time: 'Just now',
+          isRead: false,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          timestamp: Date.now()
+        });
+        return Array.from(map.values()).sort((a, b) => {
+          const tA = new Date(a.created_at || a.timestamp || 0).getTime();
+          const tB = new Date(b.created_at || b.timestamp || 0).getTime();
+          return tB - tA;
+        });
       });
 
       // Deliver native web push notification for background delivery
@@ -1837,16 +1709,26 @@ export default function App() {
   };
 
   const handleMarkNotificationAsRead = (notifId) => {
-    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true } : n));
+    setNotifications(prev => prev.map(n => (n.id === notifId || n.notification_id === notifId) ? { ...n, isRead: true } : n));
+    if (currentUser?.id) {
+      markNotificationAsReadApi(notifId, currentUser.id);
+    }
   };
 
   const handleMarkAllNotificationsAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    (notifications || []).forEach(n => {
+      const k = n.notification_id || n.id;
+      if (k && currentUser?.id) markNotificationAsReadApi(k, currentUser.id);
+    });
     showToast('All notifications marked as read ✓');
   };
 
   const handleDeleteNotification = (notifId) => {
-    setNotifications(prev => prev.filter(n => n.id !== notifId));
+    setNotifications(prev => prev.filter(n => n.id !== notifId && n.notification_id !== notifId));
+    if (currentUser?.id) {
+      deleteNotificationApi(notifId, currentUser.id);
+    }
     showToast('Notification dismissed');
   };
 
@@ -2934,7 +2816,7 @@ export default function App() {
       setInterestsSent([]);
       setShortlisted([]);
       setConversations([]);
-      setNotifications(getNotificationsForUser(updated, profiles));
+      setNotifications([]);
       setActiveChatProfileId(null);
 
       // Immediately display profile in matches feed
@@ -3016,7 +2898,7 @@ export default function App() {
       setInterestsSent([]);
       setShortlisted([]);
       setConversations([]);
-      setNotifications(getNotificationsForUser(updated, profiles));
+      setNotifications([]);
       setActiveChatProfileId(null);
 
       // Immediately display profile in matches feed
@@ -3069,7 +2951,7 @@ export default function App() {
       if (Array.isArray(fresh)) setConversations(fresh);
     }).catch(() => {});
 
-    setNotifications(getNotificationsForUser(updatedUser, profiles));
+    setNotifications([]);
     setActiveChatProfileId(null);
     setSelectedProfile(null);
     setIsDirectChatOpen(false);
@@ -3085,7 +2967,7 @@ export default function App() {
     setInterestsSent(persona.interestsSent || []);
     setShortlisted(persona.shortlisted || []);
     setConversations(getConversationsForUser(persona));
-    setNotifications(getNotificationsForUser(persona, profiles));
+    setNotifications([]);
     setActiveChatProfileId(null);
     try {
       localStorage.removeItem('i4u_logged_out');

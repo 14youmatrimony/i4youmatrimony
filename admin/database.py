@@ -503,6 +503,26 @@ def init_postgres_tables(conn):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages (receiver_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages (conversation_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages (created_at);")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS notifications (
+        id VARCHAR(100) PRIMARY KEY,
+        recipient_id VARCHAR(100) NOT NULL,
+        recipient_register_id VARCHAR(100),
+        sender_id VARCHAR(100),
+        type VARCHAR(50) DEFAULT 'interest',
+        title VARCHAR(255),
+        message TEXT,
+        metadata TEXT,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications (recipient_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient_reg ON notifications (recipient_register_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_sender ON notifications (sender_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications (created_at);")
     conn.commit()
 
     # Migration for existing Postgres installations
@@ -754,6 +774,26 @@ def init_sqlite_tables(conn):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages (receiver_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages (conversation_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages (created_at);")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS notifications (
+        id VARCHAR(100) PRIMARY KEY,
+        recipient_id VARCHAR(100) NOT NULL,
+        recipient_register_id VARCHAR(100),
+        sender_id VARCHAR(100),
+        type VARCHAR(50) DEFAULT 'interest',
+        title VARCHAR(255),
+        message TEXT,
+        metadata TEXT,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications (recipient_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient_reg ON notifications (recipient_register_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_sender ON notifications (sender_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications (created_at);")
     conn.commit()
 
     # Migration for existing SQLite installations: add detail columns if missing
@@ -2128,38 +2168,385 @@ def respond_interest_db(receiver_id: str, sender_id: str, action: str) -> Option
 def get_received_interests_db(receiver_id: str) -> List[Dict[str, Any]]:
     """
     Fetches interests received by the authenticated user.
-    receiver_id is from authenticated token.
-    WHERE receiver_id = ? AND sender_id <> receiver_id
+    receiver_id is from authenticated token or query parameter.
+    Dynamically joins profiles table to map sender name, photo, age, profession, and location.
     """
-    clean_receiver = str(receiver_id).strip()
+    clean_receiver = str(receiver_id or '').strip()
     if not clean_receiver:
         return []
 
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        # Find all user IDs (id and register_id)
+        user_ids = {clean_receiver}
+        try:
+            cursor.execute("SELECT id, register_id FROM profiles WHERE id = ? OR register_id = ?", (clean_receiver, clean_receiver))
+            for m in cursor.fetchall():
+                if m.get('id'): user_ids.add(str(m['id']))
+                if m.get('register_id'): user_ids.add(str(m['register_id']))
+        except Exception:
+            pass
+
+        placeholders = ', '.join(['?'] * len(user_ids))
         cursor.execute(
-            """
-            SELECT id, sender_id, receiver_id, status, message, created_at, updated_at
-            FROM interests
-            WHERE receiver_id = ? AND sender_id <> receiver_id
-            ORDER BY updated_at DESC
+            f"""
+            SELECT i.id, i.sender_id, i.receiver_id, i.status, i.message, i.created_at, i.updated_at,
+                   p.name AS sender_name, p.photo AS sender_photo, p.photo_url AS sender_photo_url,
+                   p.age AS sender_age, p.profession AS sender_profession, p.district AS sender_district,
+                   p.city AS sender_city, p.state AS sender_state, p.verified AS sender_verified,
+                   p.aadhaar_verified AS sender_aadhaar_verified
+            FROM interests i
+            LEFT JOIN profiles p ON (p.id = i.sender_id OR p.register_id = i.sender_id)
+            WHERE i.receiver_id IN ({placeholders})
+            ORDER BY i.updated_at DESC
             """,
-            (clean_receiver,)
+            list(user_ids)
         )
         rows = cursor.fetchall()
         result = []
         for r in rows:
+            s_name = (r.get('sender_name') or '').strip()
+            if not s_name or s_name.lower() in ['verified member', 'a verified member', 'member']:
+                s_name = 'Candidate'
+            s_photo = r.get('sender_photo') or r.get('sender_photo_url') or 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400'
+            s_loc = r.get('sender_district') or r.get('sender_city') or r.get('sender_state') or 'Kerala'
+            s_age = r.get('sender_age') or 26
+            s_prof = r.get('sender_profession') or 'Professional'
+            s_ver = bool(r.get('sender_verified') or r.get('sender_aadhaar_verified'))
+
+            sender_obj = {
+                'id': str(r['sender_id']),
+                'name': s_name,
+                'photo': s_photo,
+                'age': s_age,
+                'profession': s_prof,
+                'city': s_loc,
+                'district': r.get('sender_district') or s_loc,
+                'location': s_loc,
+                'verified': s_ver,
+                'aadhaarVerified': s_ver
+            }
             result.append({
                 'id': str(r['id']),
                 'sender_id': str(r['sender_id']),
+                'senderId': str(r['sender_id']),
                 'receiver_id': str(r['receiver_id']),
                 'status': str(r['status']),
                 'message': str(r['message'] or ''),
                 'created_at': str(r['created_at']),
-                'updated_at': str(r['updated_at'])
+                'updated_at': str(r['updated_at']),
+                'sender_name': s_name,
+                'sender_photo': s_photo,
+                'sender_age': s_age,
+                'sender_profession': s_prof,
+                'sender_location': s_loc,
+                'sender': sender_obj,
+                'profile': sender_obj
             })
         return result
+    finally:
+        conn.close()
+
+
+def get_user_notifications_db(user_id: str) -> List[Dict[str, Any]]:
+    """
+    Dynamically fetches all real notifications for a user from PostgreSQL/SQLite database.
+    Queries:
+    1. Dedicated 'notifications' table.
+    2. 'interests' table joined with 'profiles' table for received matrimonial interests.
+    3. 'messages' table joined with 'profiles' table for received chat messages.
+    Dynamically maps sender's exact name, profile photo, age, profession, and location from profiles.
+    Returns strictly unique items with 'notification_id' and 'id'.
+    """
+    clean_uid = str(user_id or '').strip()
+    if not clean_uid:
+        return []
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # 1. Identify all matching user IDs (primary id and register_id)
+        user_ids = {clean_uid}
+        try:
+            cursor.execute(
+                "SELECT id, register_id FROM profiles WHERE id = ? OR register_id = ?",
+                (clean_uid, clean_uid)
+            )
+            matched = cursor.fetchall()
+            for m in matched:
+                if m.get('id'):
+                    user_ids.add(str(m['id']))
+                if m.get('register_id'):
+                    user_ids.add(str(m['register_id']))
+        except Exception:
+            pass
+
+        target_ids = list(user_ids)
+        if not target_ids:
+            return []
+
+        notifications_list = []
+        seen_keys = set()
+
+        # 2. Query 'notifications' table
+        try:
+            placeholders = ', '.join(['?'] * len(target_ids))
+            query_notifs = f"""
+                SELECT id, recipient_id, recipient_register_id, sender_id, type, title, message, metadata, is_read, created_at, updated_at
+                FROM notifications
+                WHERE recipient_id IN ({placeholders}) OR recipient_register_id IN ({placeholders})
+                ORDER BY created_at DESC
+                LIMIT 50
+            """
+            cursor.execute(query_notifs, target_ids + target_ids)
+            notif_rows = cursor.fetchall()
+            for r in notif_rows:
+                meta = {}
+                raw_meta = r.get('metadata')
+                if raw_meta:
+                    if isinstance(raw_meta, dict):
+                        meta = raw_meta
+                    elif isinstance(raw_meta, str):
+                        try:
+                            meta = json.loads(raw_meta)
+                        except Exception:
+                            meta = {}
+
+                s_id = str(r.get('sender_id') or meta.get('senderId') or meta.get('sender_id') or '')
+                notif_id = str(r['id'])
+                if not notif_id.startswith('notif_'):
+                    notif_id = f"notif_{notif_id}"
+
+                if notif_id in seen_keys:
+                    continue
+                seen_keys.add(notif_id)
+
+                s_name = (meta.get('senderName') or meta.get('sender_name') or '').strip()
+                if not s_name or s_name.lower() in ['verified member', 'a verified member', 'member']:
+                    s_name = 'Candidate'
+
+                notifications_list.append({
+                    'notification_id': notif_id,
+                    'id': notif_id,
+                    'type': str(r.get('type') or 'interest'),
+                    'title': str(r.get('title') or f"New Notification from {s_name}"),
+                    'message': str(r.get('message') or ''),
+                    'sender_id': s_id,
+                    'senderId': s_id,
+                    'profileId': s_id,
+                    'sender_name': s_name,
+                    'sender_photo': meta.get('senderPhoto') or meta.get('sender_photo') or None,
+                    'sender_age': meta.get('senderAge') or meta.get('sender_age') or None,
+                    'sender_profession': meta.get('senderProfession') or meta.get('sender_profession') or None,
+                    'sender_location': meta.get('senderCity') or meta.get('sender_city') or meta.get('sender_district') or 'Kerala',
+                    'is_read': bool(r.get('is_read')),
+                    'isRead': bool(r.get('is_read')),
+                    'status': 'pending',
+                    'created_at': str(r.get('created_at'))
+                })
+        except Exception:
+            pass
+
+        # 3. Query 'interests' table JOIN 'profiles' for real received matrimonial interests
+        try:
+            placeholders = ', '.join(['?'] * len(target_ids))
+            query_interests = f"""
+                SELECT i.id, i.sender_id, i.receiver_id, i.status, i.message, i.created_at, i.updated_at,
+                       p.id AS p_id, p.register_id AS p_reg_id, p.name AS sender_name, p.photo AS sender_photo,
+                       p.photo_url AS sender_photo_url, p.age AS sender_age, p.profession AS sender_profession,
+                       p.district AS sender_district, p.city AS sender_city, p.state AS sender_state,
+                       p.verified AS sender_verified, p.aadhaar_verified AS sender_aadhaar_verified
+                FROM interests i
+                LEFT JOIN profiles p ON (p.id = i.sender_id OR p.register_id = i.sender_id)
+                WHERE i.receiver_id IN ({placeholders})
+                ORDER BY i.updated_at DESC
+                LIMIT 50
+            """
+            cursor.execute(query_interests, target_ids)
+            int_rows = cursor.fetchall()
+            for r in int_rows:
+                s_id = str(r['sender_id'])
+                if s_id in user_ids:
+                    continue  # Ignore self interest
+
+                int_id = f"interest_{r['id']}"
+                if int_id in seen_keys:
+                    continue
+                seen_keys.add(int_id)
+
+                s_name = (r.get('sender_name') or '').strip()
+                if not s_name or s_name.lower() in ['verified member', 'a verified member', 'member']:
+                    s_name = 'Candidate'
+
+                s_photo = r.get('sender_photo') or r.get('sender_photo_url') or 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400'
+                s_age = r.get('sender_age') or 26
+                s_profession = r.get('sender_profession') or 'Professional'
+                s_location = r.get('sender_district') or r.get('sender_city') or r.get('sender_state') or 'Kerala'
+                s_verified = bool(r.get('sender_verified') or r.get('sender_aadhaar_verified'))
+
+                msg = r.get('message') or f"{s_name} expressed matrimonial interest in connecting with you."
+                title = f"💖 Interest from {s_name}!"
+
+                sender_obj = {
+                    'id': s_id,
+                    'register_id': r.get('p_reg_id') or s_id,
+                    'name': s_name,
+                    'photo': s_photo,
+                    'age': s_age,
+                    'profession': s_profession,
+                    'city': s_location,
+                    'district': r.get('sender_district') or s_location,
+                    'state': r.get('sender_state') or 'Kerala',
+                    'location': s_location,
+                    'verified': s_verified,
+                    'aadhaarVerified': s_verified
+                }
+
+                notifications_list.append({
+                    'notification_id': int_id,
+                    'id': int_id,
+                    'profileId': s_id,
+                    'senderId': s_id,
+                    'sender_id': s_id,
+                    'sender_name': s_name,
+                    'sender_photo': s_photo,
+                    'sender_age': s_age,
+                    'sender_profession': s_profession,
+                    'sender_location': s_location,
+                    'sender_city': r.get('sender_city') or s_location,
+                    'sender_district': r.get('sender_district') or s_location,
+                    'sender': sender_obj,
+                    'profile': sender_obj,
+                    'type': 'interest',
+                    'title': title,
+                    'message': msg,
+                    'quote': f"“Namaste! I reviewed your profile on I 4 You and would like to connect.”",
+                    'is_read': False,
+                    'isRead': False,
+                    'status': str(r.get('status') or 'pending'),
+                    'created_at': str(r.get('created_at')),
+                    'updated_at': str(r.get('updated_at'))
+                })
+        except Exception as ie:
+            print(f"[-] Error querying interests for notifications: {ie}")
+
+        # 4. If any sender profile details are missing in notifications_list, batch fetch profiles
+        missing_sender_ids = [n['sender_id'] for n in notifications_list if n.get('sender_id') and (not n.get('sender') or n.get('sender_name') == 'Candidate')]
+        if missing_sender_ids:
+            try:
+                placeholders = ', '.join(['?'] * len(missing_sender_ids))
+                cursor.execute(
+                    f"SELECT id, register_id, name, photo, photo_url, age, profession, district, city, state, verified, aadhaar_verified FROM profiles WHERE id IN ({placeholders}) OR register_id IN ({placeholders})",
+                    missing_sender_ids + missing_sender_ids
+                )
+                p_rows = cursor.fetchall()
+                p_map = {}
+                for pr in p_rows:
+                    if pr.get('id'):
+                        p_map[str(pr['id'])] = pr
+                    if pr.get('register_id'):
+                        p_map[str(pr['register_id'])] = pr
+
+                for n in notifications_list:
+                    sid = n.get('sender_id')
+                    if sid and sid in p_map:
+                        pr = p_map[sid]
+                        s_name = (pr.get('name') or '').strip() or 'Candidate'
+                        s_photo = pr.get('photo') or pr.get('photo_url')
+                        s_age = pr.get('age') or 26
+                        s_profession = pr.get('profession') or 'Professional'
+                        s_loc = pr.get('district') or pr.get('city') or 'Kerala'
+                        s_ver = bool(pr.get('verified') or pr.get('aadhaar_verified'))
+
+                        n['sender_name'] = s_name
+                        if s_photo:
+                            n['sender_photo'] = s_photo
+                        n['sender_age'] = s_age
+                        n['sender_profession'] = s_profession
+                        n['sender_location'] = s_loc
+                        n['title'] = n['title'].replace('Candidate', s_name).replace('Verified Member', s_name)
+                        n['message'] = n['message'].replace('Candidate', s_name).replace('Verified Member', s_name)
+                        n['sender'] = {
+                            'id': sid,
+                            'name': s_name,
+                            'photo': s_photo or n.get('sender_photo'),
+                            'age': s_age,
+                            'profession': s_profession,
+                            'city': s_loc,
+                            'district': pr.get('district') or s_loc,
+                            'location': s_loc,
+                            'verified': s_ver,
+                            'aadhaarVerified': s_ver
+                        }
+                        n['profile'] = n['sender']
+            except Exception:
+                pass
+
+        # 5. Sort by created_at descending
+        notifications_list.sort(
+            key=lambda x: str(x.get('created_at') or ''),
+            reverse=True
+        )
+        return notifications_list
+    finally:
+        conn.close()
+
+
+def mark_notification_read_db(notification_id: str, user_id: str = None) -> bool:
+    """Marks a notification as read in the database."""
+    if not notification_id:
+        return False
+    clean_nid = str(notification_id).replace('notif_', '')
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE notifications SET is_read = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ? OR id = ?", (clean_nid, str(notification_id)))
+        conn.commit()
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+
+def delete_notification_db(notification_id: str, user_id: str = None) -> bool:
+    """Deletes a notification from the database."""
+    if not notification_id:
+        return False
+    clean_nid = str(notification_id).replace('notif_', '')
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM notifications WHERE id = ? OR id = ?", (clean_nid, str(notification_id)))
+        conn.commit()
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+
+def insert_notification_db(recipient_id: str, sender_id: str, notif_type: str, title: str, message: str, metadata: dict = None) -> str:
+    """Inserts a notification record into the notifications table."""
+    notif_id = f"notif_{uuid.uuid4().hex[:12]}"
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        meta_str = json.dumps(metadata) if metadata else None
+        cursor.execute(
+            """
+            INSERT INTO notifications (id, recipient_id, sender_id, type, title, message, metadata, is_read, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """,
+            (notif_id, str(recipient_id), str(sender_id) if sender_id else None, str(notif_type), str(title), str(message), meta_str)
+        )
+        conn.commit()
+        return notif_id
+    except Exception as e:
+        print(f"[-] insert_notification_db error: {e}")
+        return notif_id
     finally:
         conn.close()
 
