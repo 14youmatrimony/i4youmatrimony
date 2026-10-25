@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { interestService } from './interestService.js';
+import { fcmNotificationService } from './fcmNotificationService.js';
 
 /**
  * Reliable public Google STUN servers for robust NAT traversal
@@ -653,6 +654,22 @@ class WebRTCCallService {
           } catch (e) {}
         });
       }
+
+      // Dispatch high-priority push notification for offline iOS / Android devices
+      try {
+        const primaryCalleeId = String(callee.id || callee.register_id || callee.registerId || '');
+        if (primaryCalleeId) {
+          fcmNotificationService.dispatchCallPushNotification({
+            calleeId: primaryCalleeId,
+            caller: invitePayload.caller,
+            callType: this.callType,
+            callId: this.currentCallId,
+            channelName: sessionChannelName
+          }).catch((err) => {
+            console.warn('[WebRTC] Call push dispatch notice:', err);
+          });
+        }
+      } catch (e) {}
     };
 
     // Subscribe to session channel

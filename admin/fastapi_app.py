@@ -33,6 +33,10 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 import database
+try:
+    import fcm_service
+except ImportError:
+    fcm_service = None
 
 # Initialize FastAPI Application
 app = FastAPI(
@@ -644,6 +648,73 @@ async def fastapi_public_notifications_read(request: Request):
 def fastapi_public_notifications_delete(notification_id: str, userId: Optional[str] = None):
     database.delete_notification_db(notification_id, userId)
     return {"success": True, "message": "Notification deleted successfully"}
+
+
+@app.post("/api/public/register-fcm-token")
+async def fastapi_register_fcm_token(request: Request):
+    """Registers an Android/iOS/Web device push notification token for a user."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    user_id = data.get('user_id') or data.get('userId')
+    token = data.get('token')
+    platform = data.get('platform', 'android')
+
+    if not user_id or not token:
+        raise HTTPException(status_code=400, detail="Missing user_id or token parameter")
+
+    success = database.save_device_token_db(user_id, token, platform)
+    return {
+        "success": success,
+        "message": "Device push token registered successfully",
+        "user_id": user_id,
+        "platform": platform
+    }
+
+
+@app.post("/api/public/send-push-notification")
+async def fastapi_send_push_notification(request: Request):
+    """
+    Dispatches high-priority push notifications to a recipient's Android/iOS devices.
+    Used for incoming audio/video call rings and offline chat message alerts.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    recipient_id = data.get('recipient_id') or data.get('recipientId')
+    title = data.get('title', 'I 4 You Matrimony')
+    body = data.get('body', '')
+    payload_data = data.get('data', {})
+    priority = data.get('priority', 'high')
+    channel_id = data.get('channel_id') or data.get('channelId', 'messages_channel')
+    sound = data.get('sound')
+
+    if not recipient_id:
+        raise HTTPException(status_code=400, detail="Missing recipient_id")
+
+    tokens = database.get_user_device_tokens_db(recipient_id)
+
+    # Dispatch FCM / APNs notifications via fcm_service if available
+    if fcm_service:
+        result = fcm_service.dispatch_push_to_tokens(
+            tokens=tokens,
+            title=title,
+            body=body,
+            data=payload_data,
+            priority=priority,
+            channel_id=channel_id,
+            sound=sound
+        )
+        return result
+    else:
+        return {
+            "success": False,
+            "reason": "fcm_service module not initialized",
+            "device_tokens_count": len(tokens)
+        }
 
 
 @app.get("/api/health")

@@ -2255,6 +2255,37 @@ export default function App() {
     return () => unsub();
   }, [handleStartChat]);
 
+  // Register device for FCM & native Push Notifications when user is logged in
+  useEffect(() => {
+    if (!currentUser) return;
+    fcmNotificationService.registerForPushNotifications(currentUser).catch((err) => {
+      console.warn('[App] Push notification registration note:', err);
+    });
+  }, [currentUser]);
+
+  // Native Push Incoming Call Handler (wakes device up from background / killed state)
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = fcmNotificationService.onIncomingCall(async (callData) => {
+      console.log('[App] Push incoming call received:', callData);
+      if (!callData || !callData.callId) return;
+
+      const authCheck = await interestService.verifyCallAuthorization(currentUser, callData.caller);
+      if (!authCheck.authorized) {
+        console.warn('[App] Dropped unauthorized incoming call invite from:', callData.caller?.id, authCheck.reason);
+        return;
+      }
+
+      setIncomingCallSession(callData);
+
+      if (callData.openedFromNotification && callData.actionId === 'accept') {
+        handleAcceptIncomingCall(callData);
+      }
+    });
+
+    return () => unsub();
+  }, [currentUser, handleAcceptIncomingCall]);
+
   // Register Service Worker for FCM and background Web Push delivery
   useEffect(() => {
     fcmNotificationService.registerServiceWorker();

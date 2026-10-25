@@ -12,6 +12,7 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { isSelfProfile } from '../utils/genderMatch.js';
 import { sendBackendMessage } from './api.js';
+import { fcmNotificationService } from './fcmNotificationService.js';
 
 class LiveChatService {
   constructor() {
@@ -423,6 +424,18 @@ class LiveChatService {
         console.warn('[LiveChat] Notification table insert notice:', notifErr);
       }
     }
+
+    // Dispatch offline Push Notification to recipient's Android/iOS device
+    try {
+      fcmNotificationService.dispatchMessagePushNotification({
+        recipientId,
+        sender,
+        messageText: message.text,
+        conversationId: convId
+      }).catch((pushErr) => {
+        console.warn('[LiveChat] Push dispatch notice:', pushErr);
+      });
+    } catch (e) {}
 
     // 3. Persist to local conversations for SENDER ONLY (never contaminate recipient's local state)
     try {

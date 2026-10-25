@@ -26,6 +26,10 @@ if BASE_DIR not in sys.path:
 
 import database
 from database import get_db_connection, dict_from_row, list_from_rows, init_db, get_database_status
+try:
+    import fcm_service
+except ImportError:
+    fcm_service = None
 from security import (
     encrypt_customer_data,
     decrypt_customer_data,
@@ -1902,6 +1906,55 @@ def api_public_notifications_delete():
     user_id = data.get('userId') or data.get('user_id') or request.args.get('userId')
     database.delete_notification_db(notif_id, user_id)
     return jsonify({'success': True, 'message': 'Notification deleted successfully'})
+
+
+@app.route('/api/public/register-fcm-token', methods=['POST'])
+def api_public_register_fcm_token():
+    """Registers an Android/iOS/Web device push notification token for a user."""
+    data = request.get_json(silent=True) or {}
+    user_id = data.get('user_id') or data.get('userId')
+    token = data.get('token')
+    platform = data.get('platform', 'android')
+    if not user_id or not token:
+        return jsonify({'success': False, 'message': 'Missing user_id or token'}), 400
+    ok = database.save_device_token_db(user_id, token, platform)
+    return jsonify({'success': ok, 'message': 'Device token registered successfully', 'platform': platform})
+
+
+@app.route('/api/public/send-push-notification', methods=['POST'])
+def api_public_send_push_notification():
+    """
+    Dispatches high-priority push notifications to a recipient's Android/iOS devices.
+    Used for incoming audio/video call rings and offline chat message alerts.
+    """
+    data = request.get_json(silent=True) or {}
+    recipient_id = data.get('recipient_id') or data.get('recipientId')
+    title = data.get('title', 'I 4 You Matrimony')
+    body = data.get('body', '')
+    payload_data = data.get('data', {})
+    priority = data.get('priority', 'high')
+    channel_id = data.get('channel_id') or data.get('channelId', 'messages_channel')
+    sound = data.get('sound')
+
+    if not recipient_id:
+        return jsonify({'success': False, 'message': 'Missing recipient_id'}), 400
+
+    tokens = database.get_user_device_tokens_db(recipient_id)
+
+    if fcm_service:
+        result = fcm_service.dispatch_push_to_tokens(
+            tokens=tokens,
+            title=title,
+            body=body,
+            data=payload_data,
+            priority=priority,
+            channel_id=channel_id,
+            sound=sound
+        )
+        return jsonify(result)
+    else:
+        return jsonify({'success': False, 'reason': 'fcm_service not initialized', 'tokens_count': len(tokens)})
+
 
 @app.route('/api/public/account/delete', methods=['POST'])
 def api_public_delete_account():

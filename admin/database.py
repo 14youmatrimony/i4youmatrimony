@@ -523,9 +523,24 @@ def init_postgres_tables(conn):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient_reg ON notifications (recipient_register_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_sender ON notifications (sender_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications (created_at);")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS device_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(100) NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        platform VARCHAR(20) DEFAULT 'android',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """);
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens (user_id);");
     conn.commit()
 
     # Migration for existing Postgres installations
+    try:
+        cursor.execute("ALTER TABLE profiles ADD COLUMN IF NOT EXISTS fcm_token TEXT;");
+    except Exception:
+        pass
     try:
         cursor.execute("ALTER TABLE membership_plans ADD COLUMN IF NOT EXISTS price_1m INTEGER DEFAULT 0;")
         cursor.execute("ALTER TABLE membership_plans ADD COLUMN IF NOT EXISTS offer_price_1m INTEGER DEFAULT 0;")
@@ -794,9 +809,24 @@ def init_sqlite_tables(conn):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient_reg ON notifications (recipient_register_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_sender ON notifications (sender_id);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications (created_at);")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS device_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id VARCHAR(100) NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        platform VARCHAR(20) DEFAULT 'android',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """);
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens (user_id);");
     conn.commit()
 
     # Migration for existing SQLite installations: add detail columns if missing
+    cursor.execute("PRAGMA table_info(profiles)")
+    prof_cols = [c[1] for c in cursor.fetchall()]
+    if 'fcm_token' not in prof_cols:
+        cursor.execute("ALTER TABLE profiles ADD COLUMN fcm_token TEXT")
     cursor.execute("PRAGMA table_info(membership_plans)")
     mp_cols = [c[1] for c in cursor.fetchall()]
     if 'price_1m' not in mp_cols:
@@ -2590,3 +2620,114 @@ def get_sent_interests_db(sender_id: str) -> List[Dict[str, Any]]:
         conn.close()
 
 
+
+
+def save_device_token_db(user_id: str, token: str, platform: str = 'android') -> bool:
+    """
+    Saves or updates a device push notification token for a user in PostgreSQL / SQLite.
+    Also updates the profile's fcm_token field.
+    """
+    clean_uid = str(user_id or '').strip()
+    clean_tok = str(token or '').strip()
+    clean_plat = str(platform or 'android').lower().strip()
+
+    if not clean_uid or not clean_tok:
+        return False
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        if isinstance(conn, PostgresConnectionWrapper):
+            cursor.execute("""
+                INSERT INTO device_tokens (user_id, token, platform, updated_at)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (token) DO UPDATE 
+                SET user_id = EXCLUDED.user_id, platform = EXCLUDED.platform, updated_at = CURRENT_TIMESTAMP;
+            """, (clean_uid, clean_tok, clean_plat))
+            cursor.execute("""
+                UPDATE profiles SET fcm_token = %s WHERE id = %s OR register_id = %s;
+            """, (clean_tok, clean_uid, clean_uid))
+        else:
+            cursor.execute("""
+                INSERT INTO device_tokens (user_id, token, platform, updated_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(token) DO UPDATE 
+                SET user_id = excluded.user_id, platform = excluded.platform, updated_at = CURRENT_TIMESTAMP;
+            """, (clean_uid, clean_tok, clean_plat))
+            try:
+                cursor.execute("UPDATE profiles SET fcm_token = ? WHERE id = ? OR register_id = ?;", (clean_tok, clean_uid, clean_uid))
+            except Exception:
+                pass
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"[-] Error saving device push token for user {clean_uid}: {e}")
+        return False
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def get_user_device_tokens_db(user_id: str) -> List[Dict[str, Any]]:
+    """
+    Retrieves all registered device tokens for a given user from device_tokens and profiles tables.
+    """
+    clean_uid = str(user_id or '').strip()
+    if not clean_uid:
+        return []
+
+    conn = get_db_connection()
+    tokens = []
+    seen = set()
+
+    try:
+        cursor = conn.cursor()
+        if isinstance(conn, PostgresConnectionWrapper):
+            cursor.execute("SELECT token, platform FROM device_tokens WHERE user_id = %s;", (clean_uid,))
+            rows = cursor.fetchall()
+            for r in rows:
+                tok = r[0] if isinstance(r, (list, tuple)) else r.get('token')
+                plat = r[1] if isinstance(r, (list, tuple)) else r.get('platform', 'android')
+                if tok and tok not in seen:
+                    seen.add(tok)
+                    tokens.append({"token": tok, "platform": plat})
+
+            cursor.execute("SELECT fcm_token FROM profiles WHERE (id = %s OR register_id = %s) AND fcm_token IS NOT NULL;", (clean_uid, clean_uid))
+            p_rows = cursor.fetchall()
+            for pr in p_rows:
+                ptok = pr[0] if isinstance(pr, (list, tuple)) else pr.get('fcm_token')
+                if ptok and ptok not in seen:
+                    seen.add(ptok)
+                    tokens.append({"token": ptok, "platform": "android"})
+        else:
+            cursor.execute("SELECT token, platform FROM device_tokens WHERE user_id = ?;", (clean_uid,))
+            rows = cursor.fetchall()
+            for r in rows:
+                tok = r['token'] if isinstance(r, sqlite3.Row) or isinstance(r, dict) else r[0]
+                plat = (r['platform'] if isinstance(r, sqlite3.Row) or isinstance(r, dict) else r[1]) or 'android'
+                if tok and tok not in seen:
+                    seen.add(tok)
+                    tokens.append({"token": tok, "platform": plat})
+
+            try:
+                cursor.execute("SELECT fcm_token FROM profiles WHERE (id = ? OR register_id = ?) AND fcm_token IS NOT NULL;", (clean_uid, clean_uid))
+                p_rows = cursor.fetchall()
+                for pr in p_rows:
+                    ptok = pr['fcm_token'] if isinstance(pr, sqlite3.Row) or isinstance(pr, dict) else pr[0]
+                    if ptok and ptok not in seen:
+                        seen.add(ptok)
+                        tokens.append({"token": ptok, "platform": "android"})
+            except Exception:
+                pass
+
+        return tokens
+    except Exception as e:
+        print(f"[-] Error retrieving device tokens for {clean_uid}: {e}")
+        return []
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
