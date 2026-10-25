@@ -3648,6 +3648,8 @@ export default function App() {
                 onClose={() => setSelectedProfile(null)}
                 onToggleInterest={handleToggleInterest}
                 isInterested={isProfileInterested(selectedProfile)}
+                isConnected={isProfileConnected(selectedProfile)}
+                onAcceptInterest={handleAcceptIncomingInterest}
                 onToggleShortlist={handleToggleShortlist}
                 isShortlisted={isProfileShortlisted(selectedProfile)}
                 onOpenAadhaarVerification={() => {
@@ -4130,6 +4132,8 @@ export default function App() {
                 onDeleteNotification={handleDeleteNotification}
                 onAcceptInterest={handleAcceptInterestNotification}
                 onDeclineInterest={handleDeclineInterestNotification}
+                onStartAudioCall={handleStartAudioCall}
+                onStartVideoCall={handleStartVideoCall}
                 onSendInterest={(profileId) => {
                   handleToggleInterest(profileId);
                 }}
@@ -4153,6 +4157,8 @@ export default function App() {
                   onClose={() => setSelectedProfile(null)}
                   onToggleInterest={handleToggleInterest}
                   isInterested={isProfileInterested(selectedProfile)}
+                  isConnected={isProfileConnected(selectedProfile)}
+                  onAcceptInterest={handleAcceptIncomingInterest}
                   onToggleShortlist={handleToggleShortlist}
                   isShortlisted={isProfileShortlisted(selectedProfile)}
                   onStartChat={handleStartChat}
@@ -4339,6 +4345,7 @@ export default function App() {
               currentUser={currentUser}
               currentScreen={currentScreen}
               interestsSent={interestsSent}
+              acceptedInterests={acceptedInterests}
               onToggleInterest={handleToggleInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}
@@ -4387,11 +4394,14 @@ export default function App() {
               currentUser={currentUser}
               onOpenLogin={() => setCurrentScreen('login')}
               interestsSent={interestsSent}
+              acceptedInterests={acceptedInterests}
               onToggleInterest={handleToggleInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}
               onSelectProfile={handleSelectProfile}
               onStartChat={handleStartChat}
+              onStartAudioCall={handleStartAudioCall}
+              onStartVideoCall={handleStartVideoCall}
               activeSegment={interestsSegment}
               onSegmentChange={setInterestsSegment}
               declinedReceivedIds={declinedReceivedIds}
