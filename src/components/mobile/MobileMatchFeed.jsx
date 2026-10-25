@@ -22,7 +22,9 @@ import {
   ChevronRight, 
   FileCheck2, 
   LayoutGrid, 
-  Square 
+  Square,
+  CheckCheck,
+  Phone
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { calculateLocationMatch } from '../../data/locationData';
@@ -39,6 +41,7 @@ export default function MobileMatchFeed({
   profiles,
   currentUser,
   interestsSent,
+  acceptedInterests = [],
   onToggleInterest,
   shortlisted,
   onToggleShortlist,

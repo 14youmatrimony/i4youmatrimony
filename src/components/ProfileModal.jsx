@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Crown,
   AlertCircle,
-  Zap
+  Zap,
+  CheckCheck
 } from 'lucide-react';
 import { isKundaliApplicableReligion } from '../data/religionData';
 import { useInterestStatus } from '../services/interestService';
@@ -28,6 +29,8 @@ export default function ProfileModal({
   onClose, 
   onToggleInterest, 
   isInterested, 
+  isConnected,
+  onAcceptInterest,
   onToggleShortlist, 
   isShortlisted,
   onStartChat,
@@ -41,7 +44,8 @@ export default function ProfileModal({
   onRequestSendInterest
 }) {
   const [activeTab, setActiveTab] = useState('about');
-  const { status: interestStatus, isAccepted: isCallingUnlocked } = useInterestStatus(currentUser, profile);
+  const { status: interestStatus, isAccepted: hookIsCallingUnlocked, isIncoming } = useInterestStatus(currentUser, profile);
+  const isCallingUnlocked = Boolean(hookIsCallingUnlocked || isConnected);
   const [callAuthAlert, setCallAuthAlert] = useState(null);
 
   // Clean slate on profile change to eliminate lingering state from previous profile sessions
@@ -990,7 +994,11 @@ export default function ProfileModal({
             <button
               type="button"
               onClick={() => {
-                if (isInterested) {
+                if (isCallingUnlocked) {
+                  onStartChat?.(profile.id);
+                } else if (isIncoming && onAcceptInterest) {
+                  onAcceptInterest(profile.id);
+                } else if (isInterested) {
                   onToggleInterest(profile.id);
                 } else if (onRequestSendInterest) {
                   onRequestSendInterest(profile);
@@ -999,12 +1007,26 @@ export default function ProfileModal({
                 }
               }}
               className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer active:scale-95 ${
-                isInterested 
-                  ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
-                  : 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:from-[#dfb76c] hover:to-[#b89228] shadow-[#D4AF37]/25'
+                isCallingUnlocked
+                  ? 'bg-emerald-600 text-white shadow-emerald-600/20'
+                  : isIncoming
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                    : isInterested 
+                      ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
+                      : 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:from-[#dfb76c] hover:to-[#b89228] shadow-[#D4AF37]/25'
               }`}
             >
-              {isInterested ? (
+              {isCallingUnlocked ? (
+                <>
+                  <CheckCheck className="w-4 h-4 text-emerald-100" />
+                  <span>Connected ✨</span>
+                </>
+              ) : isIncoming ? (
+                <>
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Accept Interest</span>
+                </>
+              ) : isInterested ? (
                 <>
                   <Check className="w-4 h-4 stroke-[3]" />
                   <span>Interest Sent</span>
