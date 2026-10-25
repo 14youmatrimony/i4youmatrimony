@@ -589,6 +589,13 @@ export default function MobileMatchFeed({
           /* ── 4-Profile Grid View (2x2 Layout - 4 Profiles at a time) ────────── */
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {filteredProfiles.map((profile) => {
+              const isAccepted = Boolean(
+                acceptedInterests && (
+                  acceptedInterests.includes(profile.id) ||
+                  (profile.registerId && acceptedInterests.includes(profile.registerId)) ||
+                  (profile.register_id && acceptedInterests.includes(profile.register_id))
+                )
+              );
               const isInterested = Boolean(
                 interestsSent.includes(profile.id) ||
                 (profile.registerId && interestsSent.includes(profile.registerId)) ||
@@ -752,7 +759,9 @@ export default function MobileMatchFeed({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (isInterested) {
+                          if (isAccepted) {
+                            onStartChat(profile.id);
+                          } else if (isInterested) {
                             onToggleInterest(profile.id);
                           } else if (onRequestSendInterest) {
                             onRequestSendInterest(profile);
@@ -761,13 +770,20 @@ export default function MobileMatchFeed({
                           }
                         }}
                         className={`flex-1 h-7 rounded-full text-[10px] font-bold transition-all flex items-center justify-center space-x-1 shadow-2xs truncate cursor-pointer active:scale-95 ${
-                          isInterested 
-                            ? 'bg-emerald-600 text-white' 
-                            : 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C]'
+                          isAccepted
+                            ? 'bg-emerald-600 text-white shadow-emerald-600/20'
+                            : isInterested 
+                              ? 'bg-emerald-600 text-white' 
+                              : 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C]'
                         }`}
-                        title={isInterested ? "Interest Sent" : "Connect"}
+                        title={isAccepted ? "Connected • Calls Unlocked ✨" : isInterested ? "Interest Sent" : "Connect"}
                       >
-                        {isInterested ? (
+                        {isAccepted ? (
+                          <>
+                            <CheckCheck className="w-3 h-3 stroke-[2.5]" />
+                            <span className="truncate">Connected</span>
+                          </>
+                        ) : isInterested ? (
                           <>
                             <Check className="w-3 h-3 stroke-[2.5]" />
                             <span className="truncate">Sent</span>
