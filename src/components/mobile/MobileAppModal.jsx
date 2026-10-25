@@ -43,6 +43,7 @@ export default function MobileAppModal({
   profiles,
   filteredProfiles,
   interestsSent,
+  acceptedInterests = [],
   onToggleInterest,
   shortlisted,
   onToggleShortlist,
@@ -465,6 +466,7 @@ export default function MobileAppModal({
                           onRequestSendInterest={onRequestSendInterest}
                           onAcceptInterest={onAcceptInterestNotification}
                           isInterested={Boolean(selectedProfile && (interestsSent.includes(selectedProfile.id) || (selectedProfile.registerId && interestsSent.includes(selectedProfile.registerId)) || (selectedProfile.register_id && interestsSent.includes(selectedProfile.register_id))))}
+                          isConnected={Boolean(selectedProfile && (acceptedInterests.includes(selectedProfile.id) || (selectedProfile.registerId && acceptedInterests.includes(selectedProfile.registerId)) || (selectedProfile.register_id && acceptedInterests.includes(selectedProfile.register_id))))}
                           onToggleShortlist={onToggleShortlist}
                           isShortlisted={Boolean(selectedProfile && (shortlisted.includes(selectedProfile.id) || (selectedProfile.registerId && shortlisted.includes(selectedProfile.registerId)) || (selectedProfile.register_id && shortlisted.includes(selectedProfile.register_id))))}
                           onStartChat={handleStartChat}
@@ -705,6 +707,7 @@ export default function MobileAppModal({
                       currentUser={currentUser}
                       onOpenLogin={onOpenLogin}
                       interestsSent={interestsSent}
+                      acceptedInterests={acceptedInterests}
                       onToggleInterest={onToggleInterest}
                       shortlisted={shortlisted}
                       onToggleShortlist={onToggleShortlist}

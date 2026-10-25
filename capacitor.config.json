@@ -2,7 +2,6 @@
   "appId": "com.i4you",
   "appName": "I 4 You Matrimony",
   "webDir": "dist",
-  "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https"
   },
@@ -13,5 +12,10 @@
   "ios": {
     "backgroundColor": "#0B192C",
     "contentInset": "always"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
   }
 }

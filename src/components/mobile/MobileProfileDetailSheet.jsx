@@ -38,6 +38,7 @@ export default function MobileProfileDetailSheet({
   onRequestSendInterest,
   onAcceptInterest,
   isInterested,
+  isConnected,
   onToggleShortlist,
   isShortlisted,
   onStartChat,
@@ -57,7 +58,8 @@ export default function MobileProfileDetailSheet({
   const isContactUnlocked = Boolean(currentUser?.unlockedContacts?.includes(profile?.id));
   const contactCredits = currentUser?.contactCredits ?? 0;
 
-  const { status: interestStatus, isAccepted: isCallingUnlocked, isIncoming } = useInterestStatus(currentUser, profile);
+  const { status: interestStatus, isAccepted: hookIsCallingUnlocked, isIncoming } = useInterestStatus(currentUser, profile);
+  const isCallingUnlocked = Boolean(hookIsCallingUnlocked || isConnected);
   const [callAuthAlert, setCallAuthAlert] = useState(null);
 
   // Clean slate on profile change to eliminate lingering state from previous profile sessions

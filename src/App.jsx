@@ -3826,6 +3826,7 @@ export default function App() {
               profiles={profiles}
               filteredProfiles={filteredProfiles}
               interestsSent={interestsSent}
+              acceptedInterests={acceptedInterests}
               onToggleInterest={handleToggleInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}
