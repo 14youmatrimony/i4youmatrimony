@@ -1706,9 +1706,40 @@ export async function fetchBackendSentInterests() {
  * Ensures dynamic binding for sender's name, photo, age, profession, and location,
  * and strictly unique notification_id / id to prevent duplication and UI looping.
  */
-export async function fetchUserNotifications(userId, allProfiles = []) {
-  if (!userId) return [];
-  const cleanId = String(userId).trim();
+export async function fetchUserNotifications(userOrId, allProfiles = []) {
+  if (!userOrId) return [];
+  const userIds = (typeof userOrId === 'object' && userOrId !== null)
+    ? [userOrId.id, userOrId.register_id, userOrId.registerId, userOrId.user_id].filter(Boolean).map(String)
+    : [String(userOrId).trim()];
+  const cleanId = userIds[0] || '';
+  if (!cleanId) return [];
+
+  // Helper to strictly sanitize candidate names and purge 'Verified Member' placeholders
+  const sanitizeName = (rawName, fallback = 'Candidate') => {
+    if (!rawName || typeof rawName !== 'string') return fallback;
+    const clean = rawName.trim();
+    const lower = clean.toLowerCase();
+    if (
+      lower === '' ||
+      lower === 'verified member' ||
+      lower === 'a verified member' ||
+      lower === 'member' ||
+      lower === 'a member' ||
+      lower === 'candidate' ||
+      lower === 'a candidate' ||
+      lower === 'someone' ||
+      lower === 'null' ||
+      lower === 'undefined'
+    ) {
+      return fallback;
+    }
+    return clean;
+  };
+
+  const sanitizeText = (text, candidateName) => {
+    if (!text || typeof text !== 'string') return '';
+    return text.replace(/a verified member|verified member/gi, candidateName).trim();
+  };
 
   // 1. Try FastAPI/Flask backend with PostgreSQL
   try {
@@ -1718,7 +1749,15 @@ export async function fetchUserNotifications(userId, allProfiles = []) {
     }, 3000);
 
     if (res && res.success && Array.isArray(res.data)) {
-      return res.data;
+      return res.data.map(item => {
+        const sName = sanitizeName(item.sender_name || item.senderName || item.sender?.name, 'Candidate');
+        return {
+          ...item,
+          sender_name: sName,
+          title: sanitizeText(item.title, sName) || `💖 Interest from ${sName}!`,
+          message: sanitizeText(item.message, sName) || `${sName} expressed matrimonial interest in connecting with you.`
+        };
+      });
     }
   } catch (backendErr) {
     console.warn('[fetchUserNotifications] Backend notice:', backendErr.message);
@@ -1727,14 +1766,25 @@ export async function fetchUserNotifications(userId, allProfiles = []) {
   // 2. Direct Supabase / PostgreSQL fallback
   if (isSupabaseConfigured() && supabase) {
     try {
-      const userIds = [cleanId];
-      // Query notifications table
-      const { data: notifRows } = await supabase
-        .from('notifications')
-        .select('*')
-        .or(`recipient_id.in.(${userIds.map(id => `"${id}"`).join(',')}),recipient_register_id.in.(${userIds.map(id => `"${id}"`).join(',')})`)
-        .order('created_at', { ascending: false })
-        .limit(40);
+      // Query notifications table safely
+      let notifRows = [];
+      try {
+        const { data: rowsWithOr } = await supabase
+          .from('notifications')
+          .select('*')
+          .or(`recipient_id.in.(${userIds.map(id => `"${id}"`).join(',')}),recipient_register_id.in.(${userIds.map(id => `"${id}"`).join(',')})`)
+          .order('created_at', { ascending: false })
+          .limit(40);
+        if (Array.isArray(rowsWithOr)) notifRows = rowsWithOr;
+      } catch (orErr) {
+        const { data: fallbackRows } = await supabase
+          .from('notifications')
+          .select('*')
+          .in('recipient_id', userIds)
+          .order('created_at', { ascending: false })
+          .limit(40);
+        if (Array.isArray(fallbackRows)) notifRows = fallbackRows;
+      }
 
       // Query interests table
       const { data: interestRows } = await supabase
@@ -1765,7 +1815,12 @@ export async function fetchUserNotifications(userId, allProfiles = []) {
         seen.add(intId);
 
         const matched = findProfile(sId);
-        const sName = matched?.name || (row.metadata?.senderName) || 'Candidate';
+        const sName = sanitizeName(matched?.name) !== 'Candidate'
+          ? matched.name
+          : (sanitizeName(row.metadata?.senderName) !== 'Candidate'
+              ? row.metadata.senderName
+              : (matched?.register_id ? `Member ${matched.register_id}` : (sId ? `Member ${sId}` : 'Candidate')));
+
         const sPhoto = matched?.photo || matched?.photo_url || (row.metadata?.senderPhoto) || null;
         const sAge = matched?.age || 26;
         const sProfession = matched?.profession || 'Professional';
@@ -1774,6 +1829,7 @@ export async function fetchUserNotifications(userId, allProfiles = []) {
 
         const senderObj = {
           id: sId,
+          register_id: matched?.register_id || matched?.registerId || sId,
           name: sName,
           photo: sPhoto,
           age: sAge,
@@ -1784,6 +1840,8 @@ export async function fetchUserNotifications(userId, allProfiles = []) {
           verified: sVerified,
           aadhaarVerified: sVerified
         };
+
+        const cleanMsg = sanitizeText(row.message, sName) || `${sName} expressed matrimonial interest in connecting with you.`;
 
         combined.push({
           notification_id: intId,
@@ -1800,7 +1858,7 @@ export async function fetchUserNotifications(userId, allProfiles = []) {
           profile: senderObj,
           type: 'interest',
           title: `💖 Interest from ${sName}!`,
-          message: row.message || `${sName} expressed matrimonial interest in connecting with you.`,
+          message: cleanMsg,
           is_read: false,
           isRead: false,
           status: row.status || 'pending',
@@ -1815,7 +1873,12 @@ export async function fetchUserNotifications(userId, allProfiles = []) {
 
         const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.sender_id || '');
         const matched = findProfile(sId);
-        const sName = matched?.name || row.metadata?.senderName || 'Candidate';
+        const sName = sanitizeName(matched?.name) !== 'Candidate'
+          ? matched.name
+          : (sanitizeName(row.metadata?.senderName) !== 'Candidate'
+              ? row.metadata.senderName
+              : (matched?.register_id ? `Member ${matched.register_id}` : (sId ? `Member ${sId}` : 'Candidate')));
+
         const sPhoto = matched?.photo || matched?.photo_url || row.metadata?.senderPhoto || null;
         const sAge = matched?.age || row.metadata?.senderAge || 26;
         const sProfession = matched?.profession || row.metadata?.senderProfession || 'Professional';
@@ -1823,6 +1886,7 @@ export async function fetchUserNotifications(userId, allProfiles = []) {
 
         const senderObj = {
           id: sId,
+          register_id: matched?.register_id || matched?.registerId || sId,
           name: sName,
           photo: sPhoto,
           age: sAge,
@@ -1830,6 +1894,9 @@ export async function fetchUserNotifications(userId, allProfiles = []) {
           city: sLocation,
           location: sLocation
         };
+
+        const cleanTitle = sanitizeText(row.title, sName) || `New Notification from ${sName}`;
+        const cleanMsg = sanitizeText(row.message, sName) || '';
 
         combined.push({
           notification_id: notifId,
@@ -1845,8 +1912,8 @@ export async function fetchUserNotifications(userId, allProfiles = []) {
           sender: senderObj,
           profile: senderObj,
           type: row.type || 'interest',
-          title: row.title || `New Notification from ${sName}`,
-          message: row.message || '',
+          title: cleanTitle,
+          message: cleanMsg,
           is_read: Boolean(row.is_read),
           isRead: Boolean(row.is_read),
           status: 'pending',

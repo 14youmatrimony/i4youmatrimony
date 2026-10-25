@@ -102,7 +102,7 @@ export async function sendInAppNotificationWithEmail({
   type = 'interest_received',
   title,
   message,
-  senderName = 'A Verified Member',
+  senderName = 'A Candidate',
   senderPhoto = null,
   profileLink = 'https://i4youmatrimony.com/app'
 }) {

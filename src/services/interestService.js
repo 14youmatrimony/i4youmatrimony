@@ -153,6 +153,18 @@ class InterestService {
       return this.statusCache.get(pairKey);
     }
 
+    // 0. Check canonical accepted pairs in localStorage for instant connection resolution
+    try {
+      const acceptedPairsRaw = localStorage.getItem('i4u_accepted_pairs');
+      if (acceptedPairsRaw) {
+        const pairs = JSON.parse(acceptedPairsRaw);
+        if (Array.isArray(pairs) && pairKey && pairs.includes(pairKey)) {
+          this.statusCache.set(pairKey, 'accepted');
+          return 'accepted';
+        }
+      }
+    } catch (e) {}
+
     // 1. Check Supabase 'interests' table if configured
     if (isSupabaseConfigured() && supabase) {
       try {
@@ -172,7 +184,7 @@ class InterestService {
       }
     }
 
-    // 2. Check local records
+    // 2. Check local records (bidirectional)
     const localRecords = this.getLocalRecords();
     const matchedRecord = localRecords.find((r) => {
       const match1 = idsA.includes(String(r.senderId)) && idsB.includes(String(r.receiverId));
@@ -186,24 +198,39 @@ class InterestService {
       return status;
     }
 
-    // 3. Check localStorage interestsSent and received
+    // 3. Check localStorage interestsSent and accepted lists (bidirectional)
     try {
       const currentUid = idsA[0];
       const targetUid = idsB[0];
-      const sentRaw = localStorage.getItem(`i4u_interests_sent_${currentUid}`) || localStorage.getItem('i4u_interests_sent');
-      const sentList = sentRaw ? JSON.parse(sentRaw) : [];
-      const hasSent = Array.isArray(idsB) && Array.isArray(sentList) && idsB.some((id) => sentList.includes(id));
 
-      const acceptedRaw = localStorage.getItem(`i4u_accepted_interests_${currentUid}`) || localStorage.getItem('i4u_accepted_interests');
-      const acceptedList = acceptedRaw ? JSON.parse(acceptedRaw) : [];
-      const hasAccepted = Array.isArray(idsB) && Array.isArray(acceptedList) && idsB.some((id) => acceptedList.includes(id));
+      // Check if either user has recorded acceptance of the other
+      const acceptedRawA = localStorage.getItem(`i4u_accepted_interests_${currentUid}`) || localStorage.getItem('i4u_accepted_interests');
+      const acceptedListA = acceptedRawA ? JSON.parse(acceptedRawA) : [];
+      const hasAcceptedA = Array.isArray(idsB) && Array.isArray(acceptedListA) && idsB.some((id) => acceptedListA.includes(id));
 
-      if (hasAccepted) {
+      const acceptedRawB = targetUid ? localStorage.getItem(`i4u_accepted_interests_${targetUid}`) : null;
+      const acceptedListB = acceptedRawB ? JSON.parse(acceptedRawB) : [];
+      const hasAcceptedB = Array.isArray(idsA) && Array.isArray(acceptedListB) && idsA.some((id) => acceptedListB.includes(id));
+
+      if (hasAcceptedA || hasAcceptedB) {
         if (pairKey) this.statusCache.set(pairKey, 'accepted');
         return 'accepted';
       }
 
-      if (hasSent) {
+      const sentRaw = localStorage.getItem(`i4u_interests_sent_${currentUid}`) || localStorage.getItem('i4u_interests_sent');
+      const sentList = sentRaw ? JSON.parse(sentRaw) : [];
+      const hasSent = Array.isArray(idsB) && Array.isArray(sentList) && idsB.some((id) => sentList.includes(id));
+
+      // Also check if target user sent to current user (incoming pending request)
+      const targetSentRaw = targetUid ? localStorage.getItem(`i4u_interests_sent_${targetUid}`) : null;
+      const targetSentList = targetSentRaw ? JSON.parse(targetSentRaw) : [];
+      const hasTargetSent = Array.isArray(idsA) && Array.isArray(targetSentList) && idsA.some((id) => targetSentList.includes(id));
+
+      const receivedRaw = localStorage.getItem(`i4u_received_interests_${currentUid}`);
+      const receivedList = receivedRaw ? JSON.parse(receivedRaw) : [];
+      const hasReceived = Array.isArray(idsB) && Array.isArray(receivedList) && idsB.some((id) => receivedList.includes(id));
+
+      if (hasSent || hasTargetSent || hasReceived) {
         if (pairKey) this.statusCache.set(pairKey, 'pending');
         return 'pending';
       }
@@ -235,6 +262,18 @@ class InterestService {
       return this.statusCache.get(pairKey);
     }
 
+    // 0. Check canonical accepted pairs
+    try {
+      const acceptedPairsRaw = localStorage.getItem('i4u_accepted_pairs');
+      if (acceptedPairsRaw) {
+        const pairs = JSON.parse(acceptedPairsRaw);
+        if (Array.isArray(pairs) && pairKey && pairs.includes(pairKey)) {
+          this.statusCache.set(pairKey, 'accepted');
+          return 'accepted';
+        }
+      }
+    } catch (e) {}
+
     // Check local records
     const localRecords = this.getLocalRecords();
     const matchedRecord = localRecords.find((r) => {
@@ -251,9 +290,16 @@ class InterestService {
 
     try {
       const currentUid = idsA[0];
-      const acceptedRaw = localStorage.getItem(`i4u_accepted_interests_${currentUid}`) || localStorage.getItem('i4u_accepted_interests');
-      const acceptedList = acceptedRaw ? JSON.parse(acceptedRaw) : [];
-      if (Array.isArray(idsB) && Array.isArray(acceptedList) && idsB.some((id) => acceptedList.includes(id))) {
+      const targetUid = idsB[0];
+      const acceptedRawA = localStorage.getItem(`i4u_accepted_interests_${currentUid}`) || localStorage.getItem('i4u_accepted_interests');
+      const acceptedListA = acceptedRawA ? JSON.parse(acceptedRawA) : [];
+      const hasAcceptedA = Array.isArray(idsB) && Array.isArray(acceptedListA) && idsB.some((id) => acceptedListA.includes(id));
+
+      const acceptedRawB = targetUid ? localStorage.getItem(`i4u_accepted_interests_${targetUid}`) : null;
+      const acceptedListB = acceptedRawB ? JSON.parse(acceptedRawB) : [];
+      const hasAcceptedB = Array.isArray(idsA) && Array.isArray(acceptedListB) && idsA.some((id) => acceptedListB.includes(id));
+
+      if (hasAcceptedA || hasAcceptedB) {
         if (pairKey) this.statusCache.set(pairKey, 'accepted');
         return 'accepted';
       }
@@ -261,6 +307,13 @@ class InterestService {
       const sentRaw = localStorage.getItem(`i4u_interests_sent_${currentUid}`) || localStorage.getItem('i4u_interests_sent');
       const sentList = sentRaw ? JSON.parse(sentRaw) : [];
       if (Array.isArray(idsB) && Array.isArray(sentList) && idsB.some((id) => sentList.includes(id))) {
+        if (pairKey) this.statusCache.set(pairKey, 'pending');
+        return 'pending';
+      }
+
+      const receivedRaw = localStorage.getItem(`i4u_received_interests_${currentUid}`);
+      const receivedList = receivedRaw ? JSON.parse(receivedRaw) : [];
+      if (Array.isArray(idsB) && Array.isArray(receivedList) && idsB.some((id) => receivedList.includes(id))) {
         if (pairKey) this.statusCache.set(pairKey, 'pending');
         return 'pending';
       }
@@ -274,6 +327,116 @@ class InterestService {
     } catch (e) {}
 
     return 'none';
+  }
+
+  /**
+   * Resolves detailed directionality and connection state between userA (current user) and userB (target profile)
+   * Returns: { status: 'none'|'pending'|'accepted'|'rejected', isAccepted, isPending, isIncoming, isOutgoing, isRejected, isNone }
+   */
+  getRelationshipDetailsSync(userA, userB) {
+    if (!userA || !userB) {
+      return { status: 'none', isAccepted: false, isPending: false, isIncoming: false, isOutgoing: false, isRejected: false, isNone: true };
+    }
+
+    const idsA = this.getUserIds(userA);
+    const idsB = this.getUserIds(userB);
+    if (!idsA.length || !idsB.length) {
+      return { status: 'none', isAccepted: false, isPending: false, isIncoming: false, isOutgoing: false, isRejected: false, isNone: true };
+    }
+
+    const currentStatus = this.getRelationshipStatusSync(userA, userB);
+    if (currentStatus === 'accepted') {
+      return {
+        status: 'accepted',
+        isAccepted: true,
+        isCallingUnlocked: true,
+        isPending: false,
+        isIncoming: false,
+        isOutgoing: false,
+        isRejected: false,
+        isNone: false
+      };
+    }
+
+    if (currentStatus === 'rejected') {
+      return {
+        status: 'rejected',
+        isAccepted: false,
+        isCallingUnlocked: false,
+        isPending: false,
+        isIncoming: false,
+        isOutgoing: false,
+        isRejected: true,
+        isNone: false
+      };
+    }
+
+    // Determine pending direction: Did userA send to userB (outgoing) or userB send to userA (incoming)?
+    const localRecords = this.getLocalRecords();
+    const matchedRecord = localRecords.find((r) => {
+      const match1 = idsA.includes(String(r.senderId)) && idsB.includes(String(r.receiverId));
+      const match2 = idsB.includes(String(r.senderId)) && idsA.includes(String(r.receiverId));
+      return match1 || match2;
+    });
+
+    if (matchedRecord && matchedRecord.status === 'pending') {
+      const isOutgoing = idsA.includes(String(matchedRecord.senderId));
+      const isIncoming = idsA.includes(String(matchedRecord.receiverId));
+      return {
+        status: 'pending',
+        isAccepted: false,
+        isCallingUnlocked: false,
+        isPending: true,
+        isIncoming,
+        isOutgoing,
+        isRejected: false,
+        isNone: false
+      };
+    }
+
+    try {
+      const currentUid = idsA[0];
+      const receivedRaw = localStorage.getItem(`i4u_received_interests_${currentUid}`);
+      const receivedList = receivedRaw ? JSON.parse(receivedRaw) : [];
+      if (Array.isArray(idsB) && Array.isArray(receivedList) && idsB.some((id) => receivedList.includes(id))) {
+        return {
+          status: 'pending',
+          isAccepted: false,
+          isCallingUnlocked: false,
+          isPending: true,
+          isIncoming: true,
+          isOutgoing: false,
+          isRejected: false,
+          isNone: false
+        };
+      }
+
+      const sentRaw = localStorage.getItem(`i4u_interests_sent_${currentUid}`) || localStorage.getItem('i4u_interests_sent');
+      const sentList = sentRaw ? JSON.parse(sentRaw) : [];
+      if (Array.isArray(idsB) && Array.isArray(sentList) && idsB.some((id) => sentList.includes(id))) {
+        return {
+          status: 'pending',
+          isAccepted: false,
+          isCallingUnlocked: false,
+          isPending: true,
+          isIncoming: false,
+          isOutgoing: true,
+          isRejected: false,
+          isNone: false
+        };
+      }
+    } catch (e) {}
+
+    return {
+      status: currentStatus,
+      isAccepted: currentStatus === 'accepted',
+      isCallingUnlocked: currentStatus === 'accepted',
+      isPending: currentStatus === 'pending',
+      isIncoming: false,
+      isOutgoing: currentStatus === 'pending',
+      isRejected: currentStatus === 'rejected',
+      isNone: currentStatus === 'none'
+    };
   }
 
   /**
@@ -466,9 +629,10 @@ class InterestService {
         senderProfile = rec.sender || rec.interest_from;
       }
 
-      const sName = (senderProfile?.name && senderProfile.name.toLowerCase() !== 'verified member')
+      const isBadName = (n) => !n || ['verified member', 'a verified member', 'member'].includes(String(n).toLowerCase().trim());
+      const sName = !isBadName(senderProfile?.name)
         ? senderProfile.name
-        : (rec.sender_name || rec.senderName || 'Candidate');
+        : (!isBadName(rec.sender_name || rec.senderName) ? (rec.sender_name || rec.senderName) : 'Candidate');
 
       const sPhoto = senderProfile?.photo || senderProfile?.photo_url || rec.sender_photo || defaultAvatar;
       const sAge = senderProfile?.age || rec.sender_age || 26;
@@ -524,18 +688,18 @@ class InterestService {
   }
 
   /**
-   * Subscribe to real-time incoming interest notifications for a receiver
+   * Subscribe to real-time incoming interest notifications for a user (receiver or sender)
    */
   subscribeToInterestInbox(userOrId, onNewInterest) {
     if (!userOrId || !onNewInterest) return () => {};
 
-    const receiverIds = this.getUserIds(userOrId);
-    if (!receiverIds.length) return () => {};
+    const targetUserIds = this.getUserIds(userOrId);
+    if (!targetUserIds.length) return () => {};
 
     const channels = [];
 
     if (isSupabaseConfigured() && supabase) {
-      receiverIds.forEach((targetId) => {
+      targetUserIds.forEach((targetId) => {
         try {
           const chn = supabase.channel(`user-interest-inbox-${targetId}`, {
             config: { broadcast: { self: false } }
@@ -545,21 +709,21 @@ class InterestService {
             .on('broadcast', { event: 'interest-received' }, ({ payload }) => {
               if (payload) {
                 console.log('[InterestService] Real-time interest received:', payload);
-                onNewInterest(payload);
+                onNewInterest({ ...payload, event: 'interest-received', status: payload.status || 'pending' });
               }
             })
             .on('broadcast', { event: 'interest-accepted' }, ({ payload }) => {
               if (payload) {
                 console.log('[InterestService] Real-time interest accepted:', payload);
                 this.handleRealtimeStatusUpdate(payload);
-                onNewInterest(payload);
+                onNewInterest({ ...payload, event: 'interest-accepted', status: 'accepted' });
               }
             })
             .on('broadcast', { event: 'interest-rejected' }, ({ payload }) => {
               if (payload) {
                 console.log('[InterestService] Real-time interest rejected:', payload);
                 this.handleRealtimeStatusUpdate(payload);
-                onNewInterest(payload);
+                onNewInterest({ ...payload, event: 'interest-rejected', status: 'rejected' });
               }
             })
             .subscribe();
@@ -568,12 +732,40 @@ class InterestService {
         } catch (e) {
           console.warn('[InterestService] Channel subscription error:', e);
         }
+
+        try {
+          const callChn = supabase.channel(`user-call-inbox-${targetId}`, {
+            config: { broadcast: { self: false } }
+          });
+
+          callChn
+            .on('broadcast', { event: 'interest-accepted' }, ({ payload }) => {
+              if (payload) {
+                console.log('[InterestService] Real-time call inbox interest-accepted:', payload);
+                this.handleRealtimeStatusUpdate(payload);
+                onNewInterest({ ...payload, event: 'interest-accepted', status: 'accepted' });
+              }
+            })
+            .subscribe();
+
+          channels.push(callChn);
+        } catch (e) {}
       });
     }
 
-    // Also listen to local status change events
+    // Also listen to local status change events (in-memory + cross-tab)
     const unsubLocal = this.onStatusChange((update) => {
-      if (update && receiverIds.includes(String(update.userBId))) {
+      if (!update) return;
+      const ids = [
+        update.userAId,
+        update.userBId,
+        update.senderId,
+        update.receiverId,
+        update.responderId,
+        update.partnerId
+      ].filter(Boolean).map(String);
+
+      if (targetUserIds.some(id => ids.includes(String(id)))) {
         onNewInterest(update);
       }
     });
@@ -752,6 +944,8 @@ class InterestService {
 
   /**
    * Records interest accepted (status: 'accepted')
+   * Single-request connection flow: Connection is fully established for BOTH users immediately.
+   * Neither user is required to send a return request.
    */
   async acceptInterest(receiver, sender) {
     const receiverId = typeof receiver === 'string' ? receiver : (receiver?.id || receiver?.registerId || receiver?.register_id);
@@ -761,7 +955,7 @@ class InterestService {
     const pairKey = this.getPairKey(receiver, sender);
     if (pairKey) this.statusCache.set(pairKey, 'accepted');
 
-    // Update local records
+    // 1. Update local records (bidirectional)
     const records = this.getLocalRecords().filter((r) => {
       const match1 = String(r.senderId) === String(senderId) && String(r.receiverId) === String(receiverId);
       const match2 = String(r.senderId) === String(receiverId) && String(r.receiverId) === String(senderId);
@@ -777,16 +971,35 @@ class InterestService {
     });
     this.saveLocalRecords(records);
 
-    // Persist to user accepted list in localStorage
+    // 2. Persist to BOTH receiver and sender accepted lists in localStorage & canonical accepted pairs
     try {
-      const acceptedRaw = localStorage.getItem(`i4u_accepted_interests_${receiverId}`) || localStorage.getItem('i4u_accepted_interests');
-      const list = acceptedRaw ? JSON.parse(acceptedRaw) : [];
-      if (!list.includes(String(senderId))) list.push(String(senderId));
-      localStorage.setItem(`i4u_accepted_interests_${receiverId}`, JSON.stringify(list));
-      localStorage.setItem('i4u_accepted_interests', JSON.stringify(list));
+      // Add sender to receiver's accepted list
+      const acceptedRawRec = localStorage.getItem(`i4u_accepted_interests_${receiverId}`) || localStorage.getItem('i4u_accepted_interests');
+      const listRec = acceptedRawRec ? JSON.parse(acceptedRawRec) : [];
+      if (!listRec.includes(String(senderId))) listRec.push(String(senderId));
+      localStorage.setItem(`i4u_accepted_interests_${receiverId}`, JSON.stringify(listRec));
+      localStorage.setItem('i4u_accepted_interests', JSON.stringify(listRec));
+
+      // Also add receiver to sender's accepted list (so sender session/cache sees accepted instantly)
+      const acceptedRawSend = localStorage.getItem(`i4u_accepted_interests_${senderId}`);
+      const listSend = acceptedRawSend ? JSON.parse(acceptedRawSend) : [];
+      if (!listSend.includes(String(receiverId))) listSend.push(String(receiverId));
+      localStorage.setItem(`i4u_accepted_interests_${senderId}`, JSON.stringify(listSend));
+
+      // Canonical accepted pairs store
+      const pairsRaw = localStorage.getItem('i4u_accepted_pairs') || '[]';
+      const pairs = JSON.parse(pairsRaw);
+      if (pairKey && !pairs.includes(pairKey)) {
+        pairs.push(pairKey);
+        localStorage.setItem('i4u_accepted_pairs', JSON.stringify(pairs));
+      }
     } catch (e) {}
 
-    // Save to Supabase 'interests' table
+    const receiverName = typeof receiver === 'object' ? (receiver.name || 'Candidate') : 'Candidate';
+    const receiverPhoto = typeof receiver === 'object' ? (receiver.photo || receiver.photo_url || null) : null;
+    const senderName = typeof sender === 'object' ? (sender.name || 'Candidate') : 'Candidate';
+
+    // 3. Save to Supabase 'interests' and 'notifications' table
     if (isSupabaseConfigured() && supabase) {
       try {
         await supabase.from('interests').upsert([
@@ -797,14 +1010,15 @@ class InterestService {
             updated_at: new Date().toISOString()
           }
         ]);
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[InterestService] Supabase interests upsert notice:', e);
+      }
 
-      // Synchronize with secure backend (FastAPI / PostgreSQL)
+      // Synchronize with backend API
       respondBackendInterest({ sender_id: String(senderId), action: 'accept' }).catch(() => {});
 
       // Insert notification for original sender
       try {
-        const receiverName = typeof receiver === 'object' ? receiver.name : 'A Candidate';
         await supabase.from('notifications').insert([
           {
             recipient_id: String(senderId),
@@ -814,7 +1028,9 @@ class InterestService {
             message: `${receiverName} accepted your interest! Voice and video calling is now unlocked.`,
             metadata: {
               responderId: String(receiverId),
-              responderName: receiverName
+              responderName: receiverName,
+              responderPhoto: receiverPhoto,
+              status: 'accepted'
             },
             is_read: false,
             created_at: new Date().toISOString()
@@ -822,9 +1038,26 @@ class InterestService {
         ]);
       } catch (e) {}
 
-      // Broadcast on Supabase channels
-      const targetIds = [senderId, sender?.register_id, sender?.registerId].filter(Boolean);
-      targetIds.forEach((sid) => {
+      // Broadcast on Supabase channels for ALL target identifiers of both sender and receiver
+      const senderTargetIds = [senderId, sender?.register_id, sender?.registerId].filter(Boolean);
+      const receiverTargetIds = [receiverId, receiver?.register_id, receiver?.registerId].filter(Boolean);
+
+      const acceptBroadcastPayload = {
+        event: 'interest-accepted',
+        status: 'accepted',
+        userAId: String(receiverId),
+        userBId: String(senderId),
+        senderId: String(senderId),
+        receiverId: String(receiverId),
+        responderId: String(receiverId),
+        responderName: receiverName,
+        responderPhoto: receiverPhoto,
+        partnerId: String(receiverId),
+        timestamp: Date.now()
+      };
+
+      // Broadcast to original sender
+      senderTargetIds.forEach((sid) => {
         try {
           const syncChannel = supabase.channel(`user-call-inbox-${sid}`);
           syncChannel.subscribe((chnStatus) => {
@@ -832,13 +1065,9 @@ class InterestService {
               syncChannel.send({
                 type: 'broadcast',
                 event: 'interest-accepted',
-                payload: {
-                  responderId: String(receiverId),
-                  status: 'accepted',
-                  timestamp: Date.now()
-                }
+                payload: acceptBroadcastPayload
               }).catch(() => {});
-              setTimeout(() => { try { supabase.removeChannel(syncChannel); } catch (e) {} }, 3000);
+              setTimeout(() => { try { supabase.removeChannel(syncChannel); } catch (e) {} }, 4000);
             }
           });
 
@@ -848,27 +1077,57 @@ class InterestService {
               intChannel.send({
                 type: 'broadcast',
                 event: 'interest-accepted',
-                payload: {
-                  userAId: String(receiverId),
-                  userBId: String(senderId),
-                  status: 'accepted',
-                  timestamp: Date.now()
-                }
+                payload: acceptBroadcastPayload
               }).catch(() => {});
-              setTimeout(() => { try { supabase.removeChannel(intChannel); } catch (e) {} }, 3000);
+              setTimeout(() => { try { supabase.removeChannel(intChannel); } catch (e) {} }, 4000);
+            }
+          });
+        } catch (e) {}
+      });
+
+      // Also broadcast to receiver channels (for multi-tab / multi-device sync)
+      receiverTargetIds.forEach((rid) => {
+        try {
+          const syncChannel = supabase.channel(`user-call-inbox-${rid}`);
+          syncChannel.subscribe((chnStatus) => {
+            if (chnStatus === 'SUBSCRIBED') {
+              syncChannel.send({
+                type: 'broadcast',
+                event: 'interest-accepted',
+                payload: acceptBroadcastPayload
+              }).catch(() => {});
+              setTimeout(() => { try { supabase.removeChannel(syncChannel); } catch (e) {} }, 4000);
+            }
+          });
+
+          const intChannel = supabase.channel(`user-interest-inbox-${rid}`);
+          intChannel.subscribe((chnStatus) => {
+            if (chnStatus === 'SUBSCRIBED') {
+              intChannel.send({
+                type: 'broadcast',
+                event: 'interest-accepted',
+                payload: acceptBroadcastPayload
+              }).catch(() => {});
+              setTimeout(() => { try { supabase.removeChannel(intChannel); } catch (e) {} }, 4000);
             }
           });
         } catch (e) {}
       });
     }
 
-    // Broadcast realtime event across tabs and channels
+    // 4. Broadcast realtime event across tabs and channels
     const updatePayload = {
       type: 'interest_status_change',
       payload: {
+        event: 'interest-accepted',
         userAId: String(receiverId),
         userBId: String(senderId),
-        status: 'accepted'
+        senderId: String(senderId),
+        receiverId: String(receiverId),
+        responderId: String(receiverId),
+        partnerId: String(receiverId),
+        status: 'accepted',
+        timestamp: Date.now()
       }
     };
     if (this.crossTabChannel) {
@@ -925,9 +1184,14 @@ class InterestService {
     const updatePayload = {
       type: 'interest_status_change',
       payload: {
+        event: 'interest-rejected',
         userAId: String(receiverId),
         userBId: String(senderId),
-        status: 'rejected'
+        senderId: String(senderId),
+        receiverId: String(receiverId),
+        responderId: String(receiverId),
+        status: 'rejected',
+        timestamp: Date.now()
       }
     };
     if (this.crossTabChannel) {
@@ -944,10 +1208,10 @@ export default interestService;
  * React Hook to observe real-time matrimonial interest relationship status
  * between the currentUser and a target candidate profile.
  * 
- * Returns: { status, isAccepted, isPending, isRejected, isNone, loading }
+ * Returns: { status, isAccepted, isCallingUnlocked, isPending, isIncoming, isOutgoing, isRejected, isNone, loading }
  */
 export function useInterestStatus(currentUser, targetProfile) {
-  const [status, setStatus] = useState(() => interestService.getRelationshipStatusSync(currentUser, targetProfile));
+  const [details, setDetails] = useState(() => interestService.getRelationshipDetailsSync(currentUser, targetProfile));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -956,29 +1220,65 @@ export function useInterestStatus(currentUser, targetProfile) {
     // Fetch initial status from DB / storage
     interestService.getRelationshipStatus(currentUser, targetProfile).then((newStatus) => {
       if (isMounted) {
-        setStatus(newStatus);
+        const updated = interestService.getRelationshipDetailsSync(currentUser, targetProfile);
+        setDetails({ ...updated, status: newStatus, isAccepted: newStatus === 'accepted', isCallingUnlocked: newStatus === 'accepted' });
         setLoading(false);
       }
     });
 
-    // Subscribe to live status changes (local + cross-tab)
+    // Subscribe to live status changes (local + cross-tab + supabase)
     const unsubscribe = interestService.onStatusChange((update) => {
       if (!isMounted || !update) return;
       const idsA = interestService.getUserIds(currentUser);
       const idsB = interestService.getUserIds(targetProfile);
 
+      const updateIds = [
+        update.userAId,
+        update.userBId,
+        update.senderId,
+        update.receiverId,
+        update.responderId,
+        update.partnerId
+      ].filter(Boolean).map(String);
+
       const match =
-        (idsA.includes(String(update.userAId)) && idsB.includes(String(update.userBId))) ||
-        (idsB.includes(String(update.userAId)) && idsA.includes(String(update.userBId)));
+        idsA.some(id => updateIds.includes(String(id))) &&
+        idsB.some(id => updateIds.includes(String(id)));
 
       if (match) {
-        setStatus(update.status);
+        const fresh = interestService.getRelationshipDetailsSync(currentUser, targetProfile);
+        const nextStatus = update.status || fresh.status;
+        setDetails({
+          ...fresh,
+          status: nextStatus,
+          isAccepted: nextStatus === 'accepted',
+          isCallingUnlocked: nextStatus === 'accepted',
+          isPending: nextStatus === 'pending',
+          isRejected: nextStatus === 'rejected',
+          isNone: nextStatus === 'none'
+        });
       }
     });
+
+    // Window storage listener for instant cross-tab sync
+    const handleStorage = (e) => {
+      if (e.key === 'i4u_accepted_pairs' || e.key === 'i4u_interests_records' || e.key?.startsWith('i4u_accepted_interests')) {
+        if (isMounted) {
+          const fresh = interestService.getRelationshipDetailsSync(currentUser, targetProfile);
+          setDetails(fresh);
+        }
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorage);
+    }
 
     return () => {
       isMounted = false;
       unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', handleStorage);
+      }
     };
   }, [
     currentUser?.id,
@@ -990,11 +1290,14 @@ export function useInterestStatus(currentUser, targetProfile) {
   ]);
 
   return {
-    status, // 'none' | 'pending' | 'accepted' | 'rejected'
-    isAccepted: status === 'accepted',
-    isPending: status === 'pending',
-    isRejected: status === 'rejected',
-    isNone: status === 'none',
+    status: details.status, // 'none' | 'pending' | 'accepted' | 'rejected'
+    isAccepted: details.isAccepted,
+    isCallingUnlocked: details.isAccepted,
+    isPending: details.isPending,
+    isIncoming: details.isIncoming,
+    isOutgoing: details.isOutgoing,
+    isRejected: details.isRejected,
+    isNone: details.isNone,
     loading
   };
 }

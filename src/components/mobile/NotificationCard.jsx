@@ -44,11 +44,39 @@ export default function NotificationCard({
   const isRead = propIsRead !== undefined ? propIsRead : Boolean(notif.isRead || notif.is_read);
   const status = notif.status || 'pending';
 
-  // Dynamic variable bindings for sender details
-  const senderName = notif.sender_name || notif.senderName || notif.sender?.name || profile?.name || null;
-  const candidateName = (senderName && !['verified member', 'a verified member', 'member'].includes(senderName.toLowerCase().trim()))
-    ? senderName
-    : (profile?.name || 'Candidate');
+  // Helper to validate and clean genuine candidate names
+  const cleanValidName = (name) => {
+    if (!name || typeof name !== 'string') return null;
+    const clean = name.trim();
+    const lower = clean.toLowerCase();
+    if (
+      lower === '' ||
+      lower === 'verified member' ||
+      lower === 'a verified member' ||
+      lower === 'member' ||
+      lower === 'a member' ||
+      lower === 'candidate' ||
+      lower === 'verified candidate' ||
+      lower === 'someone' ||
+      lower === 'null' ||
+      lower === 'undefined'
+    ) {
+      return null;
+    }
+    return clean;
+  };
+
+  // Dynamic variable bindings for real sender details from API / database
+  const candidateName = 
+    cleanValidName(notif.sender_name) ||
+    cleanValidName(notif.senderName) ||
+    cleanValidName(notif.sender?.name) ||
+    cleanValidName(profile?.name) ||
+    cleanValidName(notif.interest_from?.name) ||
+    cleanValidName(notif.metadata?.senderName) ||
+    (profile?.register_id ? `Member ${profile.register_id}` : null) ||
+    (notif.sender_id && !String(notif.sender_id).startsWith('sim-') ? `Member ${notif.sender_id}` : null) ||
+    'Candidate';
 
   const rawPhoto = profile?.photo || profile?.photo_url || notif.sender_photo || notif.senderPhoto || notif.sender_image || profile?.avatar || notif.sender?.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
   const candidatePhoto = addCacheBuster(rawPhoto);
@@ -58,10 +86,13 @@ export default function NotificationCard({
   const displayLocation = profile?.district || profile?.city || profile?.location || notif.sender_location || notif.sender_city || notif.sender_district || notif.sender?.city || null;
   const isVerified = Boolean(profile?.aadhaarVerified || profile?.verified || profile?.aadhaar_verified || notif.sender_verified || notif.sender?.verified);
 
-  // Compute clean dynamic title without hardcoded 'Verified Member'
+  // Compute clean dynamic title without hardcoded or looping 'Verified Member'
   const computedTitle = (() => {
-    if (notif.title && !notif.title.toLowerCase().includes('verified member')) {
-      return notif.title;
+    if (notif.title) {
+      const sanitizedTitle = notif.title.replace(/a verified member|verified member/gi, candidateName).trim();
+      if (!sanitizedTitle.toLowerCase().includes('verified member')) {
+        return sanitizedTitle;
+      }
     }
     if (notif.type === 'message' || notif.type === 'chat_message' || notif.type === 'message_received') {
       return `💬 Message from ${candidateName}`;
@@ -73,6 +104,13 @@ export default function NotificationCard({
       return `👁️ Contact Details Viewed by ${candidateName}`;
     }
     return `💖 Interest from ${candidateName}!`;
+  })();
+
+  // Compute clean dynamic message body without 'Verified Member'
+  const computedMessage = (() => {
+    const rawMsg = notif.message || notif.subtitle || '';
+    if (!rawMsg) return '';
+    return rawMsg.replace(/a verified member|verified member/gi, candidateName).trim();
   })();
 
   const defaultIcon = () => {
@@ -218,9 +256,9 @@ export default function NotificationCard({
         <h4 className="text-[11px] sm:text-[12px] font-bold text-slate-900 leading-snug group-hover:text-[#8C6D1F] transition-colors">
           {computedTitle}
         </h4>
-        {(notif.message || notif.subtitle) && (
+        {computedMessage && (
           <p className="text-[10px] sm:text-[10.5px] text-slate-600 leading-normal">
-            {notif.message || notif.subtitle}
+            {computedMessage}
           </p>
         )}
 

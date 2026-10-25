@@ -414,7 +414,10 @@ export default function AadhaarVerificationScreen({
         setVerifiedProfileData(res.data);
         setIsManualVerified(false);
         setVerified(true);
-        const candidateName = res.data?.fullName || registrationData?.fullName || registrationData?.name || 'Verified Member';
+        const rawCandidateName = res.data?.fullName || registrationData?.fullName || registrationData?.name || '';
+        const candidateName = (!rawCandidateName || ['verified member', 'a verified member', 'member'].includes(rawCandidateName.toLowerCase().trim()))
+          ? 'Candidate'
+          : rawCandidateName.trim();
         const candidatePhoto = registrationData?.photo || res.data?.photo || null;
         const eFront = generateCandidateAadhaarFront(candidateName, cleanAadhaar, res.data?.dob, res.data?.gender, candidatePhoto);
         const eBack = generateCandidateAadhaarBack(candidateName, cleanAadhaar, res.data?.dist, res.data?.state, res.data?.pincode);
@@ -1342,7 +1345,7 @@ export default function AadhaarVerificationScreen({
                 />
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                    <span>{verifiedProfileData?.fullName || registrationData?.fullName || registrationData?.name || 'Verified Member'}</span>
+                    <span>{verifiedProfileData?.fullName || registrationData?.fullName || registrationData?.name || 'Candidate'}</span>
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                   </h3>
                   <p className="text-[11px] text-slate-600">

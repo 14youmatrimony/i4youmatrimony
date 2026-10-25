@@ -868,6 +868,42 @@ export default function App() {
     } catch (e) {}
     return [];
   });
+  // Real-time Accepted Connections for Single-Request Flow
+  const [acceptedInterests, setAcceptedInterests] = useState(() => {
+    try {
+      const savedUserStr = localStorage.getItem('i4u_auth_user');
+      let userId = null;
+      if (savedUserStr) {
+        const userObj = JSON.parse(savedUserStr);
+        userId = userObj?.id || userObj?.registerId || userObj?.register_id;
+      }
+      const acc = [];
+      if (userId) {
+        const userAcc = localStorage.getItem(`i4u_accepted_interests_${userId}`);
+        if (userAcc) {
+          const parsed = JSON.parse(userAcc);
+          if (Array.isArray(parsed)) acc.push(...parsed);
+        }
+      }
+      const generalAcc = localStorage.getItem('i4u_accepted_interests');
+      if (generalAcc) {
+        const parsed = JSON.parse(generalAcc);
+        if (Array.isArray(parsed)) acc.push(...parsed);
+      }
+      const records = JSON.parse(localStorage.getItem('i4u_interests_records') || '[]');
+      if (Array.isArray(records) && userId) {
+        records.forEach(r => {
+          if (r && r.status === 'accepted') {
+            if (String(r.senderId) === String(userId)) acc.push(String(r.receiverId));
+            if (String(r.receiverId) === String(userId)) acc.push(String(r.senderId));
+          }
+        });
+      }
+      return Array.from(new Set(acc.filter(Boolean)));
+    } catch (e) {
+      return [];
+    }
+  });
   const [shortlisted, setShortlisted] = useState(() => {
     try {
       const savedUserStr = localStorage.getItem('i4u_auth_user');
@@ -1056,6 +1092,62 @@ export default function App() {
     } catch (e) {}
   }, [interestsSent, currentUser?.id]);
 
+  // Persist acceptedInterests to localStorage and sync with live interestService updates
+  useEffect(() => {
+    try {
+      localStorage.setItem('i4u_accepted_interests', JSON.stringify(acceptedInterests));
+      const uid = currentUser?.id || localStorage.getItem('i4u_current_user_id');
+      if (uid) {
+        localStorage.setItem(`i4u_accepted_interests_${uid}`, JSON.stringify(acceptedInterests));
+      }
+    } catch (e) {}
+  }, [acceptedInterests, currentUser?.id]);
+
+  // Real-time listener for accepted connection updates from interestService & cross-tab events
+  useEffect(() => {
+    const unsub = interestService.onStatusChange((update) => {
+      if (!update) return;
+      if (update.status === 'accepted') {
+        const ids = [
+          update.userAId,
+          update.userBId,
+          update.senderId,
+          update.receiverId,
+          update.responderId,
+          update.partnerId
+        ].filter(Boolean).map(String);
+        const currentIds = interestService.getUserIds(currentUser);
+        if (currentIds.some((id) => ids.includes(String(id)))) {
+          const partnerId = ids.find((id) => !currentIds.includes(String(id)));
+          if (partnerId) {
+            setAcceptedInterests((prev) => {
+              const arr = Array.isArray(prev) ? prev : [];
+              if (arr.includes(partnerId)) return arr;
+              return [...arr, partnerId];
+            });
+          }
+        }
+      }
+    });
+
+    const handleStorage = (e) => {
+      if (e.key === 'i4u_accepted_pairs' || e.key === 'i4u_accepted_interests' || e.key?.startsWith('i4u_accepted_interests_')) {
+        try {
+          const parsed = JSON.parse(e.newValue || '[]');
+          if (Array.isArray(parsed)) {
+            setAcceptedInterests((prev) => Array.from(new Set([...(prev || []), ...parsed])));
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      unsub();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [currentUser]);
+
   // Persist shortlisted to localStorage whenever it changes
   useEffect(() => {
     try {
@@ -1110,6 +1202,22 @@ export default function App() {
       (regId && list.includes(regId))
     );
   }, [interestsSent, profiles]);
+
+  // Helper to reliably check if connection is fully established (interest accepted)
+  const isProfileConnected = useCallback((profileOrId) => {
+    if (!profileOrId || !currentUser) return false;
+    const p = typeof profileOrId === 'object' 
+      ? profileOrId 
+      : profiles.find(item => item && (item.id === profileOrId || item.registerId === profileOrId || item.register_id === profileOrId));
+    const targetId = typeof profileOrId === 'string' ? profileOrId : (p?.id || profileOrId?.id);
+    const regId = p?.registerId || p?.register_id || profileOrId?.registerId || profileOrId?.register_id;
+    const accList = Array.isArray(acceptedInterests) ? acceptedInterests : [];
+    if ((targetId && accList.includes(targetId)) || (regId && accList.includes(regId))) {
+      return true;
+    }
+    const relStatus = interestService.getRelationshipStatusSync(currentUser, p || targetId);
+    return relStatus === 'accepted';
+  }, [acceptedInterests, currentUser, profiles]);
 
   // Helper to reliably check if a candidate profile has been shortlisted
   const isProfileShortlisted = useCallback((profileOrId) => {
@@ -1197,12 +1305,24 @@ export default function App() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           // Strictly exclude old mock notifications and enforce clean objects
-          const clean = parsed.filter(n => 
-            n && typeof n === 'object' && n.type && 
-            !String(n.id || '').startsWith('notif-interest-') && 
-            !String(n.id || '').startsWith('notif-shortlist-') && 
-            !String(n.id || '').startsWith('notif-contact-')
-          );
+          const clean = parsed.filter(n => {
+            if (!n || typeof n !== 'object' || !n.type) return false;
+            const nid = String(n.id || n.notification_id || '');
+            if (
+              nid.startsWith('notif-interest-') ||
+              nid.startsWith('notif-shortlist-') ||
+              nid.startsWith('notif-contact-') ||
+              nid.startsWith('sim-')
+            ) {
+              return false;
+            }
+            const sName = String(n.sender_name || n.senderName || n.sender?.name || '').toLowerCase();
+            const title = String(n.title || '').toLowerCase();
+            if (sName.includes('verified member') || title.includes('verified member')) {
+              return false;
+            }
+            return true;
+          });
           return clean;
         }
       }
@@ -1232,17 +1352,21 @@ export default function App() {
       .catch((e) => console.warn('[App] Error loading conversations:', e));
 
     // 2. Fetch real dynamic notifications from PostgreSQL backend API
-    fetchUserNotifications(currentUser.id || currentUser.register_id, profiles)
+    fetchUserNotifications(currentUser, profiles)
       .then((records) => {
         if (!isMounted || !Array.isArray(records)) return;
         setNotifications((prev) => {
           const map = new Map();
-          // Preserve any existing local read status
+          // Filter prev to discard stale mock or 'Verified Member' entries
           (prev || []).forEach(n => {
             const k = n?.notification_id || n?.id;
-            if (k) map.set(k, n);
+            const sName = String(n?.sender_name || n?.senderName || n?.sender?.name || '').toLowerCase();
+            const title = String(n?.title || '').toLowerCase();
+            if (k && !sName.includes('verified member') && !title.includes('verified member') && !k.startsWith('sim-')) {
+              map.set(k, n);
+            }
           });
-          // Merge newly fetched dynamic records from PostgreSQL
+          // Merge newly fetched dynamic records from PostgreSQL / Supabase
           records.forEach(rec => {
             if (!rec) return;
             const notifId = rec.notification_id || rec.id || `notif_${rec.sender_id || rec.senderId}_${rec.created_at}`;
@@ -1264,11 +1388,88 @@ export default function App() {
       })
       .catch((e) => console.warn('[App] Error loading notifications:', e));
 
-    // 3. Real-time subscription to incoming interests
+    // 3. Real-time subscription to incoming interests and accepted connections
     const unsubInterest = interestService.subscribeToInterestInbox(currentUser, (payload) => {
+      if (!payload) return;
+
+      const isAcceptedEvent = payload.event === 'interest-accepted' || payload.status === 'accepted';
       const sId = String(payload.senderId || payload.sender_id || '');
-      const matchedSender = (profiles || []).find(p => p && (String(p.id) === sId || String(p.register_id) === sId || String(p.registerId) === sId));
-      const senderObj = matchedSender || payload.sender || {
+      const rId = String(payload.receiverId || payload.receiver_id || payload.responderId || '');
+      const uA = String(payload.userAId || '');
+      const uB = String(payload.userBId || '');
+
+      const currentIds = interestService.getUserIds(currentUser);
+      const allPayloadIds = [sId, rId, uA, uB, payload.responderId, payload.partnerId].filter(Boolean).map(String);
+      const partnerId = allPayloadIds.find((id) => !currentIds.includes(String(id)));
+
+      const matchedPartner = (profiles || []).find((p) => p && (
+        String(p.id) === partnerId ||
+        String(p.register_id) === partnerId ||
+        String(p.registerId) === partnerId
+      ));
+      const partnerName = matchedPartner?.name || payload.responderName || payload.senderName || 'Candidate';
+
+      if (isAcceptedEvent) {
+        console.log(`[App] Real-time acceptance received: connection established with ${partnerName} (${partnerId})`);
+        if (partnerId) {
+          setAcceptedInterests((prev) => {
+            const arr = Array.isArray(prev) ? prev : [];
+            if (arr.includes(partnerId)) return arr;
+            return [...arr, partnerId];
+          });
+        }
+
+        // Update notifications to accepted
+        setNotifications((prev) => {
+          const map = new Map();
+          (prev || []).forEach((n) => {
+            const k = n?.notification_id || n?.id;
+            if (k) map.set(k, n);
+          });
+
+          let found = false;
+          map.forEach((n, k) => {
+            if (n.profileId === partnerId || n.senderId === partnerId || n.receiverId === partnerId) {
+              map.set(k, { ...n, status: 'accepted', isRead: true });
+              found = true;
+            }
+          });
+
+          if (!found && partnerId) {
+            const notifId = `acc_${partnerId}_${Date.now()}`;
+            map.set(notifId, {
+              id: notifId,
+              notification_id: notifId,
+              profileId: partnerId,
+              senderId: partnerId,
+              type: 'interest_accepted',
+              title: `Interest Accepted by ${partnerName}! 🎉`,
+              message: `${partnerName} accepted your interest! Audio and video calling is now unlocked.`,
+              time: 'Just now',
+              isRead: false,
+              status: 'accepted',
+              created_at: new Date().toISOString(),
+              timestamp: Date.now()
+            });
+          }
+
+          return Array.from(map.values()).sort((a, b) => {
+            const tA = new Date(a.created_at || a.timestamp || 0).getTime();
+            const tB = new Date(b.created_at || b.timestamp || 0).getTime();
+            return tB - tA;
+          });
+        });
+
+        showToast(`🎉 ${partnerName} accepted your interest! Audio & Video calls are now unlocked.`);
+        return;
+      }
+
+      // If this is an outgoing interest sent by currentUser, do not notify as received!
+      if (sId && currentIds.includes(sId) && !currentIds.includes(rId)) {
+        return;
+      }
+
+      const senderObj = matchedPartner || payload.sender || {
         id: sId,
         name: payload.senderName || 'Candidate',
         photo: payload.senderPhoto || null,
@@ -1738,16 +1939,20 @@ export default function App() {
     const targetRegId = profile?.registerId || profile?.register_id;
     setDeclinedReceivedIds(prev => prev.filter(id => id !== targetId && id !== targetRegId));
     setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true, status: 'accepted' } : n));
-    setInterestsSent(prev => {
-      if (prev.includes(targetId) || (targetRegId && prev.includes(targetRegId))) {
-        return prev;
+    
+    // Single-Request Flow: User B accepts User A's request.
+    // Record accepted connection immediately. User B MUST NOT be required to send a return request.
+    setAcceptedInterests(prev => {
+      const arr = Array.isArray(prev) ? prev : [];
+      if (arr.includes(targetId) || (targetRegId && arr.includes(targetRegId))) {
+        return arr;
       }
-      return [...prev, targetId];
+      return [...arr, targetId];
     });
 
-    // Record acceptance in interestService for real-time WebRTC unlock
-    if (currentUser && profile) {
-      interestService.acceptInterest(currentUser, profile).catch(err => console.warn('[App] acceptInterest error:', err));
+    // Record acceptance in interestService for real-time WebRTC unlock for BOTH users
+    if (currentUser && (profile || targetId)) {
+      interestService.acceptInterest(currentUser, profile || targetId).catch(err => console.warn('[App] acceptInterest error:', err));
     }
 
     setConversations(prev => {
@@ -1760,7 +1965,7 @@ export default function App() {
       }
       return prev;
     });
-    showToast(`Accepted interest from ${profile?.name || 'candidate'}! Calling & Chat unlocked ✨`);
+    showToast(`🎉 Connection established with ${profile?.name || 'candidate'}! Audio & Video calls unlocked ✨`);
   };
 
   const handleDeclineInterestNotification = (notifId) => {
@@ -1800,17 +2005,22 @@ export default function App() {
     const targetId = profile?.id || profileId;
     const targetRegId = profile?.registerId || profile?.register_id;
     setDeclinedReceivedIds(prev => prev.filter(id => id !== targetId && id !== targetRegId));
-    setInterestsSent(prev => {
-      if (prev.includes(targetId) || (targetRegId && prev.includes(targetRegId))) {
-        return prev;
+
+    // Single-Request Flow: User B accepts User A's request.
+    // Record accepted connection immediately. User B MUST NOT be required to send a return request.
+    setAcceptedInterests(prev => {
+      const arr = Array.isArray(prev) ? prev : [];
+      if (arr.includes(targetId) || (targetRegId && arr.includes(targetRegId))) {
+        return arr;
       }
-      return [...prev, targetId];
+      return [...arr, targetId];
     });
+
     setNotifications(prev => prev.map(n => (n.profileId === targetId || n.profileId === profileId) ? { ...n, isRead: true, status: 'accepted' } : n));
     
-    // Record acceptance in interestService for real-time WebRTC unlock
-    if (currentUser && profile) {
-      interestService.acceptInterest(currentUser, profile).catch(err => console.warn('[App] acceptInterest error:', err));
+    // Record acceptance in interestService for real-time WebRTC unlock for BOTH users
+    if (currentUser && (profile || targetId)) {
+      interestService.acceptInterest(currentUser, profile || targetId).catch(err => console.warn('[App] acceptInterest error:', err));
     }
 
     // Ensure chat conversation thread exists
@@ -1825,120 +2035,23 @@ export default function App() {
       return prev;
     });
 
-    showToast(`Accepted interest from ${profile?.name || 'candidate'}! ✨ Calling & Chat unlocked.`);
+    showToast(`🎉 Connection established with ${profile?.name || 'candidate'}! Audio & Video calls unlocked ✨`);
     handleStartChat(targetId);
   };
 
-  const handleSimulateNotification = (type = 'interest') => {
-    const id = 'sim-' + Date.now();
-    const isUserMale = (currentUser?.gender || '').toLowerCase() === 'male';
-    let newNotif;
-    if (type === 'interest') {
-      const candidate = isUserMale
-        ? { id: 'p5', name: 'Priyanka Rathore', age: 28, loc: 'Sikar', quote: '“Namaste Arun! Really liked your family profile and interests.”' }
-        : { id: 'p2', name: 'Rohan Jayasimha', age: 29, loc: 'Bengaluru', quote: '“Namaste Priya! Found your profile and values highly compatible.”' };
-      newNotif = {
-        id,
-        type: 'interest_received',
-        profileId: candidate.id,
-        title: 'New Interest Received! 💖',
-        message: `${candidate.name} (${candidate.age}, ${candidate.loc}) sent you an Interest.`,
-        quote: candidate.quote,
-        time: 'Just now',
-        isRead: false,
-        status: 'pending',
-        badge: 'New Match'
-      };
-      showToast(`🔔 New Interest received from ${candidate.name}!`);
-    } else if (type === 'shortlist') {
-      const candidate = isUserMale
-        ? { id: 'p1', name: 'Dr. Ananya Kulkarni', quote: '“Shortlisted for Sunday horoscope & compatibility discussion.”' }
-        : { id: 'p4', name: 'Dr. Arjun Nair', quote: '“Shortlisted your profile for family and horoscope review.”' };
-      newNotif = {
-        id,
-        type: 'profile_shortlisted',
-        profileId: candidate.id,
-        title: 'Profile Shortlisted ⭐',
-        message: `${candidate.name} shortlisted your profile for parent review.`,
-        quote: candidate.quote,
-        time: 'Just now',
-        isRead: false,
-        status: 'pending',
-        badge: 'Top Match'
-      };
-      showToast(`⭐ ${candidate.name} shortlisted your profile!`);
-    } else if (type === 'visitor') {
-      const candidate = isUserMale
-        ? { id: 'p7', name: 'Dr. Zoya Farooqui' }
-        : { id: 'p6', name: 'Karthik Menon' };
-      newNotif = {
-        id,
-        type: 'profile_visitor',
-        profileId: candidate.id,
-        title: 'Profile Visitor 👁️',
-        message: `${candidate.name} viewed your matrimonial profile.`,
-        quote: '“Visited your profile and explored family & career background.”',
-        time: 'Just now',
-        isRead: false,
-        status: 'pending',
-        badge: 'New Visitor'
-      };
-      showToast(`👁️ ${candidate.name} visited your profile!`);
-    } else if (type === 'contact_view') {
-      const candidate = isUserMale
-        ? { id: 'p3', name: 'Meera Venkatraman' }
-        : { id: 'p2', name: 'Rohan Jayasimha' };
-      newNotif = {
-        id,
-        type: 'contact_viewed',
-        profileId: candidate.id,
-        title: 'Contact Viewed 👁️',
-        message: `${candidate.name} & family viewed your contact phone number.`,
-        quote: 'Phone number verified via UIDAI matrimonial authentication.',
-        time: 'Just now',
-        isRead: false,
-        status: 'pending',
-        badge: 'Verified Contact'
-      };
-      showToast(`👁️ ${candidate.name} viewed your contact details!`);
-    } else {
-      const candidate = isUserMale
-        ? { id: 'p5', name: 'Priyanka' }
-        : { id: 'p2', name: 'Rohan' };
-      newNotif = {
-        id,
-        type: 'message_received',
-        profileId: candidate.id,
-        title: 'New Chat Message 💬',
-        message: `${candidate.name} sent you a message: "Are you free to speak?"`,
-        quote: `“Namaste! Would you be free for a brief call with my sister and parents?”`,
-        time: 'Just now',
-        isRead: false,
-        status: 'pending',
-        badge: 'New Message'
-      };
-      showToast(`💬 New message received from ${candidate.name}!`);
+  const handleSimulateNotification = () => {
+    if (!currentUser) {
+      showToast('Please log in to synchronize notifications');
+      return;
     }
-
-    // Deduplicate: replace identical simulated item if already pending or prepend
-    setNotifications((prev) => {
-      const list = Array.isArray(prev) ? prev : [];
-      const filtered = list.filter((n) => !(n && n.profileId === newNotif.profileId && n.type === newNotif.type && n.status === 'pending'));
-      return [newNotif, ...filtered];
-    });
-
-    // Also dispatch to FCM notification service for Web Push testing
-    fcmNotificationService.dispatchForegroundNotification({
-      type: newNotif.type,
-      title: newNotif.title,
-      body: newNotif.message,
-      data: {
-        chat_id: `chat_${newNotif.profileId}`,
-        user_id: newNotif.profileId,
-        sender_id: newNotif.profileId,
-        type: newNotif.type
-      }
-    });
+    fetchUserNotifications(currentUser, profiles)
+      .then((records) => {
+        if (Array.isArray(records)) {
+          setNotifications(records);
+          showToast(`Notifications synchronized with database (${records.length} items) ✓`);
+        }
+      })
+      .catch(() => showToast('Notifications up to date ✓'));
   };
 
   // Open Registration flow starting with Mobile Number Verification
@@ -2006,8 +2119,8 @@ export default function App() {
           recipientId: targetId,
           recipientEmail: profile.email,
           type: 'interest_received',
-          title: `💖 New Matrimonial Interest from ${currentUser?.name || 'A Verified Member'}!`,
-          message: `${currentUser?.name || 'A Verified Member'} reviewed your profile on I 4 You and expressed interest in connecting with you.`,
+          title: `💖 New Matrimonial Interest from ${currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'A Candidate'}!`,
+          message: `${currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'A Candidate'} reviewed your profile on I 4 You and expressed interest in connecting with you.`,
           senderName: currentUser?.name,
           senderPhoto: currentUser?.photo,
           profileLink: 'https://i4youmatrimony.com/app'
@@ -2212,7 +2325,10 @@ export default function App() {
         ? { ...n, isRead: true, status: 'accepted' } 
         : n
     ));
-    setInterestsSent(prev => {
+
+    // Single-Request Flow: User B accepts User A's request.
+    // Record accepted connection immediately. User B MUST NOT be required to send a return request.
+    setAcceptedInterests(prev => {
       const arr = Array.isArray(prev) ? prev : [];
       if (arr.includes(targetId) || (targetRegId && arr.includes(targetRegId))) {
         return arr;
@@ -2220,8 +2336,8 @@ export default function App() {
       return [...arr, targetId];
     });
 
-    if (currentUser && profile) {
-      interestService.acceptInterest(currentUser, profile).catch(err => console.warn('[App] acceptInterest error:', err));
+    if (currentUser && (profile || targetId)) {
+      interestService.acceptInterest(currentUser, profile || targetId).catch(err => console.warn('[App] acceptInterest error:', err));
     }
 
     if (replyMessage && replyMessage.trim()) {
@@ -2250,7 +2366,7 @@ export default function App() {
     }
 
     setInterestModalCandidate(null);
-    showToast('Accepted interest from ' + (profile?.name || 'candidate') + '! Calling & Chat unlocked ✨');
+    showToast(`🎉 Connection established with ${profile?.name || 'candidate'}! Audio & Video calls unlocked ✨`);
   };
 
   // Confirm sending interest with chosen/customized message
@@ -2278,8 +2394,8 @@ export default function App() {
         recipientId: targetId,
         recipientEmail: profile.email,
         type: 'interest_received',
-        title: `💖 Matrimonial Interest from ${currentUser?.name || 'A Verified Member'}!`,
-        message: customMessage || `${currentUser?.name || 'A Verified Member'} reviewed your profile on I 4 You and expressed interest in connecting with you.`,
+        title: `💖 Matrimonial Interest from ${currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'A Candidate'}!`,
+        message: customMessage || `${currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'A Candidate'} reviewed your profile on I 4 You and expressed interest in connecting with you.`,
         senderName: currentUser?.name,
         senderPhoto: currentUser?.photo,
         profileLink: 'https://i4youmatrimony.com/app'
@@ -2922,9 +3038,9 @@ export default function App() {
 
   // Handler when Login succeeds
   const handleLoginSuccess = (userData) => {
-    const finalName = (!userData?.name || userData.name === 'Verified Member')
-      ? (currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'Verified Member')
-      : userData.name;
+    const rawName = userData?.name || currentUser?.name || '';
+    const isPlaceholder = !rawName || ['verified member', 'a verified member', 'member'].includes(rawName.toLowerCase().trim());
+    const finalName = isPlaceholder ? 'Candidate' : rawName.trim();
     const resolvedGender = normalizeGender(userData?.gender || currentUser?.gender) === 'male' ? 'Male' : 'Female';
     const updatedUser = {
       ...(currentUser || {}),

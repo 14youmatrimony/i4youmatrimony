@@ -85,12 +85,26 @@ export default function MobileInterestsScreen({
     ...localDeclinedIds
   ]));
 
+  const isGenericPlaceholder = (name) => {
+    if (!name || typeof name !== 'string') return true;
+    const clean = name.trim().toLowerCase();
+    return clean === '' || 
+      clean === 'a member' || 
+      clean === 'a verified member' || 
+      clean === 'verified member' || 
+      clean === 'member' || 
+      clean === 'candidate' || 
+      clean === 'a candidate' ||
+      clean === 'verified candidate' ||
+      clean === 'someone';
+  };
+
   const targetCandidateGender = getTargetCandidateGender(currentUser);
   const isMaleUser = normalizeGender(currentUser?.gender) === 'male';
-  // Male user receives interests from Women; Female user receives interests from Gents
+  // Strictly dynamic received candidate IDs from real user account only
   const initialReceivedCandidateIds = Array.isArray(currentUser?.receivedInterests)
     ? currentUser.receivedInterests
-    : (getAppMode() ? [] : (isMaleUser ? ['p1', 'p3', 'p5'] : ['p2', 'p4', 'p6']));
+    : [];
 
   const isSelfProfile = (p) => {
     if (!p || !currentUser) return false;
@@ -151,9 +165,16 @@ export default function MobileInterestsScreen({
           ? 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
           : 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653762896.jpg';
 
+        const candidateName = (!isGenericPlaceholder(matching?.name) ? matching.name : null) ||
+                              (!isGenericPlaceholder(senderData?.name) ? senderData.name : null) ||
+                              (!isGenericPlaceholder(rec.sender_name) ? rec.sender_name : null) ||
+                              (!isGenericPlaceholder(rec.senderName) ? rec.senderName : null) ||
+                              (matching?.register_id ? `Member ${matching.register_id}` : null) ||
+                              (sid ? `Member ${sid}` : 'Candidate');
+
         const base = matching || senderData || {
           id: sid,
-          name: 'Verified Member',
+          name: candidateName,
           photo: defaultAvatar,
           age: 26,
           city: 'India',
@@ -164,7 +185,7 @@ export default function MobileInterestsScreen({
         const item = {
           ...base,
           id: base.id || sid,
-          name: base.name || senderData?.name || 'Verified Member',
+          name: candidateName,
           age: base.age || senderData?.age || 26,
           profession: base.profession || senderData?.profession || 'Professional',
           city: base.city || base.district || senderData?.location || senderData?.city || 'India',
@@ -184,21 +205,8 @@ export default function MobileInterestsScreen({
       });
     }
 
-    // 2. Demo fallback if no remote records and not in production app mode
-    if (list.length === 0 && !getAppMode()) {
-      initialReceivedCandidateIds.forEach((id) => {
-        const p = oppositeGenderProfiles.find((prof) => prof.id === id || prof.registerId === id);
-        if (p && !isProfileInList(p, effectiveDeclinedIds) && !isProfileInList(p, interestsSent)) {
-          if (!seenIds.has(String(p.id))) {
-            seenIds.add(String(p.id));
-            list.push(p);
-          }
-        }
-      });
-    }
-
     return list;
-  }, [liveReceivedInterests, profiles, effectiveDeclinedIds, interestsSent, initialReceivedCandidateIds, oppositeGenderProfiles]);
+  }, [liveReceivedInterests, profiles, effectiveDeclinedIds, interestsSent, oppositeGenderProfiles]);
 
   const declinedProfiles = oppositeGenderProfiles.filter(p => effectiveDeclinedIds.includes(p.id));
 

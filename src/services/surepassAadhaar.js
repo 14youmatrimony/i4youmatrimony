@@ -178,12 +178,14 @@ export const submitAadhaarOtp = async (clientId, enteredOtp, fallbackAadhaar = '
   }
 
   // Resolve authenticated user name if available
-  let authName = 'Verified Member';
+  let authName = 'Candidate';
   try {
     const uStr = localStorage.getItem('i4u_auth_user');
     if (uStr) {
       const u = JSON.parse(uStr);
-      if (u && u.name) authName = u.name;
+      if (u && u.name && !['verified member', 'a verified member', 'member'].includes(u.name.toLowerCase().trim())) {
+        authName = u.name.trim();
+      }
     }
   } catch (e) {}
 

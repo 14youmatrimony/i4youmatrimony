@@ -601,7 +601,9 @@ export default function MobileAccountScreen({
           <div className="min-w-0 flex-1">
             <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
               <h3 className="font-serif font-bold text-lg text-white truncate">
-                {(!currentUser?.name || currentUser.name === 'Verified Member') ? 'Priya Sharma' : currentUser.name}
+                {(!currentUser?.name || ['verified member', 'a verified member', 'member'].includes(currentUser.name.toLowerCase().trim())) 
+                  ? (currentUser?.gender === 'Male' ? 'Rohan Jayasimha' : 'Priya Sharma') 
+                  : currentUser.name}
               </h3>
             </div>
             <div className="flex items-center gap-1.5 mt-2 text-[10px] flex-wrap">

@@ -157,7 +157,7 @@ export default function MobileChatScreen({
     // Fallback: If targetId is provided from notification or direct route, provide an authentic partner representation
     return {
       id: targetId,
-      name: conv?.partnerUser?.name || 'Verified Member',
+      name: (conv?.partnerUser?.name && !['verified member', 'a verified member', 'member'].includes(conv.partnerUser.name.toLowerCase().trim())) ? conv.partnerUser.name : 'Candidate',
       photo: 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
       onlineStatus: 'Online'
     };

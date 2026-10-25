@@ -148,8 +148,11 @@ export default function MobileNotificationsSheet({
       clean === 'verified member' || 
       clean === 'member' || 
       clean === 'candidate' || 
+      clean === 'a candidate' ||
       clean === 'verified candidate' ||
-      clean === 'someone';
+      clean === 'someone' ||
+      clean === 'null' ||
+      clean === 'undefined';
   };
 
   const getProfile = (profileId, notif = null, index = 0) => {
@@ -162,7 +165,7 @@ export default function MobileNotificationsSheet({
 
     // 1. Data Model Extraction: Parse sender object from all potential API and notification fields
     const directSenderName = notif?.sender_name || notif?.senderName || notif?.sender?.name || notif?.profile?.name;
-    const cleanSenderName = (directSenderName && !isGenericPlaceholder(directSenderName)) ? directSenderName : null;
+    const cleanSenderName = (directSenderName && !isGenericPlaceholder(directSenderName)) ? directSenderName.trim() : null;
 
     const senderData = notif?.sender || 
                        notif?.profile ||
@@ -205,7 +208,7 @@ export default function MobileNotificationsSheet({
         if (!p?.name || isSelfProfile(p)) return false;
         return fullText.toLowerCase().includes(p.name.trim().toLowerCase());
       });
-      if (foundCandidate) return foundCandidate.name;
+      if (foundCandidate && !isGenericPlaceholder(foundCandidate.name)) return foundCandidate.name;
 
       const regexMatch = fullText.match(/(?:Interest\s+from|Message\s+from|shortlisted\s+by)\s+([A-Za-z0-9\.\s]+?)(?:[!💖💬⭐👁️🔔\.\n]|$)/i);
       if (regexMatch && regexMatch[1]) {
@@ -224,10 +227,14 @@ export default function MobileNotificationsSheet({
 
     // Scenario A: Authentic Profile found in database
     if (matchedProfile) {
+      const resolvedName = (!isGenericPlaceholder(matchedProfile.name) ? matchedProfile.name : null) ||
+                           cleanSenderName ||
+                           extractedName ||
+                           (matchedProfile.register_id ? `Member ${matchedProfile.register_id}` : 'Candidate');
       return {
         ...matchedProfile,
         id: matchedProfile.id,
-        name: matchedProfile.name,
+        name: resolvedName,
         age: matchedProfile.age || 26,
         profession: matchedProfile.profession || 'Professional',
         city: matchedProfile.district || matchedProfile.city || 'Kerala',
@@ -243,7 +250,7 @@ export default function MobileNotificationsSheet({
                             (!isGenericPlaceholder(senderData?.name) ? senderData.name : null) || 
                             (!isGenericPlaceholder(senderData?.senderName) ? senderData.senderName : null) ||
                             extractedName ||
-                            'Candidate';
+                            (effectiveSenderId ? `Member ${effectiveSenderId}` : 'Candidate');
 
       const sPhoto = notif?.sender_photo || notif?.sender_image || senderData?.photo || senderData?.avatar || senderData?.photo_url || senderData?.senderPhoto || defaultPhoto;
       const sAge = notif?.sender_age || senderData?.age || senderData?.senderAge || 26;
@@ -270,7 +277,7 @@ export default function MobileNotificationsSheet({
     }
 
     // Scenario C: Clean authentic fallback without borrowing another candidate's identity
-    const fallbackName = cleanSenderName || extractedName || notif?.metadata?.senderName || 'Candidate';
+    const fallbackName = cleanSenderName || extractedName || notif?.metadata?.senderName || (effectiveSenderId ? `Member ${effectiveSenderId}` : 'Candidate');
     return {
       id: effectiveSenderId || profileId || notif?.notification_id || notif?.id || `sender-${index}`,
       name: fallbackName,
@@ -475,18 +482,6 @@ export default function MobileNotificationsSheet({
         </div>
 
         <div className="flex items-center space-x-1 shrink-0">
-          {currentUser && onSimulateNotification && (
-            <button
-              type="button"
-              onClick={() => onSimulateNotification('interest')}
-              className="text-[9px] sm:text-[9.5px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-lg bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 text-[#DFB76C] border border-[#DFB76C]/40 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-              title="Simulate incoming matrimonial interest for testing"
-            >
-              <Sparkles className="w-2.5 h-2.5 text-[#DFB76C]" />
-              <span className="hidden xs:inline">Test Interest</span>
-              <span className="xs:hidden">Test</span>
-            </button>
-          )}
           {unreadCount > 0 && onMarkAllAsRead && (
             <button
               type="button"
