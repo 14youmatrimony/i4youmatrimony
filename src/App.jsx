@@ -2263,29 +2263,6 @@ export default function App() {
     });
   }, [currentUser]);
 
-  // Native Push Incoming Call Handler (wakes device up from background / killed state)
-  useEffect(() => {
-    if (!currentUser) return;
-    const unsub = fcmNotificationService.onIncomingCall(async (callData) => {
-      console.log('[App] Push incoming call received:', callData);
-      if (!callData || !callData.callId) return;
-
-      const authCheck = await interestService.verifyCallAuthorization(currentUser, callData.caller);
-      if (!authCheck.authorized) {
-        console.warn('[App] Dropped unauthorized incoming call invite from:', callData.caller?.id, authCheck.reason);
-        return;
-      }
-
-      setIncomingCallSession(callData);
-
-      if (callData.openedFromNotification && callData.actionId === 'accept') {
-        handleAcceptIncomingCall(callData);
-      }
-    });
-
-    return () => unsub();
-  }, [currentUser, handleAcceptIncomingCall]);
-
   // Register Service Worker for FCM and background Web Push delivery
   useEffect(() => {
     fcmNotificationService.registerServiceWorker();
@@ -2530,7 +2507,7 @@ export default function App() {
   };
 
   // Incoming Call Handlers (WebRTC P2P via Supabase Realtime)
-  const handleAcceptIncomingCall = (callData) => {
+  const handleAcceptIncomingCall = useCallback((callData) => {
     setIsCallCaller(false);
     setActiveCallSession(callData);
     setIncomingCallSession(null);
@@ -2541,13 +2518,36 @@ export default function App() {
       setActiveVideoCallCandidate(null);
       setActiveAudioCallCandidate(callData.caller);
     }
-  };
+  }, []);
 
-  const handleDeclineIncomingCall = (callData, reason) => {
+  const handleDeclineIncomingCall = useCallback((callData, reason) => {
     webrtcCallService.declineCall({ callData, reason });
     setIncomingCallSession(null);
     showToast('Call declined');
-  };
+  }, [showToast]);
+
+  // Native Push Incoming Call Handler (wakes device up from background / killed state)
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = fcmNotificationService.onIncomingCall(async (callData) => {
+      console.log('[App] Push incoming call received:', callData);
+      if (!callData || !callData.callId) return;
+
+      const authCheck = await interestService.verifyCallAuthorization(currentUser, callData.caller);
+      if (!authCheck.authorized) {
+        console.warn('[App] Dropped unauthorized incoming call invite from:', callData.caller?.id, authCheck.reason);
+        return;
+      }
+
+      setIncomingCallSession(callData);
+
+      if (callData.openedFromNotification && callData.actionId === 'accept') {
+        handleAcceptIncomingCall(callData);
+      }
+    });
+
+    return () => unsub();
+  }, [currentUser, handleAcceptIncomingCall]);
 
   // WhatsApp Status Management Handlers
   const handleOpenStatusViewer = (profileOrData, status, isOwnStatus) => {
