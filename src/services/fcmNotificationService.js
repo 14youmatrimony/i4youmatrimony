@@ -297,18 +297,29 @@ class FCMNotificationService {
         console.warn('[FCMService] Supabase profile token update notice:', e);
       }
 
-      // 2. Save in dedicated user_fcm_tokens table (supports multiple devices)
+      // 2. Save in dedicated user_device_tokens table (Supabase Edge Function compatible)
       try {
-        await supabase.from('user_fcm_tokens').upsert([
+        await supabase.from('user_device_tokens').upsert([
           {
             user_id: String(userId),
-            token: token,
+            register_id: user.register_id || user.registerId || null,
             platform: platform,
+            token: token,
             updated_at: nowIso
           }
-        ], { onConflict: 'token' });
+        ], { onConflict: 'user_id,platform,token' });
       } catch (e) {
-        // Table might not exist yet; safe to ignore
+        // Fallback to user_fcm_tokens
+        try {
+          await supabase.from('user_fcm_tokens').upsert([
+            {
+              user_id: String(userId),
+              token: token,
+              platform: platform,
+              updated_at: nowIso
+            }
+          ], { onConflict: 'token' });
+        } catch (tokErr) {}
       }
     }
 
@@ -330,6 +341,7 @@ class FCMNotificationService {
 
   /**
    * Dispatch push notification for an incoming audio / video call
+   * Uses Supabase 'call_requests' table + Supabase Edge Function 'call-handler'
    */
   async dispatchCallPushNotification({ calleeId, caller, callType = 'audio', callId, channelName }) {
     if (!calleeId || !caller) return false;
@@ -337,17 +349,59 @@ class FCMNotificationService {
     const title = `📞 Incoming ${callType === 'video' ? 'Video' : 'Voice'} Call`;
     const callerName = caller.name || 'A candidate';
     const body = `${callerName} is calling you...`;
+    const callerId = String(caller.id || caller.register_id || caller.registerId || '');
+    const cleanCallId = String(callId || `call_${Date.now()}`);
+    const cleanChannelName = String(channelName || `call-session-${cleanCallId}`);
 
+    // 1. Supabase Native: Record call in 'call_requests' table (triggers Edge Function via pg_net)
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('call_requests').insert([
+          {
+            id: cleanCallId,
+            caller_id: callerId,
+            callee_id: String(calleeId),
+            caller_name: callerName,
+            caller_photo: caller.photo || caller.photo_url || '',
+            call_type: callType,
+            channel_name: cleanChannelName,
+            status: 'ringing',
+            created_at: new Date().toISOString()
+          }
+        ]);
+      } catch (err) {
+        console.warn('[FCMService] Supabase call_requests insert notice:', err);
+      }
+
+      // 2. Direct Supabase Edge Function invocation
+      try {
+        supabase.functions.invoke('call-handler', {
+          body: {
+            callId: cleanCallId,
+            callerId,
+            calleeId: String(calleeId),
+            callerName,
+            callerPhoto: caller.photo || caller.photo_url || '',
+            callType,
+            channelName: cleanChannelName
+          }
+        }).catch((e) => {});
+      } catch (fnErr) {
+        console.warn('[FCMService] Supabase functions.invoke call-handler notice:', fnErr);
+      }
+    }
+
+    // 3. Fallback to API backend push
     return this.sendPushNotification({
       recipientId: calleeId,
       title,
       body,
       data: {
         type: 'incoming_call',
-        callId: String(callId || `call_${Date.now()}`),
-        channelName: String(channelName || `call_session_${callId || Date.now()}`),
+        callId: cleanCallId,
+        channelName: cleanChannelName,
         callType,
-        callerId: String(caller.id || caller.register_id || caller.registerId || ''),
+        callerId,
         callerName,
         callerPhoto: caller.photo || caller.photo_url || '',
         callerCity: caller.city || caller.district || '',

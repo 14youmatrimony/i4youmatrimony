@@ -87,10 +87,9 @@ BEGIN
     )
   );
 
-  -- Perform non-blocking HTTP POST to Edge Function
-  -- Note: Replace 'ejtkrilhntdbsiavugta' with your actual Supabase project ref if changed
+  -- Perform non-blocking HTTP POST to Supabase Edge Function
   PERFORM net.http_post(
-    url := 'https://ejtkrilhntdbsiavugta.supabase.co/functions/v1/call-handler',
+    url := 'https://kzvdzospvgzlfkkptadl.supabase.co/functions/v1/call-handler',
     headers := jsonb_build_object(
       'Content-Type', 'application/json'
     ),
