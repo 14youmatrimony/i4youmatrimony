@@ -11,12 +11,14 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Eye,
-  MessageCircle
+  MessageCircle,
+  CheckCheck
 } from 'lucide-react';
 
 export default function MatchFeed({ 
   profiles, 
   interestsSent, 
+  acceptedInterests = [],
   onToggleInterest, 
   shortlisted, 
   onToggleShortlist, 
@@ -111,6 +113,13 @@ export default function MatchFeed({
       {/* Profile Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredProfiles.map((profile) => {
+          const isAccepted = Boolean(
+            acceptedInterests && (
+              acceptedInterests.includes(profile.id) ||
+              (profile.registerId && acceptedInterests.includes(profile.registerId)) ||
+              (profile.register_id && acceptedInterests.includes(profile.register_id))
+            )
+          );
           const isInterested = Boolean(
             interestsSent.includes(profile.id) ||
             (profile.registerId && interestsSent.includes(profile.registerId)) ||
@@ -255,15 +264,26 @@ export default function MatchFeed({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onToggleInterest(profile.id);
+                      if (isAccepted) {
+                        onStartChat(profile.id);
+                      } else {
+                        onToggleInterest(profile.id);
+                      }
                     }}
                     className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 cursor-pointer ${
-                      isInterested 
-                        ? 'bg-emerald-600 text-white shadow-sm' 
-                        : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] shadow-md shadow-[#D4AF37]/25'
+                      isAccepted
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : isInterested 
+                          ? 'bg-emerald-600 text-white shadow-sm' 
+                          : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] shadow-md shadow-[#D4AF37]/25'
                     }`}
                   >
-                    {isInterested ? (
+                    {isAccepted ? (
+                      <>
+                        <CheckCheck className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Connected ✨</span>
+                      </>
+                    ) : isInterested ? (
                       <>
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                         <span>Interest Sent</span>
