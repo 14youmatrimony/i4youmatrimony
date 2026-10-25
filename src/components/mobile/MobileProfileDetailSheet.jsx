@@ -22,7 +22,8 @@ import {
   Crown, 
   Zap, 
   AlertCircle, 
-  Video 
+  Video,
+  CheckCheck
 } from 'lucide-react';
 import { calculateLocationMatch } from '../../data/locationData';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
@@ -35,6 +36,7 @@ export default function MobileProfileDetailSheet({
   onClose,
   onToggleInterest,
   onRequestSendInterest,
+  onAcceptInterest,
   isInterested,
   onToggleShortlist,
   isShortlisted,
@@ -55,7 +57,7 @@ export default function MobileProfileDetailSheet({
   const isContactUnlocked = Boolean(currentUser?.unlockedContacts?.includes(profile?.id));
   const contactCredits = currentUser?.contactCredits ?? 0;
 
-  const { status: interestStatus, isAccepted: isCallingUnlocked } = useInterestStatus(currentUser, profile);
+  const { status: interestStatus, isAccepted: isCallingUnlocked, isIncoming } = useInterestStatus(currentUser, profile);
   const [callAuthAlert, setCallAuthAlert] = useState(null);
 
   // Clean slate on profile change to eliminate lingering state from previous profile sessions
@@ -1526,19 +1528,37 @@ export default function MobileProfileDetailSheet({
         {/* Connect / Live Instant Message Button */}
         <button
           onClick={() => {
-            if (onRequestSendInterest) {
+            if (isCallingUnlocked) {
+              onStartChat?.(profile.id);
+            } else if (isIncoming && onAcceptInterest) {
+              onAcceptInterest(profile.id);
+            } else if (onRequestSendInterest) {
               onRequestSendInterest(profile);
             } else {
               onToggleInterest(profile.id);
             }
           }}
           className={`flex-1 py-3 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 ${
-            isInterested 
-              ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
-              : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] shadow-[#D4AF37]/30'
+            isCallingUnlocked
+              ? 'bg-emerald-600 text-white shadow-emerald-600/20'
+              : isIncoming
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                : isInterested 
+                  ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
+                  : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] shadow-[#D4AF37]/30'
           }`}
         >
-          {isInterested ? (
+          {isCallingUnlocked ? (
+            <>
+              <CheckCheck className="w-4 h-4 text-emerald-100" />
+              <span className="truncate">Connected ✨</span>
+            </>
+          ) : isIncoming ? (
+            <>
+              <Check className="w-4 h-4 stroke-[3]" />
+              <span className="truncate">Accept Interest</span>
+            </>
+          ) : isInterested ? (
             <>
               <Check className="w-4 h-4 stroke-[3]" />
               <span className="truncate">Interest Sent</span>

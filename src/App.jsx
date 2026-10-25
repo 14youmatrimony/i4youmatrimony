@@ -2119,8 +2119,8 @@ export default function App() {
           recipientId: targetId,
           recipientEmail: profile.email,
           type: 'interest_received',
-          title: `💖 New Matrimonial Interest from ${currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'A Candidate'}!`,
-          message: `${currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'A Candidate'} reviewed your profile on I 4 You and expressed interest in connecting with you.`,
+          title: `💖 New Matrimonial Interest from ${(currentUser?.name && !['verified member', 'a verified member', 'member'].includes(currentUser.name.toLowerCase().trim())) ? currentUser.name : 'A Candidate'}!`,
+          message: `${(currentUser?.name && !['verified member', 'a verified member', 'member'].includes(currentUser.name.toLowerCase().trim())) ? currentUser.name : 'A Candidate'} reviewed your profile on I 4 You and expressed interest in connecting with you.`,
           senderName: currentUser?.name,
           senderPhoto: currentUser?.photo,
           profileLink: 'https://i4youmatrimony.com/app'
@@ -2394,8 +2394,8 @@ export default function App() {
         recipientId: targetId,
         recipientEmail: profile.email,
         type: 'interest_received',
-        title: `💖 Matrimonial Interest from ${currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'A Candidate'}!`,
-        message: customMessage || `${currentUser?.name && currentUser.name !== 'Verified Member' ? currentUser.name : 'A Candidate'} reviewed your profile on I 4 You and expressed interest in connecting with you.`,
+        title: `💖 Matrimonial Interest from ${(currentUser?.name && !['verified member', 'a verified member', 'member'].includes(currentUser.name.toLowerCase().trim())) ? currentUser.name : 'A Candidate'}!`,
+        message: customMessage || `${(currentUser?.name && !['verified member', 'a verified member', 'member'].includes(currentUser.name.toLowerCase().trim())) ? currentUser.name : 'A Candidate'} reviewed your profile on I 4 You and expressed interest in connecting with you.`,
         senderName: currentUser?.name,
         senderPhoto: currentUser?.photo,
         profileLink: 'https://i4youmatrimony.com/app'

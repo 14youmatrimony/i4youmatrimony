@@ -313,52 +313,115 @@ export default function MobileInterestsScreen({
                 You haven't sent any interests yet. Explore matches to connect!
               </div>
             ) : (
-              sentProfiles.map(p => (
-                <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 flex items-center justify-between gap-3 shadow-sm">
-                  <div className="flex items-center space-x-3 min-w-0" onClick={() => onSelectProfile(p)}>
-                    <img 
-                      src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
-                      alt={p.name} 
-                      draggable={false}
-                      onDragStart={(e) => e.preventDefault()}
-                      onError={(e) => {
-                        const fallback = String(p.gender).toLowerCase() === 'male'
-                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
-                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-                        if (e.currentTarget.src !== fallback) {
-                          e.currentTarget.src = fallback;
-                        }
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        if (screenshotRestricted) triggerScreenshotBlock('right-click');
-                      }}
-                      className="w-12 h-12 rounded-full object-cover ring-2 ring-[#DFB76C] select-none photo-protected" 
-                    />
-                    <div className="min-w-0">
-                      <h4 className="font-serif font-bold text-sm text-slate-900 truncate">{p.name}</h4>
-                      <p className="text-[11px] text-slate-500">{p.profession}</p>
-                      <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">Interest Sent • Pending Reply</p>
+              sentProfiles.map(p => {
+                const isAccepted = Boolean(
+                  isProfileInList(p, acceptedInterests) ||
+                  p.interestStatus === 'accepted' ||
+                  interestService.getRelationshipStatusSync(currentUser, p) === 'accepted'
+                );
+
+                return (
+                  <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 flex items-center justify-between gap-3 shadow-sm">
+                    <div className="flex items-center space-x-3 min-w-0 cursor-pointer" onClick={() => onSelectProfile(p)}>
+                      <img 
+                        src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
+                        alt={p.name} 
+                        draggable={false}
+                        onDragStart={(e) => e.preventDefault()}
+                        onError={(e) => {
+                          const fallback = String(p.gender).toLowerCase() === 'male'
+                            ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
+                            : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+                          if (e.currentTarget.src !== fallback) {
+                            e.currentTarget.src = fallback;
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          if (screenshotRestricted) triggerScreenshotBlock('right-click');
+                        }}
+                        className="w-12 h-12 rounded-full object-cover ring-2 ring-[#DFB76C] select-none photo-protected" 
+                      />
+                      <div className="min-w-0">
+                        <h4 className="font-serif font-bold text-sm text-slate-900 truncate">{p.name}</h4>
+                        <p className="text-[11px] text-slate-500">{p.profession}</p>
+                        {isAccepted ? (
+                          <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
+                            <CheckCheck className="w-3.5 h-3.5" />
+                            <span>Accepted • Calls Unlocked ✨</span>
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">Interest Sent • Pending Reply</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      {isAccepted ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onStartAudioCall?.(p);
+                            }}
+                            className="p-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 active:scale-95 transition-all shadow-xs cursor-pointer"
+                            title="Start Audio Call"
+                          >
+                            <Phone className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onStartVideoCall?.(p);
+                            }}
+                            className="p-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 active:scale-95 transition-all shadow-xs cursor-pointer"
+                            title="Start Video Call"
+                          >
+                            <Video className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onStartChat?.(p.id);
+                            }}
+                            className="p-2 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 border border-blue-200 active:scale-95 transition-all shadow-xs cursor-pointer"
+                            title="Send Message"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onStartChat?.(p.id);
+                            }}
+                            className="p-2 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100"
+                            title="Message"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleInterest(p.id);
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl border border-rose-200 text-rose-600 text-[10px] font-bold"
+                          >
+                            Withdraw
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex items-center space-x-1.5 shrink-0">
-                    <button
-                      onClick={() => onStartChat(p.id)}
-                      className="p-2 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100"
-                      title="Message"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => onToggleInterest(p.id)}
-                      className="px-2.5 py-1.5 rounded-xl border border-rose-200 text-rose-600 text-[10px] font-bold"
-                    >
-                      Withdraw
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </>
         )}
@@ -395,68 +458,120 @@ export default function MobileInterestsScreen({
                 </p>
               </div>
             ) : (
-              receivedProfiles.map(p => (
-                <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-3 shadow-sm transition-all hover:border-amber-300">
-                  <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onSelectProfile(p)}>
-                    <img 
-                      src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
-                      alt={p.name} 
-                      draggable={false}
-                      onDragStart={(e) => e.preventDefault()}
-                      onError={(e) => {
-                        const fallback = String(p.gender).toLowerCase() === 'male'
-                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
-                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-                        if (e.currentTarget.src !== fallback) {
-                          e.currentTarget.src = fallback;
-                        }
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        if (screenshotRestricted) triggerScreenshotBlock('right-click');
-                      }}
-                      className="w-14 h-14 rounded-2xl object-cover ring-2 ring-[#DFB76C] select-none photo-protected" 
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-1.5">
-                        <h4 className="font-serif font-bold text-sm text-slate-900 truncate">{p.name}</h4>
-                        {p.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+              receivedProfiles.map(p => {
+                const isAccepted = Boolean(
+                  p.interestStatus === 'accepted' ||
+                  isProfileInList(p, acceptedInterests) ||
+                  interestService.getRelationshipStatusSync(currentUser, p) === 'accepted'
+                );
+
+                return (
+                  <div key={p.id || p.interestId} className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-3 shadow-sm transition-all hover:border-amber-300">
+                    <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onSelectProfile(p)}>
+                      <img 
+                        src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
+                        alt={p.name} 
+                        draggable={false}
+                        onDragStart={(e) => e.preventDefault()}
+                        onError={(e) => {
+                          const fallback = String(p.gender).toLowerCase() === 'male'
+                            ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
+                            : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+                          if (e.currentTarget.src !== fallback) {
+                            e.currentTarget.src = fallback;
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          if (screenshotRestricted) triggerScreenshotBlock('right-click');
+                        }}
+                        className="w-14 h-14 rounded-2xl object-cover ring-2 ring-[#DFB76C] select-none photo-protected" 
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-1.5">
+                          <h4 className="font-serif font-bold text-sm text-slate-900 truncate">{p.name}</h4>
+                          {p.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                        </div>
+                        <p className="text-[11px] text-slate-500">{p.age} yrs • {p.district || p.city}{p.state ? `, ${p.state}` : ''}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{p.profession || 'Professional'}{p.education ? ` • ${p.education}` : ''}</p>
+                        <p className="text-[11px] font-bold text-[#8C6D1F] mt-0.5">{p.gunasMatch || '28/36 Gunas'} ({p.matchScore || 88}% Milan)</p>
                       </div>
-                      <p className="text-[11px] text-slate-500">{p.age} yrs • {p.district || p.city}{p.state ? `, ${p.state}` : ''}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{p.profession || 'Professional'}{p.education ? ` • ${p.education}` : ''}</p>
-                      <p className="text-[11px] font-bold text-[#8C6D1F] mt-0.5">{p.gunasMatch || '28/36 Gunas'} ({p.matchScore || 88}% Milan)</p>
                     </div>
-                  </div>
 
-                  {p.interestMessage && (
-                    <div className="bg-amber-50/80 border border-amber-200/70 rounded-xl p-2.5 text-xs text-amber-950 italic flex items-start gap-1.5">
-                      <span className="text-amber-500 font-bold not-italic text-sm leading-none">“</span>
-                      <span className="flex-1 not-italic text-[11px] text-slate-700 leading-snug">{p.interestMessage}</span>
-                      <span className="text-amber-500 font-bold not-italic text-sm leading-none">”</span>
-                    </div>
-                  )}
+                    {p.interestMessage && (
+                      <div className="bg-amber-50/80 border border-amber-200/70 rounded-xl p-2.5 text-xs text-amber-950 italic flex items-start gap-1.5">
+                        <span className="text-amber-500 font-bold not-italic text-sm leading-none">“</span>
+                        <span className="flex-1 not-italic text-[11px] text-slate-700 leading-snug">{p.interestMessage}</span>
+                        <span className="text-amber-500 font-bold not-italic text-sm leading-none">”</span>
+                      </div>
+                    )}
 
-                  <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => handleAccept(p.id)}
-                      className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
-                    >
-                      <Check className="w-4 h-4 stroke-[3]" />
-                      <span>Accept Interest</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDecline(p.id, p.name)}
-                      className="px-4 py-2 rounded-xl border-2 border-rose-500 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 font-bold text-xs flex items-center justify-center space-x-1.5 transition-all cursor-pointer shadow-xs"
-                      title="Decline Interest"
-                    >
-                      <X className="w-4 h-4 stroke-[2.8]" />
-                      <span>Decline</span>
-                    </button>
+                    {isAccepted ? (
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                          <CheckCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>Connected • Calls Unlocked ✨</span>
+                        </div>
+                        <div className="flex items-center space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onStartAudioCall?.(p);
+                            }}
+                            className="p-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-xs cursor-pointer"
+                            title="Start Audio Call"
+                          >
+                            <Phone className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onStartVideoCall?.(p);
+                            }}
+                            className="p-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all shadow-xs cursor-pointer"
+                            title="Start Video Call"
+                          >
+                            <Video className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onStartChat?.(p.id);
+                            }}
+                            className="p-2 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 border border-blue-200 active:scale-95 transition-all shadow-xs cursor-pointer"
+                            title="Message"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => handleAccept(p.id)}
+                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Check className="w-4 h-4 stroke-[3]" />
+                          <span>Accept Interest</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDecline(p.id, p.name)}
+                          className="px-4 py-2 rounded-xl border-2 border-rose-500 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 font-bold text-xs flex items-center justify-center space-x-1.5 transition-all cursor-pointer shadow-xs"
+                          title="Decline Interest"
+                        >
+                          <X className="w-4 h-4 stroke-[2.8]" />
+                          <span>Decline</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
 
             {/* Declined Requests Section with Undo / Reconsider */}
