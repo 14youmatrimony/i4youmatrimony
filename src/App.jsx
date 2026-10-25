@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile } from './services/api';
+import { addCacheBuster } from './utils/cacheBuster';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { uploadProfilePhoto } from './services/storageService';
 import { logoutUser, persistUserSession } from './services/authService';
@@ -556,8 +557,8 @@ export default function App() {
   const lastProfilesSyncRef = useRef(0);
   const syncLiveProfiles = useCallback(async (force = false) => {
     const now = Date.now();
-    if (!force && now - lastProfilesSyncRef.current < 60000) {
-      return; // Cooldown: skip redundant fetch within 60 seconds
+    if (!force && now - lastProfilesSyncRef.current < 4000) {
+      return; // Cooldown: skip redundant fetch within 4 seconds
     }
     lastProfilesSyncRef.current = now;
     try {
@@ -579,10 +580,116 @@ export default function App() {
     purgeDemoProfilesFromSupabase().catch(() => {});
   }, []);
 
+  // Realtime subscription and state revalidation across all users, tabs, and devices
   useEffect(() => {
     syncLiveProfiles(true);
 
-    // Auto-refresh when user/admin switches window or tab gains focus (throttled)
+    // 1. Supabase PostgreSQL Realtime changes
+    let realtimeChannel = null;
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        realtimeChannel = supabase
+          .channel('realtime_profiles_sync')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'profiles' },
+            (payload) => {
+              console.log('[Realtime Profiles Event]:', payload?.eventType, payload?.new?.id);
+              if (payload?.new) {
+                const mapped = mapSupabaseRowToProfile(payload.new);
+                if (mapped) {
+                  setProfiles(prev => {
+                    if (!Array.isArray(prev)) return [mapped];
+                    const uid = mapped.id;
+                    const regId = mapped.registerId || mapped.register_id;
+                    const exists = prev.some(p => p.id === uid || (regId && (p.registerId === regId || p.register_id === regId)));
+                    if (exists) {
+                      return prev.map(p => (p.id === uid || (regId && (p.registerId === regId || p.register_id === regId))) ? { ...p, ...mapped } : p);
+                    }
+                    return [mapped, ...prev];
+                  });
+
+                  // If updated profile is current user, keep current user reactive
+                  setCurrentUser(prev => {
+                    if (!prev) return prev;
+                    if (prev.id === mapped.id || (mapped.registerId && prev.registerId === mapped.registerId) || (mapped.phone && prev.phone === mapped.phone)) {
+                      const merged = { ...prev, ...mapped };
+                      try { localStorage.setItem('i4u_auth_user', JSON.stringify(merged)); } catch (e) {}
+                      return merged;
+                    }
+                    return prev;
+                  });
+                }
+              }
+              syncLiveProfiles(true);
+            }
+          )
+          .on(
+            'broadcast',
+            { event: 'profile_updated' },
+            (event) => {
+              console.log('[Realtime Broadcast Profile Sync]:', event);
+              syncLiveProfiles(true);
+            }
+          )
+          .subscribe();
+      } catch (rtErr) {
+        console.warn('[Realtime Profiles Init Warning]:', rtErr);
+      }
+    }
+
+    // 2. Cross-tab & Multi-window BroadcastChannel synchronization
+    const handleBroadcastSync = (event) => {
+      const data = event.data;
+      if (data && (data.type === 'PROFILE_UPDATED' || data.profile)) {
+        const updated = data.profile;
+        const uid = data.userId || updated?.id;
+        if (updated) {
+          setProfiles(prev => {
+            if (!Array.isArray(prev)) return prev;
+            return prev.map(p => (p.id === uid || (updated.registerId && p.registerId === updated.registerId) || (updated.phone && p.phone === updated.phone)) ? { ...p, ...updated } : p);
+          });
+          setCurrentUser(prev => {
+            if (!prev) return prev;
+            if (prev.id === uid || (updated.registerId && prev.registerId === updated.registerId) || (updated.phone && prev.phone === updated.phone)) {
+              const merged = { ...prev, ...updated };
+              try { localStorage.setItem('i4u_auth_user', JSON.stringify(merged)); } catch (e) {}
+              return merged;
+            }
+            return prev;
+          });
+        }
+      }
+    };
+
+    if (profileSyncChannel) {
+      profileSyncChannel.addEventListener('message', handleBroadcastSync);
+    }
+
+    // 3. Same-window custom event listener
+    const handleLocalSync = (e) => {
+      const detail = e.detail;
+      if (detail?.profile) {
+        const updated = detail.profile;
+        const uid = detail.userId || updated?.id;
+        setProfiles(prev => {
+          if (!Array.isArray(prev)) return prev;
+          return prev.map(p => (p.id === uid || (updated.registerId && p.registerId === updated.registerId) || (updated.phone && p.phone === updated.phone)) ? { ...p, ...updated } : p);
+        });
+        setCurrentUser(prev => {
+          if (!prev) return prev;
+          if (prev.id === uid || (updated.registerId && prev.registerId === updated.registerId) || (updated.phone && prev.phone === updated.phone)) {
+            const merged = { ...prev, ...updated };
+            try { localStorage.setItem('i4u_auth_user', JSON.stringify(merged)); } catch (e) {}
+            return merged;
+          }
+          return prev;
+        });
+      }
+    };
+    window.addEventListener('i4u_profile_updated', handleLocalSync);
+
+    // 4. Auto-refresh when user/admin switches window or tab gains focus (responsive 4s throttle)
     const handleFocus = () => syncLiveProfiles(false);
     window.addEventListener('focus', handleFocus);
     const handleVisibility = () => {
@@ -590,10 +697,17 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
-    // Periodic background sync every 120s to conserve bandwidth and prevent egress spikes
-    const interval = setInterval(() => syncLiveProfiles(true), 120000);
+    // Periodic background sync every 60s
+    const interval = setInterval(() => syncLiveProfiles(true), 60000);
 
     return () => {
+      if (realtimeChannel && supabase) {
+        try { supabase.removeChannel(realtimeChannel); } catch (e) {}
+      }
+      if (profileSyncChannel) {
+        profileSyncChannel.removeEventListener('message', handleBroadcastSync);
+      }
+      window.removeEventListener('i4u_profile_updated', handleLocalSync);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(interval);
@@ -2545,7 +2659,8 @@ export default function App() {
   // Centralized robust profile photo updater (syncs state, localStorage, match profiles, Supabase & Storage)
   const handlePhotoUpdateAction = useCallback(async (photosData) => {
     if (!photosData) return;
-    const primaryPhoto = photosData.photo || photosData.singlePhotos?.[0] || currentUser?.photo;
+    const rawPhoto = photosData.photo || photosData.singlePhotos?.[0] || currentUser?.photo;
+    const primaryPhoto = addCacheBuster(rawPhoto, Date.now());
 
     // 1. Immediately update reactive state for currentUser
     let updatedUser;
@@ -2668,6 +2783,52 @@ export default function App() {
       }
     } catch (err) {
       console.warn('[handlePhotoUpdateAction] updateLivePhotos error:', err);
+    }
+  }, [currentUser, showToast]);
+
+  // Centralized robust profile data updater (syncs state, localStorage, match profiles, Supabase & PostgreSQL backend)
+  const handleProfileUpdateAction = useCallback(async (updatedData) => {
+    if (!updatedData) return;
+
+    let updatedUser;
+    setCurrentUser(prev => {
+      const base = prev || {};
+      updatedUser = {
+        ...base,
+        ...updatedData
+      };
+      try {
+        localStorage.setItem('i4u_auth_user', JSON.stringify(updatedUser));
+      } catch (e) {}
+      return updatedUser;
+    });
+
+    setProfiles(prevProfiles => {
+      if (!Array.isArray(prevProfiles)) return prevProfiles;
+      const uid = updatedData.id || currentUser?.id;
+      const regId = updatedData.registerId || updatedData.register_id || currentUser?.registerId;
+      const phone = updatedData.phone || updatedData.mobile || currentUser?.phone;
+      const updated = prevProfiles.map(p => {
+        if (p && ((uid && p.id === uid) || (regId && (p.registerId === regId || p.register_id === regId)) || (phone && (p.phone === phone || p.mobile === phone)))) {
+          return { ...p, ...updatedData };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('i4u_cached_profiles', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    showToast('Profile updated successfully! ✨');
+
+    const identifier = updatedData.id || updatedData.registerId || updatedData.register_id || currentUser?.id || currentUser?.registerId || updatedData.phone;
+    if (identifier) {
+      try {
+        await updateLiveUserProfile(identifier, updatedData);
+      } catch (err) {
+        console.warn('[handleProfileUpdateAction] updateLiveUserProfile error:', err);
+      }
     }
   }, [currentUser, showToast]);
 
@@ -3380,17 +3541,7 @@ export default function App() {
                 isOpen={isEditProfileModalOpen}
                 currentUser={currentUser}
                 onClose={() => setIsEditProfileModalOpen(false)}
-                onProfileUpdated={(updatedProfile) => {
-                  setCurrentUser(prev => {
-                    const base = prev || {};
-                    const merged = { ...base, ...updatedProfile };
-                    try {
-                      localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
-                    } catch (e) {}
-                    return merged;
-                  });
-                  showToast('Profile updated and saved to Supabase! ✨');
-                }}
+                onProfileUpdated={handleProfileUpdateAction}
               />
             )}
 
@@ -3785,6 +3936,7 @@ export default function App() {
               photoManagerTab={photoManagerTab}
               setPhotoManagerTab={setPhotoManagerTab}
               onUpdatePhotos={handlePhotoUpdateAction}
+              onUpdateProfile={handleProfileUpdateAction}
               isThemeSettingsOpen={isThemeSettingsOpen}
               setIsThemeSettingsOpen={setIsThemeSettingsOpen}
               handleStartChat={handleStartChat}
@@ -4299,18 +4451,7 @@ export default function App() {
                 showToast(`Location set to ${loc.district} Dist., ${loc.state}`);
               }}
               onUpdatePhotos={handlePhotoUpdateAction}
-              onUpdateProfile={(updated) => {
-                setCurrentUser(prev => {
-                  const base = prev || {};
-                  const merged = { ...base, ...updated };
-                  try {
-                    localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
-                  } catch (e) {}
-                  return merged;
-                });
-                setProfiles(prev => prev.map(p => (p.id === updated.id || (updated.phone && (p.phone === updated.phone || p.mobile === updated.phone))) ? { ...p, ...updated } : p));
-                showToast('Profile updated successfully! ✨');
-              }}
+              onUpdateProfile={handleProfileUpdateAction}
               onLoginSuccess={handleLoginSuccess}
               onRegistrationComplete={(regData) => {
                 if (regData?.aadhaarVerified) {

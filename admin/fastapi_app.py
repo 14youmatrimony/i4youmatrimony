@@ -391,6 +391,228 @@ def get_sent_interests(
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
+@app.post("/api/public/update-photos")
+async def fastapi_update_photos(request: Request):
+    """Updates candidate profile photo(s) and name directly in PostgreSQL database."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    user_id = data.get('userId') or data.get('id') or data.get('registerId') or data.get('register_id')
+    raw_phone = (data.get('phone') or data.get('mobile') or '').strip()
+    name = (data.get('name') or data.get('userName') or data.get('fullName') or '').strip()
+    photo = data.get('photo') or data.get('photo_url')
+    single_photos = data.get('singlePhotos') or data.get('single_photos') or []
+    family_photos = data.get('familyPhotos') or data.get('family_photos') or []
+
+    if not photo and single_photos:
+        for p in single_photos:
+            if p and 'unsplash.com' not in p:
+                photo = p
+                break
+        if not photo and len(single_photos) > 0:
+            photo = single_photos[0]
+
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    try:
+        import time, json
+        from datetime import datetime
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        target_id = None
+        if user_id:
+            cursor.execute("SELECT id FROM profiles WHERE id = ? OR register_id = ?", (str(user_id).strip(), str(user_id).strip()))
+            row = cursor.fetchone()
+            if row:
+                target_id = row['id']
+
+        if not target_id:
+            target_id = user_id or f"p_{int(time.time() * 1000)}"
+
+        sp_json = json.dumps(single_photos) if isinstance(single_photos, list) else single_photos
+        fp_json = json.dumps(family_photos) if isinstance(family_photos, list) else family_photos
+
+        updates = []
+        params = []
+        if name:
+            updates.append("name = ?")
+            params.append(name)
+        if photo:
+            updates.append("photo = ?")
+            params.append(photo)
+            updates.append("photo_url = ?")
+            params.append(photo)
+        if sp_json:
+            updates.append("single_photos = ?")
+            params.append(sp_json)
+        if fp_json:
+            updates.append("family_photos = ?")
+            params.append(fp_json)
+        if 'hidePhotos' in data:
+            updates.append("hide_photos = ?")
+            params.append(1 if data['hidePhotos'] else 0)
+        if 'photoVisibility' in data:
+            updates.append("photo_visibility = ?")
+            params.append(data['photoVisibility'])
+
+        updates.append("updated_at = ?")
+        params.append(now_str)
+
+        update_fields_sql = ", ".join(updates)
+        cursor.execute(f"UPDATE profiles SET {update_fields_sql} WHERE id = ?", tuple(params + [target_id]))
+        conn.commit()
+
+        cursor.execute("SELECT * FROM profiles WHERE id = ?", (target_id,))
+        p_row = database.dict_from_row(cursor.fetchone()) if hasattr(database, 'dict_from_row') else dict(cursor.fetchone() or {})
+        conn.close()
+
+        return {
+            "success": True,
+            "message": "Photos synchronized live with PostgreSQL database",
+            "photo": p_row.get('photo'),
+            "photo_url": p_row.get('photo_url'),
+            "name": p_row.get('name'),
+            "user": p_row
+        }
+    except Exception as e:
+        conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/public/update-profile")
+@app.put("/api/public/update-profile")
+async def fastapi_update_profile(request: Request):
+    """Updates candidate profile data (name, photo, details) directly in PostgreSQL database."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    user_id = data.get('userId') or data.get('id') or data.get('registerId') or data.get('register_id')
+    raw_phone = (data.get('phone') or data.get('mobile') or '').strip()
+    name = (data.get('name') or data.get('userName') or data.get('fullName') or '').strip()
+
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    try:
+        import json
+        from datetime import datetime
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        target_id = None
+        if user_id:
+            cursor.execute("SELECT id FROM profiles WHERE id = ? OR register_id = ?", (str(user_id).strip(), str(user_id).strip()))
+            row = cursor.fetchone()
+            if row:
+                target_id = row['id']
+
+        if not target_id and raw_phone:
+            cursor.execute("SELECT id FROM profiles WHERE phone = ?", (raw_phone,))
+            row = cursor.fetchone()
+            if row:
+                target_id = row['id']
+
+        if not target_id:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Candidate profile not found")
+
+        updates = []
+        params = []
+        if name:
+            updates.append("name = ?")
+            params.append(name)
+        if 'age' in data and data['age']:
+            try:
+                updates.append("age = ?")
+                params.append(int(data['age']))
+            except (ValueError, TypeError):
+                pass
+        if 'gender' in data and data['gender']:
+            updates.append("gender = ?")
+            params.append(data['gender'])
+        if 'height' in data and data['height']:
+            updates.append("height = ?")
+            params.append(data['height'])
+        if 'skinColour' in data or 'skin_colour' in data:
+            updates.append("skin_colour = ?")
+            params.append(data.get('skinColour') or data.get('skin_colour'))
+
+        photo = data.get('photo') or data.get('photo_url')
+        if photo:
+            updates.append("photo = ?")
+            params.append(photo)
+            updates.append("photo_url = ?")
+            params.append(photo)
+
+        if 'singlePhotos' in data or 'single_photos' in data:
+            sp = data.get('singlePhotos') or data.get('single_photos')
+            sp_json = json.dumps(sp) if isinstance(sp, list) else sp
+            updates.append("single_photos = ?")
+            params.append(sp_json)
+
+        if 'familyPhotos' in data or 'family_photos' in data:
+            fp = data.get('familyPhotos') or data.get('family_photos')
+            fp_json = json.dumps(fp) if isinstance(fp, list) else fp
+            updates.append("family_photos = ?")
+            params.append(fp_json)
+
+        for col, keys in [
+            ('religion', ['religion']),
+            ('caste', ['caste']),
+            ('mother_tongue', ['motherTongue', 'mother_tongue']),
+            ('state', ['state']),
+            ('city', ['city']),
+            ('district', ['district']),
+            ('education', ['education']),
+            ('education_category', ['educationCategory', 'education_category']),
+            ('profession', ['profession']),
+            ('company', ['company']),
+            ('annual_income', ['annualIncome', 'annual_income']),
+            ('diet', ['diet']),
+            ('manglik', ['manglik']),
+            ('about', ['about', 'aboutBio']),
+            ('marital_status', ['maritalStatus', 'marital_status']),
+            ('body_type', ['bodyType', 'body_type']),
+            ('partner_expectations', ['partnerExpectations', 'partner_expectations'])
+        ]:
+            for k in keys:
+                if k in data and data[k] is not None:
+                    updates.append(f"{col} = ?")
+                    params.append(str(data[k]))
+                    break
+
+        if 'hidePhotos' in data:
+            updates.append("hide_photos = ?")
+            params.append(1 if data['hidePhotos'] else 0)
+        if 'photoVisibility' in data:
+            updates.append("photo_visibility = ?")
+            params.append(data['photoVisibility'])
+
+        updates.append("updated_at = ?")
+        params.append(now_str)
+
+        update_fields_sql = ", ".join(updates)
+        cursor.execute(f"UPDATE profiles SET {update_fields_sql} WHERE id = ?", tuple(params + [target_id]))
+        conn.commit()
+
+        cursor.execute("SELECT * FROM profiles WHERE id = ?", (target_id,))
+        p_row = database.dict_from_row(cursor.fetchone()) if hasattr(database, 'dict_from_row') else dict(cursor.fetchone() or {})
+        conn.close()
+
+        return {
+            "success": True,
+            "message": "Profile updated successfully in PostgreSQL database",
+            "user": p_row
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/health")
 def api_health():
     """System health check and database engine metadata."""

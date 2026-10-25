@@ -67,7 +67,7 @@ ALLOWED_PROFILE_UPDATE_FIELDS = {
     'aadhaar_status', 'aadhaar_rejection_reason',
     'about', 'marital_status', 'partner_expectations', 'family_details',
     'body_type', 'smoking', 'drinking', 'hobbies', 'single_photos', 'family_photos',
-    'photo_url'
+    'photo_url', 'hide_photos', 'photo_visibility', 'blur_photos'
 }
 
 # Sensitive Customer PII Fields that must ALWAYS be encrypted at rest in SQLite
@@ -1500,13 +1500,18 @@ def update_profile_secure(profile_id: str, updates: Dict[str, Any]) -> bool:
         elif field in ('native_address',):
             val = sanitize_text(val, max_length=250) if val else None
             val = encrypt_customer_data(val) if val else None
-        elif field in ('photo', 'aadhaar_front_image', 'aadhaar_back_image'):
+        elif field in ('photo', 'photo_url', 'aadhaar_front_image', 'aadhaar_back_image'):
             # Allow base64 data URIs or standard URLs without truncating
             val = str(val).strip() if val else None
             if val and len(val) > 15000000:
                 val = val[:15000000]
-        elif field in ('age', 'match_score', 'verified', 'aadhaar_verified', 'govt_id_verified'):
+        elif field in ('single_photos', 'family_photos'):
+            # JSON arrays of photo URLs or base64 strings
+            val = json.dumps(val) if isinstance(val, (list, dict)) else (str(val).strip() if val else None)
+        elif field in ('age', 'match_score', 'verified', 'aadhaar_verified', 'govt_id_verified', 'hide_photos'):
             val = int(val) if val is not None else 0
+        elif field in ('about', 'partner_expectations', 'family_details', 'hobbies'):
+            val = sanitize_text(val, max_length=2500) if val else None
         else:
             val = sanitize_text(val, max_length=250) if val else None
 

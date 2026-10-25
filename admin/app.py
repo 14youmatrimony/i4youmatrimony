@@ -255,12 +255,37 @@ def find_profile_by_phone_or_name(phone_to_find, name_to_find, cursor):
     return None
 
 def optimize_profile_image_urls(u):
-    """Replaces huge base64 data URIs with streaming HTTP endpoints to keep JSON responses fast and lightweight."""
+    """Replaces huge base64 data URIs with streaming HTTP endpoints and adds cache-busting timestamps."""
     if not u or not isinstance(u, dict):
         return u
     uid = u.get('id')
     if not uid:
         return u
+
+    # Cache busting timestamp derived from updated_at or current time
+    up_at = u.get('updated_at')
+    ts = None
+    if isinstance(up_at, datetime):
+        ts = int(up_at.timestamp() * 1000)
+    elif up_at:
+        try:
+            ts = int(datetime.fromisoformat(str(up_at).replace('Z', '+00:00')).timestamp() * 1000)
+        except Exception:
+            ts = int(time.time() * 1000)
+    else:
+        ts = int(time.time() * 1000)
+
+    def append_cb(img_url):
+        if not img_url or not isinstance(img_url, str):
+            return img_url
+        clean_u = img_url.strip()
+        if clean_u.startswith('data:') or clean_u.startswith('blob:'):
+            return clean_u
+        if 't=' in clean_u:
+            import re
+            return re.sub(r'([?&])t=\d+', r'\g<1>t=' + str(ts), clean_u)
+        sep = '&' if '?' in clean_u else '?'
+        return f"{clean_u}{sep}t={ts}"
 
     # Parse single_photos JSON string if present
     sp = u.get('single_photos')
@@ -292,23 +317,35 @@ def optimize_profile_image_urls(u):
     if back and str(back).startswith('data:image/'):
         u['aadhaar_back_image'] = f"/api/users/{uid}/aadhaar-back"
 
-    # Optimize single photos urls
+    # Optimize and cache-bust single photos urls
     optimized_sp = []
     for idx, p_url in enumerate(u.get('single_photos') or []):
         if p_url and str(p_url).startswith('data:image/'):
-            optimized_sp.append(f"/api/users/{uid}/gallery/single/{idx}")
+            optimized_sp.append(append_cb(f"/api/users/{uid}/gallery/single/{idx}"))
         elif p_url:
-            optimized_sp.append(p_url)
+            optimized_sp.append(append_cb(p_url))
     u['single_photos'] = optimized_sp
 
-    # Optimize family photos urls
+    # Optimize and cache-bust family photos urls
     optimized_fp = []
     for idx, f_url in enumerate(u.get('family_photos') or []):
         if f_url and str(f_url).startswith('data:image/'):
-            optimized_fp.append(f"/api/users/{uid}/gallery/family/{idx}")
+            optimized_fp.append(append_cb(f"/api/users/{uid}/gallery/family/{idx}"))
         elif f_url:
-            optimized_fp.append(f_url)
+            optimized_fp.append(append_cb(f_url))
     u['family_photos'] = optimized_fp
+
+    # Apply cache-busting to primary photo and document urls
+    if u.get('photo'):
+        u['photo'] = append_cb(u['photo'])
+    if u.get('photo_url'):
+        u['photo_url'] = append_cb(u['photo_url'])
+    else:
+        u['photo_url'] = u.get('photo')
+    if u.get('aadhaar_front_image'):
+        u['aadhaar_front_image'] = append_cb(u['aadhaar_front_image'])
+    if u.get('aadhaar_back_image'):
+        u['aadhaar_back_image'] = append_cb(u['aadhaar_back_image'])
 
     # Compute authentic photo presence
     has_real = False
@@ -385,21 +422,30 @@ def api_public_profiles():
 
     profiles = []
     for r in rows:
+        optimize_profile_image_urls(r)
+        sp = r.get('single_photos')
+        if not sp or not isinstance(sp, list):
+            sp = [r['photo']] if r.get('photo') else []
+        fp = r.get('family_photos')
+        if not fp or not isinstance(fp, list):
+            fp = ['https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800']
+
         p = {
             'id': r['id'],
+            'registerId': r.get('register_id') or r['id'],
+            'register_id': r.get('register_id') or r['id'],
             'name': r['name'],
             'age': r['age'],
             'gender': r['gender'],
             'height': r['height'] or "5'6\"",
             'skinColour': r['skin_colour'] or 'Fair',
-            'photo': r['photo'] or 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
+            'photo': r.get('photo') or r.get('photo_url') or 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
+            'photo_url': r.get('photo_url') or r.get('photo'),
             'coverPhoto': 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200',
-            'singlePhotos': [
-                r['photo'] or 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800'
-            ],
-            'familyPhotos': [
-                'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800'
-            ],
+            'singlePhotos': sp,
+            'familyPhotos': fp,
+            'hidePhotos': bool(r.get('hide_photos')),
+            'photoVisibility': r.get('photo_visibility') or 'all',
             'verified': bool(r['verified'] or r['aadhaar_verified'] or r['govt_id_verified']) if r.get('aadhaar_status') != 'sent_back' else False,
             'governmentIdVerified': bool(r['govt_id_verified']) if r.get('aadhaar_status') != 'sent_back' else False,
             'aadhaarVerified': bool(r.get('aadhaar_status') == 'approved' or (r.get('aadhaar_verified') and r.get('aadhaar_status') != 'sent_back')),
@@ -430,6 +476,7 @@ def api_public_profiles():
                 'siblings': '1 Sibling'
             },
             'status': r['status'],
+            'updated_at': str(r.get('updated_at')) if r.get('updated_at') else None,
             'aadhaar_status': r.get('aadhaar_status') or ('approved' if r.get('aadhaar_verified') else 'pending'),
             'aadhaarStatus': r.get('aadhaar_status') or ('approved' if r.get('aadhaar_verified') else 'pending'),
             'aadhaar_rejection_reason': r.get('aadhaar_rejection_reason'),
@@ -1532,28 +1579,28 @@ def api_public_verify_aadhaar():
 
 @app.route('/api/public/update-photos', methods=['POST'])
 def api_public_update_photos():
-    """Updates candidate profile photo(s) from mobile photo manager."""
+    """Updates candidate profile photo(s) and name from mobile photo manager."""
     data = request.get_json() or {}
-    user_id = data.get('userId') or data.get('id')
+    user_id = data.get('userId') or data.get('id') or data.get('registerId') or data.get('register_id')
     raw_phone = (data.get('phone') or data.get('mobile') or '').strip()
-    name = (data.get('name') or data.get('userName') or '').strip()
-    photo = data.get('photo')
-    single_photos = data.get('singlePhotos') or []
-    family_photos = data.get('familyPhotos') or []
+    name = (data.get('name') or data.get('userName') or data.get('fullName') or '').strip()
+    photo = data.get('photo') or data.get('photo_url')
+    single_photos = data.get('singlePhotos') or data.get('single_photos') or []
+    family_photos = data.get('familyPhotos') or data.get('family_photos') or []
 
     if not photo and single_photos:
         for p in single_photos:
             if p and 'unsplash.com' not in p:
                 photo = p
                 break
-        if not photo:
+        if not photo and len(single_photos) > 0:
             photo = single_photos[0]
 
     aadhaar_front = data.get('aadhaar_front_image') or data.get('frontDocumentPreview')
     aadhaar_back = data.get('aadhaar_back_image') or data.get('backDocumentPreview')
 
-    if not photo and not aadhaar_front and not aadhaar_back and not single_photos and not family_photos:
-        return jsonify({'error': 'No photo or document provided'}), 400
+    if not photo and not aadhaar_front and not aadhaar_back and not single_photos and not family_photos and not name:
+        return jsonify({'error': 'No update fields provided'}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1562,7 +1609,7 @@ def api_public_update_photos():
 
         target_id = None
         if user_id:
-            cursor.execute("SELECT id FROM profiles WHERE id = ?", (user_id,))
+            cursor.execute("SELECT id FROM profiles WHERE id = ? OR register_id = ?", (str(user_id).strip(), str(user_id).strip()))
             row = cursor.fetchone()
             if row:
                 target_id = row['id']
@@ -1570,14 +1617,19 @@ def api_public_update_photos():
         if not target_id:
             target_id = find_profile_by_phone_or_name(raw_phone, name, cursor)
 
-        sp_json = json.dumps(single_photos) if single_photos else None
-        fp_json = json.dumps(family_photos) if family_photos else None
+        sp_json = json.dumps(single_photos) if isinstance(single_photos, list) else single_photos
+        fp_json = json.dumps(family_photos) if isinstance(family_photos, list) else family_photos
 
         if target_id:
             updates = []
             params = []
+            if name:
+                updates.append("name = ?")
+                params.append(name)
             if photo:
                 updates.append("photo = ?")
+                params.append(photo)
+                updates.append("photo_url = ?")
                 params.append(photo)
             if sp_json:
                 updates.append("single_photos = ?")
@@ -1585,6 +1637,12 @@ def api_public_update_photos():
             if fp_json:
                 updates.append("family_photos = ?")
                 params.append(fp_json)
+            if 'hidePhotos' in data:
+                updates.append("hide_photos = ?")
+                params.append(1 if data['hidePhotos'] else 0)
+            if 'photoVisibility' in data:
+                updates.append("photo_visibility = ?")
+                params.append(data['photoVisibility'])
             if aadhaar_front:
                 updates.append("aadhaar_front_image = ?")
                 params.append(aadhaar_front)
@@ -1604,12 +1662,12 @@ def api_public_update_photos():
             enc_phone = encrypt_customer_data(raw_phone) if raw_phone else None
             cursor.execute("""
                 INSERT INTO profiles (
-                    id, name, phone, photo, single_photos, family_photos,
+                    id, name, phone, photo, photo_url, single_photos, family_photos,
                     aadhaar_front_image, aadhaar_back_image, status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
             """, (
                 actual_id, name or 'Verified Candidate', enc_phone or raw_phone,
-                photo, sp_json, fp_json, aadhaar_front, aadhaar_back, now_str, now_str
+                photo, photo, sp_json, fp_json, aadhaar_front, aadhaar_back, now_str, now_str
             ))
             conn.commit()
 
@@ -1621,10 +1679,145 @@ def api_public_update_photos():
         return jsonify({
             'success': True,
             'photo': p_row.get('photo'),
+            'photo_url': p_row.get('photo_url'),
+            'name': p_row.get('name'),
             'singlePhotos': p_row.get('single_photos'),
             'familyPhotos': p_row.get('family_photos'),
+            'user': p_row,
             'updated': True,
-            'message': 'Photos synchronized live with database'
+            'message': 'Profile data and photos synchronized live with PostgreSQL database'
+        })
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/public/update-profile', methods=['POST', 'PUT'])
+def api_public_update_profile():
+    """Updates candidate profile data (name, photo, details) from mobile or web app directly to PostgreSQL."""
+    data = request.get_json() or {}
+    user_id = data.get('userId') or data.get('id') or data.get('registerId') or data.get('register_id')
+    raw_phone = (data.get('phone') or data.get('mobile') or '').strip()
+    name = (data.get('name') or data.get('userName') or data.get('fullName') or '').strip()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        target_id = None
+        if user_id:
+            cursor.execute("SELECT id FROM profiles WHERE id = ? OR register_id = ?", (str(user_id).strip(), str(user_id).strip()))
+            row = cursor.fetchone()
+            if row:
+                target_id = row['id']
+
+        if not target_id and raw_phone:
+            target_id = find_profile_by_phone_or_name(raw_phone, name, cursor)
+
+        if not target_id:
+            conn.close()
+            return jsonify({'error': 'Candidate profile not found'}), 404
+
+        updates = []
+        params = []
+        if name:
+            updates.append("name = ?")
+            params.append(name)
+        if 'email' in data and data['email']:
+            updates.append("email = ?")
+            params.append(encrypt_customer_data(data['email'].strip()))
+        if raw_phone:
+            updates.append("phone = ?")
+            params.append(encrypt_customer_data(raw_phone))
+        if 'age' in data and data['age']:
+            try:
+                updates.append("age = ?")
+                params.append(int(data['age']))
+            except (ValueError, TypeError):
+                pass
+        if 'gender' in data and data['gender']:
+            updates.append("gender = ?")
+            params.append(data['gender'])
+        if 'height' in data and data['height']:
+            updates.append("height = ?")
+            params.append(data['height'])
+        if 'skinColour' in data or 'skin_colour' in data:
+            updates.append("skin_colour = ?")
+            params.append(data.get('skinColour') or data.get('skin_colour'))
+        
+        photo = data.get('photo') or data.get('photo_url')
+        if photo:
+            updates.append("photo = ?")
+            params.append(photo)
+            updates.append("photo_url = ?")
+            params.append(photo)
+
+        if 'singlePhotos' in data or 'single_photos' in data:
+            sp = data.get('singlePhotos') or data.get('single_photos')
+            sp_json = json.dumps(sp) if isinstance(sp, list) else sp
+            updates.append("single_photos = ?")
+            params.append(sp_json)
+
+        if 'familyPhotos' in data or 'family_photos' in data:
+            fp = data.get('familyPhotos') or data.get('family_photos')
+            fp_json = json.dumps(fp) if isinstance(fp, list) else fp
+            updates.append("family_photos = ?")
+            params.append(fp_json)
+
+        for col, keys in [
+            ('religion', ['religion']),
+            ('caste', ['caste']),
+            ('mother_tongue', ['motherTongue', 'mother_tongue']),
+            ('state', ['state']),
+            ('city', ['city']),
+            ('district', ['district']),
+            ('education', ['education']),
+            ('education_category', ['educationCategory', 'education_category']),
+            ('profession', ['profession']),
+            ('company', ['company']),
+            ('annual_income', ['annualIncome', 'annual_income']),
+            ('diet', ['diet']),
+            ('manglik', ['manglik']),
+            ('about', ['about', 'aboutBio']),
+            ('marital_status', ['maritalStatus', 'marital_status']),
+            ('body_type', ['bodyType', 'body_type']),
+            ('partner_expectations', ['partnerExpectations', 'partner_expectations'])
+        ]:
+            for k in keys:
+                if k in data and data[k] is not None:
+                    updates.append(f"{col} = ?")
+                    params.append(str(data[k]))
+                    break
+
+        if 'nativeAddress' in data or 'native_address' in data:
+            na = (data.get('nativeAddress') or data.get('native_address') or '').strip()
+            if na:
+                updates.append("native_address = ?")
+                params.append(encrypt_customer_data(na))
+
+        if 'hidePhotos' in data:
+            updates.append("hide_photos = ?")
+            params.append(1 if data['hidePhotos'] else 0)
+        if 'photoVisibility' in data:
+            updates.append("photo_visibility = ?")
+            params.append(data['photoVisibility'])
+
+        updates.append("updated_at = ?")
+        params.append(now_str)
+
+        update_fields_sql = ", ".join(updates)
+        cursor.execute(f"UPDATE profiles SET {update_fields_sql} WHERE id = ?", tuple(params + [target_id]))
+        conn.commit()
+
+        cursor.execute("SELECT * FROM profiles WHERE id = ?", (target_id,))
+        p_row = dict_from_row(cursor.fetchone())
+        conn.close()
+        optimize_profile_image_urls(p_row)
+
+        return jsonify({
+            'success': True,
+            'message': 'Profile updated successfully in PostgreSQL database',
+            'user': p_row
         })
     except Exception as e:
         conn.close()
@@ -2297,7 +2490,10 @@ def serve_data_uri_or_redirect(img_val, default_fallback=None):
                 return redirect(default_fallback)
             return (f'Failed to render image: {str(e)}', 500)
 
-    return redirect(str(img_val))
+    res = redirect(str(img_val))
+    res.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    res.headers['Pragma'] = 'no-cache'
+    return res
 
 @app.route('/api/users/<id>/photo', methods=['GET'])
 def api_user_photo(id):

@@ -7,6 +7,14 @@ import { INITIAL_PROFILES } from '../data/mockProfiles.js';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { uploadProfilePhoto } from './storageService';
 import { optimizeBase64String } from '../utils/imageOptimizer';
+import { addCacheBuster } from '../utils/cacheBuster';
+
+/**
+ * Cross-tab & Multi-window BroadcastChannel for instant profile data synchronization
+ */
+export const profileSyncChannel = typeof window !== 'undefined' && window.BroadcastChannel
+  ? new BroadcastChannel('i4u_profile_sync')
+  : null;
 
 /**
  * Compresses base64 images in browser using offscreen canvas to prevent large database payload bottlenecks
@@ -359,6 +367,7 @@ export function mapSupabaseRowToProfile(r) {
   const defaultMale = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800';
   const defaultFemale = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
   const defaultFallback = String(r.gender).toLowerCase() === 'male' ? defaultMale : defaultFemale;
+  const profileTimestamp = r.updated_at || r.created_at || null;
 
   const sanitizeUrl = (u) => {
     if (!u || typeof u !== 'string') return null;
@@ -367,7 +376,7 @@ export function mapSupabaseRowToProfile(r) {
     if (str.includes('ejtkrilhntdbsiavugta.supabase.co') || str.includes('pheqzsfrwhjxspaaroea.supabase.co')) {
       str = str.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://kzvdzospvgzlfkkptadl.supabase.co');
     }
-    return str;
+    return addCacheBuster(str, profileTimestamp);
   };
 
   let singlePhotos = [];
@@ -962,63 +971,68 @@ export async function verifyLiveAadhaar(aadhaarData) {
 export async function updateLivePhotos(photoData) {
   const profileId = photoData.id || photoData.userId || photoData.registerId || photoData.register_id;
   const targetId = profileId || photoData.phone || photoData.mobile;
+  const cleanId = targetId ? String(targetId).trim() : null;
+
+  let photo = await compressBase64Image(photoData.photo, 800, 0.82);
+
+  // Attempt to upload avatar to Supabase Storage for permanent public URL
+  if (photo && (photo.startsWith('data:') || photo.startsWith('blob:'))) {
+    try {
+      const uploadRes = await uploadProfilePhoto(photo, cleanId || 'user', 'avatars');
+      if (uploadRes && uploadRes.success && uploadRes.publicUrl) {
+        photo = uploadRes.publicUrl;
+      }
+    } catch (uploadErr) {
+      console.warn('[updateLivePhotos] Supabase storage upload fallback:', uploadErr);
+    }
+  }
+
+  // Apply cache-busting timestamp (Cloudflare R2 / Supabase Storage / CDN)
+  if (photo) {
+    photo = addCacheBuster(photo, Date.now());
+  }
+
+  let singlePhotos = photoData.singlePhotos;
+  let finalSinglePhotos = Array.isArray(singlePhotos) ? [...singlePhotos] : [];
+  if (Array.isArray(singlePhotos)) {
+    const compressed = await Promise.all(
+      singlePhotos.map(p => (typeof p === 'string' && p.startsWith('data:image')) ? compressBase64Image(p, 1080, 0.8) : p)
+    );
+    // Ensure index 0 matches primary photo if primary photo became a storage publicUrl
+    if (photo && compressed.length > 0 && compressed[0] !== photo) {
+      compressed[0] = photo;
+    }
+    finalSinglePhotos = compressed.map(p => addCacheBuster(p, Date.now()));
+    singlePhotos = JSON.stringify(finalSinglePhotos);
+  }
+
+  let familyPhotos = photoData.familyPhotos;
+  if (Array.isArray(familyPhotos)) {
+    const compressedFamily = await Promise.all(
+      familyPhotos.map(p => (typeof p === 'string' && p.startsWith('data:image')) ? compressBase64Image(p, 1080, 0.8) : p)
+    );
+    familyPhotos = JSON.stringify(compressedFamily.map(p => addCacheBuster(p, Date.now())));
+  }
+
+  const payload = {
+    updated_at: new Date().toISOString()
+  };
+  if (photo) {
+    payload.photo = photo;
+    payload.photo_url = photo; // CRITICAL: BOTH photo AND photo_url MUST BE UPDATED
+  }
+  if (singlePhotos) payload.single_photos = singlePhotos;
+  if (familyPhotos) payload.family_photos = familyPhotos;
+  if (photoData.hidePhotos !== undefined) {
+    payload.hide_photos = photoData.hidePhotos ? 1 : 0;
+  }
+  if (photoData.photoVisibility !== undefined) {
+    payload.photo_visibility = photoData.photoVisibility;
+  }
 
   // 1. Direct Supabase sync
-  if (isSupabaseConfigured() && targetId) {
+  if (isSupabaseConfigured() && cleanId) {
     try {
-      const cleanId = String(targetId).trim();
-      let photo = await compressBase64Image(photoData.photo, 800, 0.82);
-
-      // Attempt to upload avatar to Supabase Storage for permanent public URL
-      if (photo && (photo.startsWith('data:') || photo.startsWith('blob:'))) {
-        try {
-          const uploadRes = await uploadProfilePhoto(photo, cleanId, 'avatars');
-          if (uploadRes && uploadRes.success && uploadRes.publicUrl) {
-            photo = uploadRes.publicUrl;
-          }
-        } catch (uploadErr) {
-          console.warn('[updateLivePhotos] Supabase storage upload fallback:', uploadErr);
-        }
-      }
-
-      let singlePhotos = photoData.singlePhotos;
-      let finalSinglePhotos = Array.isArray(singlePhotos) ? [...singlePhotos] : [];
-      if (Array.isArray(singlePhotos)) {
-        const compressed = await Promise.all(
-          singlePhotos.map(p => (typeof p === 'string' && p.startsWith('data:image')) ? compressBase64Image(p, 1080, 0.8) : p)
-        );
-        // Ensure index 0 matches primary photo if primary photo became a storage publicUrl
-        if (photo && compressed.length > 0 && compressed[0] !== photo) {
-          compressed[0] = photo;
-        }
-        finalSinglePhotos = compressed;
-        singlePhotos = JSON.stringify(compressed);
-      }
-
-      let familyPhotos = photoData.familyPhotos;
-      if (Array.isArray(familyPhotos)) {
-        const compressedFamily = await Promise.all(
-          familyPhotos.map(p => (typeof p === 'string' && p.startsWith('data:image')) ? compressBase64Image(p, 1080, 0.8) : p)
-        );
-        familyPhotos = JSON.stringify(compressedFamily);
-      }
-
-      const payload = {
-        updated_at: new Date().toISOString()
-      };
-      if (photo) {
-        payload.photo = photo;
-        payload.photo_url = photo; // CRITICAL: BOTH photo AND photo_url MUST BE UPDATED
-      }
-      if (singlePhotos) payload.single_photos = singlePhotos;
-      if (familyPhotos) payload.family_photos = familyPhotos;
-      if (photoData.hidePhotos !== undefined) {
-        payload.hide_photos = photoData.hidePhotos ? 1 : 0;
-      }
-      if (photoData.photoVisibility !== undefined) {
-        payload.photo_visibility = photoData.photoVisibility;
-      }
-
       const isRegId = cleanId.toUpperCase().startsWith('I4Y');
       let query = supabase.from('profiles').update(payload);
       if (isRegId) {
@@ -1033,51 +1047,106 @@ export async function updateLivePhotos(photoData) {
       } else {
         console.log('[Supabase Photo Sync Success]: Updated photos for', cleanId);
       }
-
-      // Keep local device storage in sync
-      try {
-        const saved = localStorage.getItem('i4u_auth_user');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          let parsedSingles = finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos;
-          if (typeof parsedSingles === 'string') {
-            try { parsedSingles = JSON.parse(parsedSingles); } catch(e) {}
-          }
-          const updated = {
-            ...parsed,
-            ...photoData,
-            photo: photo || photoData.photo,
-            photo_url: photo || photoData.photo,
-            singlePhotos: parsedSingles || parsed.singlePhotos
-          };
-          localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
-        }
-      } catch (e) {}
-
-      return { 
-        success: true, 
-        photo, 
-        photo_url: photo, 
-        singlePhotos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos, 
-        familyPhotos: photoData.familyPhotos 
-      };
     } catch (sbErr) {
       console.warn('[Supabase Photo Sync Warning]:', sbErr.message);
     }
   }
 
-  // 2. Notify Flask API (non-blocking fallback)
+  // 2. Always synchronize with FastAPI/Flask Backend and PostgreSQL database
   try {
-    const res = await fetch(`${API_BASE}/public/update-photos`, {
+    const backendPayload = {
+      userId: cleanId,
+      id: cleanId,
+      name: photoData.name || photoData.userName || photoData.fullName,
+      phone: photoData.phone || photoData.mobile,
+      photo: photo || photoData.photo,
+      photo_url: photo || photoData.photo,
+      singlePhotos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos,
+      familyPhotos: photoData.familyPhotos,
+      hidePhotos: photoData.hidePhotos,
+      photoVisibility: photoData.photoVisibility
+    };
+    await safeFetchJson(`${API_BASE}/public/update-photos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(photoData)
-    });
-    const data = await res.json();
-    return data;
+      body: JSON.stringify(backendPayload)
+    }, 2000);
   } catch (err) {
-    return { success: true, offline: true, ...photoData };
+    console.warn('[updateLivePhotos] Backend update-photos notification notice:', err.message);
   }
+
+  // 3. Keep local device storage in sync
+  try {
+    const saved = localStorage.getItem('i4u_auth_user');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      let parsedSingles = finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos;
+      if (typeof parsedSingles === 'string') {
+        try { parsedSingles = JSON.parse(parsedSingles); } catch(e) {}
+      }
+      const updated = {
+        ...parsed,
+        ...photoData,
+        photo: photo || photoData.photo,
+        photo_url: photo || photoData.photo,
+        singlePhotos: parsedSingles || parsed.singlePhotos
+      };
+      localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
+    }
+  } catch (e) {}
+
+  const resultObj = { 
+    success: true, 
+    photo, 
+    photo_url: photo, 
+    singlePhotos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos, 
+    familyPhotos: photoData.familyPhotos 
+  };
+
+  // 4. Broadcast instant synchronization across all tabs, windows, and realtime listeners
+  if (profileSyncChannel) {
+    try {
+      profileSyncChannel.postMessage({
+        type: 'PROFILE_UPDATED',
+        userId: cleanId,
+        photos: resultObj,
+        profile: {
+          id: cleanId,
+          photo,
+          photo_url: photo,
+          singlePhotos: resultObj.singlePhotos,
+          familyPhotos: resultObj.familyPhotos
+        }
+      });
+    } catch (e) {}
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('i4u_profile_updated', {
+      detail: {
+        userId: cleanId,
+        photos: resultObj,
+        profile: {
+          id: cleanId,
+          photo,
+          photo_url: photo,
+          singlePhotos: resultObj.singlePhotos,
+          familyPhotos: resultObj.familyPhotos
+        }
+      }
+    }));
+  }
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const syncChn = supabase.channel('profiles-realtime-sync');
+      syncChn.send({
+        type: 'broadcast',
+        event: 'profile_updated',
+        payload: { userId: cleanId, photo, photo_url: photo }
+      });
+    } catch (e) {}
+  }
+
+  return resultObj;
 }
 
 /**
@@ -1177,7 +1246,7 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
         query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
       }
 
-      const { error } = await query.select();
+      const { data, error } = await query.select();
 
       if (error) {
         console.error('[updateLiveUserProfile] Supabase update error:', error.message);
@@ -1203,19 +1272,68 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
 
       const mappedProfile = updatedRow ? mapSupabaseRowToProfile(updatedRow) : null;
 
-      // 4. Keep local session in sync so refresh never reverts
+      // 4. Always notify FastAPI/Flask Backend & PostgreSQL database
+      try {
+        const backendPayload = {
+          userId: cleanId,
+          id: cleanId,
+          ...payload,
+          ...updateData
+        };
+        await safeFetchJson(`${API_BASE}/public/update-profile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(backendPayload)
+        }, 2000);
+      } catch (backendErr) {
+        console.warn('[updateLiveUserProfile] Backend profile sync notice:', backendErr.message);
+      }
+
+      // 5. Keep local session in sync so refresh never reverts
+      let mergedUser = null;
       try {
         const currentSaved = localStorage.getItem('i4u_auth_user');
         const parsed = currentSaved ? JSON.parse(currentSaved) : {};
-        const merged = { ...parsed, ...updateData, ...(mappedProfile || {}) };
-        if (photoUrl) merged.photo = photoUrl;
-        localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
+        mergedUser = { ...parsed, ...updateData, ...(mappedProfile || {}) };
+        if (photoUrl) mergedUser.photo = photoUrl;
+        localStorage.setItem('i4u_auth_user', JSON.stringify(mergedUser));
         if (cleanId) {
           localStorage.setItem('i4u_current_user_id', cleanId);
         }
       } catch (e) {}
 
-      return { success: true, profile: mappedProfile || updateData };
+      const finalProfile = mappedProfile || mergedUser || updateData;
+
+      // 6. Broadcast instant update across all tabs, windows, and realtime subscribers
+      if (profileSyncChannel) {
+        try {
+          profileSyncChannel.postMessage({
+            type: 'PROFILE_UPDATED',
+            userId: cleanId,
+            profile: finalProfile
+          });
+        } catch (e) {}
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('i4u_profile_updated', {
+          detail: {
+            userId: cleanId,
+            profile: finalProfile
+          }
+        }));
+      }
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          const syncChn = supabase.channel('profiles-realtime-sync');
+          syncChn.send({
+            type: 'broadcast',
+            event: 'profile_updated',
+            payload: { userId: cleanId, profile: finalProfile }
+          });
+        } catch (e) {}
+      }
+
+      return { success: true, profile: finalProfile };
     } catch (err) {
       console.error('[updateLiveUserProfile] Exception:', err);
       return { success: false, error: err.message };
@@ -1229,6 +1347,24 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
     const merged = { ...parsed, ...updateData };
     if (photoUrl) merged.photo = photoUrl;
     localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
+
+    // Notify backend if reachable
+    try {
+      safeFetchJson(`${API_BASE}/public/update-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: cleanId, id: cleanId, ...updateData })
+      }, 1500).catch(() => {});
+    } catch (e) {}
+
+    // Broadcast
+    if (profileSyncChannel) {
+      try { profileSyncChannel.postMessage({ type: 'PROFILE_UPDATED', userId: cleanId, profile: merged }); } catch(e) {}
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('i4u_profile_updated', { detail: { userId: cleanId, profile: merged } }));
+    }
+
     return { success: true, profile: merged };
   } catch (e) {
     return { success: false, error: 'Could not persist profile changes' };

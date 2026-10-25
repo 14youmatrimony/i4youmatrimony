@@ -5,6 +5,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from './supabase';
+import { addCacheBuster } from '../utils/cacheBuster';
 
 /**
  * Helper to convert base64 Data URL to Blob for reliable storage uploads
@@ -101,16 +102,18 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
       return { success: false, error: uploadRes.error.message };
     }
 
-    // 2. Retrieve public URL
+    // 2. Retrieve public URL and apply cache-busting timestamp (Cloudflare R2 / Supabase Storage)
     const { data: urlData } = supabase.storage
       .from(activeBucket)
       .getPublicUrl(filePath);
 
-    const publicUrl = urlData?.publicUrl;
+    let rawPublicUrl = urlData?.publicUrl;
 
-    if (!publicUrl) {
+    if (!rawPublicUrl) {
       return { success: false, error: 'Could not generate public URL' };
     }
+
+    const publicUrl = addCacheBuster(rawPublicUrl, Date.now());
 
     // 3. Automatically persist to 'profiles' table if userId provided AND this is an avatar upload
     if (userId && bucketName === 'avatars') {
@@ -136,7 +139,7 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
       }
     }
 
-    return { success: true, publicUrl, filePath };
+    return { success: true, publicUrl, rawPublicUrl, filePath };
   } catch (err) {
     console.error('[storageService] Unexpected exception during upload:', err);
     return { success: false, error: err.message };

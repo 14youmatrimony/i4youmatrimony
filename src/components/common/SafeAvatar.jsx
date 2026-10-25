@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { addCacheBuster } from '../../utils/cacheBuster';
 
 const DEFAULT_FEMALE = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
 const DEFAULT_MALE = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400';
@@ -6,7 +7,8 @@ const DEFAULT_MALE = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f
 /**
  * SafeAvatar
  * Renders user avatar photo with automatic error fallback to gender avatar or initials.
- * Guarantees zero broken images on web or admin screens.
+ * Includes cache-busting mechanisms for Cloudflare R2 / Supabase Storage URLs so web users
+ * never see stale cached profile photos.
  */
 export default function SafeAvatar({
   src,
@@ -21,13 +23,20 @@ export default function SafeAvatar({
   const isMale = String(gender).toLowerCase() === 'male';
   const fallbackUrl = isMale ? DEFAULT_MALE : DEFAULT_FEMALE;
 
-  const [imgSrc, setImgSrc] = useState(src || fallbackUrl);
+  const resolveSafeSrc = (url) => {
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      return fallbackUrl;
+    }
+    return addCacheBuster(url);
+  };
+
+  const [imgSrc, setImgSrc] = useState(() => resolveSafeSrc(src));
   const [hasError, setHasError] = useState(!src);
 
-  // Sync if prop changes
+  // Sync reactively if prop changes
   React.useEffect(() => {
     if (src && src.trim() !== '') {
-      setImgSrc(src);
+      setImgSrc(resolveSafeSrc(src));
       setHasError(false);
     } else {
       setImgSrc(fallbackUrl);
@@ -57,6 +66,7 @@ export default function SafeAvatar({
       onClick={onClick}
     >
       <img
+        key={imgSrc}
         src={imgSrc}
         alt={alt}
         onError={handleError}
