@@ -5,7 +5,10 @@ import {
   X, 
   MessageCircle, 
   ShieldCheck,
-  Lock
+  Lock,
+  Phone,
+  Video,
+  CheckCheck
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { getTargetCandidateGender, isCandidateMatchingTarget, normalizeGender } from '../../utils/genderMatch';
@@ -17,11 +20,14 @@ export default function MobileInterestsScreen({
   currentUser,
   onOpenLogin,
   interestsSent = [],
+  acceptedInterests = [],
   onToggleInterest,
   shortlisted = [],
   onToggleShortlist,
   onSelectProfile,
   onStartChat,
+  onStartAudioCall,
+  onStartVideoCall,
   activeSegment: externalSegment,
   onSegmentChange,
   declinedReceivedIds = [],
