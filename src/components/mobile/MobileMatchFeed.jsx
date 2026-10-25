@@ -805,6 +805,13 @@ export default function MobileMatchFeed({
           /* ── Single Full Card View (1 Profile at a time - Classic) ─────────── */
           <div className="space-y-4">
             {filteredProfiles.map((profile) => {
+              const isAccepted = Boolean(
+                acceptedInterests && (
+                  acceptedInterests.includes(profile.id) ||
+                  (profile.registerId && acceptedInterests.includes(profile.registerId)) ||
+                  (profile.register_id && acceptedInterests.includes(profile.register_id))
+                )
+              );
               const isInterested = Boolean(
                 interestsSent.includes(profile.id) ||
                 (profile.registerId && interestsSent.includes(profile.registerId)) ||
@@ -977,6 +984,29 @@ export default function MobileMatchFeed({
                         <Heart className={`w-4 h-4 ${isShortlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
                       </button>
 
+                      {/* Live Audio Call Button (Unlocked if Accepted) */}
+                      {isAccepted && (
+                        <button
+                          type="button"
+                          onClick={() => onStartAudioCall?.(profile)}
+                          className="p-2.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-700 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs shrink-0"
+                          title="Start Live Audio Call"
+                        >
+                          <Phone className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {/* Live Video Call Button (Unlocked if Accepted) */}
+                      {isAccepted && (
+                        <button
+                          type="button"
+                          onClick={() => onStartVideoCall?.(profile)}
+                          className="p-2.5 rounded-full bg-indigo-50 border border-indigo-300 text-indigo-700 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs shrink-0"
+                          title="Start Live Video Call"
+                        >
+                          <Video className="w-4 h-4" />
+                        </button>
+                      )}
 
                       {/* Live Message (Chat) */}
                       <button
@@ -990,7 +1020,9 @@ export default function MobileMatchFeed({
                       {/* Live Instant Message / Connect */}
                       <button
                         onClick={() => {
-                          if (isInterested) {
+                          if (isAccepted) {
+                            onStartChat(profile.id);
+                          } else if (isInterested) {
                             onToggleInterest(profile.id);
                           } else if (onRequestSendInterest) {
                             onRequestSendInterest(profile);
@@ -999,13 +1031,20 @@ export default function MobileMatchFeed({
                           }
                         }}
                         className={`flex-1 py-2.5 px-3 rounded-full text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 ${
-                          isInterested 
-                            ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
-                            : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] text-[#0B192C] shadow-[#D4AF37]/30 hover:brightness-105 btn-luxury-shimmer'
+                          isAccepted
+                            ? 'bg-emerald-600 text-white shadow-emerald-600/20'
+                            : isInterested 
+                              ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
+                              : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] text-[#0B192C] shadow-[#D4AF37]/30 hover:brightness-105 btn-luxury-shimmer'
                         }`}
-                        title={isInterested ? "Interest Sent" : "Connect"}
+                        title={isAccepted ? "Connected • Calls Unlocked ✨" : isInterested ? "Interest Sent" : "Connect"}
                       >
-                        {isInterested ? (
+                        {isAccepted ? (
+                          <>
+                            <CheckCheck className="w-4 h-4 text-emerald-100" />
+                            <span className="truncate">Connected ✨</span>
+                          </>
+                        ) : isInterested ? (
                           <>
                             <Check className="w-4 h-4 stroke-[3]" />
                             <span className="truncate">Sent</span>
