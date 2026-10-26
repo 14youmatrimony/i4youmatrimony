@@ -1871,6 +1871,34 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         if (seen.has(notifId)) return;
         seen.add(notifId);
 
+        const isPaymentRow = row.type === 'payment_success' || row.type === 'payment' || row.type === 'payment_failed';
+
+        if (isPaymentRow) {
+          combined.push({
+            notification_id: notifId,
+            id: notifId,
+            profileId: null,
+            senderId: null,
+            sender_id: null,
+            sender_name: null,
+            sender_photo: null,
+            sender: null,
+            profile: null,
+            type: row.type || 'payment_success',
+            title: row.title || '🎉 Payment Confirmed',
+            message: row.message || 'Your payment was authorized successfully.',
+            quote: row.metadata?.quote || row.metadata?.invoiceNumber ? `GST Tax Invoice #${row.metadata.invoiceNumber}` : null,
+            badge: row.metadata?.badge || row.metadata?.planName || 'Upgraded',
+            amount: row.metadata?.amount || null,
+            invoice: row.metadata?.invoice || null,
+            is_read: Boolean(row.is_read),
+            isRead: Boolean(row.is_read),
+            status: 'completed',
+            created_at: row.created_at || new Date().toISOString()
+          });
+          return;
+        }
+
         const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.sender_id || '');
         const matched = findProfile(sId);
         const sName = sanitizeName(matched?.name) !== 'Candidate'

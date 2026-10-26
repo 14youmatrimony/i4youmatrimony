@@ -453,6 +453,10 @@ export default function MobileAppModal({
                           setIsNotificationsOpen(false);
                           handleSelectProfile(profile);
                         }}
+                        onViewInvoice={(inv) => {
+                          setIsNotificationsOpen(false);
+                          if (setActiveInvoice) setActiveInvoice(inv);
+                        }}
                         onSimulateNotification={onSimulateNotification}
                       />
 
@@ -746,6 +750,10 @@ export default function MobileAppModal({
                       onRequestSendInterest={onRequestSendInterest}
                       onToggleInterest={onToggleInterest}
                       declinedReceivedIds={declinedReceivedIds}
+                      acceptedInterests={acceptedInterests}
+                      isConnected={Boolean(
+                        (Array.isArray(acceptedInterests) && activeChatProfileId && acceptedInterests.includes(activeChatProfileId))
+                      )}
                     />
                   )}
 

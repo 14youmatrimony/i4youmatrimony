@@ -11,7 +11,10 @@ import {
   ChevronLeft, 
   Users, 
   Lock, 
-  Sparkles 
+  Sparkles,
+  Receipt,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import NotificationCard from './NotificationCard';
@@ -34,6 +37,7 @@ export default function MobileNotificationsSheet({
   onSendInterest,
   onOpenChat,
   onOpenProfile,
+  onViewInvoice,
   onSimulateNotification
 }) {
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'interest' | 'shortlist' | 'visitor' | 'contact_view' | 'message'
@@ -155,7 +159,15 @@ export default function MobileNotificationsSheet({
       clean === 'undefined';
   };
 
+  const isPaymentNotification = (n) => {
+    if (!n) return false;
+    const type = (n.type || '').toLowerCase();
+    return type === 'payment_success' || type === 'payment' || type === 'payment_failed' || type === 'payment_received' || type === 'subscription';
+  };
+
   const getProfile = (profileId, notif = null, index = 0) => {
+    // Payment notifications must NEVER map or borrow candidate profiles!
+    if (isPaymentNotification(notif)) return null;
     if (!profileId && !notif) return null;
 
     const isUserMale = (currentUser?.gender || '').toLowerCase() === 'male';
@@ -301,6 +313,14 @@ export default function MobileNotificationsSheet({
       onMarkAsRead(notifId);
     }
 
+    // Payment notifications strictly handle tax invoices/receipts, never opening candidate profiles or chats
+    if (isPaymentNotification(notif)) {
+      if (onViewInvoice && (notif.invoice || notif.invoiceNumber)) {
+        onViewInvoice(notif.invoice || notif);
+      }
+      return;
+    }
+
     // Strictly resolve target candidate user ID (never falling back to current user)
     const currentUid = String(currentUser?.id || '');
     const candidateId = notif?.senderId || 
@@ -341,6 +361,19 @@ export default function MobileNotificationsSheet({
 
   const getNotificationIcon = (type) => {
     switch (type) {
+      case 'payment':
+      case 'payment_success':
+        return (
+          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs border border-emerald-200">
+            <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600" />
+          </div>
+        );
+      case 'payment_failed':
+        return (
+          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-2xs border border-rose-200">
+            <AlertCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-600" />
+          </div>
+        );
       case 'interest':
       case 'interest_received':
         return (
@@ -388,6 +421,19 @@ export default function MobileNotificationsSheet({
 
   const getCategoryBadge = (type) => {
     switch (type) {
+      case 'payment':
+      case 'payment_success':
+        return (
+          <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-0.5">
+            <Receipt className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-emerald-600" /> Payment Confirmed
+          </span>
+        );
+      case 'payment_failed':
+        return (
+          <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200 flex items-center gap-0.5">
+            <AlertCircle className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-rose-600" /> Payment Failed
+          </span>
+        );
       case 'interest':
       case 'interest_received':
         return (
@@ -656,7 +702,8 @@ export default function MobileNotificationsSheet({
         ) : (
           filteredNotifications.map((notif, index) => {
             const uniqueKey = notif.notification_id || notif.id || `notif_${notif.senderId || notif.sender_id || index}_${notif.created_at || notif.timestamp || index}`;
-            const profile = getProfile(notif.profileId, notif, index);
+            const isPayment = isPaymentNotification(notif);
+            const profile = isPayment ? null : getProfile(notif.profileId, notif, index);
             return (
               <NotificationCard
                 key={uniqueKey}
@@ -670,6 +717,7 @@ export default function MobileNotificationsSheet({
                 onSendInterest={onSendInterest}
                 onOpenChat={onOpenChat}
                 onOpenProfile={onOpenProfile}
+                onViewInvoice={onViewInvoice}
                 onMarkAsRead={onMarkAsRead}
                 onDeleteNotification={onDeleteNotification}
                 triggerScreenshotBlock={triggerScreenshotBlock}

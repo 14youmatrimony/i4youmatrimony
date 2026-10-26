@@ -15,6 +15,19 @@ import {
   respondBackendInterest
 } from './api.js';
 
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    try {
+      return crypto.randomUUID();
+    } catch (e) {}
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 class InterestService {
   constructor() {
     this.listeners = new Set();
@@ -750,7 +763,65 @@ class InterestService {
 
           channels.push(callChn);
         } catch (e) {}
+
+        // Listen directly to Supabase Postgres row mutations for 100% reliable cross-device sync
+        try {
+          const dbChangeChn = supabase
+            .channel(`user-interests-db-${targetId}`)
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'interests' },
+              (payload) => {
+                const row = payload?.new;
+                if (!row) return;
+                const sId = String(row.sender_id || '');
+                const rId = String(row.receiver_id || '');
+                if (targetUserIds.includes(sId) || targetUserIds.includes(rId)) {
+                  console.log('[InterestService] Real-time postgres_changes event on interests:', row.status, sId, rId);
+                  const isAccepted = row.status === 'accepted';
+                  const partnerId = targetUserIds.includes(sId) ? rId : sId;
+                  const updatePayload = {
+                    event: isAccepted ? 'interest-accepted' : 'interest_status_change',
+                    status: row.status,
+                    userAId: sId,
+                    userBId: rId,
+                    senderId: sId,
+                    receiverId: rId,
+                    responderId: rId,
+                    partnerId: partnerId,
+                    timestamp: Date.now()
+                  };
+                  this.handleRealtimeStatusUpdate(updatePayload);
+                  if (onNewInterest) onNewInterest(updatePayload);
+                }
+              }
+            )
+            .subscribe();
+
+          channels.push(dbChangeChn);
+        } catch (e) {}
       });
+    }
+
+    // Direct window event listener for instant single-page sync
+    const handleWindowEvt = (e) => {
+      if (!e?.detail) return;
+      const update = e.detail;
+      const ids = [
+        update.userAId,
+        update.userBId,
+        update.senderId,
+        update.receiverId,
+        update.responderId,
+        update.partnerId
+      ].filter(Boolean).map(String);
+
+      if (targetUserIds.some(id => ids.includes(String(id)))) {
+        onNewInterest(update);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('i4u_interest_status_change', handleWindowEvt);
     }
 
     // Also listen to local status change events (in-memory + cross-tab)
@@ -772,6 +843,9 @@ class InterestService {
 
     return () => {
       unsubLocal();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('i4u_interest_status_change', handleWindowEvt);
+      }
       if (supabase && channels.length > 0) {
         channels.forEach((chn) => {
           try { supabase.removeChannel(chn); } catch (e) {}
@@ -821,17 +895,41 @@ class InterestService {
     // Save to Supabase 'interests' and 'notifications' table
     if (isSupabaseConfigured() && supabase) {
       try {
-        await supabase.from('interests').upsert([
-          {
-            sender_id: String(senderId),
-            receiver_id: String(receiverId),
-            status: 'pending',
-            message: message || '',
-            updated_at: new Date().toISOString()
-          }
-        ]);
+        const { data: existingRows } = await supabase
+          .from('interests')
+          .select('id, sender_id, receiver_id, status')
+          .or(`and(sender_id.eq."${senderId}",receiver_id.eq."${receiverId}"),and(sender_id.eq."${receiverId}",receiver_id.eq."${senderId}")`)
+          .limit(1);
+
+        if (existingRows && existingRows.length > 0) {
+          const { error: updErr } = await supabase
+            .from('interests')
+            .update({
+              sender_id: String(senderId),
+              receiver_id: String(receiverId),
+              status: 'pending',
+              message: message || '',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingRows[0].id);
+          if (updErr) console.warn('[InterestService] Supabase interests update notice:', updErr.message);
+        } else {
+          const { error: insErr } = await supabase
+            .from('interests')
+            .insert([
+              {
+                id: generateUUID(),
+                sender_id: String(senderId),
+                receiver_id: String(receiverId),
+                status: 'pending',
+                message: message || '',
+                updated_at: new Date().toISOString()
+              }
+            ]);
+          if (insErr) console.warn('[InterestService] Supabase interests insert notice:', insErr.message);
+        }
       } catch (e) {
-        console.warn('[InterestService] Supabase interests upsert notice:', e);
+        console.warn('[InterestService] Supabase interests sync notice:', e);
       }
 
       // Synchronize with secure backend (FastAPI / PostgreSQL)
@@ -848,6 +946,7 @@ class InterestService {
 
         await supabase.from('notifications').insert([
           {
+            id: generateUUID(),
             recipient_id: String(receiverId),
             recipient_register_id: receiver?.register_id || receiver?.registerId || null,
             type: 'interest_received',
@@ -939,6 +1038,11 @@ class InterestService {
     if (this.crossTabChannel) {
       try { this.crossTabChannel.postMessage(updatePayload); } catch (e) {}
     }
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new CustomEvent('i4u_interest_status_change', { detail: updatePayload.payload }));
+      } catch (e) {}
+    }
     this.notifyListeners(updatePayload.payload);
   }
 
@@ -1002,16 +1106,37 @@ class InterestService {
     // 3. Save to Supabase 'interests' and 'notifications' table
     if (isSupabaseConfigured() && supabase) {
       try {
-        await supabase.from('interests').upsert([
-          {
-            sender_id: String(senderId),
-            receiver_id: String(receiverId),
-            status: 'accepted',
-            updated_at: new Date().toISOString()
-          }
-        ]);
+        const { data: existingRows } = await supabase
+          .from('interests')
+          .select('id, sender_id, receiver_id, status')
+          .or(`and(sender_id.eq."${senderId}",receiver_id.eq."${receiverId}"),and(sender_id.eq."${receiverId}",receiver_id.eq."${senderId}")`)
+          .limit(1);
+
+        if (existingRows && existingRows.length > 0) {
+          const { error: updErr } = await supabase
+            .from('interests')
+            .update({
+              status: 'accepted',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingRows[0].id);
+          if (updErr) console.warn('[InterestService] Supabase interests accept update notice:', updErr.message);
+        } else {
+          const { error: insErr } = await supabase
+            .from('interests')
+            .insert([
+              {
+                id: generateUUID(),
+                sender_id: String(senderId),
+                receiver_id: String(receiverId),
+                status: 'accepted',
+                updated_at: new Date().toISOString()
+              }
+            ]);
+          if (insErr) console.warn('[InterestService] Supabase interests accept insert notice:', insErr.message);
+        }
       } catch (e) {
-        console.warn('[InterestService] Supabase interests upsert notice:', e);
+        console.warn('[InterestService] Supabase interests accept notice:', e);
       }
 
       // Synchronize with backend API
@@ -1021,6 +1146,7 @@ class InterestService {
       try {
         await supabase.from('notifications').insert([
           {
+            id: generateUUID(),
             recipient_id: String(senderId),
             recipient_register_id: sender?.register_id || sender?.registerId || null,
             type: 'interest_accepted',
@@ -1133,6 +1259,11 @@ class InterestService {
     if (this.crossTabChannel) {
       try { this.crossTabChannel.postMessage(updatePayload); } catch (e) {}
     }
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new CustomEvent('i4u_interest_status_change', { detail: updatePayload.payload }));
+      } catch (e) {}
+    }
     this.notifyListeners(updatePayload.payload);
   }
 
@@ -1166,14 +1297,33 @@ class InterestService {
     // Update Supabase
     if (isSupabaseConfigured() && supabase) {
       try {
-        await supabase.from('interests').upsert([
-          {
-            sender_id: String(senderId),
-            receiver_id: String(receiverId),
-            status: 'rejected',
-            updated_at: new Date().toISOString()
-          }
-        ]);
+        const { data: existingRows } = await supabase
+          .from('interests')
+          .select('id, sender_id, receiver_id, status')
+          .or(`and(sender_id.eq."${senderId}",receiver_id.eq."${receiverId}"),and(sender_id.eq."${receiverId}",receiver_id.eq."${senderId}")`)
+          .limit(1);
+
+        if (existingRows && existingRows.length > 0) {
+          await supabase
+            .from('interests')
+            .update({
+              status: 'rejected',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingRows[0].id);
+        } else {
+          await supabase
+            .from('interests')
+            .insert([
+              {
+                id: generateUUID(),
+                sender_id: String(senderId),
+                receiver_id: String(receiverId),
+                status: 'rejected',
+                updated_at: new Date().toISOString()
+              }
+            ]);
+        }
       } catch (e) {}
 
       // Synchronize with secure backend (FastAPI / PostgreSQL)
@@ -1196,6 +1346,11 @@ class InterestService {
     };
     if (this.crossTabChannel) {
       try { this.crossTabChannel.postMessage(updatePayload); } catch (e) {}
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new CustomEvent('i4u_interest_status_change', { detail: updatePayload.payload }));
+      } catch (e) {}
     }
     this.notifyListeners(updatePayload.payload);
   }
@@ -1273,11 +1428,115 @@ export function useInterestStatus(currentUser, targetProfile) {
       window.addEventListener('storage', handleStorage);
     }
 
+    // Direct window event listener for instant single-page sync
+    const handleCustomStatus = (e) => {
+      if (!isMounted || !e?.detail) return;
+      const update = e.detail;
+      const idsA = interestService.getUserIds(currentUser);
+      const idsB = interestService.getUserIds(targetProfile);
+      const updateIds = [
+        update.userAId,
+        update.userBId,
+        update.senderId,
+        update.receiverId,
+        update.responderId,
+        update.partnerId
+      ].filter(Boolean).map(String);
+
+      const match =
+        idsA.some(id => updateIds.includes(String(id))) &&
+        idsB.some(id => updateIds.includes(String(id)));
+
+      if (match) {
+        const nextStatus = update.status || 'accepted';
+        const fresh = interestService.getRelationshipDetailsSync(currentUser, targetProfile);
+        setDetails({
+          ...fresh,
+          status: nextStatus,
+          isAccepted: nextStatus === 'accepted',
+          isCallingUnlocked: nextStatus === 'accepted',
+          isPending: nextStatus === 'pending',
+          isRejected: nextStatus === 'rejected',
+          isNone: nextStatus === 'none'
+        });
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('i4u_interest_status_change', handleCustomStatus);
+    }
+
+    // Live Supabase postgres_changes listener directly on the active candidate pair
+    let pairRealtimeChannel = null;
+    if (isSupabaseConfigured() && supabase && currentUser && targetProfile) {
+      const idsA = interestService.getUserIds(currentUser);
+      const idsB = interestService.getUserIds(targetProfile);
+      const chnName = `pair-interest-${idsA[0] || 'u'}-${idsB[0] || 'p'}`;
+      try {
+        pairRealtimeChannel = supabase
+          .channel(chnName)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'interests' },
+            (payload) => {
+              const row = payload?.new;
+              if (!row) return;
+              const sId = String(row.sender_id || '');
+              const rId = String(row.receiver_id || '');
+              const matchesPair =
+                (idsA.includes(sId) && idsB.includes(rId)) ||
+                (idsA.includes(rId) && idsB.includes(sId));
+              if (matchesPair && isMounted) {
+                console.log('[useInterestStatus] Live postgres_changes update for pair:', row.status);
+                const isAcc = row.status === 'accepted';
+                const fresh = interestService.getRelationshipDetailsSync(currentUser, targetProfile);
+                setDetails({
+                  ...fresh,
+                  status: row.status,
+                  isAccepted: isAcc,
+                  isCallingUnlocked: isAcc,
+                  isPending: row.status === 'pending',
+                  isRejected: row.status === 'rejected',
+                  isNone: row.status === 'none'
+                });
+              }
+            }
+          )
+          .subscribe();
+      } catch (e) {}
+    }
+
+    // App foreground / tab focus refresh
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && isMounted) {
+        interestService.getRelationshipStatus(currentUser, targetProfile).then((st) => {
+          if (isMounted) {
+            const fresh = interestService.getRelationshipDetailsSync(currentUser, targetProfile);
+            setDetails({
+              ...fresh,
+              status: st,
+              isAccepted: st === 'accepted',
+              isCallingUnlocked: st === 'accepted'
+            });
+          }
+        });
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+
     return () => {
       isMounted = false;
       unsubscribe();
       if (typeof window !== 'undefined') {
         window.removeEventListener('storage', handleStorage);
+        window.removeEventListener('i4u_interest_status_change', handleCustomStatus);
+      }
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
+      if (pairRealtimeChannel && supabase) {
+        try { supabase.removeChannel(pairRealtimeChannel); } catch (e) {}
       }
     };
   }, [

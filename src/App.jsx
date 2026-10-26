@@ -554,6 +554,59 @@ export default function App() {
       } catch (rtErr) {
         console.warn('[Realtime Profiles Init Warning]:', rtErr);
       }
+
+      // Supabase PostgreSQL Realtime changes for Interests table
+      try {
+        realtimeInterestsChannel = supabase
+          .channel('realtime_interests_global_sync')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'interests' },
+            (payload) => {
+              const row = payload?.new;
+              if (!row) return;
+              console.log('[Realtime Interests Event]:', payload?.eventType, row.status, row.sender_id, row.receiver_id);
+              const sId = String(row.sender_id || '');
+              const rId = String(row.receiver_id || '');
+              const currentIds = currentUser ? interestService.getUserIds(currentUser) : [];
+              if (currentIds.includes(sId) || currentIds.includes(rId)) {
+                const partnerId = currentIds.includes(sId) ? rId : sId;
+                const isAccepted = row.status === 'accepted';
+                if (isAccepted) {
+                  setAcceptedInterests((prev) => {
+                    const arr = Array.isArray(prev) ? prev : [];
+                    return arr.includes(partnerId) ? arr : [...arr, partnerId];
+                  });
+                  setNotifications((prev) => (prev || []).map(n => {
+                    if (n.profileId === partnerId || n.senderId === partnerId || n.receiverId === partnerId) {
+                      return { ...n, status: 'accepted', isRead: true };
+                    }
+                    return n;
+                  }));
+                }
+                const updatePayload = {
+                  userAId: sId,
+                  userBId: rId,
+                  senderId: sId,
+                  receiverId: rId,
+                  responderId: rId,
+                  partnerId: partnerId,
+                  status: row.status,
+                  event: isAccepted ? 'interest-accepted' : 'interest_status_change'
+                };
+                interestService.handleRealtimeStatusUpdate(updatePayload);
+                if (typeof window !== 'undefined') {
+                  try {
+                    window.dispatchEvent(new CustomEvent('i4u_interest_status_change', { detail: updatePayload }));
+                  } catch (e) {}
+                }
+              }
+            }
+          )
+          .subscribe();
+      } catch (intErr) {
+        console.warn('[Realtime Interests Global Sync Warning]:', intErr);
+      }
     }
 
     // 2. Cross-tab & Multi-window BroadcastChannel synchronization
@@ -621,6 +674,9 @@ export default function App() {
     return () => {
       if (realtimeChannel && supabase) {
         try { supabase.removeChannel(realtimeChannel); } catch (e) {}
+      }
+      if (realtimeInterestsChannel && supabase) {
+        try { supabase.removeChannel(realtimeInterestsChannel); } catch (e) {}
       }
       if (profileSyncChannel) {
         profileSyncChannel.removeEventListener('message', handleBroadcastSync);
@@ -1840,13 +1896,17 @@ export default function App() {
         id: notifId,
         type: 'payment_success',
         profileId: null,
+        senderId: null,
         title: `🎉 Payment Confirmed! ${plan.name} Active`,
         message: `Your payment of ₹${invoice.totalAmount} was authorized successfully. ${plan.contactCredits === 999 ? 'Unlimited' : plan.contactCredits} contact unlocks credited!`,
         quote: `GST Tax Invoice #${invoice.invoiceNumber} generated. Full invoice available in Profile.`,
         time: 'Just now',
         isRead: false,
         status: 'completed',
-        badge: plan.name
+        badge: plan.name,
+        invoice: invoice,
+        amount: invoice.totalAmount,
+        invoiceNumber: invoice.invoiceNumber
       },
       ...prev
     ]);
@@ -3759,6 +3819,7 @@ export default function App() {
                 setIsNotificationsOpen(false);
                 handleSelectProfile(profile);
               }}
+              onViewInvoice={handleViewInvoice}
               onSimulateNotification={handleSimulateNotification}
             />
 
@@ -4177,6 +4238,7 @@ export default function App() {
                   setIsNotificationsOpen(false);
                   handleSelectProfile(profile);
                 }}
+                onViewInvoice={handleViewInvoice}
                 onSimulateNotification={handleSimulateNotification}
               />
 
@@ -4465,6 +4527,8 @@ export default function App() {
               onRequestSendInterest={handleOpenSendInterest}
               onToggleInterest={handleToggleInterest}
               declinedReceivedIds={declinedReceivedIds}
+              acceptedInterests={acceptedInterests}
+              isConnected={isProfileConnected(activeChatProfileId)}
             />
           )}
 

@@ -11,7 +11,11 @@ import {
   Eye, 
   Star, 
   Users,
-  Trash2
+  Trash2,
+  Receipt,
+  CheckCircle2,
+  AlertCircle,
+  CreditCard
 } from 'lucide-react';
 import { addCacheBuster } from '../../utils/cacheBuster';
 
@@ -32,6 +36,7 @@ export default function NotificationCard({
   onSendInterest,
   onOpenChat,
   onOpenProfile,
+  onViewInvoice,
   onMarkAsRead,
   onDeleteNotification,
   triggerScreenshotBlock,
@@ -40,7 +45,8 @@ export default function NotificationCard({
 }) {
   // Normalize notification data between simple item mode and rich notif mode
   const notif = propNotif || item || {};
-  const profile = propProfile || notif.profile || notif.sender;
+  const isPayment = notif.type === 'payment_success' || notif.type === 'payment' || notif.type === 'payment_failed' || notif.type === 'payment_received';
+  const profile = isPayment ? null : (propProfile || notif.profile || notif.sender);
   const isRead = propIsRead !== undefined ? propIsRead : Boolean(notif.isRead || notif.is_read);
   const status = notif.status || 'pending';
 
@@ -88,6 +94,9 @@ export default function NotificationCard({
 
   // Compute clean dynamic title without hardcoded or looping 'Verified Member'
   const computedTitle = (() => {
+    if (isPayment) {
+      return notif.title || '🎉 Payment Confirmed';
+    }
     if (notif.title) {
       const sanitizedTitle = notif.title.replace(/a verified member|verified member/gi, candidateName).trim();
       if (!sanitizedTitle.toLowerCase().includes('verified member')) {
@@ -108,6 +117,9 @@ export default function NotificationCard({
 
   // Compute clean dynamic message body without 'Verified Member'
   const computedMessage = (() => {
+    if (isPayment) {
+      return notif.message || notif.subtitle || 'Your payment was authorized successfully.';
+    }
     const rawMsg = notif.message || notif.subtitle || '';
     if (!rawMsg) return '';
     return rawMsg.replace(/a verified member|verified member/gi, candidateName).trim();
@@ -115,6 +127,19 @@ export default function NotificationCard({
 
   const defaultIcon = () => {
     switch (notif.type) {
+      case 'payment':
+      case 'payment_success':
+        return (
+          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs border border-emerald-200">
+            <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600" />
+          </div>
+        );
+      case 'payment_failed':
+        return (
+          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-2xs border border-rose-200">
+            <AlertCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-600" />
+          </div>
+        );
       case 'interest':
       case 'interest_received':
         return (
@@ -162,6 +187,19 @@ export default function NotificationCard({
 
   const defaultBadge = () => {
     switch (notif.type) {
+      case 'payment':
+      case 'payment_success':
+        return (
+          <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-0.5">
+            <Receipt className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-emerald-600" /> Payment Confirmed
+          </span>
+        );
+      case 'payment_failed':
+        return (
+          <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200 flex items-center gap-0.5">
+            <AlertCircle className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-rose-600" /> Payment Failed
+          </span>
+        );
       case 'interest':
       case 'interest_received':
         return (
@@ -207,8 +245,14 @@ export default function NotificationCard({
     if (onCardClick) {
       onCardClick();
     } else {
-      if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
-      if (profile && onOpenProfile) onOpenProfile(profile);
+      if (!isRead && onMarkAsRead) onMarkAsRead(notif.notification_id || notif.id);
+      if (isPayment) {
+        if (onViewInvoice && (notif.invoice || notif.invoiceNumber)) {
+          onViewInvoice(notif.invoice || notif);
+        }
+      } else if (profile && onOpenProfile) {
+        onOpenProfile(profile);
+      }
     }
   };
 
@@ -221,9 +265,11 @@ export default function NotificationCard({
           : 'bg-gradient-to-r from-amber-50/30 via-white to-orange-50/20 border-[#DFB76C]/60 shadow-xs hover:border-[#D4AF37]'
       }`}
       title={
-        notif.type === 'message_received'
-          ? 'Click to open chat and reply directly'
-          : 'Click to open candidate profile'
+        isPayment
+          ? 'Payment Confirmation & Receipt'
+          : notif.type === 'message_received'
+            ? 'Click to open chat and reply directly'
+            : 'Click to open candidate profile'
       }
     >
       {/* Unread Glowing Dot */}
@@ -262,8 +308,8 @@ export default function NotificationCard({
           </p>
         )}
 
-        {/* Candidate Mini Profile Card */}
-        {(profile || notif.sender_name || notif.sender_photo) && (
+        {/* Candidate Mini Profile Card - STRICTLY EXCLUDED for Payment Notifications */}
+        {!isPayment && (profile || notif.sender_name || notif.sender_photo) && (
           <div
             onClick={(e) => {
               e.stopPropagation();
@@ -317,8 +363,51 @@ export default function NotificationCard({
           </div>
         )}
 
-        {/* Personalized Quote / Message Preview Bubble */}
-        {notif.quote && (
+        {/* Dedicated Payment Confirmation & Tax Invoice Card */}
+        {isPayment && (
+          <div className="my-1.5 p-2.5 bg-gradient-to-r from-emerald-50/90 via-emerald-50/50 to-teal-50/60 rounded-xl border border-emerald-200 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between gap-1.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[11px] sm:text-[11.5px] font-bold text-emerald-950 block leading-tight">
+                    {notif.badge ? `${notif.badge} Membership Active` : 'Official Matrimony Upgrade'}
+                  </span>
+                  <span className="text-[9px] text-emerald-700 font-medium flex items-center gap-0.5">
+                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" /> Authorized • GST Invoice Generated
+                  </span>
+                </div>
+              </div>
+
+              {(notif.amount || notif.invoice?.totalAmount) && (
+                <div className="text-right">
+                  <span className="text-[12px] sm:text-[13px] font-extrabold text-emerald-900 block leading-tight">
+                    ₹{notif.amount || notif.invoice?.totalAmount}
+                  </span>
+                  <span className="text-[8px] sm:text-[8.5px] text-emerald-600 font-bold uppercase tracking-wider">
+                    Paid Full
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {(notif.quote || notif.invoice?.invoiceNumber) && (
+              <div className="text-[9.5px] text-slate-700 bg-white/95 p-1.5 rounded-lg border border-emerald-100 font-mono flex items-center justify-between">
+                <span className="truncate">
+                  {notif.quote || `GST Invoice #${notif.invoice?.invoiceNumber}`}
+                </span>
+                <span className="text-[8px] text-emerald-700 font-sans font-bold shrink-0 ml-1 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                  VERIFIED
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Personalized Quote / Message Preview Bubble (strictly for non-payment) */}
+        {!isPayment && notif.quote && (
           <div className="px-2 py-0.5 sm:py-1 rounded-md bg-slate-100/80 border border-slate-200/70 text-slate-600 text-[9px] sm:text-[9.5px] italic font-medium leading-snug line-clamp-2">
             "{notif.quote.replace(/^["'\s]+|["'\s]+$/g, '')}"
           </div>
@@ -326,8 +415,32 @@ export default function NotificationCard({
 
         {/* Action Buttons Row */}
         <div className="pt-1 flex flex-wrap items-center gap-1 sm:gap-1.5">
+          {/* Payment Notification Action */}
+          {isPayment && (
+            <>
+              {(notif.invoice || onViewInvoice) && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isRead && onMarkAsRead) onMarkAsRead(notif.notification_id || notif.id);
+                    if (onViewInvoice) {
+                      onViewInvoice(notif.invoice || notif);
+                    }
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                >
+                  <Receipt className="w-2.5 h-2.5" /> View Tax Invoice
+                </button>
+              )}
+              <span className="text-[9px] font-semibold text-emerald-700 ml-auto flex items-center gap-0.5">
+                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> Plan Active
+              </span>
+            </>
+          )}
+
           {/* Scenario 1: Interest Received */}
-          {(notif.type === 'interest_received' || notif.type === 'interest') && (
+          {!isPayment && (notif.type === 'interest_received' || notif.type === 'interest') && (
             <>
               {status === 'accepted' ? (
                 <div className="flex items-center space-x-1 flex-wrap gap-1">
@@ -413,7 +526,7 @@ export default function NotificationCard({
           )}
 
           {/* Scenario 2: Profile Shortlisted */}
-          {(notif.type === 'profile_shortlisted' || notif.type === 'shortlist') && (
+          {!isPayment && (notif.type === 'profile_shortlisted' || notif.type === 'shortlist') && (
             <>
               <button
                 type="button"
@@ -459,7 +572,7 @@ export default function NotificationCard({
           )}
 
           {/* Scenario 3: Contact Viewed */}
-          {(notif.type === 'contact_viewed' || notif.type === 'contact') && (
+          {!isPayment && (notif.type === 'contact_viewed' || notif.type === 'contact') && (
             <>
               {profile && onOpenProfile && (
                 <button
@@ -495,7 +608,7 @@ export default function NotificationCard({
           )}
 
           {/* Scenario 4: Message Received */}
-          {(notif.type === 'message_received' || notif.type === 'chat_message' || notif.type === 'message') && (
+          {!isPayment && (notif.type === 'message_received' || notif.type === 'chat_message' || notif.type === 'message') && (
             <>
               {profile && onOpenChat && (
                 <button

@@ -43,7 +43,9 @@ export default function MobileChatScreen({
   onStartVideoCall,
   onRequestSendInterest,
   onToggleInterest,
-  declinedReceivedIds = []
+  declinedReceivedIds = [],
+  acceptedInterests = [],
+  isConnected = false
 }) {
   const { bottomBarStyle, accent, isDarkMode } = useTheme();
   const [inConversation, setInConversation] = useState(isDirectChatOpen);
@@ -171,7 +173,39 @@ export default function MobileChatScreen({
     return [String(currentUser.id), String(partnerUser.id)].sort().join(':::');
   }, [currentUser?.id, partnerUser?.id, activeChatId]);
 
-  const { status: interestStatus, isAccepted: isCallingUnlocked } = useInterestStatus(currentUser, activeProfile);
+  const { status: interestStatus, isAccepted: hookIsCallingUnlocked } = useInterestStatus(currentUser, activeProfile);
+
+  // Multi-layered connection unlock verification (hook + prop + local persistent records)
+  const isCallingUnlocked = useMemo(() => {
+    if (hookIsCallingUnlocked || isConnected || interestStatus === 'accepted') return true;
+    if (!currentUser || !activeProfile) return false;
+    const targetUid = String(activeProfile?.id || activeProfileId || '');
+    const targetReg = String(activeProfile?.registerId || activeProfile?.register_id || '');
+    const accList = Array.isArray(acceptedInterests) ? acceptedInterests.map(String) : [];
+    if ((targetUid && accList.includes(targetUid)) || (targetReg && accList.includes(targetReg))) {
+      return true;
+    }
+    try {
+      const uId = currentUser.id;
+      const rawStored = localStorage.getItem(`i4u_accepted_interests_${uId}`) || localStorage.getItem('i4u_accepted_interests');
+      if (rawStored) {
+        const parsed = JSON.parse(rawStored);
+        if (Array.isArray(parsed) && ((targetUid && parsed.includes(targetUid)) || (targetReg && parsed.includes(targetReg)))) {
+          return true;
+        }
+      }
+      const rawPairs = localStorage.getItem('i4u_accepted_pairs');
+      if (rawPairs) {
+        const pairs = JSON.parse(rawPairs);
+        const pairKey = [String(currentUser.id), targetUid].sort().join(':::');
+        if (Array.isArray(pairs) && pairs.includes(pairKey)) {
+          return true;
+        }
+      }
+    } catch (e) {}
+    return false;
+  }, [hookIsCallingUnlocked, isConnected, interestStatus, currentUser, activeProfile, activeProfileId, acceptedInterests]);
+
   const [callAuthAlert, setCallAuthAlert] = useState(null);
 
   const handleAttemptCall = (type = 'audio') => {
