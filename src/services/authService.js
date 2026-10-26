@@ -344,12 +344,12 @@ export async function loginWithRegisterId(registerIdInput, passwordInput) {
     } catch (e) {}
   }
 
-  // If a 10-digit phone number was entered and not found in the database, strictly halt with the exact error message
+  // If a 10-digit phone number was entered and not found in the database, strictly halt with error message
   const isPhoneNumberInput = /^\d{10}$/.test(cleanInput.replace(/\D/g, ''));
   if (isPhoneNumberInput) {
     return {
       success: false,
-      error: 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല'
+      error: 'No account is registered with this number.'
     };
   }
 
@@ -427,7 +427,7 @@ export async function checkMobileAccountExists(phoneNumber) {
   // 4. Account DOES NOT EXIST in database: Strictly halt login process
   return {
     exists: false,
-    error: 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല'
+    error: 'No account is registered with this number.'
   };
 }
 
@@ -500,7 +500,7 @@ export async function loginWithMobileOtpSuccess(phoneNumber) {
   // 4. Account DOES NOT EXIST: Strictly halt login. Do NOT auto-generate any account.
   return {
     success: false,
-    error: 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല'
+    error: 'No account is registered with this number.'
   };
 }
 

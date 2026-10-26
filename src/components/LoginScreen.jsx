@@ -127,7 +127,7 @@ export default function LoginScreen({
       const accountCheck = await checkMobileAccountExists(cleanMobile);
       if (!accountCheck.exists) {
         // 3. Strictly halt login process. Do not auto-generate account. Display exact error message.
-        setError(accountCheck.error || 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല');
+        setError(accountCheck.error || 'No account is registered with this number.');
         setLoading(false);
         return;
       }
@@ -167,7 +167,7 @@ export default function LoginScreen({
       // Strict verification before resend
       const accountCheck = await checkMobileAccountExists(cleanMobile);
       if (!accountCheck.exists) {
-        setError(accountCheck.error || 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല');
+        setError(accountCheck.error || 'No account is registered with this number.');
         setOtpSent(false);
         setIsResending(false);
         return;
@@ -264,7 +264,7 @@ export default function LoginScreen({
             if (setCurrentScreen) setCurrentScreen('app');
           }, 600);
         } else {
-          setError(authRes.error || 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല');
+          setError(authRes.error || 'No account is registered with this number.');
         }
       } else {
         setError(verifyRes.error || 'Incorrect OTP entered. Please check and try again.');
@@ -299,7 +299,7 @@ export default function LoginScreen({
       // 1. Strict verification: Check if active account exists before password validation
       const accountCheck = await checkMobileAccountExists(cleanMobile);
       if (!accountCheck.exists) {
-        setError(accountCheck.error || 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല');
+        setError(accountCheck.error || 'No account is registered with this number.');
         setLoading(false);
         return;
       }
@@ -399,14 +399,7 @@ export default function LoginScreen({
         {error && (
           <div className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-start space-x-2.5 text-xs animate-in fade-in duration-200">
             <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <div className="font-semibold text-[13px] leading-snug">{error}</div>
-              {error === 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല' && (
-                <div className="text-[11px] text-red-500/90 font-normal mt-0.5">
-                  (No account is registered with this number)
-                </div>
-              )}
-            </div>
+            <div className="flex-1 font-medium">{error}</div>
           </div>
         )}
 
