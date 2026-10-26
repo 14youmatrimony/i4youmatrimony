@@ -18,7 +18,7 @@ import {
   RotateCw,
   MessageSquare
 } from 'lucide-react';
-import { loginWithRegisterId, loginWithMobileOtpSuccess } from '../services/authService';
+import { loginWithRegisterId, loginWithMobileOtpSuccess, checkMobileAccountExists } from '../services/authService';
 import { sendPhoneOtp, verifyPhoneOtp } from '../services/phoneAuth';
 
 export default function LoginScreen({ 
@@ -123,6 +123,16 @@ export default function LoginScreen({
 
     setLoading(true);
     try {
+      // 1. Strict validation: Verify active account exists in Supabase database
+      const accountCheck = await checkMobileAccountExists(cleanMobile);
+      if (!accountCheck.exists) {
+        // 3. Strictly halt login process. Do not auto-generate account. Display exact error message.
+        setError(accountCheck.error || 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Account exists: Proceed with normal OTP flow
       const res = await sendPhoneOtp(cleanMobile);
       if (res.success) {
         setConfirmationResult(res.confirmationResult);
@@ -154,6 +164,15 @@ export default function LoginScreen({
 
     const cleanMobile = (mobileNumber || '').replace(/\D/g, '').slice(-10);
     try {
+      // Strict verification before resend
+      const accountCheck = await checkMobileAccountExists(cleanMobile);
+      if (!accountCheck.exists) {
+        setError(accountCheck.error || 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല');
+        setOtpSent(false);
+        setIsResending(false);
+        return;
+      }
+
       const res = await sendPhoneOtp(cleanMobile);
       if (res.success) {
         setConfirmationResult(res.confirmationResult);
@@ -245,7 +264,7 @@ export default function LoginScreen({
             if (setCurrentScreen) setCurrentScreen('app');
           }, 600);
         } else {
-          setError(authRes.error || 'Failed to authenticate mobile account.');
+          setError(authRes.error || 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല');
         }
       } else {
         setError(verifyRes.error || 'Incorrect OTP entered. Please check and try again.');
@@ -277,6 +296,14 @@ export default function LoginScreen({
     setLoading(true);
 
     try {
+      // 1. Strict verification: Check if active account exists before password validation
+      const accountCheck = await checkMobileAccountExists(cleanMobile);
+      if (!accountCheck.exists) {
+        setError(accountCheck.error || 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല');
+        setLoading(false);
+        return;
+      }
+
       const result = await loginWithRegisterId(cleanMobile, mobilePassword);
 
       if (result.success && result.user) {
@@ -372,7 +399,14 @@ export default function LoginScreen({
         {error && (
           <div className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-start space-x-2.5 text-xs animate-in fade-in duration-200">
             <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-            <div className="flex-1 font-medium">{error}</div>
+            <div className="flex-1">
+              <div className="font-semibold text-[13px] leading-snug">{error}</div>
+              {error === 'ഈ നമ്പറിൽ ഒരു അക്കൗണ്ടും ഇതിലോട്ട് ഓപ്പൺ ആയിട്ടില്ല' && (
+                <div className="text-[11px] text-red-500/90 font-normal mt-0.5">
+                  (No account is registered with this number)
+                </div>
+              )}
+            </div>
           </div>
         )}
 

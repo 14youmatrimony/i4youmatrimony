@@ -41,6 +41,10 @@ export default function MobileInterestsScreen({
   const [liveReceivedInterests, setLiveReceivedInterests] = useState([]);
   const [isLoadingReceived, setIsLoadingReceived] = useState(false);
 
+  // Keep latest profiles available to async callbacks without triggering re-subscriptions
+  const profilesRef = useRef(profiles);
+  profilesRef.current = profiles;
+
   // Fetch received interests on component mount and subscribe to real-time incoming events
   useEffect(() => {
     if (!currentUser) return;
@@ -50,7 +54,7 @@ export default function MobileInterestsScreen({
     let isMounted = true;
     setIsLoadingReceived(true);
 
-    interestService.getReceivedInterests(currentUser, profiles)
+    interestService.getReceivedInterests(currentUser, profilesRef.current)
       .then((records) => {
         if (isMounted) {
           console.log(`Found [${records.length}] records for receiver`);
@@ -63,19 +67,68 @@ export default function MobileInterestsScreen({
         if (isMounted) setIsLoadingReceived(false);
       });
 
-    // Real-time listener for incoming interest alerts
+    // Real-time listener for incoming interest alerts with strict cleanup and state deduplication
     const unsub = interestService.subscribeToInterestInbox(currentUser, (payload) => {
+      if (!isMounted || !payload) return;
       console.log('[MobileInterestsScreen] Real-time incoming interest event received:', payload);
-      interestService.getReceivedInterests(currentUser, profiles).then((records) => {
-        if (isMounted) setLiveReceivedInterests(records);
+
+      const incomingInterestId = payload.interest_id || payload.interestId || payload.id;
+      const incomingSenderId = payload.senderId || payload.sender_id;
+
+      setLiveReceivedInterests((prev) => {
+        const prevArr = Array.isArray(prev) ? prev : [];
+
+        // Check if an interest with this interest_id or senderId already exists in the state array
+        const exists = prevArr.some((r) => {
+          const rIntId = r.interest_id || r.interestId || r.id;
+          const rSenderId = r.senderId || r.sender_id;
+          if (incomingInterestId && rIntId && String(incomingInterestId) === String(rIntId)) return true;
+          if (incomingSenderId && rSenderId && String(incomingSenderId) === String(rSenderId)) return true;
+          return false;
+        });
+
+        if (exists) {
+          // Deduplicate: update matching record in place instead of appending a duplicate
+          return prevArr.map((r) => {
+            const rIntId = r.interest_id || r.interestId || r.id;
+            const rSenderId = r.senderId || r.sender_id;
+            if ((incomingInterestId && rIntId && String(incomingInterestId) === String(rIntId)) ||
+                (incomingSenderId && rSenderId && String(incomingSenderId) === String(rSenderId))) {
+              return { ...r, ...payload, status: payload.status || r.status };
+            }
+            return r;
+          });
+        }
+
+        // New record: deduplicate before appending to state array
+        const newRecord = {
+          ...payload,
+          id: incomingInterestId || `interest_${incomingSenderId}_${Date.now()}`,
+          interest_id: incomingInterestId || `interest_${incomingSenderId}_${Date.now()}`,
+          interestId: incomingInterestId || `interest_${incomingSenderId}_${Date.now()}`,
+          senderId: incomingSenderId,
+          sender_id: incomingSenderId,
+          status: payload.status || 'pending',
+          created_at: payload.created_at || new Date().toISOString()
+        };
+        return [newRecord, ...prevArr];
       });
+
+      // Background sync to ensure full profile enrichment from Supabase
+      interestService.getReceivedInterests(currentUser, profilesRef.current).then((records) => {
+        if (isMounted && Array.isArray(records)) {
+          setLiveReceivedInterests(records);
+        }
+      }).catch(() => {});
     });
 
     return () => {
       isMounted = false;
-      unsub();
+      if (typeof unsub === 'function') {
+        unsub();
+      }
     };
-  }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId, profiles]);
+  }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
 
   const activeSegment = externalSegment !== undefined ? externalSegment : internalSegment;
   const setActiveSegment = (seg) => {
@@ -138,23 +191,65 @@ export default function MobileInterestsScreen({
     );
   };
 
-  const sentProfiles = oppositeGenderProfiles.filter(p => isProfileInList(p, interestsSent));
-  const shortlistedProfiles = oppositeGenderProfiles.filter(p => isProfileInList(p, shortlisted));
+  const sentProfiles = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    (oppositeGenderProfiles || []).forEach(p => {
+      if (!p || !isProfileInList(p, interestsSent)) return;
+      const pid = String(p.id || '');
+      const regId = String(p.registerId || p.register_id || '');
+      if (pid && seen.has(pid)) return;
+      if (regId && seen.has(regId)) return;
+      if (pid) seen.add(pid);
+      if (regId) seen.add(regId);
+      list.push(p);
+    });
+    return list;
+  }, [oppositeGenderProfiles, interestsSent]);
+
+  const shortlistedProfiles = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    (oppositeGenderProfiles || []).forEach(p => {
+      if (!p || !isProfileInList(p, shortlisted)) return;
+      const pid = String(p.id || '');
+      const regId = String(p.registerId || p.register_id || '');
+      if (pid && seen.has(pid)) return;
+      if (regId && seen.has(regId)) return;
+      if (pid) seen.add(pid);
+      if (regId) seen.add(regId);
+      list.push(p);
+    });
+    return list;
+  }, [oppositeGenderProfiles, shortlisted]);
 
   // Build real received candidate profiles from live backend query
   const receivedProfiles = useMemo(() => {
     const list = [];
-    const seenIds = new Set();
+    const seenCandidateIds = new Set();
+    const seenInterestIds = new Set();
 
     // 1. Process live received interests from Supabase / interestService
     if (Array.isArray(liveReceivedInterests) && liveReceivedInterests.length > 0) {
       liveReceivedInterests.forEach((rec) => {
+        if (!rec) return;
         const sid = String(rec.senderId || rec.sender_id || '');
+        const interestId = String(rec.interest_id || rec.interestId || rec.id || '');
         if (!sid || rec.status === 'rejected') return;
         // Never allow currentUser to be considered as sender (prevents state overlap!)
         if (isSelfProfile({ id: sid })) return;
         if (Array.isArray(effectiveDeclinedIds) && effectiveDeclinedIds.some(id => String(id) === sid)) return;
         if (Array.isArray(interestsSent) && interestsSent.some(id => String(id) === sid) && rec.status !== 'pending') return;
+
+        // Deduplicate by interest_id
+        if (interestId && !interestId.startsWith('loc_') && seenInterestIds.has(interestId)) {
+          return;
+        }
+
+        // Deduplicate by candidate / sender ID
+        if (seenCandidateIds.has(sid)) {
+          return;
+        }
 
         // Lookup profile in all profiles (strictly excluding currentUser!)
         const matching = profiles.find((p) =>
@@ -199,20 +294,23 @@ export default function MobileInterestsScreen({
           state: base.state || senderData?.state || '',
           photo: base.photo || base.avatar || senderData?.photo || senderData?.avatar || defaultAvatar,
           interestMessage: rec.message || '',
-          interestId: rec.id,
+          interestId: rec.interest_id || rec.interestId || rec.id,
+          interest_id: rec.interest_id || rec.interestId || rec.id,
           interestStatus: rec.status || 'pending',
           interestCreatedAt: rec.created_at || rec.createdAt
         };
 
-        if (!seenIds.has(String(item.id))) {
-          seenIds.add(String(item.id));
-          list.push(item);
-        }
+        seenCandidateIds.add(sid);
+        if (base.id) seenCandidateIds.add(String(base.id));
+        if (base.register_id) seenCandidateIds.add(String(base.register_id));
+        if (base.registerId) seenCandidateIds.add(String(base.registerId));
+        if (interestId) seenInterestIds.add(interestId);
+        list.push(item);
       });
     }
 
     return list;
-  }, [liveReceivedInterests, profiles, effectiveDeclinedIds, interestsSent, oppositeGenderProfiles]);
+  }, [liveReceivedInterests, profiles, effectiveDeclinedIds, interestsSent, isMaleUser]);
 
   const declinedProfiles = oppositeGenderProfiles.filter(p => effectiveDeclinedIds.includes(p.id));
 

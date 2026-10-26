@@ -674,10 +674,13 @@ class InterestService {
       };
 
       const notifUniqueId = rec.notification_id || `interest_${rec.id || senderId}_${receiverId}`;
+      const resolvedInterestId = rec.id || rec.interest_id || rec.interestId || notifUniqueId;
 
       return {
         id: notifUniqueId,
         notification_id: notifUniqueId,
+        interest_id: resolvedInterestId,
+        interestId: resolvedInterestId,
         sender_id: senderId,
         receiver_id: receiverId,
         senderId,
@@ -696,8 +699,35 @@ class InterestService {
       };
     });
 
-    console.log(`Found [${enriched.length}] records for receiver`);
-    return enriched;
+    // Deduplicate incoming received interest records by interest_id and sender_id
+    const seenInterestIds = new Set();
+    const seenSenderIds = new Set();
+    const deduplicatedEnriched = [];
+
+    for (const item of enriched) {
+      if (!item) continue;
+      const intId = String(item.interest_id || item.id || '');
+      const sId = String(item.sender_id || item.senderId || '');
+      const sRegId = String(item.sender?.register_id || item.sender?.registerId || '');
+
+      if (intId && !intId.startsWith('loc_') && !intId.startsWith('interest_') && seenInterestIds.has(intId)) {
+        continue;
+      }
+      if (sId && seenSenderIds.has(sId)) {
+        continue;
+      }
+      if (sRegId && seenSenderIds.has(sRegId)) {
+        continue;
+      }
+
+      if (intId) seenInterestIds.add(intId);
+      if (sId) seenSenderIds.add(sId);
+      if (sRegId) seenSenderIds.add(sRegId);
+      deduplicatedEnriched.push(item);
+    }
+
+    console.log(`Found [${deduplicatedEnriched.length}] records for receiver`);
+    return deduplicatedEnriched;
   }
 
   /**
@@ -710,8 +740,34 @@ class InterestService {
     if (!targetUserIds.length) return () => {};
 
     const channels = [];
+    const processedEvents = new Map();
 
-    if (isSupabaseConfigured() && supabase) {
+    // Deduplicate rapid duplicate/looping events (e.g. from multiple channels / cross-tab echo)
+    const emitEvent = (update) => {
+      if (!update || !onNewInterest) return;
+      const intId = update.interest_id || update.interestId || update.id;
+      const sId = update.senderId || update.sender_id || update.userAId;
+      const rId = update.receiverId || update.receiver_id || update.userBId;
+      const status = update.status || 'pending';
+      const event = update.event || '';
+      const sig = `${intId || `${sId}->${rId}`}:${status}:${event}`;
+      const now = Date.now();
+      if (processedEvents.has(sig) && (now - processedEvents.get(sig) < 1500)) {
+        return; // Suppress duplicate event within 1.5s
+      }
+      processedEvents.set(sig, now);
+      if (processedEvents.size > 80) {
+        for (const [k, t] of processedEvents.entries()) {
+          if (now - t > 6000) processedEvents.delete(k);
+        }
+      }
+      onNewInterest(update);
+    };
+
+    if (isSupabaseConfigured() && supabase && typeof supabase.channel === 'function') {
+      const subId = generateUUID().slice(0, 8);
+      const primaryId = targetUserIds[0];
+
       targetUserIds.forEach((targetId) => {
         try {
           const chn = supabase.channel(`user-interest-inbox-${targetId}`, {
@@ -722,21 +778,21 @@ class InterestService {
             .on('broadcast', { event: 'interest-received' }, ({ payload }) => {
               if (payload) {
                 console.log('[InterestService] Real-time interest received:', payload);
-                onNewInterest({ ...payload, event: 'interest-received', status: payload.status || 'pending' });
+                emitEvent({ ...payload, event: 'interest-received', status: payload.status || 'pending' });
               }
             })
             .on('broadcast', { event: 'interest-accepted' }, ({ payload }) => {
               if (payload) {
                 console.log('[InterestService] Real-time interest accepted:', payload);
                 this.handleRealtimeStatusUpdate(payload);
-                onNewInterest({ ...payload, event: 'interest-accepted', status: 'accepted' });
+                emitEvent({ ...payload, event: 'interest-accepted', status: 'accepted' });
               }
             })
             .on('broadcast', { event: 'interest-rejected' }, ({ payload }) => {
               if (payload) {
                 console.log('[InterestService] Real-time interest rejected:', payload);
                 this.handleRealtimeStatusUpdate(payload);
-                onNewInterest({ ...payload, event: 'interest-rejected', status: 'rejected' });
+                emitEvent({ ...payload, event: 'interest-rejected', status: 'rejected' });
               }
             })
             .subscribe();
@@ -756,51 +812,54 @@ class InterestService {
               if (payload) {
                 console.log('[InterestService] Real-time call inbox interest-accepted:', payload);
                 this.handleRealtimeStatusUpdate(payload);
-                onNewInterest({ ...payload, event: 'interest-accepted', status: 'accepted' });
+                emitEvent({ ...payload, event: 'interest-accepted', status: 'accepted' });
               }
             })
             .subscribe();
 
           channels.push(callChn);
         } catch (e) {}
-
-        // Listen directly to Supabase Postgres row mutations for 100% reliable cross-device sync
-        try {
-          const dbChangeChn = supabase
-            .channel(`user-interests-db-${targetId}`)
-            .on(
-              'postgres_changes',
-              { event: '*', schema: 'public', table: 'interests' },
-              (payload) => {
-                const row = payload?.new;
-                if (!row) return;
-                const sId = String(row.sender_id || '');
-                const rId = String(row.receiver_id || '');
-                if (targetUserIds.includes(sId) || targetUserIds.includes(rId)) {
-                  console.log('[InterestService] Real-time postgres_changes event on interests:', row.status, sId, rId);
-                  const isAccepted = row.status === 'accepted';
-                  const partnerId = targetUserIds.includes(sId) ? rId : sId;
-                  const updatePayload = {
-                    event: isAccepted ? 'interest-accepted' : 'interest_status_change',
-                    status: row.status,
-                    userAId: sId,
-                    userBId: rId,
-                    senderId: sId,
-                    receiverId: rId,
-                    responderId: rId,
-                    partnerId: partnerId,
-                    timestamp: Date.now()
-                  };
-                  this.handleRealtimeStatusUpdate(updatePayload);
-                  if (onNewInterest) onNewInterest(updatePayload);
-                }
-              }
-            )
-            .subscribe();
-
-          channels.push(dbChangeChn);
-        } catch (e) {}
       });
+
+      // Single dedicated postgres_changes listener for this subscriber
+      try {
+        const dbChangeChn = supabase
+          .channel(`user-interests-db-${primaryId}-${subId}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'interests' },
+            (payload) => {
+              const row = payload?.new;
+              if (!row) return;
+              const sId = String(row.sender_id || '');
+              const rId = String(row.receiver_id || '');
+              if (targetUserIds.includes(sId) || targetUserIds.includes(rId)) {
+                console.log('[InterestService] Real-time postgres_changes event on interests:', row.status, sId, rId);
+                const isAccepted = row.status === 'accepted';
+                const partnerId = targetUserIds.includes(sId) ? rId : sId;
+                const updatePayload = {
+                  id: row.id,
+                  interest_id: row.id,
+                  interestId: row.id,
+                  event: isAccepted ? 'interest-accepted' : 'interest_status_change',
+                  status: row.status,
+                  userAId: sId,
+                  userBId: rId,
+                  senderId: sId,
+                  receiverId: rId,
+                  responderId: rId,
+                  partnerId: partnerId,
+                  timestamp: Date.now()
+                };
+                this.handleRealtimeStatusUpdate(updatePayload);
+                emitEvent(updatePayload);
+              }
+            }
+          )
+          .subscribe();
+
+        channels.push(dbChangeChn);
+      } catch (e) {}
     }
 
     // Direct window event listener for instant single-page sync
@@ -817,7 +876,7 @@ class InterestService {
       ].filter(Boolean).map(String);
 
       if (targetUserIds.some(id => ids.includes(String(id)))) {
-        onNewInterest(update);
+        emitEvent(update);
       }
     };
     if (typeof window !== 'undefined') {
@@ -837,7 +896,7 @@ class InterestService {
       ].filter(Boolean).map(String);
 
       if (targetUserIds.some(id => ids.includes(String(id)))) {
-        onNewInterest(update);
+        emitEvent(update);
       }
     });
 
@@ -846,11 +905,15 @@ class InterestService {
       if (typeof window !== 'undefined') {
         window.removeEventListener('i4u_interest_status_change', handleWindowEvt);
       }
-      if (supabase && channels.length > 0) {
+      if (supabase && typeof supabase.removeChannel === 'function' && channels.length > 0) {
         channels.forEach((chn) => {
-          try { supabase.removeChannel(chn); } catch (e) {}
+          if (chn) {
+            try { supabase.removeChannel(chn); } catch (e) {}
+          }
         });
       }
+      channels.length = 0;
+      processedEvents.clear();
     };
   }
 
@@ -1017,9 +1080,6 @@ class InterestService {
                   timestamp: Date.now()
                 }
               }).catch(() => {});
-              setTimeout(() => {
-                try { supabase.removeChannel(chn); } catch (e) {}
-              }, 3000);
             }
           });
         } catch (e) {}
@@ -1193,7 +1253,6 @@ class InterestService {
                 event: 'interest-accepted',
                 payload: acceptBroadcastPayload
               }).catch(() => {});
-              setTimeout(() => { try { supabase.removeChannel(syncChannel); } catch (e) {} }, 4000);
             }
           });
 
@@ -1205,7 +1264,6 @@ class InterestService {
                 event: 'interest-accepted',
                 payload: acceptBroadcastPayload
               }).catch(() => {});
-              setTimeout(() => { try { supabase.removeChannel(intChannel); } catch (e) {} }, 4000);
             }
           });
         } catch (e) {}
@@ -1222,7 +1280,6 @@ class InterestService {
                 event: 'interest-accepted',
                 payload: acceptBroadcastPayload
               }).catch(() => {});
-              setTimeout(() => { try { supabase.removeChannel(syncChannel); } catch (e) {} }, 4000);
             }
           });
 
@@ -1234,7 +1291,6 @@ class InterestService {
                 event: 'interest-accepted',
                 payload: acceptBroadcastPayload
               }).catch(() => {});
-              setTimeout(() => { try { supabase.removeChannel(intChannel); } catch (e) {} }, 4000);
             }
           });
         } catch (e) {}
