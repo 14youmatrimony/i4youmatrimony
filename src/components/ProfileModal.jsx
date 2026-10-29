@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, 
   ShieldCheck, 
@@ -21,7 +21,7 @@ import {
   CheckCheck
 } from 'lucide-react';
 import { isKundaliApplicableReligion } from '../data/religionData';
-import { useInterestStatus } from '../services/interestService';
+import { useInterestStatus, interestService } from '../services/interestService';
 
 export default function ProfileModal({ 
   profile, 
@@ -41,11 +41,42 @@ export default function ProfileModal({
   onSelectProfile,
   onStartAudioCall,
   onStartVideoCall,
-  onRequestSendInterest
+  onRequestSendInterest,
+  acceptedInterests = []
 }) {
   const [activeTab, setActiveTab] = useState('about');
   const { status: interestStatus, isAccepted: hookIsCallingUnlocked, isIncoming } = useInterestStatus(currentUser, profile);
-  const isCallingUnlocked = Boolean(hookIsCallingUnlocked || isConnected);
+  // Multi-layered connection unlock verification (hook + prop + local persistent records)
+  const isCallingUnlocked = useMemo(() => {
+    if (hookIsCallingUnlocked || isConnected || interestStatus === 'accepted') return true;
+    if (!currentUser || !profile) return false;
+    if (interestService.getRelationshipStatusSync(currentUser, profile) === 'accepted') return true;
+    const targetUid = String(profile?.id || '');
+    const targetReg = String(profile?.registerId || profile?.register_id || '');
+    const accList = Array.isArray(acceptedInterests) ? acceptedInterests.map(String) : [];
+    if ((targetUid && accList.includes(targetUid)) || (targetReg && accList.includes(targetReg))) {
+      return true;
+    }
+    try {
+      const uId = currentUser.id;
+      const rawStored = localStorage.getItem(`i4u_accepted_interests_${uId}`) || localStorage.getItem('i4u_accepted_interests');
+      if (rawStored) {
+        const parsed = JSON.parse(rawStored);
+        if (Array.isArray(parsed) && ((targetUid && parsed.includes(targetUid)) || (targetReg && parsed.includes(targetReg)))) {
+          return true;
+        }
+      }
+      const rawPairs = localStorage.getItem('i4u_accepted_pairs');
+      if (rawPairs) {
+        const pairs = JSON.parse(rawPairs);
+        const allKeys = interestService.getAllPairKeys(currentUser, profile);
+        if (Array.isArray(pairs) && allKeys.some(k => pairs.includes(k))) {
+          return true;
+        }
+      }
+    } catch (e) {}
+    return false;
+  }, [hookIsCallingUnlocked, isConnected, interestStatus, currentUser, profile, acceptedInterests]);
   const [callAuthAlert, setCallAuthAlert] = useState(null);
 
   // Clean slate on profile change to eliminate lingering state from previous profile sessions

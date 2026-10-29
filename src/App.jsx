@@ -477,6 +477,9 @@ export default function App() {
       : [];
   });
 
+  const profilesRef = useRef(profiles);
+  profilesRef.current = profiles;
+
   // Synchronize candidate profiles from Supabase Cloud & Python Admin Backend
   const lastProfilesSyncRef = useRef(0);
   const syncLiveProfiles = useCallback(async (force = false) => {
@@ -582,13 +585,20 @@ export default function App() {
                 const partnerId = currentIds.includes(sId) ? rId : sId;
                 const isAccepted = row.status === 'accepted';
                 if (isAccepted) {
+                  // Cross-resolve partner's profile to extract all identifiers (UUID, register_id, registerId)
+                  const matched = (profilesRef.current || []).find(p => p && (
+                    String(p.id) === partnerId ||
+                    String(p.register_id) === partnerId ||
+                    String(p.registerId) === partnerId
+                  ));
+                  const partnerIds = matched ? interestService.getUserIds(matched) : [partnerId];
+
                   setAcceptedInterests((prev) => {
                     const arr = Array.isArray(prev) ? prev : [];
-                    if (arr.includes(partnerId)) return arr;
-                    return Array.from(new Set([...arr, partnerId]));
+                    return Array.from(new Set([...arr, ...partnerIds]));
                   });
                   setNotifications((prev) => (prev || []).map(n => {
-                    if (n.profileId === partnerId || n.senderId === partnerId || n.receiverId === partnerId) {
+                    if (partnerIds.includes(String(n.profileId)) || partnerIds.includes(String(n.senderId)) || partnerIds.includes(String(n.receiverId))) {
                       return { ...n, status: 'accepted', isRead: true };
                     }
                     return n;
@@ -1218,6 +1228,21 @@ export default function App() {
       window.removeEventListener('storage', handleStorage);
     };
   }, [currentUser]);
+
+  // Synchronize accepted connections directly from Supabase on mount and user session change
+  useEffect(() => {
+    if (!currentUser) return;
+    let isMounted = true;
+    interestService.fetchAcceptedConnections(currentUser).then((partnerIds) => {
+      if (isMounted && Array.isArray(partnerIds) && partnerIds.length > 0) {
+        setAcceptedInterests((prev) => {
+          const arr = Array.isArray(prev) ? prev : [];
+          return Array.from(new Set([...arr, ...partnerIds]));
+        });
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
 
   // Persist shortlisted to localStorage whenever it changes
   useEffect(() => {
@@ -4007,6 +4032,7 @@ export default function App() {
                 onRequestSendInterest={handleOpenSendInterest}
                 onStartAudioCall={handleStartAudioCall}
                 onStartVideoCall={handleStartVideoCall}
+                acceptedInterests={acceptedInterests}
               />
             )}
 
@@ -4512,6 +4538,7 @@ export default function App() {
                   }}
                   onOpenOffers={handleOpenOffers}
                   onUnlockContact={handleUnlockContact}
+                  acceptedInterests={acceptedInterests}
                 />
               )}
 

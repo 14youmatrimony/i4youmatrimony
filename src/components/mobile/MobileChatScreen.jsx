@@ -19,7 +19,7 @@ import { sanitizeChatMessage } from '../../utils/security';
 import { useTheme } from '../../context/ThemeContext';
 import { isSelfProfile } from '../../utils/genderMatch';
 import { liveChatService, deduplicateMessageList } from '../../services/liveChatService';
-import { useInterestStatus } from '../../services/interestService';
+import { useInterestStatus, interestService } from '../../services/interestService';
 import { getActiveConversations } from '../../utils/conversationUtils';
 import { fcmNotificationService } from '../../services/fcmNotificationService';
 
@@ -45,7 +45,8 @@ export default function MobileChatScreen({
   onToggleInterest,
   declinedReceivedIds = [],
   acceptedInterests = [],
-  isConnected = false
+  isConnected = false,
+  activeConv: propActiveConv = null
 }) {
   const { bottomBarStyle, accent, isDarkMode } = useTheme();
   const [inConversation, setInConversation] = useState(isDirectChatOpen);
@@ -198,8 +199,8 @@ export default function MobileChatScreen({
       const rawPairs = localStorage.getItem('i4u_accepted_pairs');
       if (rawPairs) {
         const pairs = JSON.parse(rawPairs);
-        const pairKey = [String(currentUser.id), targetUid].sort().join(':::');
-        if (Array.isArray(pairs) && pairs.includes(pairKey)) {
+        const allKeys = interestService.getAllPairKeys(currentUser, activeProfile);
+        if (Array.isArray(pairs) && allKeys.some(k => pairs.includes(k))) {
           return true;
         }
       }
@@ -241,11 +242,30 @@ export default function MobileChatScreen({
     }
   };
 
-  const existingConv = partnerUser?.id ? conversations.find(c => 
-    String(c.profileId) === String(partnerUser.id) || 
-    (partnerUser.register_id && String(c.profileId) === String(partnerUser.register_id)) ||
-    (partnerUser.registerId && String(c.profileId) === String(partnerUser.registerId))
-  ) : null;
+  // Derive active conversation object safely across aliases
+  const derivedActiveConv = useMemo(() => {
+    if (!partnerUser?.id && !activeProfileId) return null;
+    const targetId = String(partnerUser?.id || activeProfileId || '');
+    const targetReg1 = partnerUser?.register_id ? String(partnerUser.register_id) : '';
+    const targetReg2 = partnerUser?.registerId ? String(partnerUser.registerId) : '';
+    return (conversations || []).find(c => {
+      if (!c) return false;
+      const pid = String(c.profileId || '');
+      const cid = String(c.conversation_id || c.conversationId || c.id || '');
+      return (
+        (targetId && pid === targetId) ||
+        (targetReg1 && pid === targetReg1) ||
+        (targetReg2 && pid === targetReg2) ||
+        (activeConversationId && cid === String(activeConversationId))
+      );
+    }) || null;
+  }, [conversations, partnerUser, activeProfileId, activeConversationId]);
+
+  // Guaranteed activeConv reference preventing any "activeConv is not defined" runtime crash
+  const activeConv = propActiveConv || derivedActiveConv || null;
+  const existingConv = activeConv;
+  const activeConvRef = useRef(activeConv);
+  activeConvRef.current = activeConv;
 
   // Dedicated messages state strictly isolated to the currently active conversation
   const [messages, setMessages] = useState([]);
@@ -264,8 +284,9 @@ export default function MobileChatScreen({
     }
 
     // Immediately pre-populate with existing messages from active conversation to eliminate blank chat delay
-    if (activeConv?.messages && activeConv.messages.length > 0) {
-      setMessages(deduplicateMessageList(activeConv.messages));
+    const initialConv = activeConvRef.current || activeConv;
+    if (initialConv?.messages && initialConv.messages.length > 0) {
+      setMessages(deduplicateMessageList(initialConv.messages));
     } else {
       setMessages([]);
     }
@@ -307,7 +328,8 @@ export default function MobileChatScreen({
       partnerUserId: partnerUser.id
     }).then((loadedMsgs) => {
       if (isMounted) {
-        setMessages(prev => deduplicateMessageList([...(activeConv?.messages || []), ...loadedMsgs, ...prev]));
+        const curConv = activeConvRef.current || activeConv;
+        setMessages(prev => deduplicateMessageList([...(curConv?.messages || []), ...loadedMsgs, ...prev]));
         setIsLoadingMessages(false);
       }
     }).catch(() => {

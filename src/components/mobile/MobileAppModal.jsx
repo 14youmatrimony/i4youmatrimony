@@ -479,6 +479,7 @@ export default function MobileAppModal({
                           onOpenAadhaarVerification={() => setInternalScreen('verify-aadhaar')}
                           onOpenOffers={onOpenOffers}
                           onUnlockContact={handleUnlockContact}
+                          acceptedInterests={acceptedInterests}
                         />
                       )}
 

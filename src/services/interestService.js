@@ -57,28 +57,58 @@ class InterestService {
   getUserIds(userOrId) {
     if (!userOrId) return [];
     const ids = new Set();
+    const extractFromObj = (obj) => {
+      if (!obj || typeof obj !== 'object') return;
+      if (obj.id) ids.add(String(obj.id));
+      if (obj.register_id) ids.add(String(obj.register_id));
+      if (obj.registerId) ids.add(String(obj.registerId));
+      if (obj.user_id) ids.add(String(obj.user_id));
+      if (obj.userId) ids.add(String(obj.userId));
+    };
+
     if (typeof userOrId === 'string') {
       const clean = userOrId.trim();
       if (clean) ids.add(clean);
+    } else if (typeof userOrId === 'object') {
+      extractFromObj(userOrId);
+    }
+
+    if (typeof window !== 'undefined') {
       try {
-        const authRaw = typeof window !== 'undefined' ? localStorage.getItem('i4u_auth_user') : null;
+        // Cross-match with current authenticated user
+        const authRaw = localStorage.getItem('i4u_auth_user');
         if (authRaw) {
           const auth = JSON.parse(authRaw);
-          if (auth.id === clean || auth.register_id === clean || auth.registerId === clean) {
-            if (auth.id) ids.add(String(auth.id));
-            if (auth.register_id) ids.add(String(auth.register_id));
-            if (auth.registerId) ids.add(String(auth.registerId));
+          const currentMatches = Array.from(ids).some(
+            id => id === String(auth.id) || id === String(auth.register_id) || id === String(auth.registerId)
+          );
+          if (currentMatches) {
+            extractFromObj(auth);
+          }
+        }
+
+        // Cross-match with cached profiles list to resolve UUID <-> register_id
+        const profilesRaw = localStorage.getItem('i4u_cached_profiles');
+        if (profilesRaw) {
+          const profiles = JSON.parse(profilesRaw);
+          if (Array.isArray(profiles)) {
+            const matched = profiles.find(p => p && (
+              Array.from(ids).some(id => 
+                id === String(p.id) || 
+                id === String(p.register_id) || 
+                id === String(p.registerId) ||
+                id === String(p.user_id)
+              )
+            ));
+            if (matched) {
+              extractFromObj(matched);
+            }
           }
         }
       } catch (e) {}
-      return Array.from(ids);
     }
-    if (userOrId.id) ids.add(String(userOrId.id));
-    if (userOrId.register_id) ids.add(String(userOrId.register_id));
-    if (userOrId.registerId) ids.add(String(userOrId.registerId));
-    if (userOrId.user_id) ids.add(String(userOrId.user_id));
-    if (userOrId.userId) ids.add(String(userOrId.userId));
-    return Array.from(ids);
+
+    return Array.from(ids).filter(Boolean);
   }
 
   /**
@@ -128,14 +158,100 @@ class InterestService {
     });
   }
 
+  /**
+   * Atomically mark a pair as accepted in in-memory cache and localStorage
+   * Unlocks Audio & Video calling instantly for both participants
+   */
+  markPairAcceptedLocally(userA, userB) {
+    if (!userA || !userB) return;
+    const idsA = this.getUserIds(userA);
+    const idsB = this.getUserIds(userB);
+    const allKeys = this.getAllPairKeys(userA, userB);
+
+    allKeys.forEach((key) => {
+      this.statusCache.set(key, 'accepted');
+    });
+
+    if (typeof window !== 'undefined') {
+      try {
+        const pairsRaw = localStorage.getItem('i4u_accepted_pairs') || '[]';
+        const pairs = JSON.parse(pairsRaw);
+        allKeys.forEach((pk) => {
+          if (pk && !pairs.includes(pk)) pairs.push(pk);
+        });
+        localStorage.setItem('i4u_accepted_pairs', JSON.stringify(pairs));
+      } catch (e) {}
+
+      try {
+        idsA.forEach((uidA) => {
+          const key = `i4u_accepted_interests_${uidA}`;
+          const list = JSON.parse(localStorage.getItem(key) || '[]');
+          idsB.forEach((uidB) => {
+            if (!list.includes(String(uidB))) list.push(String(uidB));
+          });
+          localStorage.setItem(key, JSON.stringify(list));
+        });
+
+        idsB.forEach((uidB) => {
+          const key = `i4u_accepted_interests_${uidB}`;
+          const list = JSON.parse(localStorage.getItem(key) || '[]');
+          idsA.forEach((uidA) => {
+            if (!list.includes(String(uidA))) list.push(String(uidA));
+          });
+          localStorage.setItem(key, JSON.stringify(list));
+        });
+
+        const globalKey = 'i4u_accepted_interests';
+        const globalList = JSON.parse(localStorage.getItem(globalKey) || '[]');
+        [...idsA, ...idsB].forEach((id) => {
+          if (!globalList.includes(String(id))) globalList.push(String(id));
+        });
+        localStorage.setItem(globalKey, JSON.stringify(globalList));
+      } catch (e) {}
+
+      try {
+        const records = this.getLocalRecords();
+        let changed = false;
+        records.forEach((r) => {
+          const m1 = idsA.includes(String(r.senderId)) && idsB.includes(String(r.receiverId));
+          const m2 = idsB.includes(String(r.senderId)) && idsA.includes(String(r.receiverId));
+          if (m1 || m2) {
+            r.status = 'accepted';
+            r.updatedAt = new Date().toISOString();
+            changed = true;
+          }
+        });
+        if (changed) {
+          this.saveLocalRecords(records);
+        }
+      } catch (e) {}
+    }
+  }
+
   handleRealtimeStatusUpdate(payload) {
     if (!payload) return;
-    const { userAId, userBId, status } = payload;
-    const pairKey = this.getPairKey(userAId, userBId);
-    if (pairKey) {
-      this.statusCache.set(pairKey, status);
+    const { userAId, userBId, status, senderId, receiverId } = payload;
+    const idA = userAId || senderId;
+    const idB = userBId || receiverId;
+
+    if (idA && idB) {
+      const allKeys = this.getAllPairKeys(idA, idB);
+      allKeys.forEach((key) => {
+        this.statusCache.set(key, status);
+      });
+
+      if (status === 'accepted') {
+        this.markPairAcceptedLocally(idA, idB);
+      }
     }
+
     this.notifyListeners(payload);
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new CustomEvent('i4u_interest_status_change', { detail: payload }));
+      } catch (e) {}
+    }
   }
 
   /**
@@ -183,6 +299,90 @@ class InterestService {
   }
 
   /**
+   * Fetches all accepted connections for a user from Supabase 'interests' table
+   * Ensures calling features are immediately unlocked for both participants.
+   * Returns: Promise<string[]> (array of partner identifiers)
+   */
+  async fetchAcceptedConnections(userOrId) {
+    if (!userOrId) return [];
+    const userIds = this.getUserIds(userOrId);
+    if (!userIds.length) return [];
+
+    const partnerIdsSet = new Set();
+
+    // 1. Query Supabase 'interests' table
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data: asSender, error: errSender } = await supabase
+          .from('interests')
+          .select('receiver_id, status, updated_at')
+          .in('sender_id', userIds)
+          .eq('status', 'accepted');
+
+        if (!errSender && Array.isArray(asSender)) {
+          asSender.forEach((row) => {
+            if (row.receiver_id && !userIds.includes(String(row.receiver_id))) {
+              partnerIdsSet.add(String(row.receiver_id));
+            }
+          });
+        }
+
+        const { data: asReceiver, error: errReceiver } = await supabase
+          .from('interests')
+          .select('sender_id, status, updated_at')
+          .in('receiver_id', userIds)
+          .eq('status', 'accepted');
+
+        if (!errReceiver && Array.isArray(asReceiver)) {
+          asReceiver.forEach((row) => {
+            if (row.sender_id && !userIds.includes(String(row.sender_id))) {
+              partnerIdsSet.add(String(row.sender_id));
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('[InterestService] fetchAcceptedConnections notice:', err);
+      }
+    }
+
+    // 2. Cross-reference with local storage records
+    try {
+      const records = this.getLocalRecords();
+      records.forEach((r) => {
+        if (r && r.status === 'accepted') {
+          const sId = String(r.senderId);
+          const rId = String(r.receiverId);
+          if (userIds.includes(sId) && !userIds.includes(rId)) partnerIdsSet.add(rId);
+          if (userIds.includes(rId) && !userIds.includes(sId)) partnerIdsSet.add(sId);
+        }
+      });
+
+      const pairsRaw = localStorage.getItem('i4u_accepted_pairs');
+      if (pairsRaw) {
+        const pairs = JSON.parse(pairsRaw);
+        if (Array.isArray(pairs)) {
+          pairs.forEach((pk) => {
+            const parts = String(pk).split(':::');
+            if (parts.length === 2) {
+              if (userIds.includes(parts[0]) && !userIds.includes(parts[1])) partnerIdsSet.add(parts[1]);
+              if (userIds.includes(parts[1]) && !userIds.includes(parts[0])) partnerIdsSet.add(parts[0]);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    const partnerList = Array.from(partnerIdsSet);
+
+    // Synchronize local cache and pairs
+    partnerList.forEach((partnerId) => {
+      this.markPairAcceptedLocally(userOrId, partnerId);
+    });
+
+    return partnerList;
+  }
+
+  /**
    * Checks the relationship status between two users
    * Returns: 'none' | 'pending' | 'accepted' | 'rejected'
    */
@@ -195,8 +395,8 @@ class InterestService {
 
     const pairKeys = this.getAllPairKeys(userA, userB);
     for (const key of pairKeys) {
-      if (this.statusCache.has(key)) {
-        return this.statusCache.get(key);
+      if (this.statusCache.get(key) === 'accepted') {
+        return 'accepted';
       }
     }
 
@@ -206,27 +406,68 @@ class InterestService {
       if (acceptedPairsRaw) {
         const pairs = JSON.parse(acceptedPairsRaw);
         if (Array.isArray(pairs) && pairKeys.some(k => pairs.includes(k))) {
-          pairKeys.forEach(k => this.statusCache.set(k, 'accepted'));
+          this.markPairAcceptedLocally(userA, userB);
           return 'accepted';
         }
       }
     } catch (e) {}
 
-    // 1. Check Supabase 'interests' table if configured
+    // 1. Check Supabase 'interests' table with comprehensive query and updated_at ordering
     if (isSupabaseConfigured() && supabase) {
       try {
-        const cleanIdsA = idsA.filter(Boolean).map(id => id.replace(/["']/g, '')).join(',');
-        const cleanIdsB = idsB.filter(Boolean).map(id => id.replace(/["']/g, '')).join(',');
-        const { data, error } = await supabase
-          .from('interests')
-          .select('sender_id, receiver_id, status')
-          .or(`and(sender_id.in.(${cleanIdsA}),receiver_id.in.(${cleanIdsB})),and(sender_id.in.(${cleanIdsB}),receiver_id.in.(${cleanIdsA}))`)
-          .limit(1);
+        let interestRows = [];
+        
+        // Compound query
+        try {
+          const cleanIdsA = idsA.filter(Boolean).map(id => id.replace(/["']/g, '')).join(',');
+          const cleanIdsB = idsB.filter(Boolean).map(id => id.replace(/["']/g, '')).join(',');
+          const { data, error } = await supabase
+            .from('interests')
+            .select('sender_id, receiver_id, status, updated_at')
+            .or(`and(sender_id.in.(${cleanIdsA}),receiver_id.in.(${cleanIdsB})),and(sender_id.in.(${cleanIdsB}),receiver_id.in.(${cleanIdsA}))`)
+            .order('updated_at', { ascending: false })
+            .limit(10);
 
-        if (!error && data && data.length > 0) {
-          const status = data[0].status || 'pending';
-          pairKeys.forEach(k => this.statusCache.set(k, status));
-          return status;
+          if (!error && Array.isArray(data)) {
+            interestRows = data;
+          }
+        } catch (e) {}
+
+        // Fallback query by separate IN clauses if compound returned nothing or errored
+        if (!interestRows || interestRows.length === 0) {
+          try {
+            const { data: rows1 } = await supabase
+              .from('interests')
+              .select('sender_id, receiver_id, status, updated_at')
+              .in('sender_id', idsA)
+              .in('receiver_id', idsB)
+              .order('updated_at', { ascending: false })
+              .limit(5);
+
+            const { data: rows2 } = await supabase
+              .from('interests')
+              .select('sender_id, receiver_id, status, updated_at')
+              .in('sender_id', idsB)
+              .in('receiver_id', idsA)
+              .order('updated_at', { ascending: false })
+              .limit(5);
+
+            interestRows = [...(rows1 || []), ...(rows2 || [])];
+          } catch (e) {}
+        }
+
+        if (interestRows.length > 0) {
+          // If ANY record between these two users is 'accepted', they are permanently unlocked!
+          const isAnyAccepted = interestRows.some(r => r && r.status === 'accepted');
+          if (isAnyAccepted) {
+            this.markPairAcceptedLocally(userA, userB);
+            return 'accepted';
+          }
+
+          const isAnyRejected = interestRows.some(r => r && r.status === 'rejected');
+          const latestStatus = interestRows[0]?.status || (isAnyRejected ? 'rejected' : 'pending');
+          pairKeys.forEach(k => this.statusCache.set(k, latestStatus));
+          return latestStatus;
         }
       } catch (err) {
         // Table might not exist yet, fallback gracefully
@@ -243,13 +484,16 @@ class InterestService {
 
     if (matchedRecord) {
       const status = matchedRecord.status || 'pending';
-      pairKeys.forEach(k => this.statusCache.set(k, status));
+      if (status === 'accepted') {
+        this.markPairAcceptedLocally(userA, userB);
+      } else {
+        pairKeys.forEach(k => this.statusCache.set(k, status));
+      }
       return status;
     }
 
     // 3. Check localStorage interestsSent and accepted lists (bidirectional)
     try {
-      // Check if either user has recorded acceptance of the other across any alias
       const hasAcceptedA = idsA.some((uid) => {
         const acceptedRawA = localStorage.getItem(`i4u_accepted_interests_${uid}`);
         const acceptedListA = acceptedRawA ? JSON.parse(acceptedRawA) : [];
@@ -267,7 +511,7 @@ class InterestService {
       });
 
       if (hasAcceptedA || hasAcceptedB) {
-        pairKeys.forEach(k => this.statusCache.set(k, 'accepted'));
+        this.markPairAcceptedLocally(userA, userB);
         return 'accepted';
       }
 
@@ -322,8 +566,8 @@ class InterestService {
 
     const pairKeys = this.getAllPairKeys(userA, userB);
     for (const key of pairKeys) {
-      if (this.statusCache.has(key)) {
-        return this.statusCache.get(key);
+      if (this.statusCache.get(key) === 'accepted') {
+        return 'accepted';
       }
     }
 
@@ -333,26 +577,13 @@ class InterestService {
       if (acceptedPairsRaw) {
         const pairs = JSON.parse(acceptedPairsRaw);
         if (Array.isArray(pairs) && pairKeys.some(k => pairs.includes(k))) {
-          pairKeys.forEach(k => this.statusCache.set(k, 'accepted'));
+          this.markPairAcceptedLocally(userA, userB);
           return 'accepted';
         }
       }
     } catch (e) {}
 
-    // Check local records
-    const localRecords = this.getLocalRecords();
-    const matchedRecord = localRecords.find((r) => {
-      const match1 = idsA.includes(String(r.senderId)) && idsB.includes(String(r.receiverId));
-      const match2 = idsB.includes(String(r.senderId)) && idsA.includes(String(r.receiverId));
-      return match1 || match2;
-    });
-
-    if (matchedRecord) {
-      const status = matchedRecord.status || 'pending';
-      pairKeys.forEach(k => this.statusCache.set(k, status));
-      return status;
-    }
-
+    // Check localStorage accepted lists
     try {
       const hasAcceptedA = idsA.some((uid) => {
         const acceptedRawA = localStorage.getItem(`i4u_accepted_interests_${uid}`);
@@ -371,10 +602,32 @@ class InterestService {
       });
 
       if (hasAcceptedA || hasAcceptedB) {
-        pairKeys.forEach(k => this.statusCache.set(k, 'accepted'));
+        this.markPairAcceptedLocally(userA, userB);
         return 'accepted';
       }
+    } catch (e) {}
 
+    for (const key of pairKeys) {
+      if (this.statusCache.has(key)) {
+        return this.statusCache.get(key);
+      }
+    }
+
+    // Check local records
+    const localRecords = this.getLocalRecords();
+    const matchedRecord = localRecords.find((r) => {
+      const match1 = idsA.includes(String(r.senderId)) && idsB.includes(String(r.receiverId));
+      const match2 = idsB.includes(String(r.senderId)) && idsA.includes(String(r.receiverId));
+      return match1 || match2;
+    });
+
+    if (matchedRecord) {
+      const status = matchedRecord.status || 'pending';
+      pairKeys.forEach(k => this.statusCache.set(k, status));
+      return status;
+    }
+
+    try {
       const hasSent = idsA.some((uid) => {
         const sentRaw = localStorage.getItem(`i4u_interests_sent_${uid}`);
         const sentList = sentRaw ? JSON.parse(sentRaw) : [];
@@ -1443,6 +1696,9 @@ class InterestService {
     const receiverIds = this.getUserIds(receiver);
     const senderIds = this.getUserIds(sender);
 
+    // Atomically mark accepted across all cache keys and local storage
+    this.markPairAcceptedLocally(receiver, sender);
+
     // 1. Update local records (bidirectional)
     const records = this.getLocalRecords().filter((r) => {
       const match1 = senderIds.includes(String(r.senderId)) && receiverIds.includes(String(r.receiverId));
@@ -1509,21 +1765,35 @@ class InterestService {
       try {
         const cleanSenderId = String(senderId).replace(/["']/g, '');
         const cleanReceiverId = String(receiverId).replace(/["']/g, '');
-        const { data: existingRows } = await supabase
-          .from('interests')
-          .select('id, sender_id, receiver_id, status')
-          .or(`and(sender_id.eq.${cleanSenderId},receiver_id.eq.${cleanReceiverId}),and(sender_id.eq.${cleanReceiverId},receiver_id.eq.${cleanSenderId})`)
-          .limit(1);
 
-        if (existingRows && existingRows.length > 0) {
-          const { error: updErr } = await supabase
+        let existingRows = [];
+        try {
+          const { data: rows1 } = await supabase
             .from('interests')
-            .update({
-              status: 'accepted',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', existingRows[0].id);
-          if (updErr) console.warn('[InterestService] Supabase interests accept update notice:', updErr.message);
+            .select('id, sender_id, receiver_id, status')
+            .in('sender_id', senderIds)
+            .in('receiver_id', receiverIds);
+
+          const { data: rows2 } = await supabase
+            .from('interests')
+            .select('id, sender_id, receiver_id, status')
+            .in('sender_id', receiverIds)
+            .in('receiver_id', senderIds);
+
+          existingRows = [...(rows1 || []), ...(rows2 || [])];
+        } catch (e) {}
+
+        if (existingRows.length > 0) {
+          for (const row of existingRows) {
+            const { error: updErr } = await supabase
+              .from('interests')
+              .update({
+                status: 'accepted',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', row.id);
+            if (updErr) console.warn('[InterestService] Supabase interests accept update notice:', updErr.message);
+          }
         } else {
           const { error: insErr } = await supabase
             .from('interests')
