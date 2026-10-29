@@ -2370,7 +2370,7 @@ export default function App() {
     });
 
     showToast(`🎉 Connection established with ${profile?.name || 'candidate'}! Audio & Video calls unlocked ✨`);
-    handleStartChat(targetId);
+    handleStartChat(profile || targetId);
   };
 
   const handleSimulateNotification = () => {
@@ -2504,7 +2504,7 @@ export default function App() {
     }
   };
 
-  // Start chat directly with candidate with full isolation and state clearing
+  // Start chat directly with candidate with dynamic profile resolution and state clearing
   const handleStartChat = useCallback((profileId, initialMessage = null, explicitChatId = null, extraData = {}) => {
     if (!currentUser) {
       showToast('🔒 Please sign in first to chat with members');
@@ -2512,26 +2512,65 @@ export default function App() {
       return;
     }
 
+    const passedProfile = (profileId && typeof profileId === 'object') ? profileId : null;
     const targetId = String(
-      (typeof profileId === 'object' ? (profileId?.id || profileId?.userId || profileId?.user_id) : profileId) || ''
+      (passedProfile ? (passedProfile.id || passedProfile.userId || passedProfile.user_id || passedProfile.register_id || passedProfile.registerId) : profileId) || ''
     );
     if (!targetId && !explicitChatId) return;
 
     // 1. Ensure any existing global chat state/cache is completely cleared before rendering the new chat
     clearGlobalChatState();
 
-    const profile = profiles.find(p => 
-      p && (
-        String(p.id) === targetId || 
-        String(p.register_id) === targetId || 
-        String(p.registerId) === targetId
-      )
-    ) || (typeof profileId === 'object' && profileId.id ? profileId : null);
+    const isGeneric = (n) => !n || ['candidate', 'verified member', 'a verified member', 'member', 'someone'].includes(String(n).toLowerCase().trim());
 
-    const partner = profile || {
+    // 2. Resolve profile across passed object, profiles feed, and local cache
+    let profile = (passedProfile && !isGeneric(passedProfile.name)) ? passedProfile : null;
+
+    if (!profile) {
+      profile = profiles.find(p => 
+        p && (
+          String(p.id) === targetId || 
+          String(p.register_id) === targetId || 
+          String(p.registerId) === targetId
+        )
+      ) || null;
+    }
+
+    if (!profile || isGeneric(profile.name)) {
+      try {
+        const cachedRaw = localStorage.getItem('i4u_cached_profiles');
+        if (cachedRaw) {
+          const cachedList = JSON.parse(cachedRaw);
+          if (Array.isArray(cachedList)) {
+            const cachedMatch = cachedList.find(p => p && (
+              String(p.id) === targetId ||
+              (p.register_id && String(p.register_id) === targetId) ||
+              (p.registerId && String(p.registerId) === targetId)
+            ));
+            if (cachedMatch && !isGeneric(cachedMatch.name)) {
+              profile = cachedMatch;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    const resolvedName = (!isGeneric(profile?.name))
+      ? profile.name
+      : (!isGeneric(extraData?.senderName || extraData?.name))
+        ? (extraData.senderName || extraData.name)
+        : (!isGeneric(passedProfile?.name) ? passedProfile.name : 'Candidate');
+
+    const resolvedPhoto = profile?.photo || profile?.photo_url || 
+      extraData?.senderPhoto || extraData?.photo || 
+      passedProfile?.photo || passedProfile?.photo_url || 
+      'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg';
+
+    const partner = {
+      ...(profile || passedProfile || {}),
       id: targetId,
-      name: extraData.senderName || extraData.name || 'Candidate',
-      photo: extraData.senderPhoto || extraData.photo || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
+      name: resolvedName,
+      photo: resolvedPhoto,
       onlineStatus: 'Online'
     };
 
@@ -2553,11 +2592,47 @@ export default function App() {
       } else {
         return list.map(c => 
           (String(c.profileId) === targetId || (convId && c.conversation_id === convId))
-            ? { ...c, unreadCount: 0, partnerUser: partner, conversation_id: convId } 
+            ? { 
+                ...c, 
+                unreadCount: 0, 
+                partnerUser: {
+                  ...(c.partnerUser || {}),
+                  ...partner,
+                  name: !isGeneric(resolvedName) ? resolvedName : (c.partnerUser?.name || 'Candidate')
+                }, 
+                conversation_id: convId 
+              } 
             : c
         );
       }
     });
+
+    // If profile name is still generic 'Candidate', asynchronously fetch from Supabase to update live
+    if (isGeneric(resolvedName) && targetId) {
+      fetchLiveUserProfile(targetId).then(liveUser => {
+        if (liveUser && !isGeneric(liveUser.name)) {
+          setConversations(prev => {
+            const list = Array.isArray(prev) ? prev : [];
+            return list.map(c => {
+              if (String(c.profileId) === targetId || (convId && c.conversation_id === convId)) {
+                return {
+                  ...c,
+                  partnerUser: {
+                    ...(c.partnerUser || {}),
+                    ...liveUser,
+                    name: liveUser.name,
+                    photo: liveUser.photo || liveUser.photo_url || c.partnerUser?.photo
+                  }
+                };
+              }
+              return c;
+            });
+          });
+        }
+      }).catch(err => {
+        console.warn('[App handleStartChat] fetchLiveUserProfile fallback warning:', err);
+      });
+    }
 
     setActiveChatProfileId(targetId);
     setActiveChatId(convId);
@@ -4022,8 +4097,9 @@ export default function App() {
                 onOpenOffers={handleOpenOffers}
                 onUnlockContact={handleUnlockContact}
                 onStartChat={(pid) => {
+                  const targetProfile = (pid && typeof pid === 'object') ? pid : (selectedProfile || profiles.find(p => String(p.id) === String(pid)) || pid);
                   setSelectedProfile(null);
-                  handleStartChat(pid);
+                  handleStartChat(targetProfile);
                   setViewMode('app');
                   setActiveTab('chat');
                 }}

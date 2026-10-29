@@ -22,6 +22,7 @@ import { liveChatService, deduplicateMessageList } from '../../services/liveChat
 import { useInterestStatus, interestService } from '../../services/interestService';
 import { getActiveConversations } from '../../utils/conversationUtils';
 import { fcmNotificationService } from '../../services/fcmNotificationService';
+import { fetchLiveUserProfile } from '../../services/api';
 
 const POPULAR_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '😊', '🌺', '🌟', '💫', '🕊️', '❤️', '🌹'];
 
@@ -117,6 +118,59 @@ export default function MobileChatScreen({
     });
   }, [activeConversationsList, currentUser, searchQuery]);
 
+  const [livePartnerUser, setLivePartnerUser] = useState(null);
+
+  // Reset live partner state on candidate switch
+  useEffect(() => {
+    setLivePartnerUser(null);
+  }, [activeProfileId]);
+
+  // Dynamically fetch and synchronize partner profile from Supabase
+  useEffect(() => {
+    if (!activeProfileId || !currentUser) return;
+    const targetId = String(activeProfileId);
+    if (targetId === String(currentUser.id) || isSelfProfile({ id: targetId }, currentUser)) return;
+
+    let isMounted = true;
+    fetchLiveUserProfile(targetId).then((fetchedProfile) => {
+      if (!isMounted || !fetchedProfile) return;
+      const resolvedName = fetchedProfile.name || fetchedProfile.fullName;
+      if (!resolvedName) return;
+
+      setLivePartnerUser(fetchedProfile);
+
+      // Synchronize partnerUser details in parent conversations state
+      setConversations((prev) => {
+        const list = Array.isArray(prev) ? prev : [];
+        return list.map((c) => {
+          const isMatch = String(c.profileId) === targetId ||
+            (activeChatId && c.conversation_id === activeChatId) ||
+            (fetchedProfile.register_id && String(c.profileId) === String(fetchedProfile.register_id)) ||
+            (fetchedProfile.id && String(c.profileId) === String(fetchedProfile.id));
+
+          if (isMatch) {
+            return {
+              ...c,
+              partnerUser: {
+                ...(c.partnerUser || {}),
+                ...fetchedProfile,
+                name: resolvedName,
+                photo: fetchedProfile.photo || fetchedProfile.photo_url || c.partnerUser?.photo
+              }
+            };
+          }
+          return c;
+        });
+      });
+    }).catch((err) => {
+      console.warn('[MobileChatScreen] fetchLiveUserProfile error:', err);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeProfileId, currentUser, activeChatId, setConversations]);
+
   // Strictly resolve chat partner (partnerUser), ensuring currentUser is never resolved as partner
   const partnerUser = useMemo(() => {
     if (!currentUser || !activeProfileId) return null;
@@ -133,6 +187,29 @@ export default function MobileChatScreen({
       return null;
     }
 
+    const isGenericName = (name) => {
+      if (!name) return true;
+      const lower = String(name).toLowerCase().trim();
+      return ['candidate', 'verified member', 'a verified member', 'member', 'someone'].includes(lower);
+    };
+
+    // 1. Prioritize livePartnerUser if fetched from Supabase
+    if (livePartnerUser && !isSelfProfile(livePartnerUser, currentUser)) {
+      const matchLive = String(livePartnerUser.id) === targetId ||
+        (livePartnerUser.register_id && String(livePartnerUser.register_id) === targetId) ||
+        (livePartnerUser.registerId && String(livePartnerUser.registerId) === targetId);
+      if (matchLive && !isGenericName(livePartnerUser.name)) {
+        return {
+          ...livePartnerUser,
+          id: String(livePartnerUser.id || targetId),
+          name: livePartnerUser.name,
+          photo: livePartnerUser.photo || livePartnerUser.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
+          onlineStatus: livePartnerUser.onlineStatus || 'Online'
+        };
+      }
+    }
+
+    // 2. Check profiles array passed as prop
     const found = profiles.find(p => 
       p && !isSelfProfile(p, currentUser) && (
         String(p.id) === targetId ||
@@ -141,30 +218,64 @@ export default function MobileChatScreen({
       )
     );
 
-    if (found) {
+    if (found && !isGenericName(found.name)) {
       return {
         ...found,
         id: String(found.id || targetId),
-        name: found.name || 'Candidate',
+        name: found.name,
         photo: found.photo || found.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
         onlineStatus: found.onlineStatus || 'Online'
       };
     }
 
-    // Check if partner exists in active conversation object
+    // 3. Check active conversation object in state
     const conv = conversations.find(c => String(c.profileId) === targetId || (activeChatId && c.conversation_id === activeChatId));
-    if (conv?.partnerUser && !isSelfProfile(conv.partnerUser, currentUser)) {
-      return conv.partnerUser;
+    if (conv?.partnerUser && !isSelfProfile(conv.partnerUser, currentUser) && !isGenericName(conv.partnerUser.name)) {
+      return {
+        ...conv.partnerUser,
+        id: String(conv.partnerUser.id || targetId),
+        name: conv.partnerUser.name,
+        photo: conv.partnerUser.photo || conv.partnerUser.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
+        onlineStatus: conv.partnerUser.onlineStatus || 'Online'
+      };
     }
 
-    // Fallback: If targetId is provided from notification or direct route, provide an authentic partner representation
+    // 4. Check cached profiles in localStorage for immediate synchronous resolution
+    try {
+      const cachedRaw = localStorage.getItem('i4u_cached_profiles');
+      if (cachedRaw) {
+        const cachedList = JSON.parse(cachedRaw);
+        if (Array.isArray(cachedList)) {
+          const cachedMatch = cachedList.find(p => p && !isSelfProfile(p, currentUser) && (
+            String(p.id) === targetId ||
+            (p.register_id && String(p.register_id) === targetId) ||
+            (p.registerId && String(p.registerId) === targetId)
+          ));
+          if (cachedMatch && !isGenericName(cachedMatch.name)) {
+            return {
+              ...cachedMatch,
+              id: String(cachedMatch.id || targetId),
+              name: cachedMatch.name,
+              photo: cachedMatch.photo || cachedMatch.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
+              onlineStatus: cachedMatch.onlineStatus || 'Online'
+            };
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 5. Fallback while fetching profile from Supabase
     return {
       id: targetId,
-      name: (conv?.partnerUser?.name && !['verified member', 'a verified member', 'member'].includes(conv.partnerUser.name.toLowerCase().trim())) ? conv.partnerUser.name : 'Candidate',
-      photo: 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
+      name: (found?.name && !isGenericName(found.name))
+        ? found.name
+        : ((conv?.partnerUser?.name && !isGenericName(conv.partnerUser.name))
+            ? conv.partnerUser.name
+            : 'Candidate'),
+      photo: found?.photo || found?.photo_url || conv?.partnerUser?.photo || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
       onlineStatus: 'Online'
     };
-  }, [profiles, currentUser, activeProfileId, conversations, activeChatId]);
+  }, [profiles, currentUser, activeProfileId, conversations, activeChatId, livePartnerUser]);
 
   const activeProfile = partnerUser;
 
@@ -675,6 +786,8 @@ export default function MobileChatScreen({
             <button
               onClick={() => {
                 setActiveProfileId?.(null);
+                setActiveChatId?.(null);
+                setLivePartnerUser(null);
                 setInConversation(false);
                 setIsDirectChatOpen?.(false);
                 setMessages([]);
@@ -762,11 +875,6 @@ export default function MobileChatScreen({
         {/* Message Stream */}
         <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
           
-          <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-2.5 text-center text-[10px] text-amber-900">
-            <span className="font-bold">Horoscope Match: {partnerUser.gunasMatch || 'Compatible'} ({partnerUser.matchScore || 85}% Match)</span>
-            <p className="text-slate-500 mt-0.5">End-to-end encrypted under I 4 You matrimonial privacy guarantee.</p>
-          </div>
-
           {isLoadingMessages ? (
             <div className="py-6 space-y-4">
               <div className="flex justify-start">
@@ -983,6 +1091,9 @@ export default function MobileChatScreen({
                 key={conv.profileId || profile.id}
                 onClick={() => {
                   setActiveProfileId(profile.id);
+                  if (conv.conversation_id || conv.conversationId) {
+                    setActiveChatId?.(conv.conversation_id || conv.conversationId);
+                  }
                   setInConversation(true);
                   setIsDirectChatOpen?.(true);
 

@@ -1381,16 +1381,33 @@ export async function fetchLiveUserProfile(userId) {
   if (isSupabaseConfigured()) {
     try {
       const cleanId = String(userId).trim();
-      const isRegId = cleanId.toUpperCase().startsWith('I4Y');
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+      const isRegId = cleanId.toUpperCase().startsWith('I4Y') || cleanId.toUpperCase().startsWith('I4U');
 
       let query = supabase.from('profiles').select(PROFILE_DETAIL_COLUMNS);
-      if (isRegId) {
-        query = query.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
+      if (isUuid) {
+        query = query.or(`id.eq.${cleanId},register_id.ilike.${cleanId}`);
+      } else if (isRegId) {
+        query = query.ilike('register_id', cleanId);
       } else {
-        query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
+        query = query.or(`register_id.ilike.${cleanId},phone.eq.${cleanId}`);
       }
 
-      const { data, error } = await query.limit(1).maybeSingle();
+      let { data, error } = await query.limit(1).maybeSingle();
+      if (error) {
+        // Fallback query with select('*') if any custom column in PROFILE_DETAIL_COLUMNS is missing
+        const fallbackQuery = isUuid
+          ? supabase.from('profiles').select('*').or(`id.eq.${cleanId},register_id.ilike.${cleanId}`).limit(1).maybeSingle()
+          : isRegId
+            ? supabase.from('profiles').select('*').ilike('register_id', cleanId).limit(1).maybeSingle()
+            : supabase.from('profiles').select('*').or(`register_id.ilike.${cleanId},phone.eq.${cleanId}`).limit(1).maybeSingle();
+        const fallbackRes = await fallbackQuery;
+        if (!fallbackRes.error && fallbackRes.data) {
+          data = fallbackRes.data;
+          error = null;
+        }
+      }
+
       if (!error && data) {
         return mapSupabaseRowToProfile(data);
       }

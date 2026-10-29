@@ -748,7 +748,7 @@ export default function MobileMatchFeed({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onStartChat(profile.id);
+                          onStartChat(profile);
                         }}
                         className="w-7 h-7 rounded-full bg-blue-50 border border-blue-200 text-[#1E3A8A] hover:bg-blue-100 flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition-all"
                         title="Live Message"
@@ -762,7 +762,7 @@ export default function MobileMatchFeed({
                         onClick={(e) => {
                           e.stopPropagation();
                           if (isAccepted) {
-                            onStartChat(profile.id);
+                            onStartChat(profile);
                           } else if (isInterested) {
                             onToggleInterest(profile.id);
                           } else if (onRequestSendInterest) {
@@ -1013,7 +1013,7 @@ export default function MobileMatchFeed({
 
                       {/* Live Message (Chat) */}
                       <button
-                        onClick={() => onStartChat(profile.id)}
+                        onClick={() => onStartChat(profile)}
                         className="p-2.5 rounded-full bg-blue-50 border border-blue-200 text-[#1E3A8A] transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-[#0B192C] hover:text-[#DFB76C] shrink-0"
                         title="Live Message"
                       >
@@ -1024,7 +1024,7 @@ export default function MobileMatchFeed({
                       <button
                         onClick={() => {
                           if (isAccepted) {
-                            onStartChat(profile.id);
+                            onStartChat(profile);
                           } else if (isInterested) {
                             onToggleInterest(profile.id);
                           } else if (onRequestSendInterest) {

@@ -510,7 +510,8 @@ export default function MobileInterestsScreen({
       onAcceptReceivedInterest(profileId);
     } else {
       onToggleInterest(profileId);
-      onStartChat?.(profileId);
+      const matched = profiles.find(p => p && (String(p.id) === String(profileId) || (p.register_id && String(p.register_id) === String(profileId))));
+      onStartChat?.(matched || profileId);
     }
   };
 
@@ -656,7 +657,7 @@ export default function MobileInterestsScreen({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onStartChat?.(p.id);
+                              onStartChat?.(p);
                             }}
                             className="p-2 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 border border-blue-200 active:scale-95 transition-all shadow-xs cursor-pointer"
                             title="Send Message"
@@ -670,7 +671,7 @@ export default function MobileInterestsScreen({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onStartChat?.(p.id);
+                              onStartChat?.(p);
                             }}
                             className="p-2 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100"
                             title="Message"
@@ -818,7 +819,7 @@ export default function MobileInterestsScreen({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onStartChat?.(p.id);
+                              onStartChat?.(p);
                             }}
                             className="p-2 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 border border-blue-200 active:scale-95 transition-all shadow-xs cursor-pointer"
                             title="Message"
@@ -839,7 +840,7 @@ export default function MobileInterestsScreen({
                         </button>
                         <button
                           type="button"
-                          onClick={() => onStartChat?.(p.id)}
+                          onClick={() => onStartChat?.(p)}
                           className="py-2 px-3.5 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 border border-blue-200 active:scale-95 transition-all font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer"
                           title="Message"
                         >

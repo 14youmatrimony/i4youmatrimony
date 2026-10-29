@@ -323,7 +323,7 @@ export default function MobileSearchScreen({
                   </button>
 
                   <button
-                    onClick={() => onStartChat(profile.id)}
+                    onClick={() => onStartChat(profile)}
                     className="p-1 rounded-lg border border-slate-200 text-[#1E3A8A] cursor-pointer"
                     title="Chat"
                   >

@@ -810,7 +810,25 @@ class LiveChatService {
         )
       ) : null;
 
-      const partnerObj = matchedProfile || conv.partnerUser;
+      let partnerObj = matchedProfile || conv.partnerUser;
+      if (!partnerObj || !partnerObj.name || ['candidate', 'verified member', 'a verified member', 'member'].includes(String(partnerObj.name).toLowerCase().trim())) {
+        try {
+          const cachedRaw = localStorage.getItem('i4u_cached_profiles');
+          if (cachedRaw) {
+            const cachedProfiles = JSON.parse(cachedRaw);
+            if (Array.isArray(cachedProfiles)) {
+              const foundCached = cachedProfiles.find(p => p && (
+                String(p.id) === conv.profileId || 
+                (p.register_id && String(p.register_id) === conv.profileId) ||
+                (p.registerId && String(p.registerId) === conv.profileId)
+              ));
+              if (foundCached && foundCached.name && !['candidate', 'verified member', 'a verified member', 'member'].includes(String(foundCached.name).toLowerCase().trim())) {
+                partnerObj = foundCached;
+              }
+            }
+          }
+        } catch (e) {}
+      }
       // Strictly ensure the authenticated user's own profile never appears in active chats
       if (!partnerObj || isSelfProfile(partnerObj, userOrId)) continue;
 

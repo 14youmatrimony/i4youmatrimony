@@ -503,7 +503,7 @@ export default function MobileProfileDetailSheet({
               type="button"
               onClick={() => {
                 onClose();
-                onStartChat(profile.id);
+                onStartChat(profile);
               }}
               className="py-2 px-1 rounded-xl bg-white/10 hover:bg-blue-600/30 active:scale-95 border border-white/10 hover:border-blue-400 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
             >
@@ -1022,7 +1022,7 @@ export default function MobileProfileDetailSheet({
                           type="button"
                           onClick={() => {
                             onClose();
-                            onStartChat(profile.id);
+                            onStartChat(profile);
                           }}
                           className="px-3 py-1.5 rounded-lg bg-[#0B192C] text-[#DFB76C] font-bold text-xs hover:bg-slate-900 border border-[#D4AF37]/40 flex items-center space-x-1 shadow-xs cursor-pointer"
                         >
@@ -1551,7 +1551,7 @@ export default function MobileProfileDetailSheet({
         <button
           onClick={() => {
             onClose();
-            onStartChat(profile.id);
+            onStartChat(profile);
           }}
           className="p-2.5 rounded-2xl border border-blue-200 bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 transition-colors flex items-center justify-center cursor-pointer shadow-xs active:scale-95"
           title="Live Message"
@@ -1563,7 +1563,7 @@ export default function MobileProfileDetailSheet({
         <button
           onClick={() => {
             if (isCallingUnlocked) {
-              onStartChat?.(profile.id);
+              onStartChat?.(profile);
             } else if (isIncoming && onAcceptInterest) {
               onAcceptInterest(profile.id);
             } else if (onRequestSendInterest) {

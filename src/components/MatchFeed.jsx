@@ -251,7 +251,7 @@ export default function MatchFeed({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onStartChat(profile.id);
+                      onStartChat(profile);
                     }}
                     className="p-2 rounded-xl border border-slate-200 text-[#1E3A8A] hover:bg-blue-50 transition-colors cursor-pointer"
                     title="Open Chat"
@@ -265,7 +265,7 @@ export default function MatchFeed({
                     onClick={(e) => {
                       e.stopPropagation();
                       if (isAccepted) {
-                        onStartChat(profile.id);
+                        onStartChat(profile);
                       } else {
                         onToggleInterest(profile.id);
                       }

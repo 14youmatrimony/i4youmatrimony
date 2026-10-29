@@ -1012,7 +1012,7 @@ export default function ProfileModal({
               type="button"
               onClick={() => {
                 onClose();
-                onStartChat(profile.id);
+                onStartChat(profile);
               }}
               className="px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 font-semibold text-xs flex items-center space-x-1.5 transition-colors cursor-pointer active:scale-95 shadow-xs"
               title="Live Message"
@@ -1026,7 +1026,7 @@ export default function ProfileModal({
               type="button"
               onClick={() => {
                 if (isCallingUnlocked) {
-                  onStartChat?.(profile.id);
+                  onStartChat?.(profile);
                 } else if (isIncoming && onAcceptInterest) {
                   onAcceptInterest(profile.id);
                 } else if (isInterested) {
