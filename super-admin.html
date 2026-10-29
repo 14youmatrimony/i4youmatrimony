@@ -932,6 +932,10 @@
             <p class="text-xs text-slate-400">Complete payment ledger with refund adjustments, invoice receipts, and status modifications.</p>
           </div>
           <div class="flex items-center space-x-2.5">
+                        <button onclick="printAllPayments()" id="printAllPaymentsBtn" class="py-2 px-3.5 rounded-xl bg-[#DFB76C]/20 hover:bg-[#DFB76C]/30 text-[#DFB76C] border border-[#DFB76C]/40 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm hover:shadow" title="Calculate Total and Print All Transactions">
+              <i data-lucide="printer" class="w-4 h-4"></i>
+              <span>Print All / Total</span>
+            </button>
             <a href="/export/payments/csv" class="py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors">
               <i data-lucide="download" class="w-4 h-4"></i>
               <span>Export Ledger CSV</span>
@@ -1004,6 +1008,10 @@
               <tbody id="paymentsTableBody" class="divide-y divide-slate-800/40 text-sm">
                 <!-- Injected via JavaScript -->
               </tbody>
+              <tfoot id="paymentsTableFoot" class="bg-slate-900/90 border-t-2 border-slate-700/80 text-xs font-semibold text-slate-300">
+                <!-- Dynamically populated with Total Amount & Summary -->
+              </tfoot>
+
             </table>
           </div>
 
@@ -1618,6 +1626,108 @@
 
     </div>
   </dialog>
+  <!-- 5b. PRINT ALL / FINANCIAL LEDGER AUDIT MODAL -->
+  <dialog id="printLedgerModal" class="rounded-3xl bg-[#0B192C] text-white border border-[#D4AF37]/30 shadow-2xl p-0 w-full max-w-4xl backdrop:bg-black/85">
+    <div class="p-5 border-b border-slate-800 flex items-center justify-between no-print">
+      <div class="flex items-center gap-2">
+        <i data-lucide="printer" class="w-5 h-5 text-[#DFB76C]"></i>
+        <h3 class="text-base font-bold text-white">Transaction Ledger & Revenue Report</h3>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-[#DFB76C] hover:bg-[#c9a05b] text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer">
+          <i data-lucide="printer" class="w-4 h-4"></i> Print Statement
+        </button>
+        <button onclick="document.getElementById('printLedgerModal').close()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Printable Content Sheet -->
+    <div class="p-8 space-y-6 bg-slate-900/90 text-slate-200 text-xs max-h-[80vh] overflow-y-auto" id="printableLedgerSheet">
+      
+      <!-- Brand & Ledger Header -->
+      <div class="flex justify-between items-start pb-6 border-b border-slate-800">
+        <div>
+          <h2 class="text-2xl font-serif font-bold text-white">I 4 You Matrimonial</h2>
+          <p class="text-xs text-slate-400">Pan-India Trusted Matchmaking Services | Accounts & Finance</p>
+          <p class="text-[10px] text-slate-500 font-mono mt-0.5">GSTIN: 27AABCI4409Z1ZT • Official Financial Statement</p>
+        </div>
+        <div class="text-right">
+          <span class="inline-block px-2.5 py-1 rounded-full bg-[#DFB76C]/10 text-[#DFB76C] border border-[#DFB76C]/30 text-[10px] uppercase font-bold tracking-wider mb-1">
+            Financial Ledger
+          </span>
+          <p class="text-xs text-slate-300">Generated: <span id="printLedgerDate" class="font-mono text-white font-semibold">2026-10-29</span></p>
+          <p id="printLedgerFilter" class="text-[10px] text-slate-400 mt-0.5">All Statuses • All Gateways</p>
+        </div>
+      </div>
+
+      <!-- Financial Metrics Summary Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800">
+          <p class="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Total Transactions</p>
+          <p id="printLedgerCount" class="text-lg font-mono font-bold text-white mt-1">0 Records</p>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800">
+          <p class="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Total Ledger Amount</p>
+          <p id="printLedgerTotal" class="text-lg font-mono font-bold text-[#DFB76C] mt-1">₹0</p>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800">
+          <p class="text-[10px] uppercase tracking-wider text-emerald-400 font-medium">Completed Volume</p>
+          <p id="printLedgerCompleted" class="text-sm font-mono font-bold text-emerald-300 mt-1">₹0</p>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800">
+          <p class="text-[10px] uppercase tracking-wider text-amber-400 font-medium">Other Statuses</p>
+          <p id="printLedgerOther" class="text-sm font-mono font-bold text-amber-300 mt-1">0 Pending/Failed</p>
+        </div>
+      </div>
+
+      <!-- Ledger Transactions Table -->
+      <div class="rounded-2xl border border-slate-800 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-950/80 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400">
+              <th class="py-2.5 px-2 text-center">#</th>
+              <th class="py-2.5 px-3">Transaction / Invoice #</th>
+              <th class="py-2.5 px-3">Customer & Plan</th>
+              <th class="py-2.5 px-3">Channel</th>
+              <th class="py-2.5 px-2 text-center">Status</th>
+              <th class="py-2.5 px-3">Date</th>
+              <th class="py-2.5 px-3 text-right">Amount (INR)</th>
+            </tr>
+          </thead>
+          <tbody id="printLedgerTableBody" class="divide-y divide-slate-800/60 text-xs">
+            <!-- Dynamically populated -->
+          </tbody>
+          <tfoot class="bg-slate-950 border-t-2 border-slate-700 font-mono font-bold">
+            <tr>
+              <td colspan="6" class="py-3 px-4 text-right text-xs uppercase tracking-wider text-slate-300">
+                Total Amount of Displayed Transactions:
+              </td>
+              <td id="printLedgerGrandTotal" class="py-3 px-3 text-right text-sm text-[#DFB76C]">
+                ₹0
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Audit Statement & Authorization Footer -->
+      <div class="pt-6 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 text-[10px] text-slate-400">
+        <div>
+          <p class="font-semibold text-slate-300">Official Computer-Generated Ledger Report</p>
+          <p>Verified under I 4 You Matrimonial Secure Financial Compliance Standards.</p>
+        </div>
+        <div class="text-right sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800 w-full sm:w-auto">
+          <div class="h-10"></div>
+          <p class="border-t border-slate-700 pt-1 font-semibold text-slate-300">Authorized Accounts Signatory</p>
+          <p class="text-[9px] text-slate-500">I 4 You Technologies Pvt. Ltd.</p>
+        </div>
+      </div>
+
+    </div>
+  </dialog>
+
 
   <!-- 6. COMPLETE PROFILE INSPECTOR MODAL -->
   <dialog id="profileViewModal" class="rounded-3xl bg-[#0B192C] text-white border border-[#D4AF37]/30 shadow-2xl p-0 w-full max-w-xl backdrop:bg-black/75">
