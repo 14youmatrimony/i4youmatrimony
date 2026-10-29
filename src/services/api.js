@@ -1904,6 +1904,11 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         }
 
         const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.sender_id || '');
+        const rId = String(row.recipient_id || row.recipient_register_id || '');
+        const isInterestRow = row.type === 'interest' || row.type === 'interest_received';
+        if (isInterestRow && (!sId || userIds.includes(sId))) return; // STRICT GUARD: sender cannot be logged-in user!
+        if (rId && !userIds.includes(rId)) return; // STRICT GUARD: recipient must be logged-in user!
+
         const matched = findProfile(sId);
         const sName = sanitizeName(matched?.name) !== 'Candidate'
           ? matched.name

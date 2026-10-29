@@ -41,13 +41,15 @@ export default function MobileInterestsScreen({
   const [internalSegment, setInternalSegment] = useState('sent'); // 'sent' | 'received' | 'shortlist'
   const [localDeclinedIds, setLocalDeclinedIds] = useState([]);
   const [liveReceivedInterests, setLiveReceivedInterests] = useState([]);
+  const [liveSentInterests, setLiveSentInterests] = useState([]);
   const [isLoadingReceived, setIsLoadingReceived] = useState(false);
+  const [isLoadingSent, setIsLoadingSent] = useState(false);
 
   // Keep latest profiles available to async callbacks without triggering re-subscriptions
   const profilesRef = useRef(profiles);
   profilesRef.current = profiles;
 
-  // Fetch received interests on component mount and subscribe to real-time incoming events
+  // Fetch received and sent interests on component mount and subscribe to real-time incoming events
   useEffect(() => {
     if (!currentUser) return;
     const userId = currentUser.id || currentUser.register_id || currentUser.registerId;
@@ -69,13 +71,45 @@ export default function MobileInterestsScreen({
         if (isMounted) setIsLoadingReceived(false);
       });
 
+    setIsLoadingSent(true);
+    interestService.getSentInterests(currentUser, profilesRef.current)
+      .then((records) => {
+        if (isMounted) {
+          console.log(`Found [${records.length}] records for sender`);
+          setLiveSentInterests(records);
+          setIsLoadingSent(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('[MobileInterestsScreen] Error fetching sent interests:', err);
+        if (isMounted) setIsLoadingSent(false);
+      });
+
     // Real-time listener for incoming interest alerts with strict cleanup and state deduplication
     const unsub = interestService.subscribeToInterestInbox(currentUser, (payload) => {
       if (!isMounted || !payload) return;
       console.log('[MobileInterestsScreen] Real-time incoming interest event received:', payload);
 
       const incomingInterestId = payload.interest_id || payload.interestId || payload.id;
-      const incomingSenderId = payload.senderId || payload.sender_id;
+      const incomingSenderId = String(payload.senderId || payload.sender_id || payload.userAId || '');
+      const incomingReceiverId = String(payload.receiverId || payload.receiver_id || payload.userBId || '');
+      const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+
+      // STRICT TAB FILTERING:
+      // If the incoming event was sent by currentUser, refresh Sent and DO NOT add to Received!
+      if (incomingSenderId && currentIds.includes(incomingSenderId)) {
+        interestService.getSentInterests(currentUser, profilesRef.current)
+          .then((records) => {
+            if (isMounted && Array.isArray(records)) setLiveSentInterests(records);
+          })
+          .catch(() => {});
+        return;
+      }
+
+      // If incoming interest is not addressed to currentUser, reject from received!
+      if (incomingReceiverId && !currentIds.includes(incomingReceiverId)) {
+        return;
+      }
 
       setLiveReceivedInterests((prev) => {
         const prevArr = Array.isArray(prev) ? prev : [];
@@ -110,6 +144,8 @@ export default function MobileInterestsScreen({
           interestId: incomingInterestId || `interest_${incomingSenderId}_${Date.now()}`,
           senderId: incomingSenderId,
           sender_id: incomingSenderId,
+          receiverId: incomingReceiverId,
+          receiver_id: incomingReceiverId,
           status: payload.status || 'pending',
           created_at: payload.created_at || new Date().toISOString()
         };
@@ -194,10 +230,25 @@ export default function MobileInterestsScreen({
   const sentProfiles = useMemo(() => {
     const list = [];
     const seen = new Set();
+    const currentIds = currentUser ? [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String) : [];
+
+    // Collect all candidate IDs where currentUser is sender_id
+    const sentCandidateIds = new Set((Array.isArray(interestsSent) ? interestsSent : []).map(String));
+    (liveSentInterests || []).forEach((rec) => {
+      const sId = String(rec.sender_id || rec.senderId || '');
+      const rId = String(rec.receiver_id || rec.receiverId || '');
+      if (currentIds.includes(sId) && !currentIds.includes(rId) && rId) {
+        sentCandidateIds.add(rId);
+      }
+    });
+
     (oppositeGenderProfiles || []).forEach(p => {
-      if (!p || !isProfileInList(p, interestsSent)) return;
+      if (!p) return;
       const pid = String(p.id || '');
       const regId = String(p.registerId || p.register_id || '');
+      const isSent = (pid && sentCandidateIds.has(pid)) || (regId && sentCandidateIds.has(regId));
+      if (!isSent) return;
+
       if (pid && seen.has(pid)) return;
       if (regId && seen.has(regId)) return;
       if (pid) seen.add(pid);
@@ -205,7 +256,7 @@ export default function MobileInterestsScreen({
       list.push(p);
     });
     return list;
-  }, [oppositeGenderProfiles, interestsSent]);
+  }, [oppositeGenderProfiles, interestsSent, liveSentInterests, currentUser]);
 
   const shortlistedProfiles = useMemo(() => {
     const list = [];
@@ -228,18 +279,23 @@ export default function MobileInterestsScreen({
     const list = [];
     const seenCandidateIds = new Set();
     const seenInterestIds = new Set();
+    const currentIds = currentUser ? [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String) : [];
 
     // 1. Process live received interests from Supabase / interestService
     if (Array.isArray(liveReceivedInterests) && liveReceivedInterests.length > 0) {
       liveReceivedInterests.forEach((rec) => {
         if (!rec) return;
         const sid = String(rec.senderId || rec.sender_id || '');
+        const rid = String(rec.receiverId || rec.receiver_id || '');
         const interestId = String(rec.interest_id || rec.interestId || rec.id || '');
         if (!sid || rec.status === 'rejected') return;
-        // Never allow currentUser to be considered as sender (prevents state overlap!)
+
+        // STRICT FILTER: Current user MUST NOT be the sender of a received interest!
+        if (currentIds.includes(sid)) return;
+        // STRICT FILTER: If receiverId is present, current user MUST be the receiver!
+        if (rid && !currentIds.includes(rid)) return;
         if (isSelfProfile({ id: sid })) return;
         if (Array.isArray(effectiveDeclinedIds) && effectiveDeclinedIds.some(id => String(id) === sid)) return;
-        if (Array.isArray(interestsSent) && interestsSent.some(id => String(id) === sid) && rec.status !== 'pending') return;
 
         // Deduplicate by interest_id
         if (interestId && !interestId.startsWith('loc_') && seenInterestIds.has(interestId)) {
@@ -315,14 +371,23 @@ export default function MobileInterestsScreen({
     const relevantNotifs = (Array.isArray(notifications) ? notifications : []).filter(n => {
       if (!n) return false;
       const t = n.type || '';
-      return (
-        t === 'interest_received' ||
-        t === 'interest' ||
-        t === 'contact_viewed' ||
-        t === 'contact_view' ||
-        t === 'contact' ||
-        t === 'contact_request'
-      );
+      const isInterestNotif = t === 'interest_received' || t === 'interest';
+      const isContactNotif = t === 'contact_viewed' || t === 'contact_view' || t === 'contact' || t === 'contact_request';
+      if (!isInterestNotif && !isContactNotif) return false;
+
+      const nSenderId = String(n.senderId || n.sender_id || n.profileId || n.sender?.id || '');
+      const nRecipientId = String(n.recipient_id || n.recipientId || n.receiver_id || n.receiverId || '');
+      const metaSenderId = String(n.metadata?.senderId || n.metadata?.sender_id || '');
+
+      // STRICT RULES:
+      // A) The logged-in user MUST NOT be the sender!
+      if (currentIds.includes(nSenderId) || (metaSenderId && currentIds.includes(metaSenderId))) return false;
+      // B) If recipient is specified, the logged-in user MUST be the recipient!
+      if (nRecipientId && !currentIds.includes(nRecipientId)) return false;
+      // C) Never include if candidate is in effectiveDeclinedIds
+      if (effectiveDeclinedIds.some(id => String(id) === nSenderId)) return false;
+
+      return true;
     });
 
     let localContactViews = [];
@@ -357,7 +422,7 @@ export default function MobileInterestsScreen({
     additionalItems.forEach(item => {
       if (!item) return;
       const sid = String(item.senderId || item.sender_id || '');
-      if (!sid || isSelfProfile({ id: sid })) return;
+      if (!sid || currentIds.includes(sid) || isSelfProfile({ id: sid })) return;
       if (Array.isArray(effectiveDeclinedIds) && effectiveDeclinedIds.some(id => String(id) === sid)) return;
       if (seenCandidateIds.has(sid)) return;
 
@@ -418,7 +483,7 @@ export default function MobileInterestsScreen({
     });
 
     return list;
-  }, [liveReceivedInterests, notifications, profiles, effectiveDeclinedIds, interestsSent, isMaleUser]);
+  }, [liveReceivedInterests, notifications, profiles, effectiveDeclinedIds, interestsSent, isMaleUser, currentUser]);
 
   const declinedProfiles = oppositeGenderProfiles.filter(p => effectiveDeclinedIds.includes(p.id));
 

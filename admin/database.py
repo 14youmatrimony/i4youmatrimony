@@ -2229,13 +2229,18 @@ def get_received_interests_db(receiver_id: str) -> List[Dict[str, Any]]:
             FROM interests i
             LEFT JOIN profiles p ON (p.id = i.sender_id OR p.register_id = i.sender_id)
             WHERE i.receiver_id IN ({placeholders})
+              AND i.sender_id NOT IN ({placeholders})
             ORDER BY i.updated_at DESC
             """,
-            list(user_ids)
+            list(user_ids) + list(user_ids)
         )
         rows = cursor.fetchall()
         result = []
         for r in rows:
+            s_id = str(r['sender_id'])
+            r_id = str(r['receiver_id'])
+            if s_id in user_ids or r_id not in user_ids:
+                continue
             s_name = (r.get('sender_name') or '').strip()
             if not s_name or s_name.lower() in ['verified member', 'a verified member', 'member']:
                 s_name = 'Candidate'
@@ -2345,6 +2350,11 @@ def get_user_notifications_db(user_id: str) -> List[Dict[str, Any]]:
                             meta = {}
 
                 s_id = str(r.get('sender_id') or meta.get('senderId') or meta.get('sender_id') or '')
+                notif_type = str(r.get('type') or '')
+                # If current user is the sender of an interest notification, do not show as received!
+                if s_id and s_id in user_ids and notif_type in ('interest', 'interest_received'):
+                    continue
+
                 notif_id = str(r['id'])
                 if not notif_id.startswith('notif_'):
                     notif_id = f"notif_{notif_id}"
@@ -2584,8 +2594,8 @@ def insert_notification_db(recipient_id: str, sender_id: str, notif_type: str, t
 def get_sent_interests_db(sender_id: str) -> List[Dict[str, Any]]:
     """
     Fetches interests sent by the authenticated user.
-    sender_id is from authenticated token.
-    WHERE sender_id = ? AND sender_id <> receiver_id
+    The logged-in user is strictly the sender_id.
+    WHERE i.sender_id IN (...) AND i.receiver_id NOT IN (...)
     """
     clean_sender = str(sender_id).strip()
     if not clean_sender:
@@ -2594,26 +2604,78 @@ def get_sent_interests_db(sender_id: str) -> List[Dict[str, Any]]:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        user_ids = {clean_sender}
+        try:
+            cursor.execute("SELECT id, register_id FROM profiles WHERE id = ? OR register_id = ?", (clean_sender, clean_sender))
+            for m in cursor.fetchall():
+                if m.get('id'): user_ids.add(str(m['id']))
+                if m.get('register_id'): user_ids.add(str(m['register_id']))
+        except Exception:
+            pass
+
+        placeholders = ', '.join(['?'] * len(user_ids))
         cursor.execute(
-            """
-            SELECT id, sender_id, receiver_id, status, message, created_at, updated_at
-            FROM interests
-            WHERE sender_id = ? AND sender_id <> receiver_id
-            ORDER BY updated_at DESC
+            f"""
+            SELECT i.id, i.sender_id, i.receiver_id, i.status, i.message, i.created_at, i.updated_at,
+                   p.name AS receiver_name, p.photo AS receiver_photo, p.photo_url AS receiver_photo_url,
+                   p.age AS receiver_age, p.profession AS receiver_profession, p.district AS receiver_district,
+                   p.city AS receiver_city, p.state AS receiver_state, p.verified AS receiver_verified,
+                   p.aadhaar_verified AS receiver_aadhaar_verified
+            FROM interests i
+            LEFT JOIN profiles p ON (p.id = i.receiver_id OR p.register_id = i.receiver_id)
+            WHERE i.sender_id IN ({placeholders})
+              AND i.receiver_id NOT IN ({placeholders})
+            ORDER BY i.updated_at DESC
             """,
-            (clean_sender,)
+            list(user_ids) + list(user_ids)
         )
         rows = cursor.fetchall()
         result = []
         for r in rows:
+            s_id = str(r['sender_id'])
+            r_id = str(r['receiver_id'])
+            if s_id not in user_ids or r_id in user_ids:
+                continue
+
+            r_name = (r.get('receiver_name') or '').strip()
+            if not r_name or r_name.lower() in ['verified member', 'a verified member', 'member']:
+                r_name = 'Candidate'
+            r_photo = r.get('receiver_photo') or r.get('receiver_photo_url') or 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400'
+            r_loc = r.get('receiver_district') or r.get('receiver_city') or r.get('receiver_state') or 'Kerala'
+            r_age = r.get('receiver_age') or 26
+            r_prof = r.get('receiver_profession') or 'Professional'
+            r_ver = bool(r.get('receiver_verified') or r.get('receiver_aadhaar_verified'))
+
+            rec_obj = {
+                'id': r_id,
+                'name': r_name,
+                'photo': r_photo,
+                'age': r_age,
+                'profession': r_prof,
+                'city': r_loc,
+                'district': r.get('receiver_district') or r_loc,
+                'location': r_loc,
+                'verified': r_ver,
+                'aadhaarVerified': r_ver
+            }
+
             result.append({
                 'id': str(r['id']),
-                'sender_id': str(r['sender_id']),
-                'receiver_id': str(r['receiver_id']),
+                'sender_id': s_id,
+                'senderId': s_id,
+                'receiver_id': r_id,
+                'receiverId': r_id,
                 'status': str(r['status']),
                 'message': str(r['message'] or ''),
                 'created_at': str(r['created_at']),
-                'updated_at': str(r['updated_at'])
+                'updated_at': str(r['updated_at']),
+                'receiver_name': r_name,
+                'receiver_photo': r_photo,
+                'receiver_age': r_age,
+                'receiver_profession': r_prof,
+                'receiver_location': r_loc,
+                'receiver': rec_obj,
+                'profile': rec_obj
             })
         return result
     finally:

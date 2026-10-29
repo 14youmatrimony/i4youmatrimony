@@ -1392,6 +1392,14 @@ export default function App() {
             if (sName.includes('verified member') || title.includes('verified member')) {
               return false;
             }
+            try {
+              const uObj = savedUser ? JSON.parse(savedUser) : null;
+              const uIds = [uObj?.id, uObj?.register_id, uObj?.registerId].filter(Boolean).map(String);
+              const sId = String(n.senderId || n.sender_id || n.profileId || n.sender?.id || '');
+              if (sId && uIds.includes(sId) && (n.type === 'interest' || n.type === 'interest_received')) {
+                return false; // Purge stale self-sent interest notification
+              }
+            } catch (e) {}
             return true;
           });
           return clean;
@@ -1440,6 +1448,11 @@ export default function App() {
           // Merge newly fetched dynamic records from PostgreSQL / Supabase
           records.forEach(rec => {
             if (!rec) return;
+            const recSenderId = String(rec.sender_id || rec.senderId || rec.metadata?.senderId || '');
+            const isInterestNotif = rec.type === 'interest' || rec.type === 'interest_received';
+            if (isInterestNotif && recSenderId && userIds.includes(recSenderId)) {
+              return; // Do NOT add notification if logged-in user is the sender!
+            }
             const notifId = rec.notification_id || rec.id || `notif_${rec.sender_id || rec.senderId}_${rec.created_at}`;
             const existing = map.get(notifId);
             map.set(notifId, {
@@ -1464,8 +1477,8 @@ export default function App() {
       if (!payload) return;
 
       const isAcceptedEvent = payload.event === 'interest-accepted' || payload.status === 'accepted';
-      const sId = String(payload.senderId || payload.sender_id || '');
-      const rId = String(payload.receiverId || payload.receiver_id || payload.responderId || '');
+      const sId = String(payload.senderId || payload.sender_id || payload.userAId || '');
+      const rId = String(payload.receiverId || payload.receiver_id || payload.responderId || payload.userBId || '');
       const uA = String(payload.userAId || '');
       const uB = String(payload.userBId || '');
 
@@ -1602,9 +1615,16 @@ export default function App() {
         return;
       }
 
-      // If this is an outgoing interest sent by currentUser, do not notify as received!
-      if (sId && currentIds.includes(sId) && !currentIds.includes(rId)) {
+      // STRICT LOGICAL GUARD:
+      // If this is an outgoing interest sent by currentUser, NEVER notify currentUser!
+      // New Interest Received notification MUST ONLY trigger for receiver_id (User B).
+      if (sId && currentIds.includes(sId) && (!rId || !currentIds.includes(rId))) {
         return;
+      }
+      if ((payload.status === 'pending' || payload.event === 'interest-received' || payload.type === 'interest_status_change') && !isAcceptedEvent) {
+        if (!rId || !currentIds.includes(rId)) {
+          return;
+        }
       }
 
       const interestId = payload.interest_id || payload.interestId || payload.id;

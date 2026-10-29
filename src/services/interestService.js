@@ -12,7 +12,9 @@ import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import {
   sendBackendInterest,
-  respondBackendInterest
+  respondBackendInterest,
+  fetchBackendReceivedInterests,
+  fetchBackendSentInterests
 } from './api.js';
 
 const generateUUID = () => {
@@ -595,7 +597,12 @@ class InterestService {
           .order('updated_at', { ascending: false });
 
         if (!error && Array.isArray(data)) {
-          rawRecords = data;
+          // Strictly only records where currentUser is receiver_id, and NOT sender_id
+          rawRecords = data.filter(r => {
+            const sId = String(r.sender_id || '');
+            const rId = String(r.receiver_id || '');
+            return receiverIds.includes(rId) && !receiverIds.includes(sId);
+          });
         } else if (error) {
           console.warn('[InterestService] Supabase interests query notice:', error.message);
         }
@@ -604,10 +611,27 @@ class InterestService {
       }
     }
 
-    // 2. Merge local records for offline / cross-tab fallback
-    const localRecords = this.getLocalRecords().filter((r) =>
-      receiverIds.includes(String(r.receiverId))
-    );
+    // 2. Query backend API if available
+    try {
+      const backendRows = await fetchBackendReceivedInterests();
+      if (Array.isArray(backendRows)) {
+        backendRows.forEach((r) => {
+          const sId = String(r.sender_id || r.senderId || '');
+          const rId = String(r.receiver_id || r.receiverId || '');
+          if (receiverIds.includes(rId) && !receiverIds.includes(sId)) {
+            const exists = rawRecords.some((existing) => String(existing.id) === String(r.id));
+            if (!exists) rawRecords.push(r);
+          }
+        });
+      }
+    } catch (e) {}
+
+    // 3. Merge local records for offline / cross-tab fallback
+    const localRecords = this.getLocalRecords().filter((r) => {
+      const sId = String(r.senderId || '');
+      const rId = String(r.receiverId || '');
+      return receiverIds.includes(rId) && !receiverIds.includes(sId);
+    });
 
     localRecords.forEach((localRec) => {
       const exists = Array.isArray(rawRecords) && rawRecords.some(
@@ -626,30 +650,34 @@ class InterestService {
       }
     });
 
-    // 3. Check localStorage receiver cache
+    // 4. Check localStorage receiver cache
     try {
-      const storedReceived = localStorage.getItem(`i4u_received_interests_${userId}`);
-      if (storedReceived) {
-        const parsed = JSON.parse(storedReceived);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((pId) => {
-            const exists = Array.isArray(rawRecords) && rawRecords.some(
-              (r) => r && String(r.sender_id || r.senderId) === String(pId)
-            );
-            if (!exists) {
-              rawRecords.push({
-                id: `loc_${pId}`,
-                sender_id: pId,
-                receiver_id: userId,
-                status: 'pending',
-                message: 'Expressed interest in connecting with you.',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              });
-            }
-          });
+      receiverIds.forEach((uid) => {
+        const storedReceived = localStorage.getItem(`i4u_received_interests_${uid}`);
+        if (storedReceived) {
+          const parsed = JSON.parse(storedReceived);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((pId) => {
+              const strPid = String(pId);
+              if (receiverIds.includes(strPid)) return; // Strictly ignore self!
+              const exists = Array.isArray(rawRecords) && rawRecords.some(
+                (r) => r && String(r.sender_id || r.senderId) === strPid
+              );
+              if (!exists) {
+                rawRecords.push({
+                  id: `loc_${strPid}`,
+                  sender_id: strPid,
+                  receiver_id: uid,
+                  status: 'pending',
+                  message: 'Expressed interest in connecting with you.',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+              }
+            });
+          }
         }
-      }
+      });
     } catch (e) {}
 
     // 4. Map & JOIN sender profile details
@@ -799,8 +827,178 @@ class InterestService {
       deduplicatedEnriched.push(item);
     }
 
-    console.log(`Found [${deduplicatedEnriched.length}] records for receiver`);
-    return deduplicatedEnriched;
+    // Final sanity check: Strictly ensure receiver is current user and sender is NOT current user
+    const finalReceived = deduplicatedEnriched.filter(item => {
+      const sId = String(item.sender_id || item.senderId || '');
+      const rId = String(item.receiver_id || item.receiverId || '');
+      return !receiverIds.includes(sId) && (receiverIds.includes(rId) || !rId);
+    });
+
+    console.log(`Found [${finalReceived.length}] records for receiver`);
+    return finalReceived;
+  }
+
+  /**
+   * Fetches outgoing interests sent by a user.
+   * JOINs receiver profile data so the sender can view the status of their sent requests.
+   * Strictly lists ONLY records where the logged-in user is sender_id.
+   */
+  async getSentInterests(userOrId, allProfiles = []) {
+    if (!userOrId) return [];
+
+    const senderIds = this.getUserIds(userOrId);
+    if (!senderIds.length) return [];
+
+    const userId = senderIds[0];
+    console.log(`Fetching sent interests for user: [${userId}]`);
+
+    let rawRecords = [];
+
+    // 1. Query Supabase 'interests' table
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('interests')
+          .select('*')
+          .in('sender_id', senderIds)
+          .order('updated_at', { ascending: false });
+
+        if (!error && Array.isArray(data)) {
+          // Strictly only records where currentUser is sender_id, and NOT receiver_id
+          rawRecords = data.filter(r => {
+            const sId = String(r.sender_id || '');
+            const rId = String(r.receiver_id || '');
+            return senderIds.includes(sId) && !senderIds.includes(rId);
+          });
+        }
+      } catch (err) {
+        console.warn('[InterestService] Supabase sent interests query notice:', err);
+      }
+    }
+
+    // 2. Query backend API if available
+    try {
+      const backendRows = await fetchBackendSentInterests();
+      if (Array.isArray(backendRows)) {
+        backendRows.forEach((r) => {
+          const sId = String(r.sender_id || r.senderId || '');
+          const rId = String(r.receiver_id || r.receiverId || '');
+          if (senderIds.includes(sId) && !senderIds.includes(rId)) {
+            const exists = rawRecords.some((existing) => String(existing.id) === String(r.id));
+            if (!exists) rawRecords.push(r);
+          }
+        });
+      }
+    } catch (e) {}
+
+    // 3. Merge local records
+    const localRecords = this.getLocalRecords().filter((r) => {
+      const sId = String(r.senderId || '');
+      const rId = String(r.receiverId || '');
+      return senderIds.includes(sId) && !senderIds.includes(rId);
+    });
+
+    localRecords.forEach((localRec) => {
+      const exists = rawRecords.some((r) => String(r.receiver_id || r.receiverId) === String(localRec.receiverId));
+      if (!exists) {
+        rawRecords.push({
+          id: localRec.id,
+          sender_id: localRec.senderId,
+          receiver_id: localRec.receiverId,
+          status: localRec.status || 'pending',
+          message: localRec.message || '',
+          created_at: localRec.createdAt || localRec.updatedAt || new Date().toISOString(),
+          updated_at: localRec.updatedAt || new Date().toISOString()
+        });
+      }
+    });
+
+    // 4. Merge localStorage interestsSent
+    try {
+      senderIds.forEach((uid) => {
+        const storedSent = localStorage.getItem(`i4u_interests_sent_${uid}`);
+        if (storedSent) {
+          const parsed = JSON.parse(storedSent);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((pId) => {
+              const strPid = String(pId);
+              if (senderIds.includes(strPid)) return;
+              const exists = rawRecords.some((r) => String(r.receiver_id || r.receiverId) === strPid);
+              if (!exists) {
+                rawRecords.push({
+                  id: `loc_sent_${strPid}`,
+                  sender_id: uid,
+                  receiver_id: strPid,
+                  status: 'pending',
+                  message: '',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+              }
+            });
+          }
+        }
+      });
+      const globalSent = localStorage.getItem('i4u_interests_sent');
+      if (globalSent) {
+        const parsed = JSON.parse(globalSent);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((pId) => {
+            const strPid = String(pId);
+            if (senderIds.includes(strPid)) return;
+            const exists = rawRecords.some((r) => String(r.receiver_id || r.receiverId) === strPid);
+            if (!exists) {
+              rawRecords.push({
+                id: `loc_sent_${strPid}`,
+                sender_id: userId,
+                receiver_id: strPid,
+                status: 'pending',
+                message: '',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 5. Map & JOIN receiver profile details
+    const profilesMap = new Map();
+    if (Array.isArray(allProfiles)) {
+      allProfiles.forEach((p) => {
+        if (!p) return;
+        if (p.id) profilesMap.set(String(p.id), p);
+        if (p.register_id) profilesMap.set(String(p.register_id), p);
+        if (p.registerId) profilesMap.set(String(p.registerId), p);
+      });
+    }
+
+    const seenReceiverIds = new Set();
+    const result = [];
+    rawRecords.forEach((rec) => {
+      const recId = String(rec.receiver_id || rec.receiverId || '');
+      if (!recId || senderIds.includes(recId)) return;
+      if (seenReceiverIds.has(recId)) return;
+      seenReceiverIds.add(recId);
+
+      const receiverProfile = profilesMap.get(recId) || (Array.isArray(allProfiles) ? allProfiles.find(p => p && (
+        String(p.id) === recId || String(p.register_id) === recId || String(p.registerId) === recId
+      )) : null);
+
+      result.push({
+        ...rec,
+        id: rec.id || `sent_${recId}`,
+        sender_id: String(rec.sender_id || rec.senderId || userId),
+        receiver_id: recId,
+        receiver: receiverProfile || { id: recId },
+        profile: receiverProfile || { id: recId },
+        status: rec.status || 'pending'
+      });
+    });
+
+    console.log(`Found [${result.length}] records for sender`);
+    return result;
   }
 
   /**
@@ -819,10 +1017,22 @@ class InterestService {
     const emitEvent = (update) => {
       if (!update || !onNewInterest) return;
       const intId = update.interest_id || update.interestId || update.id;
-      const sId = update.senderId || update.sender_id || update.userAId;
-      const rId = update.receiverId || update.receiver_id || update.userBId;
+      const sId = String(update.senderId || update.sender_id || update.userAId || '');
+      const rId = String(update.receiverId || update.receiver_id || update.userBId || '');
       const status = update.status || 'pending';
       const event = update.event || '';
+
+      // CRITICAL CHECK: An incoming interest (pending) must ONLY be emitted to the receiver!
+      // The sender must NEVER receive an incoming interest event in their inbox.
+      if (status === 'pending' && event !== 'interest-accepted') {
+        if (sId && targetUserIds.includes(sId) && !targetUserIds.includes(rId)) {
+          return; // Suppress outgoing interest from triggering sender's inbox!
+        }
+        if (rId && !targetUserIds.includes(rId)) {
+          return; // Suppress event not addressed to this user's inbox!
+        }
+      }
+
       const sig = `${intId || `${sId}->${rId}`}:${status}:${event}`;
       const now = Date.now();
       if (processedEvents.has(sig) && (now - processedEvents.get(sig) < 1500)) {
@@ -906,27 +1116,34 @@ class InterestService {
               if (!row) return;
               const sId = String(row.sender_id || '');
               const rId = String(row.receiver_id || '');
-              if (targetUserIds.includes(sId) || targetUserIds.includes(rId)) {
-                console.log('[InterestService] Real-time postgres_changes event on interests:', row.status, sId, rId);
-                const isAccepted = row.status === 'accepted';
-                const partnerId = targetUserIds.includes(sId) ? rId : sId;
-                const updatePayload = {
-                  id: row.id,
-                  interest_id: row.id,
-                  interestId: row.id,
-                  event: isAccepted ? 'interest-accepted' : 'interest_status_change',
-                  status: row.status,
-                  userAId: sId,
-                  userBId: rId,
-                  senderId: sId,
-                  receiverId: rId,
-                  responderId: rId,
-                  partnerId: partnerId,
-                  timestamp: Date.now()
-                };
-                this.handleRealtimeStatusUpdate(updatePayload);
-                emitEvent(updatePayload);
+              if (row.status === 'pending') {
+                if (!targetUserIds.includes(rId)) {
+                  return; // Pending interest notification is ONLY for receiver!
+                }
+              } else {
+                if (!targetUserIds.includes(sId) && !targetUserIds.includes(rId)) {
+                  return;
+                }
               }
+              console.log('[InterestService] Real-time postgres_changes event on interests:', row.status, sId, rId);
+              const isAccepted = row.status === 'accepted';
+              const partnerId = targetUserIds.includes(sId) ? rId : sId;
+              const updatePayload = {
+                id: row.id,
+                interest_id: row.id,
+                interestId: row.id,
+                event: isAccepted ? 'interest-accepted' : 'interest_status_change',
+                status: row.status,
+                userAId: sId,
+                userBId: rId,
+                senderId: sId,
+                receiverId: rId,
+                responderId: rId,
+                partnerId: partnerId,
+                timestamp: Date.now()
+              };
+              this.handleRealtimeStatusUpdate(updatePayload);
+              emitEvent(updatePayload);
             }
           )
           .subscribe();
@@ -939,18 +1156,31 @@ class InterestService {
     const handleWindowEvt = (e) => {
       if (!e?.detail) return;
       const update = e.detail;
-      const ids = [
-        update.userAId,
-        update.userBId,
-        update.senderId,
-        update.receiverId,
-        update.responderId,
-        update.partnerId
-      ].filter(Boolean).map(String);
+      const sId = String(update.senderId || update.sender_id || update.userAId || '');
+      const rId = String(update.receiverId || update.receiver_id || update.userBId || '');
+      const status = update.status || 'pending';
+      const event = update.event || '';
 
-      if (targetUserIds.some(id => ids.includes(String(id)))) {
-        emitEvent(update);
+      if (status === 'pending' && event !== 'interest-accepted') {
+        if (!rId || !targetUserIds.includes(rId)) {
+          return; // Strictly only for receiver!
+        }
+      } else {
+        const ids = [
+          update.userAId,
+          update.userBId,
+          update.senderId,
+          update.receiverId,
+          update.responderId,
+          update.partnerId
+        ].filter(Boolean).map(String);
+
+        if (!targetUserIds.some(id => ids.includes(String(id)))) {
+          return;
+        }
       }
+
+      emitEvent(update);
     };
     if (typeof window !== 'undefined') {
       window.addEventListener('i4u_interest_status_change', handleWindowEvt);
@@ -959,18 +1189,31 @@ class InterestService {
     // Also listen to local status change events (in-memory + cross-tab)
     const unsubLocal = this.onStatusChange((update) => {
       if (!update) return;
-      const ids = [
-        update.userAId,
-        update.userBId,
-        update.senderId,
-        update.receiverId,
-        update.responderId,
-        update.partnerId
-      ].filter(Boolean).map(String);
+      const sId = String(update.senderId || update.sender_id || update.userAId || '');
+      const rId = String(update.receiverId || update.receiver_id || update.userBId || '');
+      const status = update.status || 'pending';
+      const event = update.event || '';
 
-      if (targetUserIds.some(id => ids.includes(String(id)))) {
-        emitEvent(update);
+      if (status === 'pending' && event !== 'interest-accepted') {
+        if (!rId || !targetUserIds.includes(rId)) {
+          return; // Strictly only for receiver!
+        }
+      } else {
+        const ids = [
+          update.userAId,
+          update.userBId,
+          update.senderId,
+          update.receiverId,
+          update.responderId,
+          update.partnerId
+        ].filter(Boolean).map(String);
+
+        if (!targetUserIds.some(id => ids.includes(String(id)))) {
+          return;
+        }
       }
+
+      emitEvent(update);
     });
 
     return () => {
@@ -1167,7 +1410,10 @@ class InterestService {
       payload: {
         userAId: String(senderId),
         userBId: String(receiverId),
-        status: 'pending'
+        senderId: String(senderId),
+        receiverId: String(receiverId),
+        status: 'pending',
+        timestamp: Date.now()
       }
     };
     if (this.crossTabChannel) {
