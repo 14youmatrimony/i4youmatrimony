@@ -46,16 +46,17 @@ export default function MobileAppShell({
 
   // Dynamic styling for bottom navigation container based on selected Theme Setting
   const navContainerClass = useMemo(() => {
+    const baseNav = 'mobile-bottom-nav fixed bottom-0 left-0 right-0 w-full z-50 flex items-center justify-around pointer-events-auto';
     switch (bottomBarStyle) {
       case 'classic':
-        return 'w-full bg-[#0B192C] text-white border-t border-[#D4AF37]/35 px-2 py-1.5 flex items-center justify-around shrink-0 z-30 shadow-[0_-4px_24px_rgba(0,0,0,0.35)]';
+        return `${baseNav} bg-[#0B192C] text-white border-t border-[#D4AF37]/35 px-2 py-2 shadow-[0_-4px_24px_rgba(0,0,0,0.35)]`;
       case 'glass':
-        return 'absolute bottom-0 left-0 right-0 z-30 bg-[#0B192C]/85 backdrop-blur-xl border-t border-white/20 px-2 py-2 flex items-center justify-around shadow-[0_-8px_32px_rgba(0,0,0,0.5)] pointer-events-auto';
+        return `${baseNav} bg-[#0B192C]/90 backdrop-blur-xl border-t border-white/20 px-2 py-2 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]`;
       case 'dock':
-        return 'absolute bottom-3 left-3 right-3 sm:left-4 sm:right-4 z-30 rounded-3xl bg-[#0B192C]/95 backdrop-blur-2xl border-2 border-[#D4AF37]/40 px-2 py-1.5 flex items-center justify-around shadow-[0_10px_35px_rgba(0,0,0,0.6)] pointer-events-auto';
+        return `${baseNav} bg-[#0B192C]/95 backdrop-blur-2xl border-t border-[#D4AF37]/40 px-2 py-2 shadow-[0_10px_35px_rgba(0,0,0,0.6)]`;
       case 'transparent':
       default:
-        return 'absolute bottom-0 left-0 right-0 z-30 bg-transparent border-0 px-2 py-2 flex items-center justify-around pointer-events-auto';
+        return `${baseNav} bg-[#0B192C]/80 backdrop-blur-md border-t border-white/10 px-2 py-2 text-slate-200`;
     }
   }, [bottomBarStyle]);
 
@@ -70,7 +71,7 @@ export default function MobileAppShell({
         className={`flex-1 relative transition-colors duration-300 ${
           activeTab === 'chat'
             ? 'flex flex-col min-h-0 overflow-hidden pb-0'
-            : `overflow-y-auto scroll-smooth ${bottomBarStyle === 'classic' ? 'pb-6' : 'pb-24'}`
+            : 'overflow-y-auto scroll-smooth pb-24 sm:pb-28'
         } ${
           isDarkMode ? 'bg-[#081220]' : 'bg-slate-50'
         }`}
@@ -83,13 +84,7 @@ export default function MobileAppShell({
         <button
           type="button"
           onClick={onOpenNotifications}
-          className={`absolute ${
-            bottomBarStyle === 'dock' 
-              ? 'bottom-[84px]' 
-              : bottomBarStyle === 'classic' 
-                ? 'bottom-[76px]' 
-                : 'bottom-[74px]'
-          } right-3.5 z-30 w-11 h-11 rounded-2xl bg-[#0B192C]/90 backdrop-blur-md text-white border-2 shadow-2xl flex items-center justify-center cursor-pointer active:scale-95 hover:scale-105 transition-all group`}
+          className="absolute bottom-[76px] right-3.5 z-40 w-11 h-11 rounded-2xl bg-[#0B192C]/90 backdrop-blur-md text-white border-2 shadow-2xl flex items-center justify-center cursor-pointer active:scale-95 hover:scale-105 transition-all group"
           style={{ borderColor: accent.primary }}
           title="Notifications & Alerts"
           aria-label="Open Notifications"
@@ -108,6 +103,15 @@ export default function MobileAppShell({
         <nav 
           aria-label="Mobile Bottom Navigation"
           className={navContainerClass}
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            width: '100%',
+            zIndex: 50,
+            paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom, 0px))'
+          }}
         >
           {tabs.map((tab) => {
             const Icon = tab.icon;

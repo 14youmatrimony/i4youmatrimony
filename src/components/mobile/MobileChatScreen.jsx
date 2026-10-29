@@ -915,9 +915,7 @@ export default function MobileChatScreen({
 
   // View 2: Conversations List (Strictly Opposite Gender Matches)
   return (
-    <div className={`flex-1 overflow-y-auto p-3 space-y-3 ${
-      bottomBarStyle === 'classic' ? 'pb-8' : 'pb-24'
-    }`}>
+    <div className="flex-1 overflow-y-auto p-3 space-y-3 pb-24 sm:pb-28">
       <div className="relative">
         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
         <input 

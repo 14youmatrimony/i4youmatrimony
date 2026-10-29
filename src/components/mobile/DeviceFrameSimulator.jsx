@@ -15,7 +15,10 @@ export default function DeviceFrameSimulator({
   const [statusBarMode] = React.useState('auto'); // 'auto' | 'dark' | 'light'
 
   return (
-    <div className="min-h-screen h-screen bg-slate-950 flex flex-col items-center justify-center p-0 sm:p-2 overflow-hidden selection:bg-[#DFB76C]/30 relative">
+    <div 
+      className="main-layout-wrapper min-h-[100dvh] h-[100dvh] bg-slate-950 flex flex-col items-center justify-center p-0 sm:p-2 overflow-hidden selection:bg-[#DFB76C]/30 relative"
+      style={{ height: '100dvh', minHeight: '100dvh' }}
+    >
       
       {/* Discreet Floating Website Return Button (Desktop Only) */}
       {onSwitchToWebsite && (
@@ -43,14 +46,16 @@ export default function DeviceFrameSimulator({
             <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
               {children}
             </div>
-            <MobileBottomNavigationIndicator 
-              deviceType="ios" 
-              currentScreen={currentScreen} 
-              activeStoryViewer={activeStoryViewer} 
-              theme={statusBarMode} 
-              bottomBarStyle={bottomBarStyle}
-              isDarkMode={isDarkMode}
-            />
+            {currentScreen !== 'app' && (
+              <MobileBottomNavigationIndicator 
+                deviceType="ios" 
+                currentScreen={currentScreen} 
+                activeStoryViewer={activeStoryViewer} 
+                theme={statusBarMode} 
+                bottomBarStyle={bottomBarStyle}
+                isDarkMode={isDarkMode}
+              />
+            )}
           </div>
         ) : deviceMode === 'wide' ? (
           /* Wide App View (Spacious ~520px) */
@@ -60,14 +65,16 @@ export default function DeviceFrameSimulator({
             <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
               {children}
             </div>
-            <MobileBottomNavigationIndicator 
-              deviceType="ios" 
-              currentScreen={currentScreen} 
-              activeStoryViewer={activeStoryViewer} 
-              theme={statusBarMode} 
-              bottomBarStyle={bottomBarStyle}
-              isDarkMode={isDarkMode}
-            />
+            {currentScreen !== 'app' && (
+              <MobileBottomNavigationIndicator 
+                deviceType="ios" 
+                currentScreen={currentScreen} 
+                activeStoryViewer={activeStoryViewer} 
+                theme={statusBarMode} 
+                bottomBarStyle={bottomBarStyle}
+                isDarkMode={isDarkMode}
+              />
+            )}
           </div>
         ) : deviceMode === 'android' ? (
           /* Google Pixel 9 Android Frame */
@@ -78,14 +85,16 @@ export default function DeviceFrameSimulator({
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
                 {children}
               </div>
-              <MobileBottomNavigationIndicator 
-                deviceType="android" 
-                currentScreen={currentScreen} 
-                activeStoryViewer={activeStoryViewer} 
-                theme={statusBarMode} 
-                bottomBarStyle={bottomBarStyle}
-                isDarkMode={isDarkMode}
-              />
+              {currentScreen !== 'app' && (
+                <MobileBottomNavigationIndicator 
+                  deviceType="android" 
+                  currentScreen={currentScreen} 
+                  activeStoryViewer={activeStoryViewer} 
+                  theme={statusBarMode} 
+                  bottomBarStyle={bottomBarStyle}
+                  isDarkMode={isDarkMode}
+                />
+              )}
             </div>
           </div>
         ) : (
@@ -97,14 +106,16 @@ export default function DeviceFrameSimulator({
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
                 {children}
               </div>
-              <MobileBottomNavigationIndicator 
-                deviceType="ios" 
-                currentScreen={currentScreen} 
-                activeStoryViewer={activeStoryViewer} 
-                theme={statusBarMode} 
-                bottomBarStyle={bottomBarStyle}
-                isDarkMode={isDarkMode}
-              />
+              {currentScreen !== 'app' && (
+                <MobileBottomNavigationIndicator 
+                  deviceType="ios" 
+                  currentScreen={currentScreen} 
+                  activeStoryViewer={activeStoryViewer} 
+                  theme={statusBarMode} 
+                  bottomBarStyle={bottomBarStyle}
+                  isDarkMode={isDarkMode}
+                />
+              )}
             </div>
           </div>
         )}

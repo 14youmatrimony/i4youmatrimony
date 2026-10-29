@@ -62,7 +62,10 @@ export default function WebsiteView({
   };
 
   return (
-    <div className="website-view-root min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-[#DFB76C]/30 selection:text-[#0B192C]">
+    <div 
+      className="website-view-root min-h-screen min-h-[100dvh] bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-[#DFB76C]/30 selection:text-[#0B192C]"
+      style={{ minHeight: '100dvh' }}
+    >
       
       {/* 1. Global Luxury Matrimonial Navbar */}
       <WebsiteNavbar 
