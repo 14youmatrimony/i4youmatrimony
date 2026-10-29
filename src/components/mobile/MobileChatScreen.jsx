@@ -179,6 +179,7 @@ export default function MobileChatScreen({
   const isCallingUnlocked = useMemo(() => {
     if (hookIsCallingUnlocked || isConnected || interestStatus === 'accepted') return true;
     if (!currentUser || !activeProfile) return false;
+    if (interestService.getRelationshipStatusSync(currentUser, activeProfile) === 'accepted') return true;
     const targetUid = String(activeProfile?.id || activeProfileId || '');
     const targetReg = String(activeProfile?.registerId || activeProfile?.register_id || '');
     const accList = Array.isArray(acceptedInterests) ? acceptedInterests.map(String) : [];
@@ -253,14 +254,20 @@ export default function MobileChatScreen({
   // Load and synchronize messages strictly for the active conversation
   useEffect(() => {
     // 5. STATE CLEANUP ON ROUTE / PROFILE CHANGE:
-    // Immediately clear messages state on switch or unmount to eliminate lingering messages
-    setMessages([]);
     setInputText('');
     setShowEmojiPicker(false);
     setIsTyping(false);
 
     if (!inConversation || !currentUser?.id || !partnerUser?.id || !activeConversationId) {
+      setMessages([]);
       return;
+    }
+
+    // Immediately pre-populate with existing messages from active conversation to eliminate blank chat delay
+    if (activeConv?.messages && activeConv.messages.length > 0) {
+      setMessages(deduplicateMessageList(activeConv.messages));
+    } else {
+      setMessages([]);
     }
 
     // Mark conversation and messages as read atomically
@@ -300,7 +307,7 @@ export default function MobileChatScreen({
       partnerUserId: partnerUser.id
     }).then((loadedMsgs) => {
       if (isMounted) {
-        setMessages(loadedMsgs);
+        setMessages(prev => deduplicateMessageList([...(activeConv?.messages || []), ...loadedMsgs, ...prev]));
         setIsLoadingMessages(false);
       }
     }).catch(() => {
@@ -310,30 +317,31 @@ export default function MobileChatScreen({
     const matchId = String(partnerUser.id);
     const matchRegId = partnerUser.register_id || partnerUser.registerId ? String(partnerUser.register_id || partnerUser.registerId) : null;
     const currentUserId = String(currentUser.id);
+    const currentRegId = currentUser.register_id || currentUser.registerId ? String(currentUser.register_id || currentUser.registerId) : null;
 
     // 3. & 4. WEBSOCKET / REAL-TIME ROOM ISOLATION & FRONTEND CONVERSATION MATCH CHECK
     const handleIncoming = (incoming) => {
       if (!incoming) return;
       const incomingConvId = incoming.conversation_id || incoming.conversationId;
 
-      // Gatekeeper 1: conversation_id match check
-      if (incomingConvId && String(incomingConvId) !== String(activeConversationId)) {
-        return; // Ignore messages intended for other chats/rooms
-      }
-
       const sId = String(incoming.sender_id || incoming.senderId || '');
       const rId = String(incoming.receiver_id || incoming.recipientId || '');
 
-      // Gatekeeper 2: exact two-way match check between current user and active partner
-      const isValidPair = 
-        (sId === currentUserId && (rId === matchId || (matchRegId && rId === matchRegId))) ||
-        ((sId === matchId || (matchRegId && sId === matchRegId)) && rId === currentUserId);
+      // Gatekeeper 1 & 2: exact two-way match check between current user and active partner
+      const isFromPartner = sId === matchId || (matchRegId && sId === matchRegId);
+      const isToPartner = rId === matchId || (matchRegId && rId === matchRegId);
+      const isFromMe = sId === currentUserId || (currentRegId && sId === currentRegId);
+      const isToMe = rId === currentUserId || (currentRegId && rId === currentRegId);
 
-      if (!isValidPair) return;
+      const isValidPair = (isFromPartner && (isToMe || !rId)) || (isFromMe && (isToPartner || !rId));
+
+      // If conversation ID matches or user pair matches
+      const isConvMatch = incomingConvId && String(incomingConvId) === String(activeConversationId);
+      if (!isValidPair && !isConvMatch) return;
 
       setIsTyping(false);
 
-      const isIncomingFromMe = sId === currentUserId;
+      const isIncomingFromMe = sId === currentUserId || (currentRegId && sId === currentRegId);
 
       const incomingMsg = {
         id: incoming.id || incoming.tempId || ('m-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
@@ -382,6 +390,7 @@ export default function MobileChatScreen({
     };
 
     const unsubscribeConv = liveChatService.subscribeToConversation(activeConversationId, handleIncoming);
+    const unsubscribeInbox = liveChatService.onMessage(handleIncoming);
 
     const unsubscribeStatus = liveChatService.onStatus(({ messageId, status }) => {
       setMessages(prev => prev.map(m => (m.id === messageId || m.tempId === messageId) ? { ...m, status } : m));
@@ -400,10 +409,10 @@ export default function MobileChatScreen({
     return () => {
       isMounted = false;
       unsubscribeConv();
+      unsubscribeInbox();
       unsubscribeStatus();
       unsubscribeTyping();
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-      setMessages([]); // Reset state on cleanup
     };
   }, [inConversation, currentUser?.id, partnerUser?.id, partnerUser?.register_id, partnerUser?.registerId, activeConversationId, setConversations]);
 

@@ -112,7 +112,7 @@ dialog[open] {
   }
 }
 
-/* Print Receipt Styles */
+/* Print Receipt & Ledger Styles */
 @media print {
   body * {
     visibility: hidden;
@@ -126,10 +126,58 @@ dialog[open] {
     top: 0;
     width: 100%;
     margin: 0;
-    padding: 20px;
-    background: white !important;
-    color: black !important;
+    padding: 24px;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: none !important;
   }
+  #receiptModal .bg-slate-900\/90,
+  #receiptModal .bg-slate-950\/60 {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+  #receiptModal .text-white,
+  #receiptModal .text-slate-100,
+  #receiptModal .text-slate-200,
+  #receiptModal .text-slate-300,
+  #receiptModal .text-slate-400 {
+    color: #1e293b !important;
+  }
+  #receiptModal .border-slate-800 {
+    border-color: #cbd5e1 !important;
+  }
+
+  /* Full Ledger Report Print */
+  #printLedgerModal, #printLedgerModal * {
+    visibility: visible;
+  }
+  #printLedgerModal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 16px;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  #printLedgerModal table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  #printLedgerModal th,
+  #printLedgerModal td {
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    padding: 6px 8px !important;
+  }
+  #printLedgerModal tr {
+    page-break-inside: avoid;
+  }
+
   .no-print {
     display: none !important;
   }

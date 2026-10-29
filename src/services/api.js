@@ -1769,13 +1769,17 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
       // Query notifications table safely
       let notifRows = [];
       try {
-        const { data: rowsWithOr } = await supabase
-          .from('notifications')
-          .select('*')
-          .or(`recipient_id.in.(${userIds.map(id => `"${id}"`).join(',')}),recipient_register_id.in.(${userIds.map(id => `"${id}"`).join(',')})`)
-          .order('created_at', { ascending: false })
-          .limit(40);
-        if (Array.isArray(rowsWithOr)) notifRows = rowsWithOr;
+        const cleanUserIds = userIds.map(id => String(id).replace(/["']/g, '')).filter(Boolean);
+        if (cleanUserIds.length > 0) {
+          const idList = cleanUserIds.join(',');
+          const { data: rowsWithOr } = await supabase
+            .from('notifications')
+            .select('*')
+            .or(`recipient_id.in.(${idList}),recipient_register_id.in.(${idList})`)
+            .order('created_at', { ascending: false })
+            .limit(40);
+          if (Array.isArray(rowsWithOr)) notifRows = rowsWithOr;
+        }
       } catch (orErr) {
         const { data: fallbackRows } = await supabase
           .from('notifications')

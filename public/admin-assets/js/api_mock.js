@@ -2007,18 +2007,26 @@
         if (method === 'GET') {
           const q = (params.get('q') || params.get('query') || '').trim().toLowerCase();
           const status = (params.get('status') || 'all').toLowerCase();
+          const payMethod = (params.get('method') || 'all').toLowerCase();
           const page = parseInt(params.get('page') || '1', 10);
-          const limit = parseInt(params.get('limit') || '10', 10);
+          const rawLimit = params.get('limit');
+          const isAll = rawLimit === 'all' || rawLimit === '-1';
+          const limit = isAll ? (store.payments.length || 1000) : parseInt(rawLimit || '10', 10);
 
           let filtered = store.payments.filter(p => {
             if (q) {
               const matchTxn = (p.transaction_id || '').toLowerCase().includes(q);
               const matchUser = (p.user_name || '').toLowerCase().includes(q);
               const matchInv = (p.invoice_no || '').toLowerCase().includes(q);
-              if (!matchTxn && !matchUser && !matchInv) return false;
+              const matchPlan = (p.plan_name || '').toLowerCase().includes(q);
+              if (!matchTxn && !matchUser && !matchInv && !matchPlan) return false;
             }
             if (status !== 'all') {
               if ((p.status || '').toLowerCase() !== status) return false;
+            }
+            if (payMethod !== 'all') {
+              const pMeth = (p.payment_method || '').toLowerCase();
+              if (!pMeth.includes(payMethod)) return false;
             }
             return true;
           });
@@ -2026,7 +2034,7 @@
           const total = filtered.length;
           const totalPages = Math.ceil(total / limit) || 1;
           const offset = (page - 1) * limit;
-          const paged = filtered.slice(offset, offset + limit);
+          const paged = isAll ? filtered : filtered.slice(offset, offset + limit);
 
           return jsonResponse({
             payments: paged,
@@ -2040,7 +2048,7 @@
         if (method === 'POST') {
           const body = init && init.body ? JSON.parse(init.body) : {};
           const newTxn = {
-            id: store.payments.length + 1,
+            id: store.payments.length > 0 ? Math.max(...store.payments.map(p => Number(p.id) || 0)) + 1 : 1,
             transaction_id: body.transaction_id || 'TXN-' + Date.now().toString().slice(-6),
             user_id: body.user_id || 'manual_entry',
             user_name: body.user_name || 'Walk-in Member',
@@ -2056,6 +2064,44 @@
           store.payments.unshift(newTxn);
           saveStore(store);
           return jsonResponse({ success: true, payment: newTxn }, 201);
+        }
+      }
+
+      // 8b. /api/payments/:id (GET, PUT, DELETE)
+      const paymentMatch = pathname.match(/^\/api\/payments\/([^\/]+)$/);
+      if (paymentMatch) {
+        const pId = decodeURIComponent(paymentMatch[1]);
+        const idx = store.payments.findIndex(p => String(p.id) === String(pId) || String(p.transaction_id) === String(pId));
+
+        if (method === 'GET') {
+          if (idx === -1) return jsonResponse({ error: 'Payment transaction not found' }, 404);
+          return jsonResponse(store.payments[idx]);
+        }
+
+        if (method === 'PUT' || method === 'PATCH') {
+          if (idx === -1) return jsonResponse({ error: 'Payment transaction not found' }, 404);
+          const body = init && init.body ? JSON.parse(init.body) : {};
+          const existing = store.payments[idx];
+          const updated = {
+            ...existing,
+            ...body,
+            id: existing.id
+          };
+          if (body.amount !== undefined) updated.amount = Number(body.amount) || 0;
+          store.payments[idx] = updated;
+          saveStore(store);
+          return jsonResponse({ success: true, message: 'Payment record updated successfully', payment: updated });
+        }
+
+        if (method === 'DELETE') {
+          if (idx === -1) return jsonResponse({ error: 'Payment transaction not found' }, 404);
+          const deleted = store.payments.splice(idx, 1)[0];
+          saveStore(store);
+          return jsonResponse({
+            success: true,
+            message: `Payment record '${deleted.transaction_id}' deleted from history`,
+            payment: deleted
+          });
         }
       }
 

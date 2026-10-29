@@ -3359,12 +3359,12 @@ def api_get_payments():
         'total_pages': total_pages
     })
 
-@app.route('/api/payments/<int:id>', methods=['GET'])
+@app.route('/api/payments/<id>', methods=['GET'])
 @permission_required('payments:view')
 def api_get_payment(id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM payments WHERE id = ?", (id,))
+    cursor.execute("SELECT * FROM payments WHERE id = ? OR transaction_id = ?", (id, id))
     payment = cursor.fetchone()
     conn.close()
 
@@ -3421,14 +3421,14 @@ def api_create_payment():
         conn.close()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/payments/<int:id>', methods=['PUT'])
+@app.route('/api/payments/<id>', methods=['PUT'])
 @permission_required('payments:edit')
 def api_update_payment(id):
     data = request.get_json() or {}
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM payments WHERE id = ?", (id,))
+    cursor.execute("SELECT * FROM payments WHERE id = ? OR transaction_id = ?", (id, id))
     existing = cursor.fetchone()
     if not existing:
         conn.close()
@@ -3453,11 +3453,11 @@ def api_update_payment(id):
             data.get('status', existing['status']),
             data.get('notes', existing['notes']),
             data.get('payment_date', existing['payment_date']),
-            id
+            existing['id']
         ))
         conn.commit()
 
-        cursor.execute("SELECT * FROM payments WHERE id = ?", (id,))
+        cursor.execute("SELECT * FROM payments WHERE id = ?", (existing['id'],))
         updated = dict_from_row(cursor.fetchone())
         conn.close()
         return jsonify({'success': True, 'message': 'Payment record updated successfully', 'payment': updated})
@@ -3465,18 +3465,18 @@ def api_update_payment(id):
         conn.close()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/payments/<int:id>', methods=['DELETE'])
+@app.route('/api/payments/<id>', methods=['DELETE'])
 @permission_required('payments:delete')
 def api_delete_payment(id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT transaction_id, user_name, amount FROM payments WHERE id = ?", (id,))
+    cursor.execute("SELECT id, transaction_id, user_name, amount FROM payments WHERE id = ? OR transaction_id = ?", (id, id))
     row = cursor.fetchone()
     if not row:
         conn.close()
         return jsonify({'error': 'Payment transaction not found'}), 404
 
-    cursor.execute("DELETE FROM payments WHERE id = ?", (id,))
+    cursor.execute("DELETE FROM payments WHERE id = ?", (row['id'],))
     conn.commit()
     conn.close()
 

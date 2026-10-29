@@ -709,6 +709,7 @@ export default function MobileAppModal({
                     <MobileInterestsScreen 
                       profiles={filteredProfiles || profiles}
                       currentUser={currentUser}
+                      notifications={notifications}
                       onOpenLogin={onOpenLogin}
                       interestsSent={interestsSent}
                       acceptedInterests={acceptedInterests}

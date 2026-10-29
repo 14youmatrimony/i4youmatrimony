@@ -36,6 +36,7 @@ import {
   isSelfProfile 
 } from '../../utils/genderMatch';
 import { isDemoProfile } from '../../services/api';
+import { interestService } from '../../services/interestService';
 
 export default function MobileMatchFeed({
   profiles,
@@ -590,11 +591,12 @@ export default function MobileMatchFeed({
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {filteredProfiles.map((profile) => {
               const isAccepted = Boolean(
-                acceptedInterests && (
+                (acceptedInterests && (
                   acceptedInterests.includes(profile.id) ||
                   (profile.registerId && acceptedInterests.includes(profile.registerId)) ||
                   (profile.register_id && acceptedInterests.includes(profile.register_id))
-                )
+                )) ||
+                (currentUser && interestService.getRelationshipStatusSync(currentUser, profile) === 'accepted')
               );
               const isInterested = Boolean(
                 interestsSent.includes(profile.id) ||
@@ -806,11 +808,12 @@ export default function MobileMatchFeed({
           <div className="space-y-4">
             {filteredProfiles.map((profile) => {
               const isAccepted = Boolean(
-                acceptedInterests && (
+                (acceptedInterests && (
                   acceptedInterests.includes(profile.id) ||
                   (profile.registerId && acceptedInterests.includes(profile.registerId)) ||
                   (profile.register_id && acceptedInterests.includes(profile.register_id))
-                )
+                )) ||
+                (currentUser && interestService.getRelationshipStatusSync(currentUser, profile) === 'accepted')
               );
               const isInterested = Boolean(
                 interestsSent.includes(profile.id) ||

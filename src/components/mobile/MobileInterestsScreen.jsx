@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Heart, 
   Check, 
@@ -8,7 +8,8 @@ import {
   Lock,
   Phone,
   Video,
-  CheckCheck
+  CheckCheck,
+  Eye
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { getTargetCandidateGender, isCandidateMatchingTarget, normalizeGender } from '../../utils/genderMatch';
@@ -33,7 +34,8 @@ export default function MobileInterestsScreen({
   declinedReceivedIds = [],
   onDeclineReceivedInterest,
   onUndoDeclineReceivedInterest,
-  onAcceptReceivedInterest
+  onAcceptReceivedInterest,
+  notifications = []
 }) {
   const { triggerScreenshotBlock, screenshotRestricted } = usePhotoPrivacy();
   const [internalSegment, setInternalSegment] = useState('sent'); // 'sent' | 'received' | 'shortlist'
@@ -184,11 +186,9 @@ export default function MobileInterestsScreen({
 
   const isProfileInList = (p, list) => {
     if (!p || !Array.isArray(list)) return false;
-    return Boolean(
-      (p.id && list.includes(p.id)) ||
-      (p.registerId && list.includes(p.registerId)) ||
-      (p.register_id && list.includes(p.register_id))
-    );
+    const ids = [p.id, p.registerId, p.register_id].filter(Boolean).map(String);
+    const strList = list.map(String);
+    return ids.some(id => strList.includes(id));
   };
 
   const sentProfiles = useMemo(() => {
@@ -223,7 +223,7 @@ export default function MobileInterestsScreen({
     return list;
   }, [oppositeGenderProfiles, shortlisted]);
 
-  // Build real received candidate profiles from live backend query
+  // Build real received candidate profiles from live backend query & notifications
   const receivedProfiles = useMemo(() => {
     const list = [];
     const seenCandidateIds = new Set();
@@ -297,7 +297,9 @@ export default function MobileInterestsScreen({
           interestId: rec.interest_id || rec.interestId || rec.id,
           interest_id: rec.interest_id || rec.interestId || rec.id,
           interestStatus: rec.status || 'pending',
-          interestCreatedAt: rec.created_at || rec.createdAt
+          interestCreatedAt: rec.created_at || rec.createdAt,
+          activityType: 'interest',
+          isContactView: false
         };
 
         seenCandidateIds.add(sid);
@@ -309,8 +311,114 @@ export default function MobileInterestsScreen({
       });
     }
 
+    // 2. Process Notifications: In-App Interest Requests and Contact Views / Requests
+    const relevantNotifs = (Array.isArray(notifications) ? notifications : []).filter(n => {
+      if (!n) return false;
+      const t = n.type || '';
+      return (
+        t === 'interest_received' ||
+        t === 'interest' ||
+        t === 'contact_viewed' ||
+        t === 'contact_view' ||
+        t === 'contact' ||
+        t === 'contact_request'
+      );
+    });
+
+    let localContactViews = [];
+    try {
+      const uIds = [currentUser?.id, currentUser?.register_id, currentUser?.registerId].filter(Boolean).map(String);
+      uIds.forEach(uid => {
+        const raw = localStorage.getItem(`i4u_contact_views_${uid}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) localContactViews.push(...parsed);
+        }
+      });
+    } catch (e) {}
+
+    const additionalItems = [
+      ...relevantNotifs.map(n => ({
+        ...n,
+        senderId: n.profileId || n.senderId || n.sender_id || n.sender?.id,
+        isContactView: n.type === 'contact_viewed' || n.type === 'contact_view' || n.type === 'contact' || n.type === 'contact_request',
+        activityType: (n.type === 'contact_viewed' || n.type === 'contact_view' || n.type === 'contact' || n.type === 'contact_request') ? 'contact_view' : 'interest',
+        message: n.message || n.text || (n.type === 'contact_viewed' ? 'Viewed your verified contact details and phone number' : '')
+      })),
+      ...localContactViews.map(cv => ({
+        ...cv,
+        senderId: cv.senderId || cv.sender_id || cv.viewerId,
+        isContactView: true,
+        activityType: 'contact_view',
+        message: cv.message || 'Viewed your verified contact details and phone number'
+      }))
+    ];
+
+    additionalItems.forEach(item => {
+      if (!item) return;
+      const sid = String(item.senderId || item.sender_id || '');
+      if (!sid || isSelfProfile({ id: sid })) return;
+      if (Array.isArray(effectiveDeclinedIds) && effectiveDeclinedIds.some(id => String(id) === sid)) return;
+      if (seenCandidateIds.has(sid)) return;
+
+      const matching = profiles.find((p) =>
+        !isSelfProfile(p) && (
+          String(p.id) === sid ||
+          (p.register_id && String(p.register_id) === sid) ||
+          (p.registerId && String(p.registerId) === sid)
+        )
+      );
+
+      const senderData = item.sender || item.profile;
+      const defaultAvatar = isMaleUser 
+        ? 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
+        : 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653762896.jpg';
+
+      const candidateName = (!isGenericPlaceholder(matching?.name) ? matching.name : null) ||
+                            (!isGenericPlaceholder(senderData?.name) ? senderData.name : null) ||
+                            (!isGenericPlaceholder(item.sender_name) ? item.sender_name : null) ||
+                            (!isGenericPlaceholder(item.senderName) ? item.senderName : null) ||
+                            (matching?.register_id ? `Member ${matching.register_id}` : null) ||
+                            (sid ? `Member ${sid}` : 'Candidate');
+
+      const base = matching || senderData || {
+        id: sid,
+        name: candidateName,
+        photo: defaultAvatar,
+        age: 26,
+        city: 'India',
+        gunasMatch: '28/36 Gunas',
+        matchScore: 88
+      };
+
+      const cardItem = {
+        ...base,
+        id: base.id || sid,
+        name: candidateName,
+        age: base.age || senderData?.age || 26,
+        profession: base.profession || senderData?.profession || 'Professional',
+        city: base.city || base.district || senderData?.location || senderData?.city || 'India',
+        district: base.district || base.city || senderData?.district || '',
+        state: base.state || senderData?.state || '',
+        photo: base.photo || base.avatar || senderData?.photo || senderData?.avatar || defaultAvatar,
+        interestMessage: item.message || '',
+        interestId: item.id || `notif_${sid}`,
+        interest_id: item.id || `notif_${sid}`,
+        interestStatus: item.status || 'pending',
+        interestCreatedAt: item.created_at || item.createdAt || item.timestamp,
+        activityType: item.activityType || 'interest',
+        isContactView: Boolean(item.isContactView)
+      };
+
+      seenCandidateIds.add(sid);
+      if (base.id) seenCandidateIds.add(String(base.id));
+      if (base.register_id) seenCandidateIds.add(String(base.register_id));
+      if (base.registerId) seenCandidateIds.add(String(base.registerId));
+      list.push(cardItem);
+    });
+
     return list;
-  }, [liveReceivedInterests, profiles, effectiveDeclinedIds, interestsSent, isMaleUser]);
+  }, [liveReceivedInterests, notifications, profiles, effectiveDeclinedIds, interestsSent, isMaleUser]);
 
   const declinedProfiles = oppositeGenderProfiles.filter(p => effectiveDeclinedIds.includes(p.id));
 
@@ -596,13 +704,21 @@ export default function MobileInterestsScreen({
                       </div>
                     </div>
 
-                    {p.interestMessage && (
+                    {p.isContactView ? (
+                      <div className="bg-blue-50/80 border border-blue-200/70 rounded-xl p-2.5 text-xs text-blue-950 flex items-center justify-between gap-1.5">
+                        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-800">
+                          <Eye className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span>Viewed your verified contact details</span>
+                        </span>
+                        <span className="text-[10px] text-blue-600 font-bold bg-blue-100/70 px-2 py-0.5 rounded-md">Contact View</span>
+                      </div>
+                    ) : p.interestMessage ? (
                       <div className="bg-amber-50/80 border border-amber-200/70 rounded-xl p-2.5 text-xs text-amber-950 italic flex items-start gap-1.5">
                         <span className="text-amber-500 font-bold not-italic text-sm leading-none">“</span>
                         <span className="flex-1 not-italic text-[11px] text-slate-700 leading-snug">{p.interestMessage}</span>
                         <span className="text-amber-500 font-bold not-italic text-sm leading-none">”</span>
                       </div>
-                    )}
+                    ) : null}
 
                     {isAccepted ? (
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
@@ -645,6 +761,26 @@ export default function MobileInterestsScreen({
                             <MessageCircle className="w-4 h-4" />
                           </button>
                         </div>
+                      </div>
+                    ) : p.isContactView ? (
+                      <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => onToggleInterest(p.id)}
+                          className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:brightness-105 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Heart className="w-4 h-4 fill-white" />
+                          <span>Send Interest</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onStartChat?.(p.id)}
+                          className="py-2 px-3.5 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 border border-blue-200 active:scale-95 transition-all font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer"
+                          title="Message"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          <span>Message</span>
+                        </button>
                       </div>
                     ) : (
                       <div className="flex items-center space-x-2 pt-2 border-t border-slate-100">

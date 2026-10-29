@@ -47,7 +47,8 @@ const state = {
     status: 'all',
     method: 'all',
     sortBy: 'payment_date',
-    order: 'desc'
+    order: 'desc',
+    list: []
   },
   offers: [],
   plans: [],
@@ -3468,6 +3469,7 @@ function openDeletePlanModal(id, name) {
 
 async function loadPayments() {
   const tableBody = document.getElementById('paymentsTableBody');
+  const tableFoot = document.getElementById('paymentsTableFoot');
   if (!tableBody) return;
 
   tableBody.innerHTML = `
@@ -3478,6 +3480,7 @@ async function loadPayments() {
       </td>
     </tr>
   `;
+  if (tableFoot) tableFoot.innerHTML = '';
 
   try {
     const params = new URLSearchParams({
@@ -3496,6 +3499,7 @@ async function loadPayments() {
 
     state.payments.total = data.total;
     state.payments.totalPages = data.total_pages;
+    state.payments.list = Array.isArray(data.payments) ? data.payments : [];
 
     updatePaymentPaginationControls();
 
@@ -3509,36 +3513,42 @@ async function loadPayments() {
           </td>
         </tr>
       `;
-      lucide.createIcons();
+      if (tableFoot) tableFoot.innerHTML = '';
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        lucide.createIcons();
+      }
       return;
     }
 
     tableBody.innerHTML = data.payments.map(p => {
       let statusBadge = '';
-      if (p.status === 'completed') {
+      const pStatus = (p.status || 'pending').toLowerCase();
+      if (pStatus === 'completed') {
         statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>Completed</span>`;
-      } else if (p.status === 'refunded') {
+      } else if (pStatus === 'refunded') {
         statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20"><span class="w-1.5 h-1.5 rounded-full bg-purple-400 mr-1.5"></span>Refunded</span>`;
-      } else if (p.status === 'failed') {
+      } else if (pStatus === 'failed') {
         statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20"><span class="w-1.5 h-1.5 rounded-full bg-rose-400 mr-1.5"></span>Failed</span>`;
       } else {
         statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 mr-1.5"></span>Pending</span>`;
       }
+
+      const safeId = String(p.id ?? p.transaction_id ?? '');
 
       return `
         <tr class="hover:bg-slate-800/40 border-b border-slate-800/60 transition-colors">
           <!-- Txn ID & Invoice -->
           <td class="py-3 px-4">
             <div class="font-mono text-sm font-semibold text-slate-100 flex items-center gap-1.5">
-              <span>${p.transaction_id}</span>
+              <span>${escapeHtml(p.transaction_id || '')}</span>
             </div>
-            <div class="text-[11px] text-slate-400 font-mono">${p.invoice_no}</div>
+            <div class="text-[11px] text-slate-400 font-mono">${escapeHtml(p.invoice_no || '')}</div>
           </td>
 
           <!-- Customer / Profile -->
           <td class="py-3 px-4">
-            <div class="font-medium text-white text-sm">${p.user_name}</div>
-            <div class="text-xs text-slate-400">${p.plan_name}</div>
+            <div class="font-medium text-white text-sm">${escapeHtml(p.user_name || 'Walk-in Member')}</div>
+            <div class="text-xs text-slate-400">${escapeHtml(p.plan_name || 'Plan')}</div>
           </td>
 
           <!-- Amount -->
@@ -3546,14 +3556,14 @@ async function loadPayments() {
             <div class="text-sm font-extrabold text-white font-mono">
               ${formatINR(p.amount)}
             </div>
-            <div class="text-[10px] text-slate-400 uppercase font-mono">${p.currency}</div>
+            <div class="text-[10px] text-slate-400 uppercase font-mono">${escapeHtml(p.currency || 'INR')}</div>
           </td>
 
           <!-- Payment Method -->
           <td class="py-3 px-4 text-xs text-slate-300">
             <div class="flex items-center gap-1.5">
               <i data-lucide="credit-card" class="w-3.5 h-3.5 text-slate-400"></i>
-              <span>${p.payment_method}</span>
+              <span>${escapeHtml(p.payment_method || 'UPI')}</span>
             </div>
           </td>
 
@@ -3569,24 +3579,27 @@ async function loadPayments() {
 
           <!-- Actions -->
           <td class="py-3 px-4 text-right">
-            <div class="flex items-center justify-end space-x-1">
+            <div class="flex items-center justify-end space-x-1.5">
               <button 
-                onclick="openReceiptModal(${p.id})"
-                class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700/60 rounded-lg transition-colors"
+                type="button"
+                onclick="openReceiptModal('${safeId}')"
+                class="p-2 text-slate-400 hover:text-white hover:bg-slate-700/70 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center shadow-sm"
                 title="View Invoice & Printable Receipt"
               >
                 <i data-lucide="file-text" class="w-4 h-4"></i>
               </button>
               <button 
-                onclick="openEditPaymentModal(${p.id})"
-                class="p-1.5 text-slate-400 hover:text-[#DFB76C] hover:bg-slate-700/60 rounded-lg transition-colors"
+                type="button"
+                onclick="openEditPaymentModal('${safeId}')"
+                class="p-2 text-slate-400 hover:text-[#DFB76C] hover:bg-[#DFB76C]/10 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center shadow-sm"
                 title="Edit Payment / Change Status"
               >
                 <i data-lucide="edit-3" class="w-4 h-4"></i>
               </button>
               <button 
-                onclick="openDeletePaymentModal(${p.id}, '${p.transaction_id}', '${p.user_name}', ${p.amount})"
-                class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                type="button"
+                onclick="openDeletePaymentModal('${safeId}')"
+                class="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center shadow-sm"
                 title="Delete Transaction Record"
               >
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -3597,8 +3610,13 @@ async function loadPayments() {
       `;
     }).join('');
 
-    lucide.createIcons();
+    renderPaymentsTableSummary(data.payments);
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      lucide.createIcons();
+    }
   } catch (err) {
+    console.error('Error in loadPayments:', err);
     tableBody.innerHTML = `
       <tr>
         <td colspan="7" class="text-center py-6 text-rose-400 text-xs">
@@ -3606,7 +3624,60 @@ async function loadPayments() {
         </td>
       </tr>
     `;
+    if (tableFoot) tableFoot.innerHTML = '';
   }
+}
+
+function renderPaymentsTableSummary(displayedPayments = []) {
+  const tfoot = document.getElementById('paymentsTableFoot');
+  if (!tfoot) return;
+
+  if (!displayedPayments || displayedPayments.length === 0) {
+    tfoot.innerHTML = '';
+    return;
+  }
+
+  const totalCount = displayedPayments.length;
+  const totalAmount = displayedPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+  const completedList = displayedPayments.filter(p => (p.status || '').toLowerCase() === 'completed');
+  const completedAmount = completedList.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+  const completedCount = completedList.length;
+
+  tfoot.innerHTML = `
+    <tr class="bg-slate-900/90 border-t-2 border-slate-700/80">
+      <td class="py-3.5 px-4">
+        <div class="font-mono text-xs font-bold text-white flex items-center gap-1.5">
+          <i data-lucide="calculator" class="w-4 h-4 text-[#DFB76C]"></i>
+          <span>PAGE TOTAL (${totalCount} Records)</span>
+        </div>
+        <div class="text-[10px] text-slate-400 font-mono">Displayed Transactions</div>
+      </td>
+      <td class="py-3.5 px-4 text-xs">
+        <div class="text-emerald-400 font-semibold">${completedCount} Completed</div>
+        <div class="text-[11px] text-slate-400">Net Volume: ${formatINR(completedAmount)}</div>
+      </td>
+      <td class="py-3.5 px-4">
+        <div class="text-sm font-extrabold text-[#DFB76C] font-mono">
+          ${formatINR(totalAmount)}
+        </div>
+        <div class="text-[10px] text-slate-400 uppercase font-mono">INR Total</div>
+      </td>
+      <td class="py-3.5 px-4 text-xs text-slate-400" colspan="3">
+        <span>Active Filters: ${escapeHtml((state.payments.status || 'all').toUpperCase())} • ${escapeHtml(state.payments.method || 'All Gateways')}</span>
+      </td>
+      <td class="py-3.5 px-4 text-right">
+        <button 
+          type="button"
+          onclick="printAllPayments()" 
+          class="px-3 py-1.5 rounded-lg bg-[#DFB76C]/20 hover:bg-[#DFB76C]/30 text-[#DFB76C] border border-[#DFB76C]/40 text-xs font-semibold inline-flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+          title="Print Entire Table with Total"
+        >
+          <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+          <span>Print All</span>
+        </button>
+      </td>
+    </tr>
+  `;
 }
 
 function updatePaymentPaginationControls() {
@@ -3637,38 +3708,101 @@ function openAddPaymentModal() {
   const title = document.getElementById('paymentModalTitle');
   const form = document.getElementById('paymentForm');
 
-  title.textContent = 'Record Manual / Offline Payment';
-  form.reset();
-  document.getElementById('paymentId').value = '';
-  document.getElementById('paymentTxnId').value = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
-  document.getElementById('paymentStatus').value = 'completed';
+  if (title) title.textContent = 'Record Manual / Offline Payment';
+  if (form) form.reset();
+  const idEl = document.getElementById('paymentId');
+  if (idEl) idEl.value = '';
+  const txnEl = document.getElementById('paymentTxnId');
+  if (txnEl) txnEl.value = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
+  const statusEl = document.getElementById('paymentStatus');
+  if (statusEl) statusEl.value = 'completed';
 
-  modal.showModal();
-  lucide.createIcons();
+  if (modal) {
+    if (typeof modal.showModal === 'function') modal.showModal();
+    else modal.setAttribute('open', '');
+  }
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    lucide.createIcons();
+  }
 }
 
 async function openEditPaymentModal(id) {
   try {
-    const res = await fetch(`/api/payments/${id}`);
-    if (!res.ok) return showToast('Payment record not found', 'error');
-    const p = await res.json();
+    let p = (state.payments.list || []).find(item => String(item.id) === String(id) || String(item.transaction_id) === String(id));
+    
+    if (!p) {
+      try {
+        const res = await fetch(`/api/payments/${encodeURIComponent(id)}`);
+        if (res.ok) {
+          p = await res.json();
+        }
+      } catch (netErr) {
+        console.warn('[Payments] Edit fetch notice:', netErr);
+      }
+    }
+
+    if (!p) return showToast('Payment record not found', 'error');
 
     const modal = document.getElementById('paymentModal');
     const title = document.getElementById('paymentModalTitle');
 
-    title.textContent = `Edit Transaction: ${p.transaction_id}`;
-    document.getElementById('paymentId').value = p.id;
-    document.getElementById('paymentTxnId').value = p.transaction_id;
-    document.getElementById('paymentUserName').value = p.user_name;
-    document.getElementById('paymentPlanName').value = p.plan_name;
-    document.getElementById('paymentAmount').value = p.amount;
-    document.getElementById('paymentMethod').value = p.payment_method;
-    document.getElementById('paymentStatus').value = p.status;
-    document.getElementById('paymentNotes').value = p.notes || '';
+    if (title) title.textContent = `Edit Transaction: ${p.transaction_id || id}`;
 
-    modal.showModal();
-    lucide.createIcons();
+    const setVal = (elId, val) => {
+      const el = document.getElementById(elId);
+      if (el) el.value = val ?? '';
+    };
+
+    setVal('paymentId', p.id ?? id);
+    setVal('paymentTxnId', p.transaction_id || '');
+    setVal('paymentUserName', p.user_name || '');
+
+    // Ensure plan option exists in select element
+    const planSelect = document.getElementById('paymentPlanName');
+    if (planSelect && p.plan_name) {
+      const exists = Array.from(planSelect.options).some(o => o.value === p.plan_name);
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = p.plan_name;
+        opt.textContent = p.plan_name;
+        planSelect.appendChild(opt);
+      }
+      planSelect.value = p.plan_name;
+    }
+
+    setVal('paymentAmount', p.amount ?? 0);
+
+    // Ensure payment method option exists
+    const methodSelect = document.getElementById('paymentMethod');
+    if (methodSelect && p.payment_method) {
+      const matchOpt = Array.from(methodSelect.options).find(o => o.value.toLowerCase() === p.payment_method.toLowerCase());
+      if (!matchOpt) {
+        const opt = document.createElement('option');
+        opt.value = p.payment_method;
+        opt.textContent = p.payment_method;
+        methodSelect.appendChild(opt);
+        methodSelect.value = p.payment_method;
+      } else {
+        methodSelect.value = matchOpt.value;
+      }
+    }
+
+    const statusSelect = document.getElementById('paymentStatus');
+    if (statusSelect && p.status) {
+      statusSelect.value = p.status.toLowerCase();
+    }
+
+    setVal('paymentNotes', p.notes || '');
+
+    if (modal) {
+      if (typeof modal.showModal === 'function') modal.showModal();
+      else modal.setAttribute('open', '');
+    }
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      lucide.createIcons();
+    }
   } catch (e) {
+    console.error('Error opening edit payment modal:', e);
     showToast('Failed to load transaction data', 'error');
   }
 }
@@ -3689,7 +3823,7 @@ async function savePayment(e) {
   };
 
   try {
-    const url = isEdit ? `/api/payments/${id}` : '/api/payments';
+    const url = isEdit ? `/api/payments/${encodeURIComponent(id)}` : '/api/payments';
     const method = isEdit ? 'PUT' : 'POST';
 
     const res = await fetch(url, {
@@ -3701,45 +3835,101 @@ async function savePayment(e) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to save payment');
 
-    showToast(isEdit ? 'Payment record updated!' : 'New payment recorded!', 'success');
-    document.getElementById('paymentModal').close();
-    loadPayments();
-    loadAnalytics();
+    // Also update locally in state.payments.list if present
+    if (isEdit && Array.isArray(state.payments.list)) {
+      const idx = state.payments.list.findIndex(item => String(item.id) === String(id) || String(item.transaction_id) === String(id));
+      if (idx !== -1) {
+        state.payments.list[idx] = { ...state.payments.list[idx], ...payload, ...(data.payment || {}) };
+      }
+    }
+
+    showToast(isEdit ? 'Payment record updated successfully!' : 'New payment recorded successfully!', 'success');
+    const modal = document.getElementById('paymentModal');
+    if (modal) {
+      if (typeof modal.close === 'function') modal.close();
+      else modal.removeAttribute('open');
+    }
+    await loadPayments();
+    await loadAnalytics();
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
 function openDeletePaymentModal(id, txnId, userName, amount) {
+  const p = (state.payments.list || []).find(item => String(item.id) === String(id) || String(item.transaction_id) === String(id)) || {};
+  const cleanTxnId = p.transaction_id || txnId || id;
+  const cleanUserName = p.user_name || userName || 'Customer';
+  const cleanAmount = (p.amount !== undefined) ? p.amount : (amount !== undefined ? amount : 0);
+
   state.pendingDelete = {
     type: 'payment',
-    id,
-    name: `${txnId} (${userName} - ${formatINR(amount)})`
+    id: p.id ?? id,
+    name: `${cleanTxnId} (${cleanUserName} - ${formatINR(cleanAmount)})`
   };
-  document.getElementById('deleteConfirmTarget').textContent = `Transaction: ${txnId} for ${userName} (${formatINR(amount)})`;
-  document.getElementById('deleteModal').showModal();
+
+  const target = document.getElementById('deleteConfirmTarget');
+  if (target) {
+    target.textContent = `Transaction: ${cleanTxnId} for ${cleanUserName} (${formatINR(cleanAmount)})`;
+  }
+
+  const modal = document.getElementById('deleteModal');
+  if (modal) {
+    if (typeof modal.showModal === 'function') modal.showModal();
+    else modal.setAttribute('open', '');
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      lucide.createIcons();
+    }
+  } else {
+    if (window.confirm(`Are you sure you want to permanently delete transaction ${cleanTxnId} for ${cleanUserName} (${formatINR(cleanAmount)})?`)) {
+      confirmDelete();
+    }
+  }
 }
 
 async function openReceiptModal(id) {
   try {
-    const res = await fetch(`/api/payments/${id}`);
-    if (!res.ok) return showToast('Payment not found', 'error');
-    const p = await res.json();
+    let p = (state.payments.list || []).find(item => String(item.id) === String(id) || String(item.transaction_id) === String(id));
+    
+    if (!p) {
+      try {
+        const res = await fetch(`/api/payments/${encodeURIComponent(id)}`);
+        if (res.ok) {
+          p = await res.json();
+        }
+      } catch (netErr) {
+        console.warn('[Payments] Receipt fetch notice:', netErr);
+      }
+    }
 
-    document.getElementById('receiptInvoiceNo').textContent = p.invoice_no;
-    document.getElementById('receiptDate').textContent = formatDateTime(p.payment_date);
-    document.getElementById('receiptTxnId').textContent = p.transaction_id;
-    document.getElementById('receiptCustomerName').textContent = p.user_name;
-    document.getElementById('receiptPlanName').textContent = p.plan_name;
-    document.getElementById('receiptMethod').textContent = p.payment_method;
-    document.getElementById('receiptStatus').textContent = p.status.toUpperCase();
-    document.getElementById('receiptSubtotal').textContent = formatINR(p.amount);
-    document.getElementById('receiptTotal').textContent = formatINR(p.amount);
-    document.getElementById('receiptNotes').textContent = p.notes || 'Official online payment receipt from I 4 You Matrimonial Portal.';
+    if (!p) return showToast('Payment not found', 'error');
 
-    document.getElementById('receiptModal').showModal();
-    lucide.createIcons();
+    const setText = (elId, text) => {
+      const el = document.getElementById(elId);
+      if (el) el.textContent = text ?? '';
+    };
+
+    setText('receiptInvoiceNo', p.invoice_no || `INV-2026-${String(p.id || 1).padStart(4, '0')}`);
+    setText('receiptDate', formatDateTime(p.payment_date || new Date().toISOString()));
+    setText('receiptTxnId', p.transaction_id || id);
+    setText('receiptCustomerName', p.user_name || 'Walk-in Member');
+    setText('receiptPlanName', p.plan_name || 'Matrimonial Membership Plan');
+    setText('receiptMethod', p.payment_method || 'UPI / Gateway');
+    setText('receiptStatus', (p.status || 'completed').toUpperCase());
+    setText('receiptSubtotal', formatINR(p.amount));
+    setText('receiptTotal', formatINR(p.amount));
+    setText('receiptNotes', p.notes || 'Official online payment receipt from I 4 You Matrimonial Portal.');
+
+    const modal = document.getElementById('receiptModal');
+    if (modal) {
+      if (typeof modal.showModal === 'function') modal.showModal();
+      else modal.setAttribute('open', '');
+    }
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      lucide.createIcons();
+    }
   } catch (e) {
+    console.error('Error opening receipt modal:', e);
     showToast('Failed to generate receipt', 'error');
   }
 }
@@ -3747,6 +3937,95 @@ async function openReceiptModal(id) {
 // Print Receipt helper
 function printReceipt() {
   window.print();
+}
+
+// Print All / Ledger Statement with Total Amount
+async function printAllPayments() {
+  const payments = (state.payments.list && state.payments.list.length > 0) ? state.payments.list : [];
+  if (payments.length === 0) {
+    return showToast('No transaction records available to print', 'info');
+  }
+
+  const totalCount = payments.length;
+  const totalAmount = payments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+  const completedList = payments.filter(p => (p.status || '').toLowerCase() === 'completed');
+  const completedAmount = completedList.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+  const otherList = payments.filter(p => (p.status || '').toLowerCase() !== 'completed');
+
+  const countEl = document.getElementById('printLedgerCount');
+  if (countEl) countEl.textContent = `${totalCount} Records`;
+
+  const totalEl = document.getElementById('printLedgerTotal');
+  if (totalEl) totalEl.textContent = formatINR(totalAmount);
+
+  const completedEl = document.getElementById('printLedgerCompleted');
+  if (completedEl) completedEl.textContent = `${formatINR(completedAmount)} (${completedList.length} txns)`;
+
+  const otherEl = document.getElementById('printLedgerOther');
+  if (otherEl) otherEl.textContent = `${otherList.length} Pending / Other`;
+
+  const dateEl = document.getElementById('printLedgerDate');
+  if (dateEl) dateEl.textContent = formatDateTime(new Date().toISOString());
+
+  const filterEl = document.getElementById('printLedgerFilter');
+  if (filterEl) {
+    filterEl.textContent = `Status: ${(state.payments.status || 'all').toUpperCase()} • Gateway: ${escapeHtml(state.payments.method || 'All')} ${state.payments.query ? `• Query: "${escapeHtml(state.payments.query)}"` : ''}`;
+  }
+
+  const tbody = document.getElementById('printLedgerTableBody');
+  if (tbody) {
+    tbody.innerHTML = payments.map((p, idx) => `
+      <tr class="border-b border-slate-800/60 hover:bg-slate-800/20">
+        <td class="py-2.5 px-2 text-center text-slate-400 font-mono text-[11px]">${idx + 1}</td>
+        <td class="py-2.5 px-3 font-mono font-semibold text-slate-100 text-xs">
+          <div>${escapeHtml(p.transaction_id || '')}</div>
+          <div class="text-[10px] text-slate-400">${escapeHtml(p.invoice_no || '')}</div>
+        </td>
+        <td class="py-2.5 px-3 text-white text-xs">
+          <div class="font-bold">${escapeHtml(p.user_name || 'Customer')}</div>
+          <div class="text-[10px] text-slate-400">${escapeHtml(p.plan_name || '')}</div>
+        </td>
+        <td class="py-2.5 px-3 text-slate-300 text-xs">${escapeHtml(p.payment_method || '')}</td>
+        <td class="py-2.5 px-2 text-center">
+          <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            (p.status || '').toLowerCase() === 'completed' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+            (p.status || '').toLowerCase() === 'refunded' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+            (p.status || '').toLowerCase() === 'failed' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+          }">
+            ${escapeHtml((p.status || 'pending').toUpperCase())}
+          </span>
+        </td>
+        <td class="py-2.5 px-3 text-slate-300 text-xs whitespace-nowrap">${formatDateTime(p.payment_date)}</td>
+        <td class="py-2.5 px-3 text-right font-mono font-extrabold text-white text-xs">${formatINR(p.amount)}</td>
+      </tr>
+    `).join('');
+  }
+
+  const grandTotalEl = document.getElementById('printLedgerGrandTotal');
+  if (grandTotalEl) grandTotalEl.textContent = formatINR(totalAmount);
+
+  const modal = document.getElementById('printLedgerModal');
+  if (modal) {
+    if (typeof modal.showModal === 'function') modal.showModal();
+    else modal.setAttribute('open', '');
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      lucide.createIcons();
+    }
+  } else {
+    window.print();
+  }
+}
+
+// Window global bindings for event handlers
+if (typeof window !== 'undefined') {
+  window.loadPayments = loadPayments;
+  window.openAddPaymentModal = openAddPaymentModal;
+  window.openEditPaymentModal = openEditPaymentModal;
+  window.openDeletePaymentModal = openDeletePaymentModal;
+  window.openReceiptModal = openReceiptModal;
+  window.printReceipt = printReceipt;
+  window.printAllPayments = printAllPayments;
+  window.savePayment = savePayment;
 }
 
 // ========================================================

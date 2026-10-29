@@ -187,6 +187,9 @@ class LiveChatService {
         chn
           .on('broadcast', { event: 'receive_message' }, handleIncoming)
           .on('broadcast', { event: 'new-chat-message' }, handleIncoming)
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${targetId}` }, (p) => {
+            if (p?.new) handleIncoming({ payload: p.new });
+          })
           .on('broadcast', { event: 'chat-status-ack' }, ({ payload }) => {
             if (!payload) return;
             this.notifyStatusListeners(payload);
@@ -581,8 +584,8 @@ class LiveChatService {
    * And ensures conversation_id match if provided.
    */
   async fetchMessagesForConversation({ conversationId, currentUserId, partnerUserId }) {
-    const cId = String(currentUserId || '');
-    const pId = String(partnerUserId || '');
+    const cId = String(currentUserId || '').replace(/["']/g, '');
+    const pId = String(partnerUserId || '').replace(/["']/g, '');
     if (!cId || !pId) return [];
 
     let messages = [];
@@ -592,9 +595,10 @@ class LiveChatService {
       try {
         let query = supabase.from('messages').select('*');
         if (conversationId) {
-          query = query.or(`conversation_id.eq."${conversationId}",and(sender_id.eq."${cId}",receiver_id.eq."${pId}"),and(sender_id.eq."${pId}",receiver_id.eq."${cId}")`);
+          const cleanConvId = String(conversationId).replace(/["']/g, '');
+          query = query.or(`conversation_id.eq.${cleanConvId},and(sender_id.eq.${cId},receiver_id.eq.${pId}),and(sender_id.eq.${pId},receiver_id.eq.${cId})`);
         } else {
-          query = query.or(`and(sender_id.eq."${cId}",receiver_id.eq."${pId}"),and(sender_id.eq."${pId}",receiver_id.eq."${cId}")`);
+          query = query.or(`and(sender_id.eq.${cId},receiver_id.eq.${pId}),and(sender_id.eq.${pId},receiver_id.eq.${cId})`);
         }
 
         const { data, error } = await query.order('created_at', { ascending: true });
@@ -682,16 +686,19 @@ class LiveChatService {
     let remoteMessages = [];
     if (isSupabaseConfigured() && supabase) {
       try {
-        const idQueryStr = userIds.map((id) => `"${id}"`).join(',');
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .or(`sender_id.in.(${idQueryStr}),receiver_id.in.(${idQueryStr})`)
-          .order('created_at', { ascending: true });
+        const cleanIds = userIds.map((id) => String(id).replace(/["']/g, '')).filter(Boolean);
+        if (cleanIds.length > 0) {
+          const idQueryStr = cleanIds.join(',');
+          const { data, error } = await supabase
+            .from('messages')
+            .select('*')
+            .or(`sender_id.in.(${idQueryStr}),receiver_id.in.(${idQueryStr})`)
+            .order('created_at', { ascending: true });
 
-        if (!error && Array.isArray(data)) {
-          // Explicitly filter out messages where sender and receiver are the same user
-          remoteMessages = data.filter(m => String(m.sender_id) !== String(m.receiver_id));
+          if (!error && Array.isArray(data)) {
+            // Explicitly filter out messages where sender and receiver are the same user
+            remoteMessages = data.filter(m => String(m.sender_id) !== String(m.receiver_id));
+          }
         }
       } catch (e) {
         console.warn('[LiveChat] Error fetching remote messages:', e);

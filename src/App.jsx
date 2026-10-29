@@ -1480,14 +1480,81 @@ export default function App() {
       ));
       const partnerName = matchedPartner?.name || payload.responderName || payload.senderName || 'Candidate';
 
+      if (payload.event === 'contact-viewed' || payload.type === 'contact_viewed') {
+        const viewerId = String(payload.viewerId || payload.senderId || '');
+        const viewerName = payload.viewerName || payload.senderName || 'Candidate';
+        const notifId = `cv_${viewerId}_${Date.now()}`;
+        setNotifications((prev) => {
+          const exists = (prev || []).some(n => (n.type === 'contact_viewed' || n.type === 'contact_view') && (n.profileId === viewerId || n.senderId === viewerId));
+          if (exists) return prev;
+          return [
+            {
+              id: notifId,
+              notification_id: notifId,
+              profileId: viewerId,
+              senderId: viewerId,
+              type: 'contact_viewed',
+              title: `👁️ Contact Viewed by ${viewerName}`,
+              message: `${viewerName} viewed your verified contact details and phone number.`,
+              time: 'Just now',
+              isRead: false,
+              created_at: new Date().toISOString(),
+              timestamp: Date.now()
+            },
+            ...(prev || [])
+          ];
+        });
+        showToast(`👁️ ${viewerName} viewed your contact details.`);
+        return;
+      }
+
       if (isAcceptedEvent) {
         console.log(`[App] Real-time acceptance received: connection established with ${partnerName} (${partnerId})`);
-        if (partnerId) {
+        const partnerIds = Array.from(new Set([
+          partnerId,
+          matchedPartner?.id,
+          matchedPartner?.registerId,
+          matchedPartner?.register_id,
+          ...allPayloadIds.filter((id) => !currentIds.includes(String(id)))
+        ].filter(Boolean).map(String)));
+
+        if (partnerIds.length > 0) {
           setAcceptedInterests((prev) => {
             const arr = Array.isArray(prev) ? prev : [];
-            if (arr.includes(partnerId)) return arr;
-            return Array.from(new Set([...arr, partnerId]));
+            return Array.from(new Set([...arr, ...partnerIds]));
           });
+
+          // Instantly synchronize interestService cache & localStorage so calling unlocks for both users
+          if (currentUser) {
+            const partnerTarget = matchedPartner || partnerId;
+            const allPairKeys = interestService.getAllPairKeys(currentUser, partnerTarget);
+            allPairKeys.forEach(pk => interestService.statusCache.set(pk, 'accepted'));
+            try {
+              currentIds.forEach((cid) => {
+                const key = `i4u_accepted_interests_${cid}`;
+                const raw = localStorage.getItem(key) || '[]';
+                const list = JSON.parse(raw);
+                partnerIds.forEach((pid) => {
+                  if (!list.includes(pid)) list.push(pid);
+                });
+                localStorage.setItem(key, JSON.stringify(list));
+              });
+              const pairsRaw = localStorage.getItem('i4u_accepted_pairs') || '[]';
+              const pairs = JSON.parse(pairsRaw);
+              allPairKeys.forEach((pk) => {
+                if (pk && !pairs.includes(pk)) pairs.push(pk);
+              });
+              localStorage.setItem('i4u_accepted_pairs', JSON.stringify(pairs));
+            } catch (e) {}
+
+            if (typeof window !== 'undefined') {
+              try {
+                window.dispatchEvent(new CustomEvent('i4u_interest_status_change', {
+                  detail: { status: 'accepted', partnerId, timestamp: Date.now() }
+                }));
+              } catch (e) {}
+            }
+          }
         }
 
         // Update notifications to accepted
@@ -1500,7 +1567,7 @@ export default function App() {
 
           let found = false;
           map.forEach((n, k) => {
-            if (n.profileId === partnerId || n.senderId === partnerId || n.receiverId === partnerId) {
+            if (partnerIds.includes(String(n.profileId)) || partnerIds.includes(String(n.senderId)) || partnerIds.includes(String(n.receiverId))) {
               map.set(k, { ...n, status: 'accepted', isRead: true });
               found = true;
             }
@@ -1722,8 +1789,9 @@ export default function App() {
         const exists = prev.find(c => String(c.profileId) === senderIdStr);
         const isCurrentlyInThisChat = activeTabRef.current === 'chat' && String(activeChatProfileIdRef.current) === senderIdStr;
 
+        let nextConvs;
         if (exists) {
-          return prev.map(c => {
+          nextConvs = prev.map(c => {
             if (String(c.profileId) === senderIdStr) {
               const currentMsgs = Array.isArray(c.messages) ? c.messages : [];
               const alreadyExists = currentMsgs.some(m =>
@@ -1748,7 +1816,7 @@ export default function App() {
             return c;
           });
         } else {
-          return [
+          nextConvs = [
             ...prev,
             {
               profileId: senderIdStr,
@@ -1758,7 +1826,37 @@ export default function App() {
             }
           ];
         }
+
+        // Persist to localStorage immediately
+        try {
+          myIds.forEach((uid) => {
+            localStorage.setItem(`i4u_conversations_${uid}`, JSON.stringify(nextConvs));
+          });
+        } catch (e) {}
+
+        return nextConvs;
       });
+
+      // Synchronize to Global Notifications
+      const notifId = incoming.id ? `notif_chat_${incoming.id}` : `notif_chat_${Date.now()}`;
+      setNotifications(prev => [
+        {
+          id: notifId,
+          notification_id: notifId,
+          type: 'chat_message',
+          title: `💬 ${senderName}`,
+          message: text,
+          senderId,
+          senderName,
+          profileId: senderId,
+          conversationId: convId,
+          time: 'Just now',
+          isRead: false,
+          created_at: new Date().toISOString(),
+          timestamp: Date.now()
+        },
+        ...(prev || []).filter(n => n.id !== notifId && n.notification_id !== notifId)
+      ]);
 
       // Notify foreground listeners across screens and tabs
       fcmNotificationService.dispatchForegroundNotification({
@@ -2006,6 +2104,102 @@ export default function App() {
     });
 
     showToast(`📞 Unlocked contact for ${profile?.name || 'candidate'}! (${remainingCredits === 999 ? 'Unlimited' : remainingCredits} contacts remaining)`);
+
+    // Trigger Contact View Notification & Real-Time Sync to viewed candidate (profileId)
+    try {
+      const viewerId = String(currentUser.id);
+      const viewerName = currentUser.name || 'A candidate';
+      const viewerPhoto = currentUser.photo || null;
+      const targetId = String(profileId);
+      const targetRegId = profile?.registerId || profile?.register_id || null;
+
+      // 1. Save to local storage for target profile
+      const viewsKey = `i4u_contact_views_${targetId}`;
+      const existingViews = JSON.parse(localStorage.getItem(viewsKey) || '[]');
+      const newViewEntry = {
+        viewerId,
+        viewerName,
+        viewerPhoto,
+        senderId: viewerId,
+        senderName: viewerName,
+        senderPhoto: viewerPhoto,
+        profileId: viewerId,
+        type: 'contact_viewed',
+        timestamp: Date.now(),
+        created_at: new Date().toISOString()
+      };
+      if (!existingViews.some(v => String(v.viewerId || v.senderId) === viewerId)) {
+        existingViews.unshift(newViewEntry);
+        localStorage.setItem(viewsKey, JSON.stringify(existingViews));
+      }
+      if (targetRegId) {
+        const regViewsKey = `i4u_contact_views_${targetRegId}`;
+        const regViews = JSON.parse(localStorage.getItem(regViewsKey) || '[]');
+        if (!regViews.some(v => String(v.viewerId || v.senderId) === viewerId)) {
+          regViews.unshift(newViewEntry);
+          localStorage.setItem(regViewsKey, JSON.stringify(regViews));
+        }
+      }
+
+      // 2. Insert into Supabase notifications table
+      if (isSupabaseConfigured() && supabase) {
+        supabase.from('notifications').insert([
+          {
+            recipient_id: targetId,
+            recipient_register_id: targetRegId,
+            type: 'contact_viewed',
+            title: `👁️ Contact Viewed by ${viewerName}`,
+            message: `${viewerName} viewed your verified contact details and phone number.`,
+            metadata: {
+              viewerId,
+              viewerName,
+              viewerPhoto,
+              senderId: viewerId,
+              profileId: viewerId
+            },
+            is_read: false,
+            created_at: new Date().toISOString()
+          }
+        ]).catch(() => {});
+
+        // 3. Broadcast real-time event to target's inbox channel
+        const targetIds = [targetId, targetRegId].filter(Boolean);
+        targetIds.forEach(tId => {
+          const chn = supabase.channel(`user-interest-inbox-${tId}`);
+          chn.subscribe((chnStatus) => {
+            if (chnStatus === 'SUBSCRIBED') {
+              chn.send({
+                type: 'broadcast',
+                event: 'contact-viewed',
+                payload: {
+                  event: 'contact-viewed',
+                  type: 'contact_viewed',
+                  viewerId,
+                  viewerName,
+                  viewerPhoto,
+                  senderId: viewerId,
+                  senderName: viewerName,
+                  senderPhoto: viewerPhoto,
+                  profileId: viewerId,
+                  timestamp: Date.now()
+                }
+              }).catch(() => {});
+              setTimeout(() => {
+                try { supabase.removeChannel(chn); } catch (e) {}
+              }, 3000);
+            }
+          });
+        });
+      }
+
+      // 4. Send FCM Push Notification
+      fcmNotificationService.dispatchMessagePushNotification({
+        recipientId: targetId,
+        sender: currentUser,
+        messageText: `${viewerName} viewed your contact number.`,
+        conversationId: `contact_view_${viewerId}`
+      }).catch(() => {});
+    } catch (e) {}
   };
 
   const handleMarkNotificationAsRead = (notifId) => {
@@ -2041,12 +2235,10 @@ export default function App() {
     
     // Single-Request Flow: User B accepts User A's request.
     // Record accepted connection immediately. User B MUST NOT be required to send a return request.
+    const targetIds = [targetId, targetRegId].filter(Boolean).map(String);
     setAcceptedInterests(prev => {
       const arr = Array.isArray(prev) ? prev : [];
-      if (arr.includes(targetId) || (targetRegId && arr.includes(targetRegId))) {
-        return arr;
-      }
-      return [...arr, targetId];
+      return Array.from(new Set([...arr, ...targetIds]));
     });
 
     // Record acceptance in interestService for real-time WebRTC unlock for BOTH users
@@ -2107,12 +2299,10 @@ export default function App() {
 
     // Single-Request Flow: User B accepts User A's request.
     // Record accepted connection immediately. User B MUST NOT be required to send a return request.
+    const targetIds = [targetId, targetRegId].filter(Boolean).map(String);
     setAcceptedInterests(prev => {
       const arr = Array.isArray(prev) ? prev : [];
-      if (arr.includes(targetId) || (targetRegId && arr.includes(targetRegId))) {
-        return arr;
-      }
-      return [...arr, targetId];
+      return Array.from(new Set([...arr, ...targetIds]));
     });
 
     setNotifications(prev => prev.map(n => (n.profileId === targetId || n.profileId === profileId) ? { ...n, isRead: true, status: 'accepted' } : n));
@@ -2435,12 +2625,10 @@ export default function App() {
 
     // Single-Request Flow: User B accepts User A's request.
     // Record accepted connection immediately. User B MUST NOT be required to send a return request.
+    const targetIds = [targetId, targetRegId].filter(Boolean).map(String);
     setAcceptedInterests(prev => {
       const arr = Array.isArray(prev) ? prev : [];
-      if (arr.includes(targetId) || (targetRegId && arr.includes(targetRegId))) {
-        return arr;
-      }
-      return [...arr, targetId];
+      return Array.from(new Set([...arr, ...targetIds]));
     });
 
     if (currentUser && (profile || targetId)) {
@@ -4525,6 +4713,7 @@ export default function App() {
             <MobileInterestsScreen 
               profiles={profiles}
               currentUser={currentUser}
+              notifications={notifications}
               onOpenLogin={() => setCurrentScreen('login')}
               interestsSent={interestsSent}
               acceptedInterests={acceptedInterests}
