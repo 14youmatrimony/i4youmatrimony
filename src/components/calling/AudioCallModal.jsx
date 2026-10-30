@@ -388,19 +388,29 @@ export default function AudioCallModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in select-none">
-      
+    <div 
+      className="fixed inset-0 z-50 w-full h-[100dvh] bg-gradient-to-b from-[#060D17] via-[#0B192C] to-[#040911] text-white overflow-hidden select-none flex flex-col items-center justify-between animate-in fade-in"
+      style={{
+        height: '100dvh',
+        width: '100%',
+        maxHeight: '100dvh',
+        maxWidth: '100vw',
+        paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))',
+        paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
+        paddingLeft: '1rem',
+        paddingRight: '1rem'
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
       {/* Hidden WebRTC Remote Audio Output */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
 
-      <div 
-        className="relative w-full h-[100dvh] max-h-[100dvh] sm:h-auto sm:max-h-[92dvh] sm:min-h-[560px] sm:max-w-md bg-gradient-to-b from-[#060D17] via-[#0B192C] to-[#040911] text-white rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-0 sm:border sm:border-[#D4AF37]/50 flex flex-col items-center justify-between px-4 py-6 sm:p-8"
-        style={{ height: '100dvh', maxHeight: '100dvh' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Ambient Top Glow */}
-        <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#D4AF37]/15 to-transparent pointer-events-none" />
-        <div className="absolute top-1/3 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Ambient Top Glow */}
+      <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#D4AF37]/15 to-transparent pointer-events-none" />
+      <div className="absolute top-1/3 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Inner Responsive Column */}
+      <div className="w-full max-w-md h-full flex flex-col items-center justify-between relative z-10">
 
         {/* Top Header Status */}
         <div className="text-center space-y-1 relative z-10 w-full shrink-0 pt-2 sm:pt-0">

@@ -320,200 +320,213 @@ export default function VideoCallModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in select-none">
-      <div 
-        className="relative w-full h-[100dvh] max-h-[100dvh] sm:h-[88dvh] sm:max-h-[760px] sm:max-w-xl md:max-w-2xl bg-slate-950 rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-0 sm:border sm:border-[#D4AF37]/50 flex flex-col"
-        style={{ height: '100dvh', maxHeight: '100dvh' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Dedicated Hidden Remote Audio Element for guaranteed bidirectional voice audio */}
-        <audio ref={remoteAudioRef} autoPlay playsInline muted={false} controls={false} />
+    <div 
+      className="fixed inset-0 z-50 w-full h-[100dvh] bg-slate-950 overflow-hidden select-none flex flex-col justify-between"
+      style={{
+        height: '100dvh',
+        width: '100%',
+        maxHeight: '100dvh',
+        maxWidth: '100vw'
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Dedicated Hidden Remote Audio Element for guaranteed bidirectional voice audio */}
+      <audio ref={remoteAudioRef} autoPlay playsInline muted={false} controls={false} />
 
-        {/* Candidate Main Video Feed (Full Screen) */}
-        <div className="relative flex-1 bg-gradient-to-b from-[#0B192C] to-[#040911] overflow-hidden flex items-center justify-center">
-          
-          {/* Real Remote Video Feed - Always mounted so ref is never null, autoPlay, playsInline, NOT muted */}
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            muted={false}
-            className={`w-full h-full object-cover ${hasRemoteVideo ? 'block' : 'hidden'}`}
-          />
+      {/* Candidate Main Video Feed (Full Screen Responsive Flex Container) */}
+      <div className="relative flex-1 min-h-0 w-full bg-gradient-to-b from-[#0B192C] to-[#040911] overflow-hidden flex items-center justify-center">
+        
+        {/* Real Remote Video Feed - Always mounted so ref is never null, autoPlay, playsInline, NOT muted */}
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          muted={false}
+          className={`w-full h-full object-cover ${hasRemoteVideo ? 'block' : 'hidden'}`}
+        />
 
-          {/* Autoplay blocked unpause button */}
-          {autoplayBlocked && (
-            <div className="absolute top-20 inset-x-4 z-40 flex justify-center">
+        {/* Autoplay blocked unpause button */}
+        {autoplayBlocked && (
+          <div className="absolute top-20 inset-x-4 z-40 flex justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                if (remoteVideoRef.current) {
+                  remoteVideoRef.current.play().catch(() => {});
+                }
+                if (remoteAudioRef.current) {
+                  remoteAudioRef.current.play().catch(() => {});
+                }
+                setAutoplayBlocked(false);
+              }}
+              className="py-2 px-4 rounded-full bg-amber-500 text-slate-950 font-bold text-xs shadow-xl animate-bounce flex items-center space-x-2 cursor-pointer hover:bg-amber-400"
+            >
+              <span>🔊 Audio paused by browser • Tap to unmute</span>
+            </button>
+          </div>
+        )}
+
+        {/* Camera permission or device notice with retry button */}
+        {cameraNotice && (
+          <div 
+            className="absolute top-16 sm:top-20 inset-x-3 sm:inset-x-6 z-30 flex justify-center"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+          >
+            <div className="py-2 px-3.5 rounded-2xl bg-rose-600/90 backdrop-blur-md text-white text-xs font-semibold shadow-xl flex items-center gap-2 max-w-sm">
+              <span className="truncate">{cameraNotice}</span>
               <button
                 type="button"
-                onClick={() => {
-                  if (remoteVideoRef.current) {
-                    remoteVideoRef.current.play().catch(() => {});
-                  }
-                  if (remoteAudioRef.current) {
-                    remoteAudioRef.current.play().catch(() => {});
-                  }
-                  setAutoplayBlocked(false);
-                }}
-                className="py-2 px-4 rounded-full bg-amber-500 text-slate-950 font-bold text-xs shadow-xl animate-bounce flex items-center space-x-2 cursor-pointer hover:bg-amber-400"
+                onClick={handleRequestCameraPermission}
+                className="px-2.5 py-0.5 bg-white text-rose-700 rounded-md text-[11px] font-bold hover:bg-slate-100 cursor-pointer shadow active:scale-95 shrink-0"
               >
-                <span>🔊 Audio paused by browser • Tap to unmute</span>
+                Enable
               </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Camera permission or device notice */}
-          {cameraNotice && (
-            <div className="absolute top-20 inset-x-4 z-40 flex justify-center">
-              <div className="py-2 px-3 rounded-2xl bg-rose-600/90 backdrop-blur-md text-white text-xs font-semibold shadow-md flex items-center gap-2">
-                <span>{cameraNotice}</span>
-                <button
-                  type="button"
-                  onClick={handleRequestCameraPermission}
-                  className="px-2.5 py-0.5 bg-white text-rose-700 rounded-md text-[11px] font-bold hover:bg-slate-100 cursor-pointer shadow active:scale-95"
-                >
-                  Enable
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Candidate Placeholder Photo shown when remote video is not yet active */}
+        {!hasRemoteVideo && (
+          <img 
+            src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
+            alt={candidate.name} 
+            className="w-full h-full object-cover filter brightness-90 animate-subtle-scale"
+          />
+        )}
 
-          {/* Candidate Placeholder Photo shown when remote video is not yet active */}
-          {!hasRemoteVideo && (
-            <img 
-              src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
-              alt={candidate.name} 
-              className="w-full h-full object-cover filter brightness-90 animate-subtle-scale"
-            />
-          )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
 
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
-
-          {/* Top Info Bar */}
-          <div className="absolute top-4 inset-x-4 flex items-center justify-between text-white z-20">
-            <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-              <div>
-                <h4 className="font-serif font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
-                  <span>{candidate.name}</span>
-                  {candidate.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
-                </h4>
-                <p className="text-[10px] text-slate-300">
-                  {callStatus === 'connected' ? `Live Video Call • ${formatDuration(callDuration)}` : (callStatus === 'ringing' ? 'Ringing candidate...' : 'Connecting...')}
-                </p>
-              </div>
+        {/* Top Info Bar */}
+        <div 
+          className="absolute top-3 sm:top-5 inset-x-3 sm:inset-x-5 flex items-center justify-between text-white z-20 pointer-events-auto"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
+          <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10 shadow-lg">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+            <div>
+              <h4 className="font-serif font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
+                <span>{candidate.name}</span>
+                {candidate.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
+              </h4>
+              <p className="text-[10px] sm:text-xs text-slate-300">
+                {callStatus === 'connected' ? `Live Video Call • ${formatDuration(callDuration)}` : (callStatus === 'ringing' ? 'Ringing candidate...' : 'Connecting...')}
+              </p>
             </div>
           </div>
-
-          {/* Connection Status Central Banner */}
-          {callStatus !== 'connected' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/60 backdrop-blur-xs">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full border-4 border-[#D4AF37] overflow-hidden shadow-2xl">
-                  <img 
-                    src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
-                    alt={candidate.name} 
-                    className="w-full h-full object-cover" 
-                  />
-                </div>
-                <div className="absolute inset-0 rounded-full border-2 border-emerald-400 animate-ping" />
-              </div>
-
-              <div className="text-center text-white space-y-1">
-                <h3 className="font-serif font-bold text-lg">{candidate.name}</h3>
-                <p className="text-xs text-[#DFB76C] font-semibold animate-pulse">
-                  {callStatus === 'calling' && 'Initiating Live Video Call...'}
-                  {callStatus === 'ringing' && 'Awaiting response... (Ringing)'}
-                  {callStatus === 'ended' && 'Video Meeting Ended'}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Local User Picture-in-Picture (PIP) Window */}
-          <div className="absolute bottom-20 sm:bottom-24 right-3 sm:right-4 w-24 h-34 sm:w-36 sm:h-48 rounded-2xl overflow-hidden bg-black/80 border-2 border-[#D4AF37] shadow-2xl z-30 group">
-            {/* Always mounted local video so ref is never null */}
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className={`w-full h-full object-cover transform -scale-x-100 ${
-                hasCameraPermission && !isCameraOff ? 'block' : 'hidden'
-              }`}
-            />
-            {(!hasCameraPermission || isCameraOff) && (
-              <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900 text-slate-300 space-y-1">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 flex items-center justify-center text-[#DFB76C] font-bold text-xs sm:text-sm">
-                  {currentUser?.name?.[0] || 'You'}
-                </div>
-                <span className="text-[9px] sm:text-[10px] text-slate-400">{isCameraOff ? 'Camera Off' : 'Starting...'}</span>
-              </div>
-            )}
-            
-            <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white backdrop-blur-xs flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              <span>You</span>
-            </div>
-          </div>
-
         </div>
 
-        {/* Bottom Control Bar */}
-        <div className="bg-[#060D17] border-t border-slate-800 p-3 sm:p-4 pb-4 shrink-0 flex items-center justify-center space-x-3 sm:space-x-5 z-20">
+        {/* Connection Status Central Banner */}
+        {callStatus !== 'connected' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/50 backdrop-blur-xs px-4">
+            <div className="relative">
+              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-[#D4AF37] overflow-hidden shadow-2xl">
+                <img 
+                  src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
+                  alt={candidate.name} 
+                  className="w-full h-full object-cover" 
+                />
+              </div>
+              <div className="absolute inset-0 rounded-full border-2 border-emerald-400 animate-ping" />
+            </div>
+
+            <div className="text-center text-white space-y-1">
+              <h3 className="font-serif font-bold text-base sm:text-xl">{candidate.name}</h3>
+              <p className="text-xs sm:text-sm text-[#DFB76C] font-semibold animate-pulse">
+                {callStatus === 'calling' && 'Initiating Live Video Call...'}
+                {callStatus === 'ringing' && 'Awaiting response... (Ringing)'}
+                {callStatus === 'ended' && 'Video Meeting Ended'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Local User Picture-in-Picture (PIP) Window */}
+        <div className="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 w-24 h-32 sm:w-32 sm:h-44 md:w-36 md:h-48 max-h-[35%] rounded-2xl overflow-hidden bg-black/80 border-2 border-[#D4AF37] shadow-2xl z-30 group">
+          {/* Always mounted local video so ref is never null */}
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`w-full h-full object-cover transform -scale-x-100 ${
+              hasCameraPermission && !isCameraOff ? 'block' : 'hidden'
+            }`}
+          />
+          {(!hasCameraPermission || isCameraOff) && (
+            <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900 text-slate-300 space-y-1">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-800 flex items-center justify-center text-[#DFB76C] font-bold text-xs sm:text-sm">
+                {currentUser?.name?.[0] || 'You'}
+              </div>
+              <span className="text-[9px] sm:text-[10px] text-slate-400">{isCameraOff ? 'Camera Off' : 'Starting...'}</span>
+            </div>
+          )}
           
-          {/* Mute Mic */}
-          <button
-            type="button"
-            onClick={handleToggleMic}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer shadow-md flex items-center space-x-1.5 ${
-              isMicMuted 
-                ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30' 
-                : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
-            }`}
-            title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
-          >
-            {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </button>
-
-          {/* Camera On / Off */}
-          <button
-            type="button"
-            onClick={handleToggleCamera}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer shadow-md flex items-center space-x-1.5 ${
-              isCameraOff 
-                ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30' 
-                : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
-            }`}
-            title={isCameraOff ? 'Turn Camera On' : 'Turn Camera Off'}
-          >
-            {isCameraOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-          </button>
-
-          {/* Flip Camera */}
-          <button
-            type="button"
-            onClick={handleFlipCamera}
-            className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all cursor-pointer shadow-md"
-            title="Flip Camera"
-          >
-            <SwitchCamera className="w-5 h-5" />
-          </button>
-
-          {/* End Call Button */}
-          <button
-            type="button"
-            onClick={handleEndCall}
-            className="px-5 sm:px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-700 via-rose-600 to-red-600 text-white font-bold text-xs sm:text-sm flex items-center space-x-2 shadow-lg shadow-rose-900/50 hover:brightness-110 active:scale-95 transition-all cursor-pointer ring-2 ring-rose-500/40"
-            title="End Video Meeting"
-          >
-            <PhoneOff className="w-5 h-5" />
-            <span>End Meeting</span>
-          </button>
-
+          <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white backdrop-blur-xs flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span>You</span>
+          </div>
         </div>
 
       </div>
+
+      {/* Bottom Control Bar - Anchored securely at bottom with safe area insets */}
+      <div 
+        className="w-full shrink-0 z-40 bg-[#060D17]/95 backdrop-blur-md border-t border-slate-800/80 px-3 py-3 sm:px-6 sm:py-4 flex items-center justify-center space-x-3 sm:space-x-5"
+        style={{
+          paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))'
+        }}
+      >
+        {/* Mute Mic */}
+        <button
+          type="button"
+          onClick={handleToggleMic}
+          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-md flex items-center justify-center ${
+            isMicMuted 
+              ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30' 
+              : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+          }`}
+          title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
+        >
+          {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+        </button>
+
+        {/* Camera On / Off */}
+        <button
+          type="button"
+          onClick={handleToggleCamera}
+          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-md flex items-center justify-center ${
+            isCameraOff 
+              ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30' 
+              : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+          }`}
+          title={isCameraOff ? 'Turn Camera On' : 'Turn Camera Off'}
+        >
+          {isCameraOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+        </button>
+
+        {/* Flip Camera */}
+        <button
+          type="button"
+          onClick={handleFlipCamera}
+          className="p-3 sm:p-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all cursor-pointer shadow-md flex items-center justify-center"
+          title="Flip Camera"
+        >
+          <SwitchCamera className="w-5 h-5" />
+        </button>
+
+        {/* End Call Button */}
+        <button
+          type="button"
+          onClick={handleEndCall}
+          className="px-5 sm:px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-700 via-rose-600 to-red-600 text-white font-bold text-xs sm:text-sm flex items-center space-x-2 shadow-lg shadow-rose-900/50 hover:brightness-110 active:scale-95 transition-all cursor-pointer ring-2 ring-rose-500/40"
+          title="End Video Meeting"
+        >
+          <PhoneOff className="w-5 h-5" />
+          <span>End Meeting</span>
+        </button>
+
+      </div>
+
     </div>
   );
 }
