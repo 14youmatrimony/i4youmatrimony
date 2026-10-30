@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Phone, PhoneOff, Video, ShieldCheck, Lock, MapPin } from 'lucide-react';
+import { Phone, PhoneOff, Video, ShieldCheck, MapPin } from 'lucide-react';
 import { webrtcCallService } from '../../services/webrtcCallService';
 
 export default function IncomingCallModal({
@@ -103,9 +103,10 @@ export default function IncomingCallModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-lg animate-in fade-in select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-lg animate-in fade-in select-none">
       <div 
-        className="relative w-full max-w-sm sm:max-w-md bg-gradient-to-b from-[#0B192C] via-[#060D17] to-[#040911] text-white rounded-3xl overflow-hidden shadow-2xl border-2 border-[#D4AF37] flex flex-col items-center justify-between p-6 sm:p-8 min-h-[520px]"
+        className="relative w-full h-[100dvh] max-h-[100dvh] sm:h-auto sm:max-h-[92dvh] sm:min-h-[520px] sm:max-w-md bg-gradient-to-b from-[#0B192C] via-[#060D17] to-[#040911] text-white rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-0 sm:border-2 sm:border-[#D4AF37] flex flex-col items-center justify-between px-4 py-6 sm:p-8"
+        style={{ height: '100dvh', maxHeight: '100dvh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Glow Effects */}
@@ -113,9 +114,8 @@ export default function IncomingCallModal({
         <div className="absolute top-1/4 w-60 h-60 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none animate-pulse" />
 
         {/* Top Header */}
-        <div className="text-center space-y-2 relative z-10 w-full">
+        <div className="text-center space-y-1 relative z-10 w-full shrink-0 pt-2 sm:pt-0">
           <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 text-xs font-bold shadow-lg animate-bounce">
-            <Lock className="w-3.5 h-3.5 text-emerald-400" />
             <span>Incoming {isVideo ? 'Live Video Call' : 'Live Voice Call'}</span>
           </div>
 
@@ -124,31 +124,31 @@ export default function IncomingCallModal({
               {caller?.name || 'Candidate'}
             </h2>
             {caller?.profession && (
-              <p className="text-xs text-slate-300 mt-1 font-medium">
+              <p className="text-xs sm:text-sm text-slate-300 mt-1 font-medium">
                 {caller.profession}
               </p>
             )}
             {caller?.city && (
               <p className="text-xs text-slate-400 flex items-center justify-center gap-1 mt-0.5">
-                <MapPin className="w-3 h-3 text-[#DFB76C]" />
+                <MapPin className="w-3.5 h-3.5 text-[#DFB76C]" />
                 <span>{caller.city}</span>
               </p>
             )}
           </div>
 
           <p className="text-xs text-[#DFB76C] font-semibold pt-1">
-            {isVideo ? '📹 Incoming Live Video Meeting invitation...' : '📞 Incoming Live Audio Call invitation...'}
+            {isVideo ? 'Incoming Live Video Meeting invitation...' : 'Incoming Live Audio Call invitation...'}
           </p>
         </div>
 
         {/* Pulsing Avatar */}
-        <div className="relative my-6 flex items-center justify-center">
-          <div className="absolute w-48 h-48 rounded-full border-2 border-emerald-500/40 animate-ping pointer-events-none" />
-          <div className="absolute w-40 h-40 rounded-full border border-[#D4AF37]/50 animate-pulse pointer-events-none" />
+        <div className="relative my-auto py-3 sm:py-6 flex items-center justify-center shrink-0">
+          <div className="absolute w-44 h-44 sm:w-48 sm:h-48 rounded-full border-2 border-emerald-500/40 animate-ping pointer-events-none" />
+          <div className="absolute w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-[#D4AF37]/50 animate-pulse pointer-events-none" />
           
-          <div className="relative w-32 h-32 rounded-full overflow-hidden ring-4 ring-[#D4AF37] shadow-2xl">
+          <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-4 ring-[#D4AF37] shadow-2xl">
             <img 
-              src={caller?.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
+              src={caller?.photo || caller?.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
               alt={caller?.name || 'Caller'} 
               className="w-full h-full object-cover"
             />
@@ -159,7 +159,7 @@ export default function IncomingCallModal({
         </div>
 
         {/* Bottom Accept / Decline Actions */}
-        <div className="w-full space-y-6 relative z-10">
+        <div className="w-full space-y-4 sm:space-y-6 relative z-10 shrink-0 pb-3 sm:pb-1">
           <div className="flex items-center justify-around px-4">
             
             {/* Decline Button */}
@@ -189,10 +189,6 @@ export default function IncomingCallModal({
             </div>
 
           </div>
-
-          <p className="text-[10px] text-center text-slate-400 leading-relaxed">
-            🔒 Protected under I 4 You Privacy Protocol • End-to-End Encrypted
-          </p>
         </div>
 
       </div>

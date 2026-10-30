@@ -6,8 +6,7 @@ import {
   MicOff, 
   PhoneOff, 
   SwitchCamera, 
-  ShieldCheck, 
-  Lock 
+  ShieldCheck 
 } from 'lucide-react';
 import { webrtcCallService } from '../../services/webrtcCallService';
 
@@ -92,6 +91,19 @@ export default function VideoCallModal({
         localVideoRef.current.muted = true;
         safePlayMedia(localVideoRef.current, 'localVideo');
       }
+    }
+  };
+
+  // Direct user-gesture camera permission request handler
+  const handleRequestCameraPermission = async () => {
+    try {
+      const stream = await webrtcCallService.requestMediaAccess('video', facingMode);
+      if (stream) {
+        attachLocalStream(stream);
+        setCameraNotice(null);
+      }
+    } catch (err) {
+      console.warn('[VideoCall] Manual camera request notice:', err);
     }
   };
 
@@ -202,8 +214,8 @@ export default function VideoCallModal({
           return;
         }
         attachLocalStream();
-        if (webrtcCallService.hardwareError === 'camera_denied') {
-          setCameraNotice('Camera permission denied. Operating in audio-only mode.');
+        if (webrtcCallService.hardwareError === 'camera_denied' || webrtcCallService.hardwareError === 'permission_denied') {
+          setCameraNotice('Camera permission needed. Operating in audio fallback mode.');
         } else if (webrtcCallService.hardwareError === 'hardware_unavailable') {
           setCameraNotice('Microphone and camera devices unavailable.');
         }
@@ -236,8 +248,8 @@ export default function VideoCallModal({
       }).then(() => {
         attachLocalStream();
         playVideoChime();
-        if (webrtcCallService.hardwareError === 'camera_denied') {
-          setCameraNotice('Camera permission denied. Operating in audio-only mode.');
+        if (webrtcCallService.hardwareError === 'camera_denied' || webrtcCallService.hardwareError === 'permission_denied') {
+          setCameraNotice('Camera permission needed. Operating in audio fallback mode.');
         } else if (webrtcCallService.hardwareError === 'hardware_unavailable') {
           setCameraNotice('Microphone and camera devices unavailable.');
         }
@@ -308,9 +320,10 @@ export default function VideoCallModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in select-none">
       <div 
-        className="relative w-full max-w-sm sm:max-w-xl md:max-w-2xl bg-slate-950 rounded-3xl overflow-hidden shadow-2xl border border-[#D4AF37]/50 flex flex-col h-[90vh] max-h-[720px]"
+        className="relative w-full h-[100dvh] max-h-[100dvh] sm:h-[88dvh] sm:max-h-[760px] sm:max-w-xl md:max-w-2xl bg-slate-950 rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-0 sm:border sm:border-[#D4AF37]/50 flex flex-col"
+        style={{ height: '100dvh', maxHeight: '100dvh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Dedicated Hidden Remote Audio Element for guaranteed bidirectional voice audio */}
@@ -352,8 +365,15 @@ export default function VideoCallModal({
           {/* Camera permission or device notice */}
           {cameraNotice && (
             <div className="absolute top-20 inset-x-4 z-40 flex justify-center">
-              <div className="py-1.5 px-3 rounded-xl bg-rose-600/90 backdrop-blur-md text-white text-xs font-semibold shadow-md">
-                {cameraNotice}
+              <div className="py-2 px-3 rounded-2xl bg-rose-600/90 backdrop-blur-md text-white text-xs font-semibold shadow-md flex items-center gap-2">
+                <span>{cameraNotice}</span>
+                <button
+                  type="button"
+                  onClick={handleRequestCameraPermission}
+                  className="px-2.5 py-0.5 bg-white text-rose-700 rounded-md text-[11px] font-bold hover:bg-slate-100 cursor-pointer shadow active:scale-95"
+                >
+                  Enable
+                </button>
               </div>
             </div>
           )}
@@ -383,11 +403,6 @@ export default function VideoCallModal({
                 </p>
               </div>
             </div>
-
-            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold shadow-md">
-              <Lock className="w-3 h-3 text-emerald-400" />
-              <span>End-to-End Encrypted</span>
-            </div>
           </div>
 
           {/* Connection Status Central Banner */}
@@ -416,7 +431,7 @@ export default function VideoCallModal({
           )}
 
           {/* Local User Picture-in-Picture (PIP) Window */}
-          <div className="absolute bottom-20 sm:bottom-24 right-4 w-28 h-40 sm:w-36 sm:h-48 rounded-2xl overflow-hidden bg-black/80 border-2 border-[#D4AF37] shadow-2xl z-30 group">
+          <div className="absolute bottom-20 sm:bottom-24 right-3 sm:right-4 w-24 h-34 sm:w-36 sm:h-48 rounded-2xl overflow-hidden bg-black/80 border-2 border-[#D4AF37] shadow-2xl z-30 group">
             {/* Always mounted local video so ref is never null */}
             <video
               ref={localVideoRef}
@@ -429,10 +444,10 @@ export default function VideoCallModal({
             />
             {(!hasCameraPermission || isCameraOff) && (
               <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900 text-slate-300 space-y-1">
-                <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-[#DFB76C] font-bold">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 flex items-center justify-center text-[#DFB76C] font-bold text-xs sm:text-sm">
                   {currentUser?.name?.[0] || 'You'}
                 </div>
-                <span className="text-[10px] text-slate-400">{isCameraOff ? 'Camera Off' : 'Starting Camera...'}</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-400">{isCameraOff ? 'Camera Off' : 'Starting...'}</span>
               </div>
             )}
             
@@ -445,7 +460,7 @@ export default function VideoCallModal({
         </div>
 
         {/* Bottom Control Bar */}
-        <div className="bg-[#060D17] border-t border-slate-800 p-3 sm:p-4 shrink-0 flex items-center justify-center space-x-3 sm:space-x-5 z-20">
+        <div className="bg-[#060D17] border-t border-slate-800 p-3 sm:p-4 pb-4 shrink-0 flex items-center justify-center space-x-3 sm:space-x-5 z-20">
           
           {/* Mute Mic */}
           <button
@@ -489,7 +504,7 @@ export default function VideoCallModal({
           <button
             type="button"
             onClick={handleEndCall}
-            className="px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-700 via-rose-600 to-red-600 text-white font-bold text-xs sm:text-sm flex items-center space-x-2 shadow-lg shadow-rose-900/50 hover:brightness-110 active:scale-95 transition-all cursor-pointer ring-2 ring-rose-500/40"
+            className="px-5 sm:px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-700 via-rose-600 to-red-600 text-white font-bold text-xs sm:text-sm flex items-center space-x-2 shadow-lg shadow-rose-900/50 hover:brightness-110 active:scale-95 transition-all cursor-pointer ring-2 ring-rose-500/40"
             title="End Video Meeting"
           >
             <PhoneOff className="w-5 h-5" />

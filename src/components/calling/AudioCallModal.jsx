@@ -6,7 +6,6 @@ import {
   Volume2, 
   VolumeX, 
   ShieldCheck, 
-  Lock, 
   Grid, 
   MapPin,
   X,
@@ -159,45 +158,60 @@ export default function AudioCallModal({
     } catch (e) {}
   };
 
+  // Mic analyser setup
+  const setupMicAnalyser = (stream) => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx || !stream) return;
+      const ctx = audioContextRef.current || new AudioCtx();
+      audioContextRef.current = ctx;
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const updateMeter = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
+        animFrameRef.current = requestAnimationFrame(updateMeter);
+      };
+      updateMeter();
+      setHasMicPermission(true);
+      setMicPermissionError(false);
+    } catch (err) {
+      console.warn('[AudioCall] Mic analyser warning:', err);
+    }
+  };
+
+  // Explicit microphone permission request handler
+  const handleRequestMicPermission = async () => {
+    try {
+      const stream = await webrtcCallService.requestMediaAccess('audio');
+      if (stream) {
+        setMicPermissionError(false);
+        setupMicAnalyser(stream);
+      }
+    } catch (err) {
+      console.warn('[AudioCall] Manual mic permission request notice:', err);
+      setMicPermissionError(true);
+    }
+  };
+
   // WebRTC & Audio Lifecycle
   useEffect(() => {
     if (!isOpen) return;
 
     let isSubscribed = true;
     let ringTimer = null;
-    let mockConnectTimer = null;
-
-    // Mic analyser setup
-    const setupMicAnalyser = (stream) => {
-      try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx || !stream) return;
-        const ctx = audioContextRef.current || new AudioCtx();
-        audioContextRef.current = ctx;
-        if (ctx.state === 'suspended') ctx.resume();
-
-        const source = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 64;
-        source.connect(analyser);
-        analyserRef.current = analyser;
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        const updateMeter = () => {
-          if (!analyserRef.current) return;
-          analyserRef.current.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-          const avg = sum / dataArray.length;
-          setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
-          animFrameRef.current = requestAnimationFrame(updateMeter);
-        };
-        updateMeter();
-        setHasMicPermission(true);
-      } catch (err) {
-        console.warn('[AudioCall] Mic analyser warning:', err);
-      }
-    };
+    let callTimeoutTimer = null;
 
     // Callback when remote audio stream is received
     const handleRemoteStream = (stream) => {
@@ -211,7 +225,7 @@ export default function AudioCallModal({
       playConnectChime();
     };
 
-    // Callback for status change from Supabase/WebRTC
+    // Callback for status change from WebRTC signaling
     const handleStatusChange = (status) => {
       if (!isSubscribed) return;
       if (status === 'blocked') {
@@ -254,7 +268,8 @@ export default function AudioCallModal({
         }
         if (webrtcCallService.localStream) {
           setupMicAnalyser(webrtcCallService.localStream);
-        } else if (webrtcCallService.hardwareError === 'permission_denied') {
+        }
+        if (webrtcCallService.hardwareError === 'permission_denied') {
           setMicPermissionError(true);
         }
       });
@@ -267,7 +282,7 @@ export default function AudioCallModal({
       }, 1200);
 
       // Awaiting recipient answer timeout (45s)
-      mockConnectTimer = setTimeout(() => {
+      callTimeoutTimer = setTimeout(() => {
         if (isSubscribed && callStatus !== 'connected' && callStatus !== 'ended') {
           if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
           setCallStatus('ended');
@@ -289,7 +304,8 @@ export default function AudioCallModal({
       }).then(() => {
         if (webrtcCallService.localStream) {
           setupMicAnalyser(webrtcCallService.localStream);
-        } else if (webrtcCallService.hardwareError === 'permission_denied') {
+        }
+        if (webrtcCallService.hardwareError === 'permission_denied') {
           setMicPermissionError(true);
         }
         playConnectChime();
@@ -299,7 +315,7 @@ export default function AudioCallModal({
     return () => {
       isSubscribed = false;
       clearTimeout(ringTimer);
-      clearTimeout(mockConnectTimer);
+      clearTimeout(callTimeoutTimer);
       if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
@@ -372,13 +388,14 @@ export default function AudioCallModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in select-none">
       
       {/* Hidden WebRTC Remote Audio Output */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
 
       <div 
-        className="relative w-full max-w-sm sm:max-w-md bg-gradient-to-b from-[#060D17] via-[#0B192C] to-[#040911] text-white rounded-3xl overflow-hidden shadow-2xl border border-[#D4AF37]/50 flex flex-col items-center justify-between p-6 sm:p-8 min-h-[560px]"
+        className="relative w-full h-[100dvh] max-h-[100dvh] sm:h-auto sm:max-h-[92dvh] sm:min-h-[560px] sm:max-w-md bg-gradient-to-b from-[#060D17] via-[#0B192C] to-[#040911] text-white rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-0 sm:border sm:border-[#D4AF37]/50 flex flex-col items-center justify-between px-4 py-6 sm:p-8"
+        style={{ height: '100dvh', maxHeight: '100dvh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient Top Glow */}
@@ -386,36 +403,31 @@ export default function AudioCallModal({
         <div className="absolute top-1/3 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Top Header Status */}
-        <div className="text-center space-y-1 relative z-10 w-full">
-          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-semibold shadow-xs">
-            <Lock className="w-3 h-3 text-emerald-400" />
-            <span>Live Call • WebRTC P2P Encrypted Audio</span>
-          </div>
-
-          <div className="pt-2">
-            <h2 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-wide">
+        <div className="text-center space-y-1 relative z-10 w-full shrink-0 pt-2 sm:pt-0">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-wide">
               {candidate.name}
             </h2>
-            <p className="text-xs text-slate-300 flex items-center justify-center gap-1 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-300 flex items-center justify-center gap-1 mt-0.5">
               <span>{candidate.age} yrs • {candidate.profession || 'Professional'}</span>
             </p>
             {(candidate.district || candidate.city) && (
-              <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1">
-                <MapPin className="w-3 h-3 text-[#DFB76C]" />
+              <p className="text-xs text-slate-400 flex items-center justify-center gap-1 mt-0.5">
+                <MapPin className="w-3.5 h-3.5 text-[#DFB76C]" />
                 <span>{candidate.district || candidate.city}, {candidate.state || 'India'}</span>
               </p>
             )}
           </div>
 
           {/* Call Status / Timer */}
-          <div className="pt-3">
+          <div className="pt-2">
             {callStatus === 'calling' && (
-              <span className="text-xs text-[#DFB76C] font-semibold animate-pulse">
-                Connecting... (Signaling via Supabase)
+              <span className="text-xs sm:text-sm text-[#DFB76C] font-semibold animate-pulse">
+                Connecting...
               </span>
             )}
             {callStatus === 'ringing' && (
-              <span className="text-xs text-emerald-400 font-semibold animate-pulse">
+              <span className="text-xs sm:text-sm text-emerald-400 font-semibold animate-pulse">
                 Ringing candidate device...
               </span>
             )}
@@ -440,7 +452,7 @@ export default function AudioCallModal({
               </div>
             )}
             {callStatus === 'ended' && (
-              <span className="text-xs text-rose-400 font-bold">
+              <span className="text-xs sm:text-sm text-rose-400 font-bold">
                 Call Ended ({formatDuration(callDuration)})
               </span>
             )}
@@ -464,20 +476,28 @@ export default function AudioCallModal({
             </button>
           )}
 
-          {/* Microphone permission alert */}
+          {/* Microphone permission alert with direct user-gesture Allow button */}
           {micPermissionError && (
-            <div className="w-full mt-2 py-1.5 px-3 rounded-xl bg-rose-500/20 border border-rose-500/50 text-rose-300 text-xs font-medium text-center">
-              <span>Microphone permission denied. Please allow microphone access in your browser settings.</span>
+            <div className="w-full mt-2 py-2 px-3 rounded-2xl bg-rose-500/20 border border-rose-500/50 text-rose-200 text-xs font-medium flex items-center justify-between gap-2 shadow-lg animate-in fade-in">
+              <span className="truncate">Microphone access needed</span>
+              <button
+                type="button"
+                onClick={handleRequestMicPermission}
+                className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold cursor-pointer shrink-0 transition-all active:scale-95 shadow"
+              >
+                Allow Mic
+              </button>
             </div>
           )}
         </div>
 
         {/* Center: Pulsing Profile Avatar or Keypad View */}
         {isKeypadOpen ? (
-          <div className="my-3 w-full max-w-xs bg-slate-900/90 border border-slate-700/80 rounded-2xl p-4 shadow-xl z-20 animate-in zoom-in-95">
+          <div className="my-auto py-2 w-full max-w-xs bg-slate-900/90 border border-slate-700/80 rounded-2xl p-4 shadow-xl z-20 animate-in zoom-in-95 shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-slate-400 font-semibold">Touch Tones (DTMF)</span>
               <button 
+                type="button"
                 onClick={() => setIsKeypadOpen(false)}
                 className="p-1 rounded-lg text-slate-400 hover:text-white"
               >
@@ -501,38 +521,38 @@ export default function AudioCallModal({
             </div>
           </div>
         ) : (
-          <div className="relative my-6 flex items-center justify-center">
+          <div className="relative my-auto py-3 sm:py-6 flex items-center justify-center shrink-0">
             {callStatus === 'connected' && (
               <>
                 <div 
                   className="absolute rounded-full border border-emerald-500/30 pointer-events-none transition-all duration-100" 
                   style={{
-                    width: `${140 + (audioLevel * 1.2)}px`,
-                    height: `${140 + (audioLevel * 1.2)}px`,
+                    width: `${120 + (audioLevel * 1.0)}px`,
+                    height: `${120 + (audioLevel * 1.0)}px`,
                     opacity: 0.3 + (audioLevel / 150)
                   }}
                 />
                 <div 
                   className="absolute rounded-full border border-[#D4AF37]/30 pointer-events-none transition-all duration-150" 
                   style={{
-                    width: `${180 + (audioLevel * 1.8)}px`,
-                    height: `${180 + (audioLevel * 1.8)}px`,
+                    width: `${150 + (audioLevel * 1.4)}px`,
+                    height: `${150 + (audioLevel * 1.4)}px`,
                     opacity: 0.2 + (audioLevel / 200)
                   }}
                 />
-                <div className="absolute w-56 h-56 rounded-full border border-emerald-400/20 animate-ping pointer-events-none" />
+                <div className="absolute w-44 h-44 sm:w-56 sm:h-56 rounded-full border border-emerald-400/20 animate-ping pointer-events-none" />
               </>
             )}
 
-            <div className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden ring-4 ring-[#D4AF37] shadow-2xl">
+            <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden ring-4 ring-[#D4AF37] shadow-2xl">
               <img 
                 src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
                 alt={candidate.name} 
                 className="w-full h-full object-cover"
               />
               {candidate.verified && (
-                <div className="absolute bottom-2 right-2 bg-emerald-600 text-white p-1 rounded-full ring-2 ring-[#0B192C] shadow-md">
-                  <ShieldCheck className="w-4 h-4" />
+                <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-emerald-600 text-white p-1 rounded-full ring-2 ring-[#0B192C] shadow-md">
+                  <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               )}
             </div>
@@ -540,7 +560,7 @@ export default function AudioCallModal({
         )}
 
         {/* Bottom Interactive Controls */}
-        <div className="w-full space-y-5 relative z-10">
+        <div className="w-full space-y-4 sm:space-y-5 relative z-10 shrink-0 pb-3 sm:pb-1">
           <div className="flex items-center justify-center space-x-6 sm:space-x-8">
             
             {/* Mute Button */}
@@ -600,12 +620,6 @@ export default function AudioCallModal({
               <PhoneOff className="w-7 h-7" />
             </button>
           </div>
-
-          {/* Privacy Disclaimer */}
-          <p className="text-[10px] text-center text-slate-400 max-w-xs mx-auto leading-relaxed">
-            🔒 End-to-End Encrypted Voice Call. Direct mobile number is masked.
-          </p>
-
         </div>
 
       </div>
