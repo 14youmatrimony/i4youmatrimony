@@ -760,15 +760,29 @@ export async function fetchLiveOffers() {
         .from('offers')
         .select('*')
         .order('id', { ascending: false });
-      if (!error && Array.isArray(data) && data.length > 0) {
-        return data;
+      if (!error && Array.isArray(data)) {
+        if (data.length > 0) {
+          try { localStorage.setItem('i4u_cached_offers', JSON.stringify(data)); } catch (e) {}
+          return data;
+        } else {
+          return [];
+        }
       }
     } catch (sbErr) {
       console.warn('[Supabase fetchLiveOffers fallback]:', sbErr.message);
     }
   }
 
-  // 2. Fallback to Python backend (local dev only)
+  // 2. Local cache fallback
+  try {
+    const cached = localStorage.getItem('i4u_cached_offers');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+
+  // 3. Fallback to Python backend (local dev only)
   try {
     const data = await safeFetchJson(`${API_BASE}/public/offers?t=${Date.now()}`, {
       headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
@@ -795,6 +809,7 @@ export async function fetchLivePlans() {
         .select('*')
         .order('sort_order', { ascending: true });
       if (!error && Array.isArray(data) && data.length > 0) {
+        try { localStorage.setItem('i4u_cached_plans', JSON.stringify(data)); } catch (e) {}
         return data;
       }
     } catch (sbErr) {
@@ -802,7 +817,16 @@ export async function fetchLivePlans() {
     }
   }
 
-  // 2. Fallback to Python backend (local dev only)
+  // 2. Local cache fallback
+  try {
+    const cached = localStorage.getItem('i4u_cached_plans');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+
+  // 3. Fallback to Python backend (local dev only)
   try {
     const data = await safeFetchJson(`${API_BASE}/public/plans?t=${Date.now()}`, {
       headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }

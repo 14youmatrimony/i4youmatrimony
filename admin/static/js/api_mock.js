@@ -791,21 +791,117 @@
     }
   }
 
+  function broadcastOfferSync(action, payload) {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('i4u_offers_last_updated', String(Date.now()));
+      } catch (e) {}
+
+      if ('BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('i4u_offers_sync');
+          bc.postMessage({ type: 'offers_updated', action, timestamp: Date.now(), payload });
+          setTimeout(() => bc.close(), 1000);
+        } catch (e) {}
+      }
+
+      window.dispatchEvent(new CustomEvent('i4u_offers_updated', { detail: { action, payload } }));
+
+      // Supabase Realtime broadcast if supabase SDK available
+      try {
+        if (!window.__i4u_sb_client && window.supabase && typeof window.supabase.createClient === 'function') {
+          window.__i4u_sb_client = window.supabase.createClient('https://kzvdzospvgzlfkkptadl.supabase.co', SUPABASE_ANON);
+        }
+        if (window.__i4u_sb_client) {
+          const ch = window.__i4u_sb_client.channel('public:offers_and_plans_sync');
+          ch.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              ch.send({
+                type: 'broadcast',
+                event: 'offers_updated',
+                payload: { action, timestamp: Date.now() }
+              });
+            }
+          });
+        }
+      } catch (e) {}
+    }
+  }
+
+  function broadcastPlanSync(action, payload) {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('i4u_plans_last_updated', String(Date.now()));
+      } catch (e) {}
+
+      if ('BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('i4u_offers_sync');
+          bc.postMessage({ type: 'plans_updated', action, timestamp: Date.now(), payload });
+          setTimeout(() => bc.close(), 1000);
+        } catch (e) {}
+      }
+
+      window.dispatchEvent(new CustomEvent('i4u_plans_updated', { detail: { action, payload } }));
+
+      try {
+        if (!window.__i4u_sb_client && window.supabase && typeof window.supabase.createClient === 'function') {
+          window.__i4u_sb_client = window.supabase.createClient('https://kzvdzospvgzlfkkptadl.supabase.co', SUPABASE_ANON);
+        }
+        if (window.__i4u_sb_client) {
+          const ch = window.__i4u_sb_client.channel('public:offers_and_plans_sync');
+          ch.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              ch.send({
+                type: 'broadcast',
+                event: 'plans_updated',
+                payload: { action, timestamp: Date.now() }
+              });
+            }
+          });
+        }
+      } catch (e) {}
+    }
+  }
+
   async function pushOfferInsertToSupabase(offerObj) {
     try {
-      await originalFetch(SUPABASE_OFFERS, {
+      const clean = { ...offerObj };
+      delete clean.id; // Let Postgres SERIAL primary key generate the true ID
+      if ('is_active' in clean) {
+        clean.is_active = (clean.is_active == 1 || clean.is_active === true) ? 1 : 0;
+      }
+      if ('discount_percent' in clean) {
+        clean.discount_percent = parseInt(clean.discount_percent, 10) || 10;
+      }
+      if ('max_uses' in clean) {
+        clean.max_uses = parseInt(clean.max_uses, 10) || 100;
+      }
+      if (!clean.valid_from) clean.valid_from = new Date().toISOString().split('T')[0];
+      if (!clean.valid_until) clean.valid_until = '2026-12-31';
+
+      const res = await originalFetch(SUPABASE_OFFERS, {
         method: 'POST',
         headers: {
           'apikey': SUPABASE_ANON,
           'Authorization': 'Bearer ' + SUPABASE_ANON,
           'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
+          'Prefer': 'return=representation'
         },
-        body: JSON.stringify(offerObj)
+        body: JSON.stringify(clean)
       });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows[0]) {
+          broadcastOfferSync('insert', rows[0]);
+          return rows[0];
+        }
+      }
     } catch (e) {
       console.warn('[Admin Engine] Supabase offer insert notice:', e);
     }
+    broadcastOfferSync('insert', offerObj);
+    return null;
   }
 
   async function pushOfferUpdateToSupabase(offerId, patchObj) {
@@ -815,32 +911,59 @@
       if ('is_active' in cleanPatch) {
         cleanPatch.is_active = (cleanPatch.is_active == 1 || cleanPatch.is_active === true) ? 1 : 0;
       }
-      await originalFetch(`${SUPABASE_OFFERS}?id=eq.${encodeURIComponent(offerId)}`, {
+      if ('discount_percent' in cleanPatch) {
+        cleanPatch.discount_percent = parseInt(cleanPatch.discount_percent, 10) || 0;
+      }
+
+      const isNumericId = /^\d+$/.test(String(offerId));
+      const queryParam = isNumericId ? `id=eq.${encodeURIComponent(offerId)}` : `code=eq.${encodeURIComponent(offerId).toUpperCase()}`;
+
+      const res = await originalFetch(`${SUPABASE_OFFERS}?${queryParam}`, {
         method: 'PATCH',
         headers: {
           'apikey': SUPABASE_ANON,
           'Authorization': 'Bearer ' + SUPABASE_ANON,
           'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
+          'Prefer': 'return=representation'
         },
         body: JSON.stringify(cleanPatch)
       });
+      if (res.ok) {
+        const rows = await res.json();
+        broadcastOfferSync('update', { id: offerId, ...cleanPatch });
+        return rows;
+      }
     } catch (e) {
       console.warn('[Admin Engine] Supabase offer patch notice:', e);
     }
+    broadcastOfferSync('update', { id: offerId, ...patchObj });
+    return null;
   }
 
-  async function pushOfferDeleteToSupabase(offerId) {
+  async function pushOfferDeleteToSupabase(offerId, offerCode) {
     try {
-      await originalFetch(`${SUPABASE_OFFERS}?id=eq.${encodeURIComponent(offerId)}`, {
+      const isNumericId = /^\d+$/.test(String(offerId));
+      const queryParam = isNumericId ? `id=eq.${encodeURIComponent(offerId)}` : `code=eq.${encodeURIComponent(offerId).toUpperCase()}`;
+      if (offerCode) {
+        await originalFetch(`${SUPABASE_OFFERS}?code=eq.${encodeURIComponent(offerCode).toUpperCase()}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_ANON,
+            'Authorization': 'Bearer ' + SUPABASE_ANON
+          }
+        });
+      }
+      await originalFetch(`${SUPABASE_OFFERS}?${queryParam}`, {
         method: 'DELETE',
         headers: {
           'apikey': SUPABASE_ANON,
           'Authorization': 'Bearer ' + SUPABASE_ANON
         }
       });
+      broadcastOfferSync('delete', { id: offerId, code: offerCode });
     } catch (e) {
       console.warn('[Admin Engine] Supabase offer delete notice:', e);
+      broadcastOfferSync('delete', { id: offerId, code: offerCode });
     }
   }
 
@@ -895,6 +1018,7 @@
         console.warn('[Admin Engine] Supabase plan insert error:', res.status, txt);
       } else {
         console.log('[Admin Engine] Supabase plan insert success:', sanitized.id);
+        broadcastPlanSync('insert', sanitized);
       }
     } catch (e) {
       console.warn('[Admin Engine] Supabase plan insert notice:', e);
@@ -920,6 +1044,7 @@
         console.warn('[Admin Engine] Supabase plan patch error:', res.status, txt);
       } else {
         console.log('[Admin Engine] Supabase plan patch success:', cleanId);
+        broadcastPlanSync('update', { id: cleanId, ...sanitized });
       }
     } catch (e) {
       console.warn('[Admin Engine] Supabase plan patch notice:', e);
@@ -941,6 +1066,7 @@
         console.warn('[Admin Engine] Supabase plan delete error:', res.status, txt);
       } else {
         console.log('[Admin Engine] Supabase plan delete success:', cleanId);
+        broadcastPlanSync('delete', { id: cleanId });
       }
     } catch (e) {
       console.warn('[Admin Engine] Supabase plan delete notice:', e);
@@ -990,7 +1116,7 @@
       });
       if (res.ok) {
         const rows = await res.json();
-        if (Array.isArray(rows) && rows.length > 0) {
+        if (Array.isArray(rows)) {
           const newStr = JSON.stringify(rows);
           if (newStr !== lastSyncedOffersStr) {
             lastSyncedOffersStr = newStr;
@@ -1694,10 +1820,8 @@
         }
         if (method === 'POST') {
           const body = init && init.body ? JSON.parse(init.body) : {};
-          const newId = (store.offers.reduce((max, o) => Math.max(max, Number(o.id) || 0), 0) || 0) + 1;
           const newOffer = {
-            id: newId,
-            code: (body.code || 'SAVE' + newId).toUpperCase(),
+            code: (body.code || 'SAVE' + Date.now().toString().slice(-4)).toUpperCase(),
             title: body.title || 'Special Promotion',
             discount_percent: Number(body.discount_percent) || 20,
             plan_type: body.plan_type || 'All Plans',
@@ -1706,12 +1830,18 @@
             valid_until: body.valid_until || '2026-12-31',
             max_uses: Number(body.max_uses) || 100,
             current_uses: 0,
-            is_active: 1,
+            is_active: (body.is_active === 0 || body.is_active === false) ? 0 : 1,
             created_at: new Date().toISOString()
           };
+          const createdInSb = await pushOfferInsertToSupabase(newOffer);
+          if (createdInSb && createdInSb.id) {
+            newOffer.id = createdInSb.id;
+            newOffer.created_at = createdInSb.created_at || newOffer.created_at;
+          } else {
+            newOffer.id = (store.offers.reduce((max, o) => Math.max(max, Number(o.id) || 0), 0) || 0) + 1;
+          }
           store.offers.unshift(newOffer);
           saveStore(store);
-          pushOfferInsertToSupabase(newOffer);
           return jsonResponse({ success: true, message: 'Offer created', offer: newOffer }, 201);
         }
       }
@@ -1762,7 +1892,7 @@
             }
             store.offers[idx].is_active = newActive;
             saveStore(store);
-            pushOfferUpdateToSupabase(currentOffer.id, { is_active: newActive });
+            await pushOfferUpdateToSupabase(currentOffer.id, { is_active: newActive });
             const statusStr = newActive === 1 ? 'activated' : 'deactivated';
             return jsonResponse({ 
               success: true, 
@@ -1779,7 +1909,7 @@
             const deletedOffer = store.offers[idx];
             store.offers.splice(idx, 1);
             saveStore(store);
-            pushOfferDeleteToSupabase(deletedOffer.id);
+            await pushOfferDeleteToSupabase(deletedOffer.id, deletedOffer.code);
             return jsonResponse({ success: true, message: `Offer '${deletedOffer.code}' deleted successfully` });
           }
           return jsonResponse({ error: 'Offer not found' }, 404);
@@ -1804,7 +1934,7 @@
 
             store.offers[idx] = { ...currentOffer, ...sanitizedUpdate };
             saveStore(store);
-            pushOfferUpdateToSupabase(currentOffer.id, sanitizedUpdate);
+            await pushOfferUpdateToSupabase(currentOffer.id, sanitizedUpdate);
             return jsonResponse({ 
               success: true, 
               message: `Offer '${store.offers[idx].code}' updated successfully!`, 

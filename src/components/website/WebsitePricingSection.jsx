@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Crown, 
   Sparkles, 
@@ -8,9 +8,12 @@ import {
   Zap, 
   ArrowRight, 
   HeartHandshake, 
-  Lock 
+  Lock,
+  Clock,
+  Tag,
+  Copy
 } from 'lucide-react';
-import { MEMBERSHIP_PLANS } from '../../data/plansData';
+import { MEMBERSHIP_PLANS, VALID_COUPONS } from '../../data/plansData';
 
 export default function WebsitePricingSection({ 
   plans = MEMBERSHIP_PLANS, 
@@ -18,10 +21,11 @@ export default function WebsitePricingSection({
   currentUser,
   onOpenLogin,
   onSelectPlanForPayment, 
-  onOpenRegister 
+  onOpenRegister,
+  onOpenOffers
 }) {
-  const [selectedDuration, setSelectedDuration] = useState(6); // 3 | 6 | 12 months
-  const [copiedCoupon, setCopiedCoupon] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState(6); // 1 | 3 | 6 | 12 months
+  const [copiedCoupon, setCopiedCoupon] = useState('');
   const [infoToast, setInfoToast] = useState('');
 
   const planList = Array.isArray(plans) ? plans : MEMBERSHIP_PLANS;
@@ -29,20 +33,62 @@ export default function WebsitePricingSection({
     .filter(p => p.isActive !== false)
     .sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
 
-  // Dynamic Featured Offer from Python Admin Database
-  const featuredOffer = (offers && offers.length > 0)
-    ? (offers.find(o => o.is_active === 1 || o.is_active === true || o.is_active === '1') || null)
-    : null;
-  const activePromoCode = featuredOffer?.code || '';
-  const activeDiscountPercent = featuredOffer ? (Number(featuredOffer.discount_percent) || 0) : 0;
-  const activeOfferTitle = featuredOffer?.title || '';
-  const activeOfferDesc = featuredOffer?.description || '';
+  // Dynamic Active Offers from Supabase Database
+  const activeOffersList = Array.isArray(offers)
+    ? offers.filter(o => o && (o.is_active === 1 || o.is_active === true || o.is_active === '1'))
+    : [];
+  const featuredOffer = activeOffersList.length > 0 ? activeOffersList[0] : null;
 
-  const handleCopyCoupon = () => {
-    if (activePromoCode) {
-      navigator.clipboard?.writeText(activePromoCode);
-      setCopiedCoupon(true);
-      setTimeout(() => setCopiedCoupon(false), 2000);
+  const defaultPromoCode = featuredOffer?.code || '';
+  const defaultDiscountPercent = featuredOffer ? (Number(featuredOffer.discount_percent) || 0) : 0;
+
+  const [activeCoupon, setActiveCoupon] = useState(defaultPromoCode);
+  const [activeDiscountPercent, setActiveDiscountPercent] = useState(defaultDiscountPercent);
+  const [couponInput, setCouponInput] = useState(defaultPromoCode);
+  const [couponFeedback, setCouponFeedback] = useState(
+    defaultPromoCode ? `Coupon ${defaultPromoCode} active! Flat ${defaultDiscountPercent}% Discount` : ''
+  );
+
+  // Synchronize state when backend offers update
+  useEffect(() => {
+    if (featuredOffer?.code) {
+      setActiveCoupon(featuredOffer.code);
+      setActiveDiscountPercent(Number(featuredOffer.discount_percent) || 0);
+      setCouponInput(featuredOffer.code);
+      setCouponFeedback(`Coupon ${featuredOffer.code} active! Flat ${featuredOffer.discount_percent}% Discount`);
+    }
+  }, [featuredOffer?.code, featuredOffer?.discount_percent]);
+
+  // Festive countdown timer state (matching mobile app)
+  const [timeLeft, setTimeLeft] = useState({
+    hours: 2,
+    minutes: 45,
+    seconds: 30
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev.seconds > 0) {
+          return { ...prev, seconds: prev.seconds - 1 };
+        } else if (prev.minutes > 0) {
+          return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
+        } else if (prev.hours > 0) {
+          return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
+        }
+        return prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleCopyCoupon = (code) => {
+    const targetCode = code || activeCoupon || defaultPromoCode;
+    if (targetCode) {
+      navigator.clipboard?.writeText(targetCode);
+      setCopiedCoupon(targetCode);
+      showToast(`Coupon code ${targetCode} copied to clipboard! ✓`);
+      setTimeout(() => setCopiedCoupon(''), 2500);
     }
   };
 
@@ -51,22 +97,64 @@ export default function WebsitePricingSection({
     setTimeout(() => setInfoToast(''), 3000);
   };
 
+  const handleApplyCoupon = (e) => {
+    e?.preventDefault();
+    const code = couponInput.trim().toUpperCase();
+    if (!code) {
+      setActiveCoupon('');
+      setActiveDiscountPercent(0);
+      setCouponFeedback('');
+      return;
+    }
+
+    // 1. Check live admin backend offers first
+    const liveMatched = activeOffersList.find(o => o.code?.toUpperCase() === code);
+    if (liveMatched) {
+      const pct = Number(liveMatched.discount_percent) || 0;
+      setActiveCoupon(liveMatched.code);
+      setActiveDiscountPercent(pct);
+      setCouponFeedback(`✓ ${liveMatched.code} applied successfully! (Flat ${pct}% Discount)`);
+      showToast(`Promo ${liveMatched.code} applied: ${pct}% OFF!`);
+      return;
+    }
+
+    // 2. Check static fallback coupons
+    if (VALID_COUPONS[code]) {
+      const c = VALID_COUPONS[code];
+      const pct = c.discountType === 'percentage' ? c.discountValue : 20;
+      setActiveCoupon(code);
+      setActiveDiscountPercent(pct);
+      setCouponFeedback(`✓ ${code} applied successfully! (${c.description})`);
+      showToast(`Coupon ${code} applied!`);
+      return;
+    }
+
+    setCouponFeedback(`❌ Invalid code.${defaultPromoCode ? ` Try ${defaultPromoCode}` : ''}`);
+  };
+
   const getPlanPricing = (plan) => {
+    const hasDiscount = activeDiscountPercent > 0;
     if (plan.pricing && plan.pricing[selectedDuration]) {
       const p = plan.pricing[selectedDuration];
+      const orig = p.originalPrice || 0;
+      let disc = p.offerPrice || 0;
+      if (hasDiscount && orig > 0) {
+        disc = Math.round(orig * (1 - activeDiscountPercent / 100));
+      }
       return {
-        original: p.originalPrice || 0,
-        discounted: p.offerPrice || 0,
-        perMonth: p.perMonth || 0,
-        discount: featuredOffer ? (p.discount || `${activeDiscountPercent}% OFF`) : null
+        original: orig,
+        discounted: disc,
+        perMonth: Math.round(disc / (selectedDuration || 1)),
+        discount: hasDiscount ? `${activeDiscountPercent}% OFF` : (p.discount || null)
       };
     }
     const base = plan.price || 1999;
+    const discounted = hasDiscount ? Math.round(base * (1 - activeDiscountPercent / 100)) : base;
     return {
       original: base,
-      discounted: featuredOffer ? Math.round(base * (1 - activeDiscountPercent / 100)) : base,
-      perMonth: featuredOffer ? Math.round((base * (1 - activeDiscountPercent / 100)) / selectedDuration) : Math.round(base / selectedDuration),
-      discount: featuredOffer ? `${activeDiscountPercent}% OFF` : null
+      discounted: discounted,
+      perMonth: Math.round(discounted / (selectedDuration || 1)),
+      discount: hasDiscount ? `${activeDiscountPercent}% OFF` : null
     };
   };
 
@@ -87,7 +175,7 @@ export default function WebsitePricingSection({
       return;
     }
     if (onSelectPlanForPayment) {
-      onSelectPlanForPayment(plan, selectedDuration, activePromoCode);
+      onSelectPlanForPayment(plan, selectedDuration, activeCoupon || defaultPromoCode);
     }
   };
 
@@ -104,7 +192,7 @@ export default function WebsitePricingSection({
         </div>
       )}
 
-      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-10">
+      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-8 sm:space-y-10">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-2.5">
@@ -131,34 +219,65 @@ export default function WebsitePricingSection({
           )}
         </div>
 
-        {/* Dynamic Admin-Managed Offer Banner (Only if featuredOffer active) */}
+        {/* Dynamic Admin-Managed Festive Offer Banner */}
         {featuredOffer && (
           <div className="bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C] text-white rounded-3xl p-5 sm:p-7 border border-[#D4AF37]/50 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-5 relative overflow-hidden">
-            <div className="relative z-10 space-y-1.5 text-center md:text-left">
-              <div className="inline-flex items-center space-x-2 px-3 py-0.5 rounded-full bg-[#D4AF37] text-[#0B192C] text-[11px] font-extrabold uppercase">
-                <Sparkles className="w-3 h-3 fill-current" />
-                <span>{activeOfferTitle}</span>
+            <div className="relative z-10 space-y-2 text-center md:text-left">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                <span className="inline-flex items-center space-x-1.5 px-3 py-0.5 rounded-full bg-[#D4AF37] text-[#0B192C] text-[11px] font-extrabold uppercase shadow-xs">
+                  <Sparkles className="w-3 h-3 fill-current" />
+                  <span>{featuredOffer.title || 'Special Promotion'}</span>
+                </span>
+
+                {/* Countdown Clock */}
+                <div className="inline-flex items-center space-x-1.5 font-mono text-[11px] font-bold text-amber-300 bg-black/40 px-2.5 py-0.5 rounded-lg border border-amber-300/30">
+                  <Clock className="w-3.5 h-3.5 text-[#DFB76C]" />
+                  <span>Ends in: {String(timeLeft.hours).padStart(2, '0')}h {String(timeLeft.minutes).padStart(2, '0')}m {String(timeLeft.seconds).padStart(2, '0')}s</span>
+                </div>
               </div>
-              <h3 className="text-xl sm:text-2xl font-serif font-bold text-white">
-                Flat {activeDiscountPercent}% Savings on All Plans
+
+              <h3 className="text-xl sm:text-2xl lg:text-3xl font-serif font-bold text-white">
+                Flat {featuredOffer.discount_percent}% Savings on All Matrimonial Packages
               </h3>
-              <p className="text-xs text-slate-300 max-w-xl">
-                {activeOfferDesc} Use promo code <strong className="text-[#DFB76C]">{activePromoCode}</strong> at checkout.
+              <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                {featuredOffer.description || 'Special discount active across all quarterly and annual membership tiers.'} Use promo code <strong className="text-[#DFB76C] font-mono">{featuredOffer.code}</strong> at checkout.
               </p>
             </div>
 
             <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3 shrink-0">
               <div className="px-4 py-2 rounded-2xl bg-black/50 border border-[#D4AF37]/40 text-center">
                 <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Promo Code</span>
-                <span className="text-base font-mono font-bold text-[#DFB76C]">{activePromoCode}</span>
+                <span className="text-base font-mono font-bold text-[#DFB76C]">{featuredOffer.code}</span>
               </div>
 
               <button
-                onClick={handleCopyCoupon}
-                className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] font-bold text-xs hover:opacity-95 transition-all shadow-md cursor-pointer active:scale-95"
+                type="button"
+                onClick={() => handleCopyCoupon(featuredOffer.code)}
+                className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] font-bold text-xs hover:opacity-95 transition-all shadow-md cursor-pointer active:scale-95 flex items-center space-x-1.5"
               >
-                {copiedCoupon ? 'Copied to Clipboard! ✓' : 'Copy Coupon Code'}
+                {copiedCoupon === featuredOffer.code ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-[#0B192C]" />
+                    <span>Copied! ✓</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-[#0B192C]" />
+                    <span>Copy Coupon Code</span>
+                  </>
+                )}
               </button>
+
+              {onOpenOffers && (
+                <button
+                  type="button"
+                  onClick={onOpenOffers}
+                  className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs transition-all cursor-pointer shadow-md flex items-center space-x-1"
+                >
+                  <span>View All Offers</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#DFB76C]" />
+                </button>
+              )}
             </div>
 
             {/* Decorative Backdrops */}
@@ -166,38 +285,136 @@ export default function WebsitePricingSection({
           </div>
         )}
 
+        {/* All Available Active Promo Codes Carousel / Strip */}
+        {activeOffersList.length > 1 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+              <span className="flex items-center gap-1.5">
+                <Tag className="w-4 h-4 text-[#8C6D1F]" /> Active Special Offers ({activeOffersList.length})
+              </span>
+              <span className="text-slate-500 font-normal text-[11px]">Click any coupon to apply</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {activeOffersList.map((offer) => {
+                const isSelected = activeCoupon === offer.code;
+                return (
+                  <div 
+                    key={offer.id || offer.code}
+                    onClick={() => {
+                      setActiveCoupon(offer.code);
+                      setActiveDiscountPercent(Number(offer.discount_percent) || 0);
+                      setCouponInput(offer.code);
+                      setCouponFeedback(`✓ ${offer.code} applied! Flat ${offer.discount_percent}% Discount`);
+                      handleCopyCoupon(offer.code);
+                    }}
+                    className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between shadow-xs ${
+                      isSelected 
+                        ? 'bg-amber-50/90 border-[#D4AF37] ring-2 ring-[#D4AF37]/40' 
+                        : 'bg-white border-slate-200 hover:border-[#D4AF37]/50'
+                    }`}
+                  >
+                    <div className="space-y-0.5 truncate pr-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-xs text-[#0B192C] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                          {offer.code}
+                        </span>
+                        <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          {offer.discount_percent}% OFF
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-semibold text-slate-800 truncate">{offer.title}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{offer.description || offer.plan_type}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className={`p-1.5 rounded-lg shrink-0 transition-colors ${
+                        isSelected ? 'bg-[#0B192C] text-[#DFB76C]' : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="Apply coupon"
+                    >
+                      {isSelected ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : <Tag className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Promo Code Input & Instant Validation Form */}
+        <div className="max-w-xl mx-auto w-full">
+          <form onSubmit={handleApplyCoupon} className="p-3 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-[#8C6D1F]" /> Have a Promotional Code?
+              </span>
+              {defaultPromoCode && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCouponInput(defaultPromoCode);
+                    setActiveCoupon(defaultPromoCode);
+                    setActiveDiscountPercent(defaultDiscountPercent);
+                    setCouponFeedback(`✓ ${defaultPromoCode} applied! Flat ${defaultDiscountPercent}% Discount`);
+                  }}
+                  className="text-[11px] text-[#8C6D1F] font-bold hover:underline cursor-pointer"
+                >
+                  Use {defaultPromoCode} ({defaultDiscountPercent}% OFF)
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input 
+                type="text"
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                placeholder={defaultPromoCode ? `e.g. ${defaultPromoCode}` : "Enter promo code"}
+                className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold tracking-wider uppercase focus:outline-hidden focus:border-[#D4AF37]"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[#0B192C] text-[#DFB76C] rounded-xl font-bold text-xs hover:bg-slate-900 transition-colors cursor-pointer shadow-xs"
+              >
+                Apply Coupon
+              </button>
+            </div>
+
+            {couponFeedback && (
+              <p className={`text-[11px] font-semibold ${couponFeedback.startsWith('✓') ? 'text-emerald-700' : 'text-rose-600'}`}>
+                {couponFeedback}
+              </p>
+            )}
+          </form>
+        </div>
+
         {/* Duration Billing Toggle */}
         <div className="flex justify-center">
-          <div className="flex items-center bg-white p-1.5 sm:p-2 rounded-2xl border border-slate-200 shadow-md text-sm sm:text-base font-bold">
-            <button
-              onClick={() => setSelectedDuration(3)}
-              className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl transition-all cursor-pointer ${
-                selectedDuration === 3 ? 'bg-[#0B192C] text-[#DFB76C] shadow-sm font-extrabold' : 'text-slate-600 hover:text-slate-900 font-bold'
-              }`}
-            >
-              3 Months Plan
-            </button>
-            <button
-              onClick={() => setSelectedDuration(6)}
-              className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl transition-all cursor-pointer relative ${
-                selectedDuration === 6 ? 'bg-[#0B192C] text-[#DFB76C] shadow-sm font-extrabold' : 'text-slate-600 hover:text-slate-900 font-bold'
-              }`}
-            >
-              <span>6 Months (Most Popular)</span>
-              {featuredOffer && (
-                <span className="absolute -top-3 right-1.5 sm:right-2 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] sm:text-xs font-black uppercase shadow-xs tracking-wider">
-                  Save {activeDiscountPercent}%
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setSelectedDuration(12)}
-              className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl transition-all cursor-pointer ${
-                selectedDuration === 12 ? 'bg-[#0B192C] text-[#DFB76C] shadow-sm font-extrabold' : 'text-slate-600 hover:text-slate-900 font-bold'
-              }`}
-            >
-              12 Months (Best Value)
-            </button>
+          <div className="flex items-center bg-white p-1.5 sm:p-2 rounded-2xl border border-slate-200 shadow-md text-xs sm:text-sm font-bold flex-wrap justify-center gap-1">
+            {[
+              { duration: 1, label: '1 Month', badge: 'Trial' },
+              { duration: 3, label: '3 Months', badge: 'Starter' },
+              { duration: 6, label: '6 Months', badge: 'Most Popular ⭐', highlight: true },
+              { duration: 12, label: '12 Months', badge: 'Best Value' }
+            ].map((d) => (
+              <button
+                key={d.duration}
+                type="button"
+                onClick={() => setSelectedDuration(d.duration)}
+                className={`px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl transition-all cursor-pointer relative ${
+                  selectedDuration === d.duration 
+                    ? 'bg-[#0B192C] text-[#DFB76C] shadow-sm font-extrabold' 
+                    : 'text-slate-600 hover:text-slate-900 font-bold'
+                }`}
+              >
+                <span>{d.label}</span>
+                {d.highlight && activeDiscountPercent > 0 && (
+                  <span className="hidden sm:inline-block ml-1 px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase shadow-xs">
+                    {activeDiscountPercent}% OFF
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -266,7 +483,7 @@ export default function WebsitePricingSection({
                           {pricing.discount ? `${pricing.discount} • ` : ''}₹{pricing.perMonth}/mo
                         </span>
                         <span className="text-[10px] text-slate-400 block mt-0.5">
-                          Valid for {selectedDuration} Months • Incl. GST
+                          Valid for {selectedDuration} {selectedDuration === 1 ? 'Month' : 'Months'} • Incl. GST
                         </span>
                       </>
                     ) : (

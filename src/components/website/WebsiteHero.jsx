@@ -20,8 +20,13 @@ export default function WebsiteHero({
   onRequestSendInterest,
   isInterested,
   onScrollToSection,
-  setViewMode
+  setViewMode,
+  onOpenOffers,
+  offers = []
 }) {
+  const activeOffer = Array.isArray(offers)
+    ? offers.find(o => o && (o.is_active === 1 || o.is_active === true || o.is_active === '1'))
+    : null;
 
   return (
     <section id="hero-section" className="relative bg-gradient-to-b from-[#060D17] via-[#0B192C] to-[#07111E] text-white pt-4 pb-8 lg:pt-6 lg:pb-10 overflow-hidden border-b border-[#D4AF37]/30">
@@ -44,6 +49,33 @@ export default function WebsiteHero({
             </span>
           </div>
         </div>
+
+        {/* Festive Live Offer Badge */}
+        {activeOffer && (
+          <div className="flex justify-center mb-3">
+            <button
+              type="button"
+              onClick={onOpenOffers || (() => onScrollToSection?.('plans-section'))}
+              className="group inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-[#DFB76C]/25 to-amber-500/20 hover:from-amber-500/35 hover:to-yellow-500/35 border border-[#D4AF37]/60 text-white text-xs font-bold shadow-lg shadow-amber-950/40 backdrop-blur-md transition-all cursor-pointer hover:scale-102 active:scale-98 animate-pulse-glow"
+              title={`Special Matrimony Offer: ${activeOffer.discount_percent}% OFF with code ${activeOffer.code}`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="text-[#DFB76C] font-extrabold uppercase tracking-wide">
+                Special Offer: {activeOffer.discount_percent}% OFF
+              </span>
+              <span className="text-slate-300 font-normal hidden sm:inline">
+                {activeOffer.title || 'Limited Time Festive Savings'}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-[#D4AF37] text-[#0B192C] font-mono font-black text-[11px] uppercase group-hover:bg-[#DFB76C] transition-colors">
+                {activeOffer.code}
+              </span>
+              <span className="text-[#DFB76C] font-bold flex items-center gap-0.5 text-[11px]">
+                <span>Claim Now</span>
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Hero Main Header Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">

@@ -25,6 +25,14 @@ export const PROMOTIONAL_OFFERS = [
 ];
 
 export const VALID_COUPONS = {
+  'FESTIVE50': {
+    code: 'FESTIVE50',
+    discountType: 'percentage',
+    discountValue: 50,
+    maxDiscount: 2500,
+    minAmount: 1000,
+    description: 'Flat 50% festive discount on all quarterly & annual plans'
+  },
   'VIVAH50': {
     code: 'VIVAH50',
     discountType: 'percentage',
@@ -32,6 +40,22 @@ export const VALID_COUPONS = {
     maxDiscount: 2500,
     minAmount: 1000,
     description: 'Flat 50% discount on all quarterly & annual plans'
+  },
+  'ROYALVIP30': {
+    code: 'ROYALVIP30',
+    discountType: 'percentage',
+    discountValue: 30,
+    maxDiscount: 2500,
+    minAmount: 1000,
+    description: '30% discount on Royal VIP annual plans'
+  },
+  'WELCOME25': {
+    code: 'WELCOME25',
+    discountType: 'percentage',
+    discountValue: 25,
+    maxDiscount: 2000,
+    minAmount: 1000,
+    description: '25% instant discount on first-time profile upgrades'
   },
   'FIRSTMATCH': {
     code: 'FIRSTMATCH',

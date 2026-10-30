@@ -195,11 +195,13 @@ export default function WebsiteNavbar({
             {/* Promotional Offers Quick Trigger - Only if offer is active and user is not paid */}
             {!hasPaidPlan && featuredOffer && (
               <button
+                type="button"
                 onClick={onOpenOffers}
-                className="hidden 2xl:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 hover:from-amber-500/30 hover:to-yellow-500/30 text-[#DFB76C] border border-[#D4AF37]/50 text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/25 via-[#DFB76C]/30 to-amber-500/25 hover:from-amber-500/40 hover:to-yellow-500/40 text-[#DFB76C] border border-[#D4AF37]/70 text-xs font-bold transition-all cursor-pointer shadow-md active:scale-95 shrink-0 animate-pulse-glow"
+                title={`Claim ${featuredOffer.discount_percent}% OFF with code ${featuredOffer.code}`}
               >
                 <Crown className="w-3.5 h-3.5 fill-[#DFB76C]" />
-                <span>{featuredOffer.discount_percent}% OFF</span>
+                <span>Special Offer • {featuredOffer.discount_percent}% OFF</span>
               </button>
             )}
 

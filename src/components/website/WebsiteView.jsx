@@ -98,6 +98,7 @@ export default function WebsiteView({
           onOpenLogin={onOpenLogin}
           onOpenRegister={onOpenRegister}
           onOpenOffers={onOpenOffers}
+          offers={offers}
           onSelectProfile={onSelectProfile}
           featuredProfile={featuredProfile}
           onToggleInterest={onToggleInterest}
@@ -161,6 +162,7 @@ export default function WebsiteView({
           onOpenLogin={onOpenLogin}
           onOpenRegister={onOpenRegister}
           onSelectPlanForPayment={onSelectPlanForPayment}
+          onOpenOffers={onOpenOffers}
         />
 
         {/* 9. Real Blessed Marriages Success Stories */}

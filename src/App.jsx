@@ -739,13 +739,24 @@ export default function App() {
 
   // Synchronize dynamic membership plans & promotional offers from Python Admin Database
   const [membershipPlans, setMembershipPlans] = useState(MEMBERSHIP_PLANS);
-  const [activeOffers, setActiveOffers] = useState([]);
+  const [activeOffers, setActiveOffers] = useState(() => {
+    try {
+      const cached = localStorage.getItem('i4u_cached_offers');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter(o => o && (o.is_active === 1 || o.is_active === true || o.is_active === '1'));
+        }
+      }
+    } catch (e) {}
+    return [];
+  });
 
   const lastPlansSyncRef = useRef(0);
   const syncPlansAndOffers = useCallback(async (force = false) => {
     const now = Date.now();
-    if (!force && now - lastPlansSyncRef.current < 60000) {
-      return; // Cooldown: skip redundant fetch within 60 seconds
+    if (!force && now - lastPlansSyncRef.current < 20000) {
+      return; // Cooldown: skip redundant fetch within 20 seconds
     }
     lastPlansSyncRef.current = now;
     try {
@@ -886,7 +897,60 @@ export default function App() {
   useEffect(() => {
     syncPlansAndOffers(true);
 
-    // Auto-refresh when user/admin switches tabs or window gains focus (throttled)
+    // 1. Supabase Realtime Listener for instant sync from Super Admin changes
+    let realtimeChannel = null;
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        realtimeChannel = supabase.channel('public:offers_and_plans_sync')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'offers' }, (payload) => {
+            console.log('[Supabase Realtime] Offers changed:', payload);
+            syncPlansAndOffers(true);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'membership_plans' }, (payload) => {
+            console.log('[Supabase Realtime] Plans changed:', payload);
+            syncPlansAndOffers(true);
+          })
+          .on('broadcast', { event: 'offers_updated' }, (payload) => {
+            console.log('[Supabase Realtime Broadcast] Offers updated:', payload);
+            syncPlansAndOffers(true);
+          })
+          .on('broadcast', { event: 'plans_updated' }, (payload) => {
+            console.log('[Supabase Realtime Broadcast] Plans updated:', payload);
+            syncPlansAndOffers(true);
+          })
+          .subscribe((status, err) => {
+            if (err) console.warn('[Realtime Subscriptions] Subscription warning:', err);
+          });
+      } catch (err) {
+        console.warn('[Realtime Subscriptions] Failed to subscribe to offers/plans:', err);
+      }
+    }
+
+    // 2. Cross-tab instant communication via Browser BroadcastChannel
+    let broadcastChannel = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        broadcastChannel = new BroadcastChannel('i4u_offers_sync');
+        broadcastChannel.onmessage = (event) => {
+          console.log('[BroadcastChannel] Sync signal received:', event?.data);
+          syncPlansAndOffers(true);
+        };
+      } catch (e) {}
+    }
+
+    // 3. LocalStorage Cross-Tab Storage Event Listener
+    const handleStorageChange = (e) => {
+      if (
+        e.key === 'i4u_offers_last_updated' || 
+        e.key === 'i4u_plans_last_updated' ||
+        e.key === 'i4u_cached_offers'
+      ) {
+        syncPlansAndOffers(true);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // 4. Auto-refresh when user/admin switches tabs or window gains focus
     const handleFocus = () => {
       syncPlansAndOffers(false);
     };
@@ -896,10 +960,17 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
-    // Background sync every 120s to reflect admin updates without network thrashing
-    const interval = setInterval(() => syncPlansAndOffers(true), 120000);
+    // 5. Periodic background sync every 60s to ensure consistency
+    const interval = setInterval(() => syncPlansAndOffers(true), 60000);
 
     return () => {
+      if (realtimeChannel && supabase) {
+        supabase.removeChannel(realtimeChannel);
+      }
+      if (broadcastChannel) {
+        try { broadcastChannel.close(); } catch (e) {}
+      }
+      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(interval);
