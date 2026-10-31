@@ -366,12 +366,18 @@ export default function AudioCallModal({
   useEffect(() => {
     const audioEl = remoteAudioRef.current;
     const stream = remoteStream || webrtcCallService.remoteStream;
-    if (audioEl && stream) {
-      if (audioEl.srcObject !== stream) {
-        audioEl.srcObject = stream;
-      }
-      safePlayMedia(audioEl, 'remoteAudio');
+    if (!audioEl || !stream) return;
+
+    if (audioEl.srcObject !== stream) {
+      audioEl.srcObject = stream;
     }
+    safePlayMedia(audioEl, 'remoteAudio');
+
+    const handleTrackChange = () => {
+      safePlayMedia(audioEl, 'remoteAudio');
+    };
+    stream.onaddtrack = handleTrackChange;
+    stream.onremovetrack = handleTrackChange;
   }, [remoteStream, remoteAudioRef.current, callStatus]);
 
   if (!isOpen || !candidate) return null;

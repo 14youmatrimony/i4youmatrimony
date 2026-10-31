@@ -116,11 +116,11 @@ export default function VideoCallModal({
 
     const checkTracks = () => {
       const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live' && t.enabled);
-      setHasRemoteVideo(vTracks.length > 0);
+      if (vTracks.length > 0) setHasRemoteVideo(true);
     };
 
-    stream.onaddtrack = () => checkTracks();
-    stream.onremovetrack = () => checkTracks();
+    stream.onaddtrack = checkTracks;
+    stream.onremovetrack = checkTracks;
     checkTracks();
 
     // Attach to video element for rendering remote video
@@ -131,7 +131,7 @@ export default function VideoCallModal({
       safePlayMedia(remoteVideoRef.current, 'remoteVideo');
     }
 
-    // Dedicated unmuted audio element for clean, direct incoming voice
+    // Dedicated audio element for clean, direct incoming voice
     if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== stream) {
       remoteAudioRef.current.srcObject = stream;
     }
@@ -164,7 +164,7 @@ export default function VideoCallModal({
 
     const checkTracks = () => {
       const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live' && t.enabled);
-      setHasRemoteVideo(vTracks.length > 0);
+      if (vTracks.length > 0) setHasRemoteVideo(true);
     };
     stream.onaddtrack = checkTracks;
     stream.onremovetrack = checkTracks;
@@ -349,13 +349,15 @@ export default function VideoCallModal({
       {/* Candidate Main Video Feed (Full Screen Responsive Flex Container) */}
       <div className="relative flex-1 min-h-0 w-full bg-gradient-to-b from-[#0B192C] to-[#040911] overflow-hidden flex items-center justify-center">
         
-        {/* Real Remote Video Feed - Always mounted so ref is never null, autoPlay, playsInline, NOT muted */}
+        {/* Real Remote Video Feed - Always mounted so ref is never null, autoPlay, playsInline, muted for 100% mobile autoplay compliance */}
         <video
           ref={remoteVideoRef}
           autoPlay
           playsInline
-          muted={false}
-          className={`w-full h-full object-cover ${hasRemoteVideo ? 'block' : 'hidden'}`}
+          muted={true}
+          onLoadedMetadata={() => setHasRemoteVideo(true)}
+          onPlaying={() => setHasRemoteVideo(true)}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${hasRemoteVideo ? 'opacity-100' : 'opacity-0'}`}
         />
 
         {/* Autoplay blocked unpause button */}
@@ -403,7 +405,7 @@ export default function VideoCallModal({
           <img 
             src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
             alt={candidate.name} 
-            className="w-full h-full object-cover filter brightness-90 animate-subtle-scale"
+            className="absolute inset-0 w-full h-full object-cover filter brightness-90 animate-subtle-scale"
           />
         )}
 
