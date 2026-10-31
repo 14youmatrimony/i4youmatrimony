@@ -32,6 +32,7 @@ export default function AudioCallModal({
   const [micPermissionError, setMicPermissionError] = useState(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [isConnectedPeer, setIsConnectedPeer] = useState(false);
+  const [remoteStream, setRemoteStream] = useState(null);
 
   const timerRef = useRef(null);
   const remoteAudioRef = useRef(null);
@@ -215,6 +216,9 @@ export default function AudioCallModal({
 
     // Callback when remote audio stream is received
     const handleRemoteStream = (stream) => {
+      if (!stream) return;
+      console.log('[AudioCall] handleRemoteStream received stream with tracks:', stream.getTracks().map(t => `${t.kind}:${t.enabled}`));
+      setRemoteStream(stream);
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = stream;
         safePlayMedia(remoteAudioRef.current, 'remoteAudio');
@@ -369,15 +373,17 @@ export default function AudioCallModal({
     };
   }, [callStatus]);
 
-  // Safety check to ensure remote audio stays attached and playing when connected
+  // Remote stream binding hook: ensure remote audio is immediately attached to <audio> DOM element
   useEffect(() => {
-    if (callStatus === 'connected' && webrtcCallService.remoteStream && remoteAudioRef.current) {
-      if (!remoteAudioRef.current.srcObject) {
-        remoteAudioRef.current.srcObject = webrtcCallService.remoteStream;
+    const audioEl = remoteAudioRef.current;
+    const stream = remoteStream || webrtcCallService.remoteStream;
+    if (audioEl && stream) {
+      if (audioEl.srcObject !== stream) {
+        audioEl.srcObject = stream;
       }
-      safePlayMedia(remoteAudioRef.current, 'remoteAudio');
+      safePlayMedia(audioEl, 'remoteAudio');
     }
-  }, [callStatus]);
+  }, [remoteStream, remoteAudioRef.current, callStatus]);
 
   if (!isOpen || !candidate) return null;
 

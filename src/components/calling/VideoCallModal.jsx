@@ -27,6 +27,7 @@ export default function VideoCallModal({
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [cameraNotice, setCameraNotice] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -111,6 +112,7 @@ export default function VideoCallModal({
   const handleRemoteStream = (stream) => {
     if (!stream) return;
     console.log('[VideoCall] handleRemoteStream received:', stream?.getTracks()?.map(t => `${t.kind}:${t.enabled}`));
+    setRemoteStream(stream);
 
     const checkTracks = () => {
       const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live' && t.enabled);
@@ -142,27 +144,41 @@ export default function VideoCallModal({
     playVideoChime();
   };
 
-  // Periodic safety check to ensure streams stay attached when connected
+  // Remote stream binding hook: ensure remote media is immediately attached to <video> and <audio> DOM elements
   useEffect(() => {
-    if (callStatus === 'connected') {
-      if (webrtcCallService.localStream && localVideoRef.current && !localVideoRef.current.srcObject) {
-        localVideoRef.current.srcObject = webrtcCallService.localStream;
-        localVideoRef.current.muted = true;
-        safePlayMedia(localVideoRef.current, 'localVideo');
-        setHasCameraPermission(true);
-      }
-      if (webrtcCallService.remoteStream) {
-        if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
-          remoteVideoRef.current.srcObject = webrtcCallService.remoteStream;
-          safePlayMedia(remoteVideoRef.current, 'remoteVideo');
-        }
-        if (remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
-          remoteAudioRef.current.srcObject = webrtcCallService.remoteStream;
-          safePlayMedia(remoteAudioRef.current, 'remoteAudio');
-        }
-        const hasV = webrtcCallService.remoteStream.getVideoTracks().some(t => t.readyState === 'live' && t.enabled);
-        setHasRemoteVideo(hasV);
-      }
+    const stream = remoteStream || webrtcCallService.remoteStream;
+    if (!stream) return;
+
+    if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== stream) {
+      remoteVideoRef.current.srcObject = stream;
+    }
+    if (remoteVideoRef.current) {
+      safePlayMedia(remoteVideoRef.current, 'remoteVideo');
+    }
+
+    if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== stream) {
+      remoteAudioRef.current.srcObject = stream;
+    }
+    if (remoteAudioRef.current) {
+      safePlayMedia(remoteAudioRef.current, 'remoteAudio');
+    }
+
+    const checkTracks = () => {
+      const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live' && t.enabled);
+      setHasRemoteVideo(vTracks.length > 0);
+    };
+    stream.onaddtrack = checkTracks;
+    stream.onremovetrack = checkTracks;
+    checkTracks();
+  }, [remoteStream, remoteVideoRef.current, remoteAudioRef.current, callStatus]);
+
+  // Local stream binding check
+  useEffect(() => {
+    if (callStatus === 'connected' && webrtcCallService.localStream && localVideoRef.current && !localVideoRef.current.srcObject) {
+      localVideoRef.current.srcObject = webrtcCallService.localStream;
+      localVideoRef.current.muted = true;
+      safePlayMedia(localVideoRef.current, 'localVideo');
+      setHasCameraPermission(true);
     }
   }, [callStatus]);
 
