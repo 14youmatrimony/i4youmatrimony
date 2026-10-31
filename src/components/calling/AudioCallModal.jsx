@@ -219,9 +219,13 @@ export default function AudioCallModal({
         remoteAudioRef.current.srcObject = stream;
         safePlayMedia(remoteAudioRef.current, 'remoteAudio');
       }
+      if (ringTimer) clearTimeout(ringTimer);
+      if (ringIntervalRef.current) {
+        clearInterval(ringIntervalRef.current);
+        ringIntervalRef.current = null;
+      }
       setIsConnectedPeer(true);
       setCallStatus('connected');
-      if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
       playConnectChime();
     };
 
@@ -229,17 +233,29 @@ export default function AudioCallModal({
     const handleStatusChange = (status) => {
       if (!isSubscribed) return;
       if (status === 'blocked') {
-        if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
+        if (ringTimer) clearTimeout(ringTimer);
+        if (ringIntervalRef.current) {
+          clearInterval(ringIntervalRef.current);
+          ringIntervalRef.current = null;
+        }
         setCallStatus('ended');
         playTone(380, 280, 0.3);
         setTimeout(() => onClose(), 1200);
       } else if (status === 'connected') {
-        if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
+        if (ringTimer) clearTimeout(ringTimer);
+        if (ringIntervalRef.current) {
+          clearInterval(ringIntervalRef.current);
+          ringIntervalRef.current = null;
+        }
         setCallStatus('connected');
         setIsConnectedPeer(true);
         playConnectChime();
       } else if (status === 'declined' || status === 'ended') {
-        if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
+        if (ringTimer) clearTimeout(ringTimer);
+        if (ringIntervalRef.current) {
+          clearInterval(ringIntervalRef.current);
+          ringIntervalRef.current = null;
+        }
         setCallStatus('ended');
         playTone(380, 280, 0.3);
         setTimeout(() => onClose(), 1200);
@@ -260,7 +276,11 @@ export default function AudioCallModal({
         onStatusChange: handleStatusChange
       }).then((res) => {
         if (res && res.error === 'CALL_BLOCKED') {
-          if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
+          if (ringTimer) clearTimeout(ringTimer);
+          if (ringIntervalRef.current) {
+            clearInterval(ringIntervalRef.current);
+            ringIntervalRef.current = null;
+          }
           setCallStatus('ended');
           playTone(380, 280, 0.3);
           setTimeout(() => onClose(), 1200);
@@ -275,19 +295,28 @@ export default function AudioCallModal({
       });
 
       ringTimer = setTimeout(() => {
-        if (isSubscribed && callStatus !== 'connected') {
-          setCallStatus('ringing');
-          startRingingSound();
+        if (isSubscribed) {
+          setCallStatus((prev) => {
+            if (prev === 'connected' || prev === 'ended') return prev;
+            startRingingSound();
+            return 'ringing';
+          });
         }
       }, 1200);
 
       // Awaiting recipient answer timeout (45s)
       callTimeoutTimer = setTimeout(() => {
-        if (isSubscribed && callStatus !== 'connected' && callStatus !== 'ended') {
-          if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
-          setCallStatus('ended');
-          playTone(380, 280, 0.3);
-          setTimeout(() => onClose(), 1200);
+        if (isSubscribed) {
+          setCallStatus((prev) => {
+            if (prev === 'connected' || prev === 'ended') return prev;
+            if (ringIntervalRef.current) {
+              clearInterval(ringIntervalRef.current);
+              ringIntervalRef.current = null;
+            }
+            playTone(380, 280, 0.3);
+            setTimeout(() => onClose(), 1200);
+            return 'ended';
+          });
         }
       }, 45000);
 

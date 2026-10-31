@@ -137,6 +137,7 @@ export default function VideoCallModal({
       safePlayMedia(remoteAudioRef.current, 'remoteAudio');
     }
 
+    if (ringTimer) clearTimeout(ringTimer);
     setCallStatus('connected');
     playVideoChime();
   };
@@ -185,13 +186,16 @@ export default function VideoCallModal({
     const handleStatusChange = (status) => {
       if (!isSubscribed) return;
       if (status === 'blocked') {
+        if (ringTimer) clearTimeout(ringTimer);
         setCallStatus('ended');
         setTimeout(() => onClose(), 1000);
       } else if (status === 'connected') {
+        if (ringTimer) clearTimeout(ringTimer);
         setCallStatus('connected');
         attachLocalStream();
         playVideoChime();
       } else if (status === 'declined' || status === 'ended') {
+        if (ringTimer) clearTimeout(ringTimer);
         setCallStatus('ended');
         setTimeout(() => onClose(), 1000);
       }
@@ -209,6 +213,7 @@ export default function VideoCallModal({
         onStatusChange: handleStatusChange
       }).then((res) => {
         if (res && res.error === 'CALL_BLOCKED') {
+          if (ringTimer) clearTimeout(ringTimer);
           setCallStatus('ended');
           setTimeout(() => onClose(), 1000);
           return;
@@ -222,16 +227,22 @@ export default function VideoCallModal({
       });
 
       ringTimer = setTimeout(() => {
-        if (isSubscribed && callStatus !== 'connected') {
-          setCallStatus('ringing');
+        if (isSubscribed) {
+          setCallStatus((prev) => {
+            if (prev === 'connected' || prev === 'ended') return prev;
+            return 'ringing';
+          });
         }
       }, 1500);
 
       // Call timeout: if not answered within 45 seconds, conclude call
       callTimeoutTimer = setTimeout(() => {
-        if (isSubscribed && callStatus !== 'connected' && callStatus !== 'ended') {
-          setCallStatus('ended');
-          setTimeout(() => onClose(), 1200);
+        if (isSubscribed) {
+          setCallStatus((prev) => {
+            if (prev === 'connected' || prev === 'ended') return prev;
+            setTimeout(() => onClose(), 1200);
+            return 'ended';
+          });
         }
       }, 45000);
 
