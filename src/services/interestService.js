@@ -64,6 +64,13 @@ class InterestService {
       if (obj.registerId) ids.add(String(obj.registerId));
       if (obj.user_id) ids.add(String(obj.user_id));
       if (obj.userId) ids.add(String(obj.userId));
+      const cleanPhone = String(obj.mobile || obj.phone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone) {
+        ids.add(cleanPhone);
+        if (cleanPhone.length >= 10) {
+          ids.add(`usr_${cleanPhone.slice(-10)}`);
+        }
+      }
     };
 
     if (typeof userOrId === 'string') {

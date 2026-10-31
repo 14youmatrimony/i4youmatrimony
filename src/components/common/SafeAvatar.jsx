@@ -32,15 +32,18 @@ export default function SafeAvatar({
 
   const [imgSrc, setImgSrc] = useState(() => resolveSafeSrc(src));
   const [hasError, setHasError] = useState(!src);
+  const [imgFailed, setImgFailed] = useState(false);
 
   // Sync reactively if prop changes
   React.useEffect(() => {
     if (src && src.trim() !== '') {
       setImgSrc(resolveSafeSrc(src));
       setHasError(false);
+      setImgFailed(false);
     } else {
       setImgSrc(fallbackUrl);
       setHasError(true);
+      setImgFailed(false);
     }
   }, [src, fallbackUrl]);
 
@@ -57,8 +60,35 @@ export default function SafeAvatar({
     if (!hasError && imgSrc !== fallbackUrl) {
       setImgSrc(fallbackUrl);
       setHasError(true);
+    } else {
+      setImgFailed(true);
     }
   };
+
+  const getInitials = (str) => {
+    if (!str || typeof str !== 'string') return 'C';
+    const words = str.replace(/[^a-zA-Z\s]/g, '').trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return 'C';
+    if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
+    return (words[0].slice(0, 1) + words[words.length - 1].slice(0, 1)).toUpperCase();
+  };
+
+  if (imgFailed) {
+    return (
+      <div 
+        className={`relative inline-flex items-center justify-center shrink-0 rounded-full select-none bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] border border-[#DFB76C]/40 font-bold ${sizeClasses} ${className}`}
+        onClick={onClick}
+        title={alt}
+      >
+        <span>{getInitials(alt)}</span>
+        {showBadge && badgeContent && (
+          <div className="absolute bottom-0 right-0">
+            {badgeContent}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -66,9 +96,8 @@ export default function SafeAvatar({
       onClick={onClick}
     >
       <img
-        key={imgSrc}
         src={imgSrc}
-        alt={alt}
+        alt=""
         onError={handleError}
         className="w-full h-full object-cover transition-transform duration-200"
         loading="lazy"

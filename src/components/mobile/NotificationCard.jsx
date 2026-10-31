@@ -62,14 +62,30 @@ export default function NotificationCard({
       lower === 'member' ||
       lower === 'a member' ||
       lower === 'candidate' ||
+      lower === 'a candidate' ||
       lower === 'verified candidate' ||
       lower === 'someone' ||
       lower === 'null' ||
-      lower === 'undefined'
+      lower === 'undefined' ||
+      lower.startsWith('usr_') ||
+      lower.startsWith('member usr_') ||
+      lower.includes('usr_') ||
+      lower.startsWith('sim-') ||
+      lower.startsWith('auth_') ||
+      /^[0-9+]+$/.test(lower)
     ) {
       return null;
     }
     return clean;
+  };
+
+  // Helper to extract clean initials for avatar fallback
+  const getInitials = (name) => {
+    if (!name || typeof name !== 'string') return 'VC';
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return 'VC';
+    if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
+    return (words[0].slice(0, 1) + words[words.length - 1].slice(0, 1)).toUpperCase();
   };
 
   // Dynamic variable bindings for real sender details from API / database
@@ -80,26 +96,39 @@ export default function NotificationCard({
     cleanValidName(profile?.name) ||
     cleanValidName(notif.interest_from?.name) ||
     cleanValidName(notif.metadata?.senderName) ||
-    (profile?.register_id ? `Member ${profile.register_id}` : null) ||
-    (notif.sender_id && !String(notif.sender_id).startsWith('sim-') ? `Member ${notif.sender_id}` : null) ||
-    'Candidate';
+    (profile?.register_id ? `Member ${String(profile.register_id).toUpperCase()}` : null) ||
+    (profile?.registerId ? `Member ${String(profile.registerId).toUpperCase()}` : null) ||
+    (notif.sender_id && !String(notif.sender_id).startsWith('sim-') && !String(notif.sender_id).startsWith('usr_') && !String(notif.sender_id).includes('_') ? `Member ${notif.sender_id}` : null) ||
+    'Verified Candidate';
 
-  const rawPhoto = profile?.photo || profile?.photo_url || notif.sender_photo || notif.senderPhoto || notif.sender_image || profile?.avatar || notif.sender?.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
-  const candidatePhoto = addCacheBuster(rawPhoto);
+  const candidateInitials = getInitials(candidateName);
+
+  const rawPhoto = profile?.photo || profile?.photo_url || notif.sender_photo || notif.senderPhoto || notif.sender_image || profile?.avatar || notif.sender?.photo || null;
+  const stableTimestamp = profile?.updated_at || profile?.created_at || notif.created_at || notif.timestamp || null;
+  const candidatePhoto = rawPhoto ? (stableTimestamp ? addCacheBuster(rawPhoto, stableTimestamp) : rawPhoto) : null;
+
+  const [imgError, setImgError] = React.useState(false);
+  React.useEffect(() => {
+    setImgError(false);
+  }, [rawPhoto]);
 
   const displayAge = profile?.age || notif.sender_age || notif.senderAge || notif.sender?.age || null;
   const displayProfession = profile?.profession || notif.sender_profession || notif.senderProfession || notif.sender?.profession || null;
   const displayLocation = profile?.district || profile?.city || profile?.location || notif.sender_location || notif.sender_city || notif.sender_district || notif.sender?.city || null;
   const isVerified = Boolean(profile?.aadhaarVerified || profile?.verified || profile?.aadhaar_verified || notif.sender_verified || notif.sender?.verified);
 
-  // Compute clean dynamic title without hardcoded or looping 'Verified Member'
+  // Compute clean dynamic title without hardcoded or looping 'Verified Member' or technical IDs
   const computedTitle = (() => {
     if (isPayment) {
       return notif.title || '🎉 Payment Confirmed';
     }
     if (notif.title) {
-      const sanitizedTitle = notif.title.replace(/a verified member|verified member/gi, candidateName).trim();
-      if (!sanitizedTitle.toLowerCase().includes('verified member')) {
+      const sanitizedTitle = notif.title
+        .replace(/a verified member|verified member/gi, candidateName)
+        .replace(/member\s+usr_[0-9a-zA-Z_]+/gi, candidateName)
+        .replace(/usr_[0-9a-zA-Z_]+/gi, candidateName)
+        .trim();
+      if (!sanitizedTitle.toLowerCase().includes('verified member') && !sanitizedTitle.toLowerCase().includes('usr_')) {
         return sanitizedTitle;
       }
     }
@@ -115,14 +144,18 @@ export default function NotificationCard({
     return `💖 Interest from ${candidateName}!`;
   })();
 
-  // Compute clean dynamic message body without 'Verified Member'
+  // Compute clean dynamic message body without 'Verified Member' or technical IDs
   const computedMessage = (() => {
     if (isPayment) {
       return notif.message || notif.subtitle || 'Your payment was authorized successfully.';
     }
     const rawMsg = notif.message || notif.subtitle || '';
     if (!rawMsg) return '';
-    return rawMsg.replace(/a verified member|verified member/gi, candidateName).trim();
+    return rawMsg
+      .replace(/a verified member|verified member/gi, candidateName)
+      .replace(/member\s+usr_[0-9a-zA-Z_]+/gi, candidateName)
+      .replace(/usr_[0-9a-zA-Z_]+/gi, candidateName)
+      .trim();
   })();
 
   const defaultIcon = () => {
@@ -309,7 +342,7 @@ export default function NotificationCard({
         )}
 
         {/* Candidate Mini Profile Card - STRICTLY EXCLUDED for Payment Notifications */}
-        {!isPayment && (profile || notif.sender_name || notif.sender_photo) && (
+        {!isPayment && (profile || notif.sender_name || notif.sender_id || notif.sender_photo) && (
           <div
             onClick={(e) => {
               e.stopPropagation();
@@ -320,17 +353,29 @@ export default function NotificationCard({
             title="Click to view full candidate profile"
           >
             <div className="flex items-center space-x-1.5 min-w-0 flex-1">
-              <img
-                key={candidatePhoto}
-                src={candidatePhoto}
-                alt={candidateName}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  triggerScreenshotBlock?.('right-click');
-                }}
-                draggable={false}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 border border-slate-300 shadow-2xs select-none"
-              />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden shrink-0 border border-slate-300 shadow-2xs bg-slate-100 flex items-center justify-center relative select-none">
+                {candidatePhoto && !imgError ? (
+                  <img
+                    src={candidatePhoto}
+                    alt=""
+                    onError={() => setImgError(true)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      triggerScreenshotBlock?.('right-click');
+                    }}
+                    draggable={false}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div
+                    className="w-full h-full bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] font-bold text-[10px] sm:text-[11px] flex items-center justify-center tracking-tight select-none border border-[#DFB76C]/40"
+                    title={candidateName}
+                  >
+                    {candidateInitials}
+                  </div>
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-1">
                   <span className="text-[10.5px] sm:text-[11.5px] font-bold text-slate-900 truncate group-hover/card:text-[#8C6D1F] transition-colors">

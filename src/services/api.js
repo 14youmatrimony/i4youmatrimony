@@ -1749,8 +1749,19 @@ export async function fetchBackendSentInterests() {
  */
 export async function fetchUserNotifications(userOrId, allProfiles = []) {
   if (!userOrId) return [];
+  const cleanPhone = (typeof userOrId === 'object' && userOrId !== null)
+    ? String(userOrId.mobile || userOrId.phone || '').replace(/[^0-9]/g, '')
+    : '';
+
   const userIds = (typeof userOrId === 'object' && userOrId !== null)
-    ? [userOrId.id, userOrId.register_id, userOrId.registerId, userOrId.user_id].filter(Boolean).map(String)
+    ? [
+        userOrId.id,
+        userOrId.register_id,
+        userOrId.registerId,
+        userOrId.user_id,
+        cleanPhone,
+        cleanPhone.length >= 10 ? `usr_${cleanPhone.slice(-10)}` : null
+      ].filter(Boolean).map(String)
     : [String(userOrId).trim()];
   const cleanId = userIds[0] || '';
   if (!cleanId) return [];
@@ -1768,9 +1779,14 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
       lower === 'a member' ||
       lower === 'candidate' ||
       lower === 'a candidate' ||
+      lower === 'verified candidate' ||
       lower === 'someone' ||
       lower === 'null' ||
-      lower === 'undefined'
+      lower === 'undefined' ||
+      lower.startsWith('usr_') ||
+      lower.startsWith('member usr_') ||
+      lower.includes('usr_') ||
+      lower.startsWith('sim-')
     ) {
       return fallback;
     }
@@ -1845,26 +1861,37 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
       // Helper to map profile
       const findProfile = (senderId) => {
         if (!senderId) return null;
-        return (allProfiles || []).find(p => p && (
-          String(p.id) === String(senderId) ||
-          (p.register_id && String(p.register_id) === String(senderId)) ||
-          (p.registerId && String(p.registerId) === String(senderId))
-        ));
+        const sId = String(senderId).trim();
+        const sDigits = sId.replace(/[^0-9]/g, '');
+        return (allProfiles || []).find(p => {
+          if (!p) return false;
+          const pId = String(p.id || '');
+          const pUserId = String(p.user_id || '');
+          const pReg = String(p.register_id || p.registerId || '');
+          if (pId === sId || pUserId === sId || pReg === sId) return true;
+          if (sDigits && sDigits.length >= 7) {
+            const pPhone = String(p.mobile || p.phone || '').replace(/[^0-9]/g, '');
+            if (pPhone && (pPhone === sDigits || pPhone.endsWith(sDigits) || sDigits.endsWith(pPhone))) return true;
+          }
+          return false;
+        });
       };
 
       (interestRows || []).forEach(row => {
         const sId = String(row.sender_id || row.senderId);
         if (!sId || userIds.includes(sId)) return;
         const intId = `interest_${row.id || sId}`;
-        if (seen.has(intId)) return;
+        const senderInterestKey = `interest_sender_${sId}`;
+        if (seen.has(intId) || seen.has(senderInterestKey)) return;
         seen.add(intId);
+        seen.add(senderInterestKey);
 
         const matched = findProfile(sId);
         const sName = sanitizeName(matched?.name) !== 'Candidate'
           ? matched.name
           : (sanitizeName(row.metadata?.senderName) !== 'Candidate'
               ? row.metadata.senderName
-              : (matched?.register_id ? `Member ${matched.register_id}` : (sId ? `Member ${sId}` : 'Candidate')));
+              : (matched?.register_id ? `Member ${matched.register_id}` : (sId && !sId.startsWith('usr_') && !sId.startsWith('sim-') && !sId.includes('_') ? `Member ${sId}` : 'Verified Candidate')));
 
         const sPhoto = matched?.photo || matched?.photo_url || (row.metadata?.senderPhoto) || null;
         const sAge = matched?.age || 26;
@@ -1950,12 +1977,18 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         if (isInterestRow && (!sId || userIds.includes(sId))) return; // STRICT GUARD: sender cannot be logged-in user!
         if (rId && !userIds.includes(rId)) return; // STRICT GUARD: recipient must be logged-in user!
 
+        if (isInterestRow && sId) {
+          const senderInterestKey = `interest_sender_${sId}`;
+          if (seen.has(senderInterestKey)) return; // Skip duplicate interest already added from interests table!
+          seen.add(senderInterestKey);
+        }
+
         const matched = findProfile(sId);
         const sName = sanitizeName(matched?.name) !== 'Candidate'
           ? matched.name
           : (sanitizeName(row.metadata?.senderName) !== 'Candidate'
               ? row.metadata.senderName
-              : (matched?.register_id ? `Member ${matched.register_id}` : (sId ? `Member ${sId}` : 'Candidate')));
+              : (matched?.register_id ? `Member ${matched.register_id}` : (sId && !sId.startsWith('usr_') && !sId.startsWith('sim-') && !sId.includes('_') ? `Member ${sId}` : 'Verified Candidate')));
 
         const sPhoto = matched?.photo || matched?.photo_url || row.metadata?.senderPhoto || null;
         const sAge = matched?.age || row.metadata?.senderAge || 26;

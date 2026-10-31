@@ -1490,7 +1490,14 @@ export default function App() {
             }
             try {
               const uObj = savedUser ? JSON.parse(savedUser) : null;
-              const uIds = [uObj?.id, uObj?.register_id, uObj?.registerId].filter(Boolean).map(String);
+              const uPhone = String(uObj?.mobile || uObj?.phone || '').replace(/[^0-9]/g, '');
+              const uIds = [
+                uObj?.id, 
+                uObj?.register_id, 
+                uObj?.registerId,
+                uPhone,
+                uPhone.length >= 10 ? `usr_${uPhone.slice(-10)}` : null
+              ].filter(Boolean).map(String);
               const sId = String(n.senderId || n.sender_id || n.profileId || n.sender?.id || '');
               if (sId && uIds.includes(sId) && (n.type === 'interest' || n.type === 'interest_received')) {
                 return false; // Purge stale self-sent interest notification
@@ -1512,7 +1519,14 @@ export default function App() {
       setNotifications([]);
       return;
     }
-    const userIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+    const curPhone = String(currentUser.mobile || currentUser.phone || '').replace(/[^0-9]/g, '');
+    const userIds = [
+      currentUser.id, 
+      currentUser.register_id, 
+      currentUser.registerId,
+      curPhone,
+      curPhone.length >= 10 ? `usr_${curPhone.slice(-10)}` : null
+    ].filter(Boolean).map(String);
     if (!userIds.length) return;
 
     let isMounted = true;
@@ -1582,12 +1596,35 @@ export default function App() {
       const allPayloadIds = [sId, rId, uA, uB, payload.responderId, payload.partnerId].filter(Boolean).map(String);
       const partnerId = allPayloadIds.find((id) => !currentIds.includes(String(id)));
 
-      const matchedPartner = (profiles || []).find((p) => p && (
-        String(p.id) === partnerId ||
-        String(p.register_id) === partnerId ||
-        String(p.registerId) === partnerId
-      ));
-      const partnerName = matchedPartner?.name || payload.responderName || payload.senderName || 'Candidate';
+      const partnerDigits = partnerId ? String(partnerId).replace(/[^0-9]/g, '') : '';
+      const matchedPartner = (profiles || []).find((p) => {
+        if (!p) return false;
+        const pId = String(p.id || '');
+        const pUserId = String(p.user_id || '');
+        const pReg = String(p.register_id || p.registerId || '');
+        if (partnerId && (pId === partnerId || pUserId === partnerId || pReg === partnerId)) return true;
+        if (partnerDigits && partnerDigits.length >= 7) {
+          const pPhone = String(p.mobile || p.phone || '').replace(/[^0-9]/g, '');
+          if (pPhone && (pPhone === partnerDigits || pPhone.endsWith(partnerDigits) || partnerDigits.endsWith(pPhone))) return true;
+        }
+        return false;
+      });
+
+      const cleanCandidateName = (name) => {
+        if (!name || typeof name !== 'string') return null;
+        const cl = name.trim().toLowerCase();
+        if (
+          cl === '' || cl === 'candidate' || cl === 'member' || cl === 'verified member' ||
+          cl.startsWith('usr_') || cl.startsWith('member usr_') || cl.includes('usr_') ||
+          cl.startsWith('sim-') || /^[0-9+]+$/.test(cl)
+        ) return null;
+        return name.trim();
+      };
+
+      const partnerName = cleanCandidateName(matchedPartner?.name) ||
+        cleanCandidateName(payload.responderName) ||
+        cleanCandidateName(payload.senderName) ||
+        (matchedPartner?.register_id ? `Member ${matchedPartner.register_id}` : 'Candidate');
 
       if (payload.event === 'contact-viewed' || payload.type === 'contact_viewed') {
         const viewerId = String(payload.viewerId || payload.senderId || '');
@@ -1732,7 +1769,9 @@ export default function App() {
         profession: payload.senderProfession || null,
         city: payload.senderCity || payload.senderDistrict || null
       };
-      const senderDisplayName = senderObj?.name || payload.senderName || 'Candidate';
+      const senderDisplayName = cleanCandidateName(senderObj?.name) ||
+        cleanCandidateName(payload.senderName) ||
+        (senderObj?.register_id ? `Member ${senderObj.register_id}` : 'Candidate');
 
       let isDuplicateInterest = false;
       setNotifications((prev) => {

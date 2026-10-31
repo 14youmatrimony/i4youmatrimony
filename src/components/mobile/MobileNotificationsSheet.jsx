@@ -121,25 +121,54 @@ export default function MobileNotificationsSheet({
 
   const unreadCount = (notifications || []).filter(n => n && !n.isRead).length;
 
-  const filteredNotifications = (notifications || []).filter(Boolean).filter(notif => {
-    if (activeFilter === 'all') return true;
-    if (activeFilter === 'interest') return notif?.type === 'interest_received' || notif?.type === 'interest';
-    if (activeFilter === 'shortlist') return notif?.type === 'profile_shortlisted' || notif?.type === 'shortlist';
-    if (activeFilter === 'visitor') return notif?.type === 'profile_visitor' || notif?.type === 'visitor';
-    if (activeFilter === 'contact_view') return notif?.type === 'contact_viewed' || notif?.type === 'contact';
-    if (activeFilter === 'message') return notif?.type === 'message_received' || notif?.type === 'chat_message' || notif?.type === 'message';
-    return true;
-  });
+  const filteredNotifications = (() => {
+    const list = (notifications || []).filter(Boolean).filter(notif => {
+      // Exclude self-sent notifications
+      const sId = notif?.senderId || notif?.sender_id || notif?.profileId;
+      if (sId && isSelfProfile({ id: sId })) return false;
+
+      if (activeFilter === 'all') return true;
+      if (activeFilter === 'interest') return notif?.type === 'interest_received' || notif?.type === 'interest';
+      if (activeFilter === 'shortlist') return notif?.type === 'profile_shortlisted' || notif?.type === 'shortlist';
+      if (activeFilter === 'visitor') return notif?.type === 'profile_visitor' || notif?.type === 'visitor';
+      if (activeFilter === 'contact_view') return notif?.type === 'contact_viewed' || notif?.type === 'contact';
+      if (activeFilter === 'message') return notif?.type === 'message_received' || notif?.type === 'chat_message' || notif?.type === 'message';
+      return true;
+    });
+
+    // Deduplicate: If multiple notifications refer to the same interest / sender, keep the latest
+    const seenMap = new Map();
+    list.forEach(notif => {
+      const isInterest = notif?.type === 'interest' || notif?.type === 'interest_received';
+      const sender = notif?.senderId || notif?.sender_id || notif?.profileId;
+      const dedupeKey = isInterest && sender 
+        ? `interest_${sender}` 
+        : (notif?.notification_id || notif?.id || Math.random());
+      
+      if (!seenMap.has(dedupeKey)) {
+        seenMap.set(dedupeKey, notif);
+      }
+    });
+
+    return Array.from(seenMap.values());
+  })();
 
   const isSelfProfile = (p) => {
     if (!p || !currentUser) return false;
     const uId = String(currentUser.id || '');
     const uReg = String(currentUser.register_id || currentUser.registerId || '');
-    const pId = String(p.id || p.senderId || '');
+    const uPhone = String(currentUser.mobile || currentUser.phone || '').replace(/[^0-9]/g, '');
+    const uUsrId = uPhone && uPhone.length >= 10 ? `usr_${uPhone.slice(-10)}` : '';
+
+    const pId = String(p.id || p.senderId || p.sender_id || p.profileId || '');
     const pReg = String(p.register_id || p.registerId || '');
+    const pPhone = String(p.mobile || p.phone || '').replace(/[^0-9]/g, '');
+
     if (uId && (pId === uId || pReg === uId)) return true;
     if (uReg && (pId === uReg || pReg === uReg)) return true;
-    if (currentUser.mobile && (p.mobile === currentUser.mobile || p.phone === currentUser.mobile)) return true;
+    if (uUsrId && (pId === uUsrId || pId.includes(uUsrId))) return true;
+    if (uPhone && pPhone && (pPhone === uPhone || pPhone.endsWith(uPhone) || uPhone.endsWith(pPhone))) return true;
+    if (uPhone && uPhone.length >= 10 && pId.includes(uPhone.slice(-10))) return true;
     return false;
   };
 
@@ -156,7 +185,13 @@ export default function MobileNotificationsSheet({
       clean === 'verified candidate' ||
       clean === 'someone' ||
       clean === 'null' ||
-      clean === 'undefined';
+      clean === 'undefined' ||
+      clean.startsWith('usr_') ||
+      clean.startsWith('member usr_') ||
+      clean.includes('usr_') ||
+      clean.startsWith('sim-') ||
+      clean.startsWith('auth_') ||
+      /^[0-9+]+$/.test(clean);
   };
 
   const isPaymentNotification = (n) => {
@@ -172,8 +207,17 @@ export default function MobileNotificationsSheet({
 
     const isUserMale = (currentUser?.gender || '').toLowerCase() === 'male';
     const defaultPhoto = isUserMale
-      ? 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
-      : 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653762896.jpg';
+      ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400'
+      : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
+
+    const formatSafeId = (id) => {
+      if (!id) return 'Candidate';
+      const str = String(id).trim();
+      if (str.startsWith('usr_') || str.startsWith('sim-') || str.includes('_') || /^[0-9]+$/.test(str)) {
+        return 'Verified Candidate';
+      }
+      return `Member ${str.toUpperCase()}`;
+    };
 
     // 1. Data Model Extraction: Parse sender object from all potential API and notification fields
     const directSenderName = notif?.sender_name || notif?.senderName || notif?.sender?.name || notif?.profile?.name;
@@ -201,13 +245,19 @@ export default function MobileNotificationsSheet({
     // Direct match against candidate database
     let matchedProfile = null;
     if (effectiveSenderId) {
-      matchedProfile = (profiles || []).find(p => 
-        p && !isSelfProfile(p) && (
-          String(p.id) === effectiveSenderId || 
-          (p.register_id && String(p.register_id) === effectiveSenderId) || 
-          (p.registerId && String(p.registerId) === effectiveSenderId)
-        )
-      );
+      const sDigits = effectiveSenderId.replace(/[^0-9]/g, '');
+      matchedProfile = (profiles || []).find(p => {
+        if (!p || isSelfProfile(p)) return false;
+        const pId = String(p.id || '');
+        const pUserId = String(p.user_id || '');
+        const pReg = String(p.register_id || p.registerId || '');
+        if (pId === effectiveSenderId || pUserId === effectiveSenderId || pReg === effectiveSenderId) return true;
+        if (sDigits && sDigits.length >= 7) {
+          const pPhone = String(p.mobile || p.phone || '').replace(/[^0-9]/g, '');
+          if (pPhone && (pPhone === sDigits || pPhone.endsWith(sDigits) || sDigits.endsWith(pPhone))) return true;
+        }
+        return false;
+      });
     }
 
     // Extract sender name from title / message (e.g. "💖 Interest from Dr. Anu jose" -> "Dr. Anu jose")
@@ -262,7 +312,7 @@ export default function MobileNotificationsSheet({
                             (!isGenericPlaceholder(senderData?.name) ? senderData.name : null) || 
                             (!isGenericPlaceholder(senderData?.senderName) ? senderData.senderName : null) ||
                             extractedName ||
-                            (effectiveSenderId ? `Member ${effectiveSenderId}` : 'Candidate');
+                            (effectiveSenderId ? formatSafeId(effectiveSenderId) : 'Candidate');
 
       const sPhoto = notif?.sender_photo || notif?.sender_image || senderData?.photo || senderData?.avatar || senderData?.photo_url || senderData?.senderPhoto || defaultPhoto;
       const sAge = notif?.sender_age || senderData?.age || senderData?.senderAge || 26;
@@ -289,7 +339,7 @@ export default function MobileNotificationsSheet({
     }
 
     // Scenario C: Clean authentic fallback without borrowing another candidate's identity
-    const fallbackName = cleanSenderName || extractedName || notif?.metadata?.senderName || (effectiveSenderId ? `Member ${effectiveSenderId}` : 'Candidate');
+    const fallbackName = cleanSenderName || extractedName || notif?.metadata?.senderName || (effectiveSenderId ? formatSafeId(effectiveSenderId) : 'Candidate');
     return {
       id: effectiveSenderId || profileId || notif?.notification_id || notif?.id || `sender-${index}`,
       name: fallbackName,
