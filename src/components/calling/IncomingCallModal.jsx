@@ -126,8 +126,8 @@ export default function IncomingCallModal({
 
         {/* Top Header */}
         <div className="text-center space-y-1 relative z-10 w-full shrink-0 pt-2 sm:pt-0">
-          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 text-xs font-bold shadow-lg animate-bounce">
-            <span>Incoming {isVideo ? 'Live Video Call' : 'Live Voice Call'}</span>
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 text-xs font-bold shadow-lg">
+            <span>Incoming {isVideo ? 'Video Call' : 'Voice Call'}</span>
           </div>
 
           <div className="pt-2">
@@ -148,7 +148,7 @@ export default function IncomingCallModal({
           </div>
 
           <p className="text-xs text-[#DFB76C] font-semibold pt-1">
-            {isVideo ? 'Incoming Live Video Meeting invitation...' : 'Incoming Live Audio Call invitation...'}
+            {isVideo ? 'Incoming video call...' : 'Incoming voice call...'}
           </p>
         </div>
 

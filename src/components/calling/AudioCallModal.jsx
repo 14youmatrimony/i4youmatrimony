@@ -433,31 +433,19 @@ export default function AudioCallModal({
           <div className="pt-2">
             {callStatus === 'calling' && (
               <span className="text-xs sm:text-sm text-[#DFB76C] font-semibold animate-pulse">
-                Connecting...
+                Calling...
               </span>
             )}
             {callStatus === 'ringing' && (
               <span className="text-xs sm:text-sm text-emerald-400 font-semibold animate-pulse">
-                Ringing candidate device...
+                Ringing...
               </span>
             )}
             {callStatus === 'connected' && (
-              <div className="flex flex-col items-center space-y-1">
+              <div className="flex flex-col items-center">
                 <div className="inline-flex items-center space-x-2 text-sm font-mono font-bold text-emerald-400 bg-emerald-950/70 px-3.5 py-1 rounded-full border border-emerald-500/40 shadow-inner">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span>Live Call: {formatDuration(callDuration)}</span>
-                </div>
-                
-                <div className="flex items-center space-x-2 text-[10px] text-emerald-300/80">
-                  <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-                  <span>{isConnectedPeer ? 'P2P Line Connected' : 'Live Encrypted Line'}</span>
-                  {hasMicPermission && !isMuted && (
-                    <div className="flex items-center gap-0.5 ml-1">
-                      <span className="w-1 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                      <span className="w-1 h-3 bg-emerald-400 rounded-full animate-pulse delay-75" />
-                      <span className="w-1 h-1.5 bg-emerald-400 rounded-full animate-pulse delay-150" />
-                    </div>
-                  )}
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span>{formatDuration(callDuration)}</span>
                 </div>
               </div>
             )}

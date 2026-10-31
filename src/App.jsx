@@ -2988,7 +2988,7 @@ export default function App() {
     setIsCallCaller(true);
     setActiveCallSession(null);
     setActiveAudioCallCandidate(candidate);
-    showToast(`📞 Live Call: Initiating encrypted audio line with ${candidate.name}...`);
+    showToast(`Calling ${candidate.name}...`);
   };
 
   // Start live Video Call with candidate (Authorized ONLY if Interest is Accepted)

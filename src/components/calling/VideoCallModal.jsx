@@ -402,14 +402,14 @@ export default function VideoCallModal({
           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10 shadow-lg">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
             <div>
               <h4 className="font-serif font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
                 <span>{candidate.name}</span>
                 {candidate.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
               </h4>
               <p className="text-[10px] sm:text-xs text-slate-300">
-                {callStatus === 'connected' ? `Live Video Call • ${formatDuration(callDuration)}` : (callStatus === 'ringing' ? 'Ringing candidate...' : 'Connecting...')}
+                {callStatus === 'connected' ? formatDuration(callDuration) : (callStatus === 'ringing' ? 'Ringing...' : 'Connecting...')}
               </p>
             </div>
           </div>
@@ -432,9 +432,9 @@ export default function VideoCallModal({
             <div className="text-center text-white space-y-1">
               <h3 className="font-serif font-bold text-base sm:text-xl">{candidate.name}</h3>
               <p className="text-xs sm:text-sm text-[#DFB76C] font-semibold animate-pulse">
-                {callStatus === 'calling' && 'Initiating Live Video Call...'}
-                {callStatus === 'ringing' && 'Awaiting response... (Ringing)'}
-                {callStatus === 'ended' && 'Video Meeting Ended'}
+                {callStatus === 'calling' && 'Calling...'}
+                {callStatus === 'ringing' && 'Ringing...'}
+                {callStatus === 'ended' && 'Call Ended'}
               </p>
             </div>
           </div>
@@ -519,10 +519,10 @@ export default function VideoCallModal({
           type="button"
           onClick={handleEndCall}
           className="px-5 sm:px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-700 via-rose-600 to-red-600 text-white font-bold text-xs sm:text-sm flex items-center space-x-2 shadow-lg shadow-rose-900/50 hover:brightness-110 active:scale-95 transition-all cursor-pointer ring-2 ring-rose-500/40"
-          title="End Video Meeting"
+          title="End Video Call"
         >
           <PhoneOff className="w-5 h-5" />
-          <span>End Meeting</span>
+          <span>End Call</span>
         </button>
 
       </div>

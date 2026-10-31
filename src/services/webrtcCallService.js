@@ -40,6 +40,7 @@ class WebRTCCallService {
     this.mediaPromise = null;
     this.hardwareError = null;
     this.callHandshakeEstablished = false;
+    this.isOfferSent = false;
     this.handledIncomingCallIds = new Set();
     this.listeningUserIds = [];
 
@@ -649,7 +650,6 @@ class WebRTCCallService {
         console.log('[WebRTC onicecandidate] Generated candidate:', event.candidate.candidate.slice(0, 50));
         if (this.activeSessionChannel && this.isChannelSubscribed) {
           this.sendSessionBroadcast('webrtc-ice-candidate', candidatePayload);
-          this.sendSessionBroadcast('ice-candidate', candidatePayload);
         } else {
           this.outgoingIceCandidateQueue.push(candidatePayload);
         }
@@ -696,8 +696,13 @@ class WebRTCCallService {
   }
 
   handleCallAcceptedEvent() {
+    if (this.isOfferSent && this.peerConnection && this.peerConnection.signalingState !== 'stable') {
+      console.log('[WebRTC] Offer already initiated and negotiation in progress, skipping duplicate call-accepted event');
+      return;
+    }
     console.log('[WebRTC] Callee accepted call. Creating WebRTC offer...');
     this.callHandshakeEstablished = true;
+    this.isOfferSent = true;
     if (this.broadcastInterval) {
       clearInterval(this.broadcastInterval);
       this.broadcastInterval = null;
@@ -1052,7 +1057,6 @@ class WebRTCCallService {
 
     const sendAcceptedAck = async () => {
       await this.sendSessionBroadcast('call-accepted', ackPayload);
-      await this.sendSessionBroadcast('answer-call', ackPayload);
     };
 
     return new Promise((resolve) => {
@@ -1060,16 +1064,16 @@ class WebRTCCallService {
         this.isChannelSubscribed = true;
         sendAcceptedAck();
 
-        // Repeat accept ACK every 1000ms until offer arrives or connection established
+        // Send confirmation ACK up to 3 times or until offer arrives
         let ackCount = 0;
         const ackInterval = setInterval(() => {
           ackCount++;
-          if (ackCount > 10 || this.callHandshakeEstablished || !this.currentCallId) {
+          if (ackCount >= 3 || this.callHandshakeEstablished || !this.currentCallId) {
             clearInterval(ackInterval);
           } else {
             sendAcceptedAck();
           }
-        }, 1000);
+        }, 1500);
 
         if (this.onCallStatusChangeCallback) {
           this.onCallStatusChangeCallback('connected');
@@ -1220,6 +1224,11 @@ class WebRTCCallService {
     this.attachTracksToPeerConnection();
 
     try {
+      if (this.peerConnection.remoteDescription && this.peerConnection.signalingState === 'stable') {
+        console.log('[WebRTC] Peer connection already established and stable, ignoring duplicate offer');
+        return;
+      }
+
       console.log('[WebRTC] Setting remote description from Offer...');
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offerSdp));
 
@@ -1227,8 +1236,11 @@ class WebRTCCallService {
       while (this.iceCandidateQueue.length > 0) {
         const candidate = this.iceCandidateQueue.shift();
         try {
-          if (candidate && candidate.candidate) {
-            await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          const rawCandidate = (candidate && candidate.candidate && typeof candidate.candidate === 'object')
+            ? candidate.candidate
+            : candidate;
+          if (rawCandidate && (rawCandidate.candidate || typeof rawCandidate === 'string')) {
+            await this.peerConnection.addIceCandidate(new RTCIceCandidate(rawCandidate));
             console.log('[WebRTC] Successfully added queued ICE candidate');
           }
         } catch (e) {
@@ -1263,17 +1275,22 @@ class WebRTCCallService {
     }
     try {
       this.attachTracksToPeerConnection();
-      if (this.peerConnection.signalingState !== 'stable') {
+      if (this.peerConnection.signalingState === 'have-local-offer') {
         console.log('[WebRTC] Setting remote description from Answer...');
         await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answerSdp));
+      } else {
+        console.log(`[WebRTC] Skipping setRemoteDescription(answer), signalingState is ${this.peerConnection.signalingState}`);
       }
 
       // Drain queued ICE candidates
       while (this.iceCandidateQueue.length > 0) {
         const candidate = this.iceCandidateQueue.shift();
         try {
-          if (candidate && candidate.candidate) {
-            await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          const rawCandidate = (candidate && candidate.candidate && typeof candidate.candidate === 'object')
+            ? candidate.candidate
+            : candidate;
+          if (rawCandidate && (rawCandidate.candidate || typeof rawCandidate === 'string')) {
+            await this.peerConnection.addIceCandidate(new RTCIceCandidate(rawCandidate));
             console.log('[WebRTC] Successfully added queued ICE candidate in answer handler');
           }
         } catch (e) {
@@ -1289,13 +1306,18 @@ class WebRTCCallService {
    * Handle incoming remote ICE candidates
    */
   async handleRemoteIceCandidate(candidateData) {
-    if (!candidateData || !candidateData.candidate) return;
+    if (!candidateData) return;
+    const candidateObj = (candidateData.candidate && typeof candidateData.candidate === 'object')
+      ? candidateData.candidate
+      : candidateData;
+    if (!candidateObj || (!candidateObj.candidate && typeof candidateObj !== 'string')) return;
+
     try {
       if (this.peerConnection && this.peerConnection.remoteDescription && this.peerConnection.remoteDescription.type) {
-        await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
+        await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidateObj));
         console.log('[WebRTC] Added remote ICE candidate');
       } else {
-        this.iceCandidateQueue.push(candidateData);
+        this.iceCandidateQueue.push(candidateObj);
       }
     } catch (err) {
       console.warn('[WebRTC] Failed to add ICE candidate:', err);
@@ -1418,6 +1440,7 @@ class WebRTCCallService {
     this.outgoingIceCandidateQueue = [];
     this.isChannelSubscribed = false;
     this.isInitiator = false;
+    this.isOfferSent = false;
     this.callHandshakeEstablished = false;
     this.hardwareError = null;
   }
