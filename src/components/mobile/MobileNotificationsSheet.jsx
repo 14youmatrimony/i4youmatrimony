@@ -19,7 +19,53 @@ import {
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import NotificationCard from './NotificationCard';
 
-export { NotificationCard };
+// Standalone module helpers to guarantee zero ReferenceError / TDZ initialization bugs
+function isSelfProfileHelper(p, currentUser) {
+  if (!p || !currentUser) return false;
+  const uId = String(currentUser.id || '');
+  const uReg = String(currentUser.register_id || currentUser.registerId || '');
+  const uPhone = String(currentUser.mobile || currentUser.phone || '').replace(/[^0-9]/g, '');
+  const uUsrId = uPhone && uPhone.length >= 10 ? `usr_${uPhone.slice(-10)}` : '';
+
+  const pId = String(p.id || p.senderId || p.sender_id || p.profileId || '');
+  const pReg = String(p.register_id || p.registerId || '');
+  const pPhone = String(p.mobile || p.phone || '').replace(/[^0-9]/g, '');
+
+  if (uId && (pId === uId || pReg === uId)) return true;
+  if (uReg && (pId === uReg || pReg === uReg)) return true;
+  if (uUsrId && (pId === uUsrId || pId.includes(uUsrId))) return true;
+  if (uPhone && pPhone && (pPhone === uPhone || pPhone.endsWith(uPhone) || uPhone.endsWith(pPhone))) return true;
+  if (uPhone && uPhone.length >= 10 && pId.includes(uPhone.slice(-10))) return true;
+  return false;
+}
+
+function isGenericPlaceholder(name) {
+  if (!name || typeof name !== 'string') return true;
+  const clean = name.trim().toLowerCase();
+  return clean === '' || 
+    clean === 'a member' || 
+    clean === 'a verified member' || 
+    clean === 'verified member' || 
+    clean === 'member' || 
+    clean === 'candidate' || 
+    clean === 'a candidate' ||
+    clean === 'verified candidate' ||
+    clean === 'someone' ||
+    clean === 'null' ||
+    clean === 'undefined' ||
+    clean.startsWith('usr_') ||
+    clean.startsWith('member usr_') ||
+    clean.includes('usr_') ||
+    clean.startsWith('sim-') ||
+    clean.startsWith('auth_') ||
+    /^[0-9+]+$/.test(clean);
+}
+
+function isPaymentNotification(n) {
+  if (!n) return false;
+  const type = (n.type || '').toLowerCase();
+  return type === 'payment_success' || type === 'payment' || type === 'payment_failed' || type === 'payment_received' || type === 'subscription';
+}
 
 export default function MobileNotificationsSheet({
   isOpen,
@@ -119,86 +165,7 @@ export default function MobileNotificationsSheet({
 
   if (!isOpen) return null;
 
-  const unreadCount = (notifications || []).filter(n => n && !n.isRead).length;
-
-  const filteredNotifications = (() => {
-    const list = (notifications || []).filter(Boolean).filter(notif => {
-      // Exclude self-sent notifications
-      const sId = notif?.senderId || notif?.sender_id || notif?.profileId;
-      if (sId && isSelfProfile({ id: sId })) return false;
-
-      if (activeFilter === 'all') return true;
-      if (activeFilter === 'interest') return notif?.type === 'interest_received' || notif?.type === 'interest';
-      if (activeFilter === 'shortlist') return notif?.type === 'profile_shortlisted' || notif?.type === 'shortlist';
-      if (activeFilter === 'visitor') return notif?.type === 'profile_visitor' || notif?.type === 'visitor';
-      if (activeFilter === 'contact_view') return notif?.type === 'contact_viewed' || notif?.type === 'contact';
-      if (activeFilter === 'message') return notif?.type === 'message_received' || notif?.type === 'chat_message' || notif?.type === 'message';
-      return true;
-    });
-
-    // Deduplicate: If multiple notifications refer to the same interest / sender, keep the latest
-    const seenMap = new Map();
-    list.forEach(notif => {
-      const isInterest = notif?.type === 'interest' || notif?.type === 'interest_received';
-      const sender = notif?.senderId || notif?.sender_id || notif?.profileId;
-      const dedupeKey = isInterest && sender 
-        ? `interest_${sender}` 
-        : (notif?.notification_id || notif?.id || Math.random());
-      
-      if (!seenMap.has(dedupeKey)) {
-        seenMap.set(dedupeKey, notif);
-      }
-    });
-
-    return Array.from(seenMap.values());
-  })();
-
-  const isSelfProfile = (p) => {
-    if (!p || !currentUser) return false;
-    const uId = String(currentUser.id || '');
-    const uReg = String(currentUser.register_id || currentUser.registerId || '');
-    const uPhone = String(currentUser.mobile || currentUser.phone || '').replace(/[^0-9]/g, '');
-    const uUsrId = uPhone && uPhone.length >= 10 ? `usr_${uPhone.slice(-10)}` : '';
-
-    const pId = String(p.id || p.senderId || p.sender_id || p.profileId || '');
-    const pReg = String(p.register_id || p.registerId || '');
-    const pPhone = String(p.mobile || p.phone || '').replace(/[^0-9]/g, '');
-
-    if (uId && (pId === uId || pReg === uId)) return true;
-    if (uReg && (pId === uReg || pReg === uReg)) return true;
-    if (uUsrId && (pId === uUsrId || pId.includes(uUsrId))) return true;
-    if (uPhone && pPhone && (pPhone === uPhone || pPhone.endsWith(uPhone) || uPhone.endsWith(pPhone))) return true;
-    if (uPhone && uPhone.length >= 10 && pId.includes(uPhone.slice(-10))) return true;
-    return false;
-  };
-
-  const isGenericPlaceholder = (name) => {
-    if (!name || typeof name !== 'string') return true;
-    const clean = name.trim().toLowerCase();
-    return clean === '' || 
-      clean === 'a member' || 
-      clean === 'a verified member' || 
-      clean === 'verified member' || 
-      clean === 'member' || 
-      clean === 'candidate' || 
-      clean === 'a candidate' ||
-      clean === 'verified candidate' ||
-      clean === 'someone' ||
-      clean === 'null' ||
-      clean === 'undefined' ||
-      clean.startsWith('usr_') ||
-      clean.startsWith('member usr_') ||
-      clean.includes('usr_') ||
-      clean.startsWith('sim-') ||
-      clean.startsWith('auth_') ||
-      /^[0-9+]+$/.test(clean);
-  };
-
-  const isPaymentNotification = (n) => {
-    if (!n) return false;
-    const type = (n.type || '').toLowerCase();
-    return type === 'payment_success' || type === 'payment' || type === 'payment_failed' || type === 'payment_received' || type === 'subscription';
-  };
+  const isSelfProfile = (p) => isSelfProfileHelper(p, currentUser);
 
   const getProfile = (profileId, notif = null, index = 0) => {
     // Payment notifications must NEVER map or borrow candidate profiles!
@@ -358,9 +325,14 @@ export default function MobileNotificationsSheet({
   };
 
   const handleNotificationCardClick = (notif, profile) => {
-    const notifId = notif.notification_id || notif.id;
-    if (!notif.isRead && onMarkAsRead) {
-      onMarkAsRead(notifId);
+    // If notif is a grouped item with multiple notification IDs, mark all as read
+    if (notif?.groupedNotifIds && Array.isArray(notif.groupedNotifIds) && onMarkAsRead) {
+      notif.groupedNotifIds.forEach(id => onMarkAsRead(id));
+    } else {
+      const notifId = notif.notification_id || notif.id;
+      if (!notif.isRead && onMarkAsRead) {
+        onMarkAsRead(notifId);
+      }
     }
 
     // Payment notifications strictly handle tax invoices/receipts, never opening candidate profiles or chats
@@ -406,6 +378,14 @@ export default function MobileNotificationsSheet({
       if (profile && onOpenProfile) {
         onOpenProfile(profile);
       }
+    }
+  };
+
+  const handleDeleteNotificationItem = (notif) => {
+    if (notif?.groupedNotifIds && Array.isArray(notif.groupedNotifIds) && onDeleteNotification) {
+      notif.groupedNotifIds.forEach(id => onDeleteNotification(id));
+    } else if (onDeleteNotification) {
+      onDeleteNotification(notif.notification_id || notif.id);
     }
   };
 
@@ -525,15 +505,110 @@ export default function MobileNotificationsSheet({
     }
   };
 
-  const safeNotifs = (notifications || []).filter(Boolean);
-  const counts = {
-    all: safeNotifs.length,
-    interest: safeNotifs.filter(n => n?.type === 'interest_received' || n?.type === 'interest').length,
-    shortlist: safeNotifs.filter(n => n?.type === 'profile_shortlisted' || n?.type === 'shortlist').length,
-    visitor: safeNotifs.filter(n => n?.type === 'profile_visitor' || n?.type === 'visitor').length,
-    contact_view: safeNotifs.filter(n => n?.type === 'contact_viewed' || n?.type === 'contact').length,
-    message: safeNotifs.filter(n => n?.type === 'message_received' || n?.type === 'chat_message' || n?.type === 'message').length
-  };
+  // Group notifications:
+  // 1. Group chat messages by chat_id or sender_id so that each profile has exactly ONE entry displaying the latest message snippet
+  // 2. Group interests by sender_id so duplicate interest signals collapse into one entry
+  // 3. Keep other notifications (payment, shortlist, visitor, contact) distinct
+  const { groupedNotifications, counts } = (() => {
+    const rawList = (notifications || []).filter(Boolean).filter(notif => {
+      const sId = notif?.senderId || notif?.sender_id || notif?.profileId;
+      if (sId && isSelfProfile({ id: sId })) return false;
+      return true;
+    });
+
+    const groupMap = new Map();
+
+    rawList.forEach((notif) => {
+      const isInterest = notif?.type === 'interest' || notif?.type === 'interest_received';
+      const isMessage = notif?.type === 'message' || notif?.type === 'chat_message' || notif?.type === 'message_received';
+
+      const sender = notif?.senderId || notif?.sender_id || notif?.profileId || notif?.profile?.id;
+      const chatId = notif?.chat_id || notif?.chatId || notif?.conversation_id || notif?.conversationId;
+
+      let groupKey;
+      if (isMessage) {
+        // Group by conversation/chat or sender so there is only ONE entry per profile
+        groupKey = chatId ? `msg_chat_${chatId}` : (sender ? `msg_sender_${sender}` : (notif?.notification_id || notif?.id || `msg_${Math.random()}`));
+      } else if (isInterest && sender) {
+        groupKey = `interest_${sender}`;
+      } else {
+        groupKey = notif?.notification_id || notif?.id || `notif_${Math.random()}`;
+      }
+
+      const notifId = notif.notification_id || notif.id;
+
+      if (!groupMap.has(groupKey)) {
+        groupMap.set(groupKey, {
+          ...notif,
+          groupedNotifIds: notifId ? [notifId] : [],
+          messageCount: isMessage ? 1 : undefined,
+          isRead: Boolean(notif.isRead || notif.is_read)
+        });
+      } else {
+        const existing = groupMap.get(groupKey);
+
+        if (notifId && !existing.groupedNotifIds.includes(notifId)) {
+          existing.groupedNotifIds.push(notifId);
+        }
+
+        if (isMessage) {
+          existing.messageCount = (existing.messageCount || 1) + 1;
+        }
+
+        // If any message in the group is unread, the overall card remains unread
+        const thisIsRead = Boolean(notif.isRead || notif.is_read);
+        const groupIsRead = existing.isRead && thisIsRead;
+
+        const existingTime = new Date(existing.created_at || existing.timestamp || 0).getTime();
+        const newTime = new Date(notif.created_at || notif.timestamp || 0).getTime();
+
+        if (newTime >= existingTime) {
+          groupMap.set(groupKey, {
+            ...notif,
+            groupedNotifIds: existing.groupedNotifIds,
+            messageCount: existing.messageCount,
+            isRead: groupIsRead,
+            message: notif.message || notif.quote || existing.message,
+            quote: notif.quote || notif.message || existing.quote,
+            time: notif.time || existing.time,
+            created_at: notif.created_at || existing.created_at,
+            timestamp: notif.timestamp || existing.timestamp
+          });
+        } else {
+          existing.isRead = groupIsRead;
+        }
+      }
+    });
+
+    const allGrouped = Array.from(groupMap.values()).sort((a, b) => {
+      const timeA = new Date(a.created_at || a.timestamp || 0).getTime();
+      const timeB = new Date(b.created_at || b.timestamp || 0).getTime();
+      return timeB - timeA;
+    });
+
+    const computedCounts = {
+      all: allGrouped.length,
+      interest: allGrouped.filter(n => n?.type === 'interest_received' || n?.type === 'interest').length,
+      message: allGrouped.filter(n => n?.type === 'message_received' || n?.type === 'chat_message' || n?.type === 'message').length,
+      shortlist: allGrouped.filter(n => n?.type === 'profile_shortlisted' || n?.type === 'shortlist').length,
+      visitor: allGrouped.filter(n => n?.type === 'profile_visitor' || n?.type === 'visitor').length,
+      contact_view: allGrouped.filter(n => n?.type === 'contact_viewed' || n?.type === 'contact').length,
+    };
+
+    const filtered = allGrouped.filter(notif => {
+      if (activeFilter === 'all') return true;
+      if (activeFilter === 'interest') return notif?.type === 'interest_received' || notif?.type === 'interest';
+      if (activeFilter === 'message') return notif?.type === 'message_received' || notif?.type === 'chat_message' || notif?.type === 'message';
+      if (activeFilter === 'shortlist') return notif?.type === 'profile_shortlisted' || notif?.type === 'shortlist';
+      if (activeFilter === 'visitor') return notif?.type === 'profile_visitor' || notif?.type === 'visitor';
+      if (activeFilter === 'contact_view') return notif?.type === 'contact_viewed' || notif?.type === 'contact';
+      return true;
+    });
+
+    return { groupedNotifications: filtered, counts: computedCounts };
+  })();
+
+  const unreadCount = (groupedNotifications || []).filter(n => n && !n.isRead).length;
 
   const sheetContent = (
     <div className="flex flex-col h-full w-full overflow-hidden bg-slate-50">
@@ -739,7 +814,7 @@ export default function MobileNotificationsSheet({
 
       {/* Notifications Scroll List */}
       <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 space-y-2">
-        {filteredNotifications.length === 0 ? (
+        {groupedNotifications.length === 0 ? (
           <div className="py-8 px-4 text-center space-y-2">
             <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
               <Bell className="w-5 h-5" />
@@ -750,7 +825,7 @@ export default function MobileNotificationsSheet({
             </p>
           </div>
         ) : (
-          filteredNotifications.map((notif, index) => {
+          groupedNotifications.map((notif, index) => {
             const uniqueKey = notif.notification_id || notif.id || `notif_${notif.senderId || notif.sender_id || index}_${notif.created_at || notif.timestamp || index}`;
             const isPayment = isPaymentNotification(notif);
             const profile = isPayment ? null : getProfile(notif.profileId, notif, index);
@@ -768,8 +843,14 @@ export default function MobileNotificationsSheet({
                 onOpenChat={onOpenChat}
                 onOpenProfile={onOpenProfile}
                 onViewInvoice={onViewInvoice}
-                onMarkAsRead={onMarkAsRead}
-                onDeleteNotification={onDeleteNotification}
+                onMarkAsRead={() => {
+                  if (notif?.groupedNotifIds && Array.isArray(notif.groupedNotifIds) && onMarkAsRead) {
+                    notif.groupedNotifIds.forEach(gid => onMarkAsRead(gid));
+                  } else if (onMarkAsRead) {
+                    onMarkAsRead(notif.notification_id || notif.id);
+                  }
+                }}
+                onDeleteNotification={() => handleDeleteNotificationItem(notif)}
                 triggerScreenshotBlock={triggerScreenshotBlock}
                 getNotificationIcon={getNotificationIcon}
                 getCategoryBadge={getCategoryBadge}

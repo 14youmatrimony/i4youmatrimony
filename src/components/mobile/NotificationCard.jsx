@@ -133,7 +133,8 @@ export default function NotificationCard({
       }
     }
     if (notif.type === 'message' || notif.type === 'chat_message' || notif.type === 'message_received') {
-      return `💬 Message from ${candidateName}`;
+      const countSuffix = notif.messageCount && notif.messageCount > 1 ? ` (${notif.messageCount})` : '';
+      return `💬 Message from ${candidateName}${countSuffix}`;
     }
     if (notif.type === 'shortlist' || notif.type === 'profile_shortlisted') {
       return `⭐ ${candidateName} shortlisted your profile!`;
@@ -497,7 +498,13 @@ export default function NotificationCard({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                        if (!isRead && onMarkAsRead) {
+                      if (notif.groupedNotifIds && Array.isArray(notif.groupedNotifIds)) {
+                        notif.groupedNotifIds.forEach(id => onMarkAsRead(id));
+                      } else {
+                        onMarkAsRead(notif.id || notif.notification_id);
+                      }
+                    }
                         onOpenChat(
                           notif.user_id || notif.userId || notif.senderId || profile.id,
                           null,
@@ -514,7 +521,13 @@ export default function NotificationCard({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                        if (!isRead && onMarkAsRead) {
+                      if (notif.groupedNotifIds && Array.isArray(notif.groupedNotifIds)) {
+                        notif.groupedNotifIds.forEach(id => onMarkAsRead(id));
+                      } else {
+                        onMarkAsRead(notif.id || notif.notification_id);
+                      }
+                    }
                         onOpenProfile(profile);
                       }}
                       className="text-[9px] sm:text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 transition-colors cursor-pointer"
@@ -556,7 +569,13 @@ export default function NotificationCard({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                        if (!isRead && onMarkAsRead) {
+                      if (notif.groupedNotifIds && Array.isArray(notif.groupedNotifIds)) {
+                        notif.groupedNotifIds.forEach(id => onMarkAsRead(id));
+                      } else {
+                        onMarkAsRead(notif.id || notif.notification_id);
+                      }
+                    }
                         onOpenProfile(profile);
                       }}
                       className="px-2.5 py-1 rounded-lg border border-[#DFB76C]/60 hover:border-[#D4AF37] bg-white text-slate-800 text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer ml-auto flex items-center gap-0.5 shadow-2xs"
@@ -588,7 +607,13 @@ export default function NotificationCard({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                    if (!isRead && onMarkAsRead) {
+                      if (notif.groupedNotifIds && Array.isArray(notif.groupedNotifIds)) {
+                        notif.groupedNotifIds.forEach(id => onMarkAsRead(id));
+                      } else {
+                        onMarkAsRead(notif.id || notif.notification_id);
+                      }
+                    }
                     onOpenProfile(profile);
                   }}
                   className="px-2.5 py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer"
@@ -601,7 +626,13 @@ export default function NotificationCard({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                    if (!isRead && onMarkAsRead) {
+                      if (notif.groupedNotifIds && Array.isArray(notif.groupedNotifIds)) {
+                        notif.groupedNotifIds.forEach(id => onMarkAsRead(id));
+                      } else {
+                        onMarkAsRead(notif.id || notif.notification_id);
+                      }
+                    }
                     onOpenChat(
                       notif.user_id || notif.userId || notif.senderId || profile.id,
                       null,
@@ -624,7 +655,13 @@ export default function NotificationCard({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                    if (!isRead && onMarkAsRead) {
+                      if (notif.groupedNotifIds && Array.isArray(notif.groupedNotifIds)) {
+                        notif.groupedNotifIds.forEach(id => onMarkAsRead(id));
+                      } else {
+                        onMarkAsRead(notif.id || notif.notification_id);
+                      }
+                    }
                     onOpenProfile(profile);
                   }}
                   className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
@@ -637,7 +674,13 @@ export default function NotificationCard({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                    if (!isRead && onMarkAsRead) {
+                      if (notif.groupedNotifIds && Array.isArray(notif.groupedNotifIds)) {
+                        notif.groupedNotifIds.forEach(id => onMarkAsRead(id));
+                      } else {
+                        onMarkAsRead(notif.id || notif.notification_id);
+                      }
+                    }
                     onOpenChat(
                       notif.user_id || notif.userId || notif.senderId || profile.id,
                       null,
@@ -660,7 +703,13 @@ export default function NotificationCard({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                    if (!isRead && onMarkAsRead) {
+                      if (notif.groupedNotifIds && Array.isArray(notif.groupedNotifIds)) {
+                        notif.groupedNotifIds.forEach(id => onMarkAsRead(id));
+                      } else {
+                        onMarkAsRead(notif.id || notif.notification_id);
+                      }
+                    }
                     onOpenChat(
                       notif.user_id || notif.userId || notif.senderId || profile.id,
                       notif.quote || notif.message,
@@ -677,7 +726,13 @@ export default function NotificationCard({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!isRead && onMarkAsRead) onMarkAsRead(notif.id);
+                    if (!isRead && onMarkAsRead) {
+                      if (notif.groupedNotifIds && Array.isArray(notif.groupedNotifIds)) {
+                        notif.groupedNotifIds.forEach(id => onMarkAsRead(id));
+                      } else {
+                        onMarkAsRead(notif.id || notif.notification_id);
+                      }
+                    }
                     onOpenProfile(profile);
                   }}
                   className="px-2.5 py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer"

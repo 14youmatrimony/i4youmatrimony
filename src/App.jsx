@@ -1992,7 +1992,7 @@ export default function App() {
         return nextConvs;
       });
 
-      // Synchronize to Global Notifications
+      // Synchronize to Global Notifications (one entry per conversation/sender with latest snippet)
       const notifId = incoming.id ? `notif_chat_${incoming.id}` : `notif_chat_${Date.now()}`;
       setNotifications(prev => [
         {
@@ -2005,12 +2005,23 @@ export default function App() {
           senderName,
           profileId: senderId,
           conversationId: convId,
+          chat_id: convId,
+          chatId: convId,
           time: 'Just now',
           isRead: false,
           created_at: new Date().toISOString(),
           timestamp: Date.now()
         },
-        ...(prev || []).filter(n => n.id !== notifId && n.notification_id !== notifId)
+        ...(prev || []).filter(n => {
+          if (n.id === notifId || n.notification_id === notifId) return false;
+          const isMsg = n.type === 'chat_message' || n.type === 'message' || n.type === 'message_received';
+          if (isMsg) {
+            const matchesConv = convId && (n.conversationId === convId || n.chat_id === convId || n.chatId === convId);
+            const matchesSender = senderId && (String(n.senderId || n.sender_id || n.profileId) === String(senderId));
+            if (matchesConv || matchesSender) return false;
+          }
+          return true;
+        })
       ]);
 
       // Notify foreground listeners across screens and tabs
