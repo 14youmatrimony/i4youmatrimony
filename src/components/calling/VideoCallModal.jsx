@@ -111,12 +111,14 @@ export default function VideoCallModal({
   // Handle incoming remote media (both video and audio)
   const handleRemoteStream = (stream) => {
     if (!stream) return;
-    console.log('[VideoCall] handleRemoteStream received:', stream?.getTracks()?.map(t => `${t.kind}:${t.enabled}`));
+    console.log('[VideoCall] handleRemoteStream received:', stream?.getTracks()?.map(t => `${t.kind}:${t.readyState}`));
     setRemoteStream(stream);
 
     const checkTracks = () => {
-      const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live' && t.enabled);
-      if (vTracks.length > 0) setHasRemoteVideo(true);
+      const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live');
+      if (vTracks.length > 0) {
+        setHasRemoteVideo(true);
+      }
     };
 
     stream.onaddtrack = checkTracks;
@@ -149,6 +151,11 @@ export default function VideoCallModal({
     const stream = remoteStream || webrtcCallService.remoteStream;
     if (!stream) return;
 
+    const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live');
+    if (vTracks.length > 0) {
+      setHasRemoteVideo(true);
+    }
+
     if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== stream) {
       remoteVideoRef.current.srcObject = stream;
     }
@@ -165,13 +172,13 @@ export default function VideoCallModal({
     }
 
     const checkTracks = () => {
-      const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live' && t.enabled);
-      if (vTracks.length > 0) setHasRemoteVideo(true);
+      const liveVTracks = stream.getVideoTracks().filter(t => t.readyState === 'live');
+      if (liveVTracks.length > 0) setHasRemoteVideo(true);
     };
     stream.onaddtrack = checkTracks;
     stream.onremovetrack = checkTracks;
     checkTracks();
-  }, [remoteStream, remoteVideoRef.current, remoteAudioRef.current, callStatus]);
+  }, [remoteStream, callStatus]);
 
   // Local stream binding check
   useEffect(() => {
@@ -343,7 +350,12 @@ export default function VideoCallModal({
         maxHeight: '100dvh',
         maxWidth: '100vw'
       }}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (remoteAudioRef.current && remoteAudioRef.current.paused) {
+          remoteAudioRef.current.play().catch(() => {});
+        }
+      }}
     >
       {/* Dedicated Hidden Remote Audio Element for guaranteed bidirectional voice audio */}
       <audio ref={remoteAudioRef} autoPlay playsInline muted={false} controls={false} />
@@ -358,6 +370,8 @@ export default function VideoCallModal({
           playsInline
           muted={true}
           onLoadedMetadata={() => setHasRemoteVideo(true)}
+          onLoadedData={() => setHasRemoteVideo(true)}
+          onCanPlay={() => setHasRemoteVideo(true)}
           onPlaying={() => setHasRemoteVideo(true)}
           className={`w-full h-full object-cover transition-opacity duration-300 ${hasRemoteVideo ? 'opacity-100' : 'opacity-0'}`}
         />

@@ -249,12 +249,28 @@ class WebRTCCallService {
       console.log('[WebRTC] Callee accepted call. Creating SDP offer...');
       this.onCallStatusChangeCallback?.('connected');
       try {
+        // Ensure transceivers for audio and video
+        if (this.peerConnection.getTransceivers) {
+          const transceivers = this.peerConnection.getTransceivers();
+          const hasAudio = transceivers.some(t => t.receiver.track?.kind === 'audio' || t.sender.track?.kind === 'audio');
+          const hasVideo = transceivers.some(t => t.receiver.track?.kind === 'video' || t.sender.track?.kind === 'video');
+          if (!hasAudio) {
+            this.peerConnection.addTransceiver('audio', { direction: 'sendrecv' });
+          }
+          if (this.callType === 'video' && !hasVideo) {
+            this.peerConnection.addTransceiver('video', { direction: 'sendrecv' });
+          }
+        }
+
         const offer = await this.peerConnection.createOffer({
           offerToReceiveAudio: true,
           offerToReceiveVideo: this.callType === 'video'
         });
         await this.peerConnection.setLocalDescription(offer);
-        await this.sendSignal('webrtc-offer', { sdp: offer });
+        await this.sendSignal('webrtc-offer', {
+          sdp: offer.sdp,
+          type: offer.type || 'offer'
+        });
         console.log('[WebRTC] SDP offer sent successfully.');
       } catch (e) {
         console.error('[WebRTC] Create offer error:', e);
@@ -264,7 +280,14 @@ class WebRTCCallService {
     else if (payload.type === 'webrtc-offer' && this.peerConnection && payload.data?.sdp) {
       console.log('[WebRTC] Received SDP offer. Setting remote description...');
       try {
-        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(payload.data.sdp));
+        const sdpData = payload.data.sdp;
+        const sdpType = payload.data.type || 'offer';
+        const sdpString = typeof sdpData === 'string' ? sdpData : (sdpData?.sdp || sdpData);
+        const offerDesc = new RTCSessionDescription({
+          type: sdpType,
+          sdp: sdpString
+        });
+        await this.peerConnection.setRemoteDescription(offerDesc);
         this.isRemoteDescriptionSet = true;
         await this.flushIceCandidates();
 
@@ -273,7 +296,10 @@ class WebRTCCallService {
           offerToReceiveVideo: this.callType === 'video'
         });
         await this.peerConnection.setLocalDescription(answer);
-        await this.sendSignal('webrtc-answer', { sdp: answer });
+        await this.sendSignal('webrtc-answer', {
+          sdp: answer.sdp,
+          type: answer.type || 'answer'
+        });
         console.log('[WebRTC] SDP answer created and sent.');
       } catch (e) {
         console.error('[WebRTC] Handle offer error:', e);
@@ -283,7 +309,14 @@ class WebRTCCallService {
     else if (payload.type === 'webrtc-answer' && this.peerConnection && payload.data?.sdp) {
       console.log('[WebRTC] Received SDP answer. Setting remote description...');
       try {
-        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(payload.data.sdp));
+        const sdpData = payload.data.sdp;
+        const sdpType = payload.data.type || 'answer';
+        const sdpString = typeof sdpData === 'string' ? sdpData : (sdpData?.sdp || sdpData);
+        const answerDesc = new RTCSessionDescription({
+          type: sdpType,
+          sdp: sdpString
+        });
+        await this.peerConnection.setRemoteDescription(answerDesc);
         this.isRemoteDescriptionSet = true;
         await this.flushIceCandidates();
         console.log('[WebRTC] Remote description set and ICE candidates flushed on caller.');
@@ -355,33 +388,40 @@ class WebRTCCallService {
     const config = getRTCConfig();
     this.peerConnection = new RTCPeerConnection(config);
     this.isRemoteDescriptionSet = false;
-    this.iceCandidateQueue = [];
+    // Preserve any candidates already queued before createPeerConnection resolved
 
     this.peerConnection.onicecandidate = (e) => {
       if (e.candidate) {
-        this.sendSignal('ice-candidate', { candidate: e.candidate });
+        this.sendSignal('ice-candidate', {
+          candidate: {
+            candidate: e.candidate.candidate,
+            sdpMid: e.candidate.sdpMid,
+            sdpMLineIndex: e.candidate.sdpMLineIndex,
+            usernameFragment: e.candidate.usernameFragment
+          }
+        });
       }
     };
 
     this.peerConnection.ontrack = (e) => {
       console.log('[WebRTC] ontrack event triggered. Track kind:', e.track?.kind, 'streams:', e.streams?.length);
-      let stream = (e.streams && e.streams[0]) ? e.streams[0] : null;
-      if (!stream) {
-        if (!this.remoteStream) {
-          this.remoteStream = new MediaStream();
-        }
-        this.remoteStream.addTrack(e.track);
-        stream = this.remoteStream;
-      } else {
-        this.remoteStream = stream;
+      if (!this.remoteStream) {
+        this.remoteStream = new MediaStream();
       }
+      
+      const existing = this.remoteStream.getTracks().find(t => t.id === e.track.id || t.kind === e.track.kind);
+      if (existing) {
+        try { this.remoteStream.removeTrack(existing); } catch (err) {}
+      }
+      this.remoteStream.addTrack(e.track);
 
       if (e.track) {
         e.track.enabled = true;
       }
 
-      // Trigger UI state rebuild (calls setState in React components)
-      this.onRemoteStreamCallback?.(this.remoteStream);
+      // Always pass a new MediaStream instance so React state recognizes the updated reference
+      const freshStream = new MediaStream(this.remoteStream.getTracks());
+      this.onRemoteStreamCallback?.(freshStream);
     };
 
     this.peerConnection.onconnectionstatechange = () => {

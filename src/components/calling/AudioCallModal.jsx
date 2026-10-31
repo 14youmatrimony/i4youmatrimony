@@ -438,7 +438,12 @@ export default function AudioCallModal({
         paddingLeft: '1rem',
         paddingRight: '1rem'
       }}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (remoteAudioRef.current && remoteAudioRef.current.paused) {
+          remoteAudioRef.current.play().catch(() => {});
+        }
+      }}
     >
       {/* Hidden WebRTC Remote Audio Output */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
