@@ -11,7 +11,7 @@ import {
   X,
   Radio
 } from 'lucide-react';
-import { webrtcCallService } from '../../services/webrtcCallService';
+import { webrtcCallService, Helper } from '../../services/webrtcCallService';
 
 export default function AudioCallModal({
   isOpen,
@@ -371,14 +371,16 @@ export default function AudioCallModal({
     if (audioEl.srcObject !== stream) {
       audioEl.srcObject = stream;
     }
+    Helper.setSpeakerphoneOn(isSpeakerOn, audioEl);
     safePlayMedia(audioEl, 'remoteAudio');
 
     const handleTrackChange = () => {
+      Helper.setSpeakerphoneOn(isSpeakerOn, audioEl);
       safePlayMedia(audioEl, 'remoteAudio');
     };
     stream.onaddtrack = handleTrackChange;
     stream.onremovetrack = handleTrackChange;
-  }, [remoteStream, remoteAudioRef.current, callStatus]);
+  }, [remoteStream, remoteAudioRef.current, callStatus, isSpeakerOn]);
 
   if (!isOpen || !candidate) return null;
 
@@ -392,6 +394,12 @@ export default function AudioCallModal({
     const nextMute = !isMuted;
     setIsMuted(nextMute);
     webrtcCallService.toggleAudio(!nextMute);
+  };
+
+  const handleToggleSpeaker = async () => {
+    const nextSpeaker = !isSpeakerOn;
+    setIsSpeakerOn(nextSpeaker);
+    await Helper.setSpeakerphoneOn(nextSpeaker, remoteAudioRef.current);
   };
 
   const handleKeypadPress = (digit) => {
@@ -609,7 +617,7 @@ export default function AudioCallModal({
             {/* Speakerphone Button */}
             <button
               type="button"
-              onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+              onClick={handleToggleSpeaker}
               className={`p-3.5 rounded-full border transition-all cursor-pointer shadow-md flex flex-col items-center ${
                 isSpeakerOn 
                   ? 'bg-[#DFB76C]/20 text-[#DFB76C] border-[#D4AF37]/60 ring-2 ring-[#DFB76C]/30' 

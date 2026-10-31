@@ -8,7 +8,7 @@ import {
   SwitchCamera, 
   ShieldCheck 
 } from 'lucide-react';
-import { webrtcCallService } from '../../services/webrtcCallService';
+import { webrtcCallService, Helper } from '../../services/webrtcCallService';
 
 export default function VideoCallModal({
   isOpen,
@@ -136,6 +136,7 @@ export default function VideoCallModal({
       remoteAudioRef.current.srcObject = stream;
     }
     if (remoteAudioRef.current) {
+      Helper.setSpeakerphoneOn(true, remoteAudioRef.current);
       safePlayMedia(remoteAudioRef.current, 'remoteAudio');
     }
 
@@ -159,6 +160,7 @@ export default function VideoCallModal({
       remoteAudioRef.current.srcObject = stream;
     }
     if (remoteAudioRef.current) {
+      Helper.setSpeakerphoneOn(true, remoteAudioRef.current);
       safePlayMedia(remoteAudioRef.current, 'remoteAudio');
     }
 
@@ -463,8 +465,8 @@ export default function VideoCallModal({
             autoPlay
             playsInline
             muted
-            className={`w-full h-full object-cover transform -scale-x-100 ${
-              hasCameraPermission && !isCameraOff ? 'block' : 'hidden'
+            className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-200 ${
+              hasCameraPermission && !isCameraOff ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
           />
           {(!hasCameraPermission || isCameraOff) && (

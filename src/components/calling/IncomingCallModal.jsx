@@ -93,6 +93,9 @@ export default function IncomingCallModal({
     stopAudio();
     try {
       webrtcCallService.primeAudioPlayback();
+      webrtcCallService.initLocalMedia(callType).catch(e => {
+        console.warn('[IncomingCall] Pre-request media permission notice:', e);
+      });
     } catch (e) {}
     if (onAccept) onAccept(incomingCall);
   };
