@@ -3,16 +3,34 @@ import { interestService } from './interestService.js';
 import { fcmNotificationService } from './fcmNotificationService.js';
 
 /**
- * Reliable public Google and Mozilla STUN servers for robust NAT traversal
+ * Reliable public Google and Mozilla STUN + OpenRelay TURN servers for NAT & mobile 4G/5G traversal
  */
 const RTC_CONFIG = {
   iceServers: [
+    // Standard Google STUN
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
     { urls: 'stun:stun4.l.google.com:19302' },
-    { urls: 'stun:stun.services.mozilla.com' }
+    { urls: 'stun:stun.services.mozilla.com' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    // Free Public OpenRelay TURN servers for mobile carrier symmetric NAT traversal
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
   ],
   iceCandidatePoolSize: 10
 };
@@ -27,6 +45,7 @@ class WebRTCCallService {
     this.currentCallId = null;
     this.currentSessionChannelName = null;
     this.currentUserId = null;
+    this.calleeId = null;
     this.iceCandidateQueue = [];
     this.outgoingIceCandidateQueue = [];
     this.isRemoteDescriptionSet = false;
@@ -37,6 +56,7 @@ class WebRTCCallService {
     this.onCallStatusChangeCallback = null;
     this.broadcastInterval = null;
     this.offerInterval = null;
+    this.calleeReadyInterval = null;
     this.dbPollInterval = null;
     this.invitationChannels = [];
     this.mediaPromise = null;
@@ -152,6 +172,35 @@ class WebRTCCallService {
       ids.push(String(userOrId.userId));
     }
     return ids;
+  }
+
+  /**
+   * Helper to extract primary user ID
+   */
+  getPrimaryUserId(userOrId) {
+    if (!userOrId) return '';
+    if (typeof userOrId === 'string') return userOrId.trim();
+    return String(
+      userOrId.id ||
+      userOrId.register_id ||
+      userOrId.registerId ||
+      userOrId.user_id ||
+      userOrId.userId ||
+      ''
+    ).trim();
+  }
+
+  /**
+   * Deterministic room naming based on sorted user IDs
+   */
+  getDeterministicChannelName(user1, user2, callId = null) {
+    const id1 = this.getPrimaryUserId(user1);
+    const id2 = this.getPrimaryUserId(user2);
+    if (id1 && id2) {
+      const sorted = [id1, id2].sort();
+      return `call_${sorted[0]}_${sorted[1]}`;
+    }
+    return callId ? `call_session_${callId}` : `call_room_${Date.now()}`;
   }
 
   /**
@@ -337,9 +386,17 @@ class WebRTCCallService {
     }
 
     // Call session events
-    if (this.currentCallId && data.callId === this.currentCallId) {
-      if (data.event === 'call-accepted' || data.event === 'answer-call') {
-        this.handleCallAcceptedEvent();
+    if (this.currentCallId && (data.callId === this.currentCallId || !data.callId)) {
+      if (data.event === 'callee_ready' || data.event === 'callee-ready') {
+        if (this.isInitiator) {
+          console.log('[WebRTC CrossTab] Received callee_ready event');
+          this.handleCalleeReadyEvent();
+        }
+      } else if (data.event === 'call-accepted' || data.event === 'answer-call') {
+        if (this.isInitiator) {
+          console.log('[WebRTC CrossTab] Received call-accepted event');
+          this.handleCalleeReadyEvent();
+        }
       } else if (data.event === 'call-declined' || data.event === 'call-rejected') {
         this.handleCallDeclinedEvent(payload?.reason);
       } else if (data.event === 'call-ended') {
@@ -366,6 +423,7 @@ class WebRTCCallService {
   async sendSessionBroadcast(event, payload = {}) {
     const enrichedPayload = {
       ...payload,
+      callId: this.currentCallId,
       senderId: this.currentUserId
     };
 
@@ -374,6 +432,8 @@ class WebRTCCallService {
       event,
       payload: enrichedPayload
     };
+
+    console.log(`[WebRTC Signaling OUT] Broadcast [${event}] sent:`, enrichedPayload);
 
     // 1. Cross-tab sync
     if (this.crossTabChannel) {
@@ -391,7 +451,7 @@ class WebRTCCallService {
           payload: enrichedPayload
         });
       } catch (err) {
-        console.warn(`[WebRTC] Failed to send broadcast [${event}]:`, err);
+        console.warn(`[WebRTC Signaling OUT] Failed to broadcast [${event}]:`, err);
       }
     }
   }
@@ -680,7 +740,7 @@ class WebRTCCallService {
     // State Change Handlers
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection ? this.peerConnection.connectionState : 'closed';
-      console.log(`[WebRTC] Connection state: %c${state.toUpperCase()}`, 'font-weight: bold; color: #10B981');
+      console.log(`[WebRTC Connection State] State changed to: %c${state.toUpperCase()}`, 'font-weight: bold; color: #10B981');
       if (state === 'connected') {
         if (this.broadcastInterval) {
           clearInterval(this.broadcastInterval);
@@ -689,6 +749,10 @@ class WebRTCCallService {
         if (this.offerInterval) {
           clearInterval(this.offerInterval);
           this.offerInterval = null;
+        }
+        if (this.calleeReadyInterval) {
+          clearInterval(this.calleeReadyInterval);
+          this.calleeReadyInterval = null;
         }
         if (this.onCallStatusChangeCallback) {
           this.onCallStatusChangeCallback('connected');
@@ -700,80 +764,126 @@ class WebRTCCallService {
       }
     };
 
+    // Detailed ICE connection state logging
     this.peerConnection.oniceconnectionstatechange = () => {
       const iceState = this.peerConnection ? this.peerConnection.iceConnectionState : 'closed';
-      console.log(`[WebRTC] ICE connection state: %c${iceState.toUpperCase()}`, 'font-weight: bold; color: #3B82F6');
+      console.log(`[WebRTC ICE State] State changed to: %c${iceState.toUpperCase()}`, 'font-weight: bold; color: #3B82F6');
       if (iceState === 'failed') {
-        console.warn('[WebRTC] ICE connection failed. Restarting ICE...');
+        console.warn('[WebRTC ICE State] ICE connection failed. Restarting ICE...');
         if (this.isInitiator && this.peerConnection && typeof this.peerConnection.restartIce === 'function') {
           this.peerConnection.restartIce();
         }
       }
     };
 
+    // Detailed signaling state logging
+    this.peerConnection.onsignalingstatechange = () => {
+      const signalingState = this.peerConnection ? this.peerConnection.signalingState : 'closed';
+      console.log(`[WebRTC Signaling State] State changed to: %c${signalingState.toUpperCase()}`, 'font-weight: bold; color: #F59E0B');
+    };
+
+    // Detailed ICE gathering state logging
+    this.peerConnection.onicegatheringstatechange = () => {
+      const gatheringState = this.peerConnection ? this.peerConnection.iceGatheringState : 'closed';
+      console.log(`[WebRTC ICE Gathering State] State changed to: %c${gatheringState.toUpperCase()}`, 'font-weight: bold; color: #8B5CF6');
+    };
+
     return this.peerConnection;
   }
 
+  /**
+   * Pure Supabase Realtime Broadcast listeners for session room
+   */
   attachSessionChannelListeners(channel) {
     if (!channel) return;
     channel
-      .on('broadcast', { event: 'call-accepted' }, ({ payload }) => {
+      .on('broadcast', { event: 'callee_ready' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [callee_ready] received:', payload);
         if (this.isSelfBroadcast(payload)) return;
-        this.handleCallAcceptedEvent();
+        if (this.isInitiator) {
+          await this.handleCalleeReadyEvent();
+        }
       })
-      .on('broadcast', { event: 'answer-call' }, ({ payload }) => {
+      .on('broadcast', { event: 'callee-ready' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [callee-ready] received:', payload);
         if (this.isSelfBroadcast(payload)) return;
-        this.handleCallAcceptedEvent();
+        if (this.isInitiator) {
+          await this.handleCalleeReadyEvent();
+        }
+      })
+      .on('broadcast', { event: 'call-accepted' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [call-accepted] received:', payload);
+        if (this.isSelfBroadcast(payload)) return;
+        if (this.isInitiator) {
+          await this.handleCalleeReadyEvent();
+        }
+      })
+      .on('broadcast', { event: 'answer-call' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [answer-call] received:', payload);
+        if (this.isSelfBroadcast(payload)) return;
+        if (this.isInitiator) {
+          await this.handleCalleeReadyEvent();
+        }
       })
       .on('broadcast', { event: 'call-declined' }, ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [call-declined] received:', payload);
         if (this.isSelfBroadcast(payload)) return;
         this.handleCallDeclinedEvent(payload?.reason);
       })
       .on('broadcast', { event: 'call-rejected' }, ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [call-rejected] received:', payload);
         if (this.isSelfBroadcast(payload)) return;
         this.handleCallDeclinedEvent(payload?.reason);
       })
       .on('broadcast', { event: 'call-ended' }, ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [call-ended] received:', payload);
         if (this.isSelfBroadcast(payload)) return;
         this.handleCallEndedEvent();
       })
-      .on('broadcast', { event: 'webrtc-offer' }, async ({ payload }) => {
+      .on('broadcast', { event: 'offer' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [offer] received:', payload);
         if (this.isSelfBroadcast(payload)) return;
         if (!this.isInitiator && (payload?.sdp || payload?.offer)) {
           await this.handleRemoteOffer(payload.sdp || payload.offer);
         }
       })
-      .on('broadcast', { event: 'offer' }, async ({ payload }) => {
+      .on('broadcast', { event: 'webrtc-offer' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [webrtc-offer] received:', payload);
         if (this.isSelfBroadcast(payload)) return;
         if (!this.isInitiator && (payload?.sdp || payload?.offer)) {
           await this.handleRemoteOffer(payload.sdp || payload.offer);
         }
       })
       .on('broadcast', { event: 'call-made' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [call-made] received:', payload);
         if (this.isSelfBroadcast(payload)) return;
         if (!this.isInitiator && (payload?.sdp || payload?.offer)) {
           await this.handleRemoteOffer(payload.sdp || payload.offer);
         }
       })
-      .on('broadcast', { event: 'webrtc-answer' }, async ({ payload }) => {
-        if (this.isSelfBroadcast(payload)) return;
-        if (this.isInitiator && (payload?.sdp || payload?.answer)) {
-          await this.handleRemoteAnswer(payload.sdp || payload.answer);
-        }
-      })
       .on('broadcast', { event: 'answer' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [answer] received:', payload);
         if (this.isSelfBroadcast(payload)) return;
         if (this.isInitiator && (payload?.sdp || payload?.answer)) {
           await this.handleRemoteAnswer(payload.sdp || payload.answer);
         }
       })
-      .on('broadcast', { event: 'webrtc-ice-candidate' }, async ({ payload }) => {
+      .on('broadcast', { event: 'webrtc-answer' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [webrtc-answer] received:', payload);
+        if (this.isSelfBroadcast(payload)) return;
+        if (this.isInitiator && (payload?.sdp || payload?.answer)) {
+          await this.handleRemoteAnswer(payload.sdp || payload.answer);
+        }
+      })
+      .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [ice-candidate] received');
         if (this.isSelfBroadcast(payload)) return;
         if (payload?.candidate) {
           await this.handleRemoteIceCandidate(payload.candidate);
         }
       })
-      .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
+      .on('broadcast', { event: 'webrtc-ice-candidate' }, async ({ payload }) => {
+        console.log('[WebRTC Signaling IN] Broadcast [webrtc-ice-candidate] received');
         if (this.isSelfBroadcast(payload)) return;
         if (payload?.candidate) {
           await this.handleRemoteIceCandidate(payload.candidate);
@@ -781,23 +891,32 @@ class WebRTCCallService {
       });
   }
 
-  handleCallAcceptedEvent() {
-    console.log('[WebRTC] Callee accepted call notification received.');
+  /**
+   * Step 3: ONLY WHEN Caller receives callee_ready, Caller creates Offer and sends it
+   */
+  async handleCalleeReadyEvent() {
+    console.log('[WebRTC Signaling IN] Callee is ready! Creating SDP offer now...');
     this.callHandshakeEstablished = true;
     if (this.broadcastInterval) {
       clearInterval(this.broadcastInterval);
       this.broadcastInterval = null;
     }
-    // Re-send the offer to callee if answer has not yet been received
-    if (this.peerConnection && !this.peerConnection.remoteDescription && this.peerConnection.localDescription) {
+
+    // If offer was already created and local description is set, re-broadcast existing offer
+    if (this.peerConnection && this.peerConnection.localDescription && !this.isRemoteDescriptionSet) {
+      console.log('[WebRTC Signaling OUT] Re-broadcasting existing SDP Offer to ready callee...');
       const offerPayload = {
         type: 'offer',
         sdp: this.peerConnection.localDescription,
+        callId: this.currentCallId,
         senderId: this.currentUserId
       };
-      this.sendSessionBroadcast('webrtc-offer', offerPayload);
-      this.sendSessionBroadcast('offer', offerPayload);
+      await this.sendSessionBroadcast('offer', offerPayload);
+      await this.sendSessionBroadcast('webrtc-offer', offerPayload);
+      return;
     }
+
+    await this.createAndSendOffer();
   }
 
   handleCallDeclinedEvent(reason = 'busy') {
@@ -809,6 +928,10 @@ class WebRTCCallService {
     if (this.offerInterval) {
       clearInterval(this.offerInterval);
       this.offerInterval = null;
+    }
+    if (this.calleeReadyInterval) {
+      clearInterval(this.calleeReadyInterval);
+      this.calleeReadyInterval = null;
     }
     if (this.onCallStatusChangeCallback) {
       this.onCallStatusChangeCallback('declined', reason);
@@ -826,6 +949,10 @@ class WebRTCCallService {
       clearInterval(this.offerInterval);
       this.offerInterval = null;
     }
+    if (this.calleeReadyInterval) {
+      clearInterval(this.calleeReadyInterval);
+      this.calleeReadyInterval = null;
+    }
     if (this.onCallStatusChangeCallback) {
       this.onCallStatusChangeCallback('ended');
     }
@@ -833,7 +960,9 @@ class WebRTCCallService {
   }
 
   /**
-   * Initiate an outgoing call session
+   * Step 1: Caller initiates outgoing call session
+   * Subscribes to shared channel and sends incoming call invitation.
+   * DOES NOT create SDP Offer until callee_ready is received!
    */
   async startCall({
     caller,
@@ -851,7 +980,8 @@ class WebRTCCallService {
     this.callHandshakeEstablished = false;
     this.isRemoteDescriptionSet = false;
     this.isOfferSent = false;
-    this.currentUserId = String(caller?.id || caller?.register_id || caller?.registerId || caller?.userId || caller?.user_id || 'caller');
+    this.currentUserId = this.getPrimaryUserId(caller) || 'caller';
+    this.calleeId = this.getPrimaryUserId(callee) || 'callee';
 
     // 0. SIGNALING SECURITY GATE: Calling is strictly permitted only if interest status is 'accepted'
     const authCheck = await interestService.verifyCallAuthorization(caller, callee);
@@ -875,10 +1005,13 @@ class WebRTCCallService {
     }
 
     this.currentCallId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    this.currentSessionChannelName = `call-session-${this.currentCallId}`;
+    // Deterministic channel name based on sorted user IDs
+    this.currentSessionChannelName = this.getDeterministicChannelName(caller, callee, this.currentCallId);
     this.iceCandidateQueue = [];
     this.outgoingIceCandidateQueue = [];
     this.isChannelSubscribed = false;
+
+    console.log(`[WebRTC] Starting call. Deterministic channel room: ${this.currentSessionChannelName}`);
 
     // 1. Prime audio context on caller interaction
     this.primeAudioPlayback();
@@ -887,11 +1020,16 @@ class WebRTCCallService {
     await this.initLocalMedia(this.callType);
     this.initPeerConnection();
 
-    // 3. Caller creates Offer and sets local description BEFORE sending Offer
-    const offer = await this.createAndSendOffer();
-
-    // 4. Construct comprehensive call invitation payload containing offer
+    // 3. Connect to shared Supabase Realtime session channel using pure broadcast
     const sessionChannelName = this.currentSessionChannelName;
+    if (isSupabaseConfigured() && supabase) {
+      this.activeSessionChannel = supabase.channel(sessionChannelName, {
+        config: { broadcast: { self: false } }
+      });
+      this.attachSessionChannelListeners(this.activeSessionChannel);
+    }
+
+    // 4. Construct comprehensive call invitation payload
     const calleeIds = this.getUserIdentifiers(callee);
     const invitePayload = {
       callId: this.currentCallId,
@@ -909,24 +1047,15 @@ class WebRTCCallService {
         age: caller.age,
         state: caller.state
       },
-      calleeId: callee.id || callee.register_id || callee.registerId,
-      sdp: offer,
+      calleeId: this.calleeId,
       senderId: this.currentUserId,
       timestamp: Date.now()
     };
 
-    // 5. Connect to Supabase Realtime session channel and attach listeners
-    if (isSupabaseConfigured() && supabase) {
-      this.activeSessionChannel = supabase.channel(sessionChannelName, {
-        config: { broadcast: { self: false } }
-      });
-      this.attachSessionChannelListeners(this.activeSessionChannel);
-    }
-
-    // 6. Insert record into Supabase 'call_requests' table
+    // 5. Non-blocking logging to Supabase 'call_requests' table (no DB RLS block)
     if (isSupabaseConfigured() && supabase) {
       try {
-        await supabase.from('call_requests').insert([{
+        supabase.from('call_requests').insert([{
           id: this.currentCallId,
           caller_id: String(caller.id || caller.register_id || caller.registerId || ''),
           callee_id: String(callee.id || callee.register_id || callee.registerId || ''),
@@ -936,13 +1065,11 @@ class WebRTCCallService {
           channel_name: sessionChannelName,
           status: 'ringing',
           created_at: new Date().toISOString()
-        }]);
-      } catch (err) {
-        console.warn('[WebRTC] Supabase call_requests insert notice:', err);
-      }
+        }]).then(() => {}).catch(() => {});
+      } catch (err) {}
     }
 
-    // 7. Pre-subscribe callee inbox channels and dispatch invitation
+    // 6. Pre-subscribe callee inbox channels and dispatch invitation
     if (isSupabaseConfigured() && supabase) {
       this.invitationChannels = calleeIds.map((id) => {
         const inboxChannelName = `user-call-inbox-${id}`;
@@ -1015,38 +1142,21 @@ class WebRTCCallService {
         // Flush any queued outgoing ICE candidates gathered before channel was ready
         while (this.outgoingIceCandidateQueue.length > 0) {
           const queued = this.outgoingIceCandidateQueue.shift();
+          this.sendSessionBroadcast('ice-candidate', queued);
           this.sendSessionBroadcast('webrtc-ice-candidate', queued);
         }
 
-        // Send Offer via session channel
-        if (offer) {
-          const offerPayload = {
-            type: 'offer',
-            sdp: offer,
-            senderId: this.currentUserId
-          };
-          this.sendSessionBroadcast('webrtc-offer', offerPayload);
-          this.sendSessionBroadcast('offer', offerPayload);
-        }
-
-        // Repeat offer and invite periodically until remoteDescription is set or answer arrives
+        // Repeat incoming call invitation periodically until callee responds with callee_ready
         let attempts = 0;
         this.broadcastInterval = setInterval(() => {
           attempts += 1;
-          if (attempts > 15 || !this.currentCallId || this.isRemoteDescriptionSet || this.peerConnection?.remoteDescription) {
+          if (attempts > 20 || !this.currentCallId || this.callHandshakeEstablished) {
             clearInterval(this.broadcastInterval);
             this.broadcastInterval = null;
           } else {
             dispatchInvitation();
-            if (offer && !this.isRemoteDescriptionSet) {
-              this.sendSessionBroadcast('webrtc-offer', {
-                type: 'offer',
-                sdp: offer,
-                senderId: this.currentUserId
-              });
-            }
           }
-        }, 2000);
+        }, 2500);
 
         resolve({
           callId: this.currentCallId,
@@ -1062,7 +1172,7 @@ class WebRTCCallService {
 
       this.activeSessionChannel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('[WebRTC] Connected to session channel:', sessionChannelName);
+          console.log('[WebRTC] Connected to shared session channel:', sessionChannelName);
           onSessionReady();
         }
       });
@@ -1070,7 +1180,8 @@ class WebRTCCallService {
   }
 
   /**
-   * Accept an incoming call session
+   * Step 2: Receiver clicks "Accept"
+   * Receiver initializes local media & PeerConnection -> broadcasts callee_ready on shared channel
    */
   async acceptCall({
     callData,
@@ -1086,8 +1197,10 @@ class WebRTCCallService {
     this.isInitiator = false;
     this.callType = normalizedCallType;
     this.currentCallId = callData.callId;
-    this.currentSessionChannelName = callData.channelName || `call-session-${callData.callId}`;
-    this.currentUserId = String(currentUser?.id || currentUser?.register_id || currentUser?.registerId || currentUser?.userId || currentUser?.user_id || 'callee');
+    this.currentUserId = this.getPrimaryUserId(currentUser) || 'callee';
+    const callerId = this.getPrimaryUserId(callData.caller);
+    // Ensure both subscribe to the EXACT same room
+    this.currentSessionChannelName = callData.channelName || this.getDeterministicChannelName(currentUser, callData.caller, this.currentCallId);
     this.onRemoteStreamCallback = onRemoteStream;
     this.onCallStatusChangeCallback = onStatusChange;
     this.iceCandidateQueue = [];
@@ -1096,17 +1209,20 @@ class WebRTCCallService {
     this.isChannelSubscribed = false;
     this.callHandshakeEstablished = false;
 
+    console.log(`[WebRTC] Callee accepted call. Subscribing to deterministic channel: ${this.currentSessionChannelName}`);
+
     // Acquire local media & peer connection with tracks attached
     await this.initLocalMedia(this.callType);
     this.initPeerConnection();
 
-    // Update status in call_requests database
+    // Update status in call_requests database (non-blocking)
     if (isSupabaseConfigured() && supabase && this.currentCallId) {
       try {
-        await supabase
+        supabase
           .from('call_requests')
           .update({ status: 'accepted' })
-          .eq('id', this.currentCallId);
+          .eq('id', this.currentCallId)
+          .then(() => {}).catch(() => {});
       } catch (e) {}
     }
 
@@ -1119,15 +1235,18 @@ class WebRTCCallService {
       this.attachSessionChannelListeners(this.activeSessionChannel);
     }
 
-    const ackPayload = {
+    const readyPayload = {
       callId: this.currentCallId,
-      responderId: currentUser?.id,
+      calleeId: this.currentUserId,
+      callerId: callerId,
       senderId: this.currentUserId
     };
 
-    const sendAcceptedAck = async () => {
-      await this.sendSessionBroadcast('call-accepted', ackPayload);
-      await this.sendSessionBroadcast('answer-call', ackPayload);
+    const broadcastCalleeReady = async () => {
+      console.log('[WebRTC Signaling OUT] Broadcasting callee_ready on shared channel...');
+      await this.sendSessionBroadcast('callee_ready', readyPayload);
+      await this.sendSessionBroadcast('callee-ready', readyPayload);
+      await this.sendSessionBroadcast('call-accepted', readyPayload);
     };
 
     return new Promise((resolve) => {
@@ -1137,28 +1256,25 @@ class WebRTCCallService {
         // Flush any queued outgoing ICE candidates
         while (this.outgoingIceCandidateQueue.length > 0) {
           const queued = this.outgoingIceCandidateQueue.shift();
+          this.sendSessionBroadcast('ice-candidate', queued);
           this.sendSessionBroadcast('webrtc-ice-candidate', queued);
         }
 
-        // Send accepted acknowledgement to caller
-        await sendAcceptedAck();
+        // Broadcast callee_ready so Caller creates and sends the SDP Offer
+        await broadcastCalleeReady();
 
-        // If offer was already received in callData, handle it immediately
-        if (callData.sdp || callData.offer) {
-          console.log('[WebRTC] Handling offer present in incoming callData');
-          await this.handleRemoteOffer(callData.sdp || callData.offer);
-        }
-
-        // Send confirmation ACK up to 3 times or until remoteDescription is set
-        let ackCount = 0;
-        const ackInterval = setInterval(() => {
-          ackCount++;
-          if (ackCount >= 3 || this.isRemoteDescriptionSet || !this.currentCallId) {
-            clearInterval(ackInterval);
+        // Repeat callee_ready every 1.2s (up to 8 times) or until remoteDescription is set
+        let readyCount = 0;
+        if (this.calleeReadyInterval) clearInterval(this.calleeReadyInterval);
+        this.calleeReadyInterval = setInterval(() => {
+          readyCount++;
+          if (readyCount >= 8 || this.isRemoteDescriptionSet || !this.currentCallId) {
+            clearInterval(this.calleeReadyInterval);
+            this.calleeReadyInterval = null;
           } else {
-            sendAcceptedAck();
+            broadcastCalleeReady();
           }
-        }, 1500);
+        }, 1200);
 
         if (this.onCallStatusChangeCallback) {
           this.onCallStatusChangeCallback('connected');
@@ -1177,7 +1293,7 @@ class WebRTCCallService {
 
       this.activeSessionChannel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('[WebRTC] Receiver joined session channel:', sessionChannelName);
+          console.log('[WebRTC] Receiver joined shared session channel:', sessionChannelName);
           onChannelReady();
         }
       });
@@ -1253,7 +1369,7 @@ class WebRTCCallService {
   }
 
   /**
-   * Caller creates SDP Offer with bidirectional audio/video and local description set
+   * Step 3: Caller creates SDP Offer, sets local description, and broadcasts offer
    */
   async createAndSendOffer() {
     if (!this.peerConnection) {
@@ -1277,11 +1393,27 @@ class WebRTCCallService {
       const offerPayload = {
         type: 'offer',
         sdp: offer,
+        callId: this.currentCallId,
         senderId: this.currentUserId
       };
-      await this.sendSessionBroadcast('webrtc-offer', offerPayload);
+
+      console.log('[WebRTC Signaling OUT] Broadcasting SDP Offer to Callee...');
       await this.sendSessionBroadcast('offer', offerPayload);
-      await this.sendSessionBroadcast('call-made', offerPayload);
+      await this.sendSessionBroadcast('webrtc-offer', offerPayload);
+
+      // Repeat offer every 1500ms until answer is received or remoteDescription is set
+      if (this.offerInterval) clearInterval(this.offerInterval);
+      let offerTries = 0;
+      this.offerInterval = setInterval(() => {
+        offerTries++;
+        if (offerTries > 10 || this.isRemoteDescriptionSet || this.peerConnection?.remoteDescription || !this.currentCallId) {
+          clearInterval(this.offerInterval);
+          this.offerInterval = null;
+        } else {
+          this.sendSessionBroadcast('offer', offerPayload);
+          this.sendSessionBroadcast('webrtc-offer', offerPayload);
+        }
+      }, 1500);
 
       return offer;
     } catch (err) {
@@ -1291,12 +1423,16 @@ class WebRTCCallService {
   }
 
   /**
-   * Callee handles SDP Offer:
-   * Sets remote description -> flushes ICE candidate queue -> creates Answer -> sets local description -> sends Answer via Supabase
+   * Step 4: Callee handles SDP Offer:
+   * Sets remote description -> flushes ICE candidate queue -> creates Answer -> sets local description -> broadcasts Answer
    */
   async handleRemoteOffer(offerSdp) {
     if (!offerSdp) return;
     this.callHandshakeEstablished = true;
+    if (this.calleeReadyInterval) {
+      clearInterval(this.calleeReadyInterval);
+      this.calleeReadyInterval = null;
+    }
 
     if (!this.peerConnection) {
       this.initPeerConnection();
@@ -1308,15 +1444,16 @@ class WebRTCCallService {
 
     try {
       if (this.peerConnection.remoteDescription || this.isRemoteDescriptionSet) {
-        console.log('[WebRTC] Callee already has remoteDescription set, skipping duplicate offer');
+        console.log('[WebRTC] Callee already has remoteDescription set, re-sending existing answer...');
         if (this.peerConnection.localDescription) {
           const answerPayload = {
             type: 'answer',
             sdp: this.peerConnection.localDescription,
+            callId: this.currentCallId,
             senderId: this.currentUserId
           };
-          await this.sendSessionBroadcast('webrtc-answer', answerPayload);
           await this.sendSessionBroadcast('answer', answerPayload);
+          await this.sendSessionBroadcast('webrtc-answer', answerPayload);
         }
         return;
       }
@@ -1347,11 +1484,12 @@ class WebRTCCallService {
       const answerPayload = {
         type: 'answer',
         sdp: answer,
+        callId: this.currentCallId,
         senderId: this.currentUserId
       };
-      await this.sendSessionBroadcast('webrtc-answer', answerPayload);
       await this.sendSessionBroadcast('answer', answerPayload);
-      console.log('[WebRTC] Callee sent Answer via Supabase');
+      await this.sendSessionBroadcast('webrtc-answer', answerPayload);
+      console.log('[WebRTC Signaling OUT] Callee successfully broadcasted Answer');
 
       if (this.onCallStatusChangeCallback) {
         this.onCallStatusChangeCallback('connected');
@@ -1424,13 +1562,13 @@ class WebRTCCallService {
       const iceCandidate = new RTCIceCandidate(raw);
       if (this.isRemoteDescriptionSet && this.peerConnection && this.peerConnection.remoteDescription) {
         await this.peerConnection.addIceCandidate(iceCandidate);
-        console.log('[WebRTC] Successfully added remote ICE candidate');
+        console.log('[WebRTC ICE] Successfully added remote ICE candidate');
       } else {
-        console.log('[WebRTC] remoteDescription not set yet, queuing ICE candidate');
+        console.log('[WebRTC ICE] remoteDescription not set yet, queuing ICE candidate');
         this.iceCandidateQueue.push(iceCandidate);
       }
     } catch (err) {
-      console.warn('[WebRTC] Failed to add ICE candidate:', err);
+      console.warn('[WebRTC ICE] Failed to add ICE candidate:', err);
     }
   }
 
