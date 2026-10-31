@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, deleteNotificationApi } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
+import { profileSyncService } from './services/profileSyncService';
 import { uploadProfilePhoto } from './services/storageService';
 import { logoutUser, persistUserSession } from './services/authService';
 import { signOutGoogleAuth } from './services/googleAuth';
@@ -1224,6 +1225,60 @@ export default function App() {
       window.__currentUserId = null;
     }
   }, [currentUser?.id]);
+
+  // Real-Time Cross-Platform Profile Synchronization Listener (Multi-Device, Web, Mobile)
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = profileSyncService.subscribeUser(currentUser, (payload) => {
+      if (!payload || !payload.userId) return;
+      const myIds = [
+        String(currentUser.id || ''),
+        String(currentUser.registerId || ''),
+        String(currentUser.register_id || ''),
+        String(currentUser.phone || currentUser.mobile || '')
+      ].filter(Boolean);
+
+      const isMatch = myIds.some(id => id === String(payload.userId));
+      if (!isMatch) return;
+
+      const cacheBustedPhoto = payload.newProfilePicUrl 
+        ? addCacheBuster(payload.newProfilePicUrl, payload.lastUpdated || Date.now()) 
+        : undefined;
+
+      // Update current user state instantaneously across all active tabs and devices
+      setCurrentUser(prev => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          ...(payload.updatedData || {}),
+          ...(cacheBustedPhoto ? { photo: cacheBustedPhoto, photo_url: cacheBustedPhoto } : {})
+        };
+        try {
+          localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+
+      // Update match feed profile state with cache-busting timestamp
+      setProfiles(prevProfiles => {
+        if (!Array.isArray(prevProfiles)) return prevProfiles;
+        return prevProfiles.map(p => {
+          if (p && myIds.some(id => String(p.id) === id || String(p.registerId) === id || String(p.phone) === id)) {
+            return {
+              ...p,
+              ...(payload.updatedData || {}),
+              ...(cacheBustedPhoto ? { photo: cacheBustedPhoto, photo_url: cacheBustedPhoto } : {})
+            };
+          }
+          return p;
+        });
+      });
+    });
+
+    return () => {
+      unsub?.();
+    };
+  }, [currentUser]);
 
   // Persist interestsSent to localStorage whenever it changes
   useEffect(() => {
@@ -3381,6 +3436,17 @@ export default function App() {
 
     const identifier = updatedData.id || updatedData.registerId || updatedData.register_id || currentUser?.id || currentUser?.registerId || updatedData.phone;
     if (identifier) {
+      // Real-Time Cross-Platform Broadcast: Instantly sync all active user devices & Admin/Super Admin dashboards
+      const lastUpdatedTimestamp = Date.now();
+      profileSyncService.broadcastProfileUpdate({
+        userId: identifier,
+        newProfilePicUrl: updatedData.photo || updatedData.photo_url,
+        updatedData,
+        lastUpdated: lastUpdatedTimestamp
+      }).catch(err => {
+        console.warn('[handleProfileUpdateAction] broadcastProfileUpdate error:', err);
+      });
+
       try {
         await updateLiveUserProfile(identifier, updatedData);
       } catch (err) {

@@ -6,6 +6,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { addCacheBuster } from '../utils/cacheBuster';
+import { profileSyncService } from './profileSyncService';
 
 /**
  * Helper to convert base64 Data URL to Blob for reliable storage uploads
@@ -134,6 +135,16 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
           query = query.or(`id.eq.${uid},register_id.eq.${uid},phone.eq.${uid}`);
         }
         await query;
+
+        // Broadcast PROFILE_UPDATED immediately across all client devices and admin dashboards
+        profileSyncService.broadcastProfileUpdate({
+          userId: uid,
+          newProfilePicUrl: publicUrl,
+          updatedData: { photo: publicUrl, photo_url: publicUrl },
+          lastUpdated: Date.now()
+        }).catch(syncErr => {
+          console.warn('[storageService] Failed to broadcast profile photo update:', syncErr);
+        });
       } catch (dbErr) {
         console.warn('[storageService] Failed to update profiles table with photo_url:', dbErr);
       }

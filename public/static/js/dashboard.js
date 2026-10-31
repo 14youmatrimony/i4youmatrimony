@@ -227,6 +227,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadPlans();
   loadPayments();
   startLiveSyncPolling();
+  setupRealtimeProfileSync();
 
   // Listen for Supabase background sync events to auto-refresh UI
   window.addEventListener('i4u_admin_synced', () => {
@@ -5674,5 +5675,94 @@ async function handleSendBackAadhaarSubmit(e) {
     }
   }
 }
+
+/**
+ * Real-Time Profile Synchronization Listener for Admin & Super Admin Consoles
+ * Catches PROFILE_UPDATED events broadcast via BroadcastChannel and Supabase Realtime
+ * and updates user rows, avatars, names, and inspect modals in-place without page refresh!
+ */
+function setupRealtimeProfileSync() {
+  function handleProfileUpdated(payload) {
+    if (!payload || !payload.userId) return;
+    const uid = String(payload.userId);
+    const lastUpdated = payload.lastUpdated || Date.now();
+    const newPic = payload.newProfilePicUrl 
+      ? (payload.newProfilePicUrl.includes('?') ? `${payload.newProfilePicUrl}&t=${lastUpdated}` : `${payload.newProfilePicUrl}?t=${lastUpdated}`) 
+      : null;
+    const updatedData = payload.updatedData || {};
+
+    console.log('[Admin Realtime Sync] PROFILE_UPDATED event received for candidate:', uid, payload);
+
+    // 1. Locate matching rows in userTableBody
+    const tableBody = document.getElementById('userTableBody');
+    if (tableBody) {
+      const rows = tableBody.querySelectorAll('tr');
+      rows.forEach(row => {
+        const rowText = row.innerHTML;
+        if (rowText.includes(`'${uid}'`) || rowText.includes(`"${uid}"`)) {
+          // Update avatar image in this row
+          if (newPic) {
+            const img = row.querySelector('img');
+            if (img) {
+              img.src = newPic;
+            }
+          }
+          // Highlight row with instantaneous visual feedback
+          row.classList.add('bg-emerald-500/20');
+          setTimeout(() => {
+            row.classList.remove('bg-emerald-500/20');
+          }, 2500);
+        }
+      });
+    }
+
+    // 2. If photoInspectModal is currently open for this candidate, update the photo preview immediately
+    const photoInspectModal = document.getElementById('photoInspectModal');
+    if (photoInspectModal && photoInspectModal.open && newPic) {
+      const inspectImg = document.getElementById('photoInspectImg');
+      if (inspectImg) {
+        inspectImg.src = newPic;
+      }
+    }
+
+    // 3. Update candidate view modal if open
+    const viewModal = document.getElementById('viewProfileModal');
+    if (viewModal && viewModal.open) {
+      const modalCandidateId = viewModal.getAttribute('data-candidate-id');
+      if (modalCandidateId && String(modalCandidateId) === uid && newPic) {
+        const modalImg = viewModal.querySelector('img');
+        if (modalImg) modalImg.src = newPic;
+      }
+    }
+
+    // 4. Notify admin with subtle toast
+    const candidateName = updatedData.name || 'Candidate';
+    if (typeof showToast === 'function') {
+      showToast(`Real-Time Update: ${candidateName} updated their profile ✨`, 'info');
+    }
+  }
+
+  // Cross-tab sync via BroadcastChannel
+  if (typeof window !== 'undefined' && window.BroadcastChannel) {
+    try {
+      const bc = new BroadcastChannel('i4u_profile_sync_bus');
+      bc.onmessage = (event) => {
+        handleProfileUpdated(event.data);
+      };
+    } catch (e) {}
+  }
+
+  // Supabase Realtime broadcast listener (if Supabase client is available)
+  if (typeof window !== 'undefined' && (window.supabaseClient || window.supabase)) {
+    try {
+      const client = window.supabaseClient || window.supabase;
+      const adminCh = client.channel('admin-profile-sync');
+      adminCh.on('broadcast', { event: 'PROFILE_UPDATED' }, ({ payload }) => {
+        handleProfileUpdated(payload);
+      }).subscribe();
+    } catch (e) {}
+  }
+}
+
 
 
