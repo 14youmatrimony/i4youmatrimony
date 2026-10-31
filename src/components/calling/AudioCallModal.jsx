@@ -211,7 +211,6 @@ export default function AudioCallModal({
     if (!isOpen) return;
 
     let isSubscribed = true;
-    let ringTimer = null;
     let callTimeoutTimer = null;
 
     // Callback when remote audio stream is received
@@ -223,7 +222,6 @@ export default function AudioCallModal({
         remoteAudioRef.current.srcObject = stream;
         safePlayMedia(remoteAudioRef.current, 'remoteAudio');
       }
-      if (ringTimer) clearTimeout(ringTimer);
       if (ringIntervalRef.current) {
         clearInterval(ringIntervalRef.current);
         ringIntervalRef.current = null;
@@ -237,7 +235,6 @@ export default function AudioCallModal({
     const handleStatusChange = (status) => {
       if (!isSubscribed) return;
       if (status === 'blocked') {
-        if (ringTimer) clearTimeout(ringTimer);
         if (ringIntervalRef.current) {
           clearInterval(ringIntervalRef.current);
           ringIntervalRef.current = null;
@@ -246,7 +243,6 @@ export default function AudioCallModal({
         playTone(380, 280, 0.3);
         setTimeout(() => onClose(), 1200);
       } else if (status === 'connected') {
-        if (ringTimer) clearTimeout(ringTimer);
         if (ringIntervalRef.current) {
           clearInterval(ringIntervalRef.current);
           ringIntervalRef.current = null;
@@ -255,7 +251,6 @@ export default function AudioCallModal({
         setIsConnectedPeer(true);
         playConnectChime();
       } else if (status === 'declined' || status === 'ended') {
-        if (ringTimer) clearTimeout(ringTimer);
         if (ringIntervalRef.current) {
           clearInterval(ringIntervalRef.current);
           ringIntervalRef.current = null;
@@ -279,8 +274,8 @@ export default function AudioCallModal({
         onRemoteStream: handleRemoteStream,
         onStatusChange: handleStatusChange
       }).then((res) => {
+        if (!isSubscribed) return;
         if (res && res.error === 'CALL_BLOCKED') {
-          if (ringTimer) clearTimeout(ringTimer);
           if (ringIntervalRef.current) {
             clearInterval(ringIntervalRef.current);
             ringIntervalRef.current = null;
@@ -296,17 +291,12 @@ export default function AudioCallModal({
         if (webrtcCallService.hardwareError === 'permission_denied') {
           setMicPermissionError(true);
         }
+        setCallStatus((prev) => {
+          if (prev === 'connected' || prev === 'ended') return prev;
+          startRingingSound();
+          return 'ringing';
+        });
       });
-
-      ringTimer = setTimeout(() => {
-        if (isSubscribed) {
-          setCallStatus((prev) => {
-            if (prev === 'connected' || prev === 'ended') return prev;
-            startRingingSound();
-            return 'ringing';
-          });
-        }
-      }, 1200);
 
       // Awaiting recipient answer timeout (45s)
       callTimeoutTimer = setTimeout(() => {
@@ -347,7 +337,6 @@ export default function AudioCallModal({
 
     return () => {
       isSubscribed = false;
-      clearTimeout(ringTimer);
       clearTimeout(callTimeoutTimer);
       if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
       if (timerRef.current) clearInterval(timerRef.current);

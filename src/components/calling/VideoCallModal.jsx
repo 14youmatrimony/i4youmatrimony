@@ -139,7 +139,6 @@ export default function VideoCallModal({
       safePlayMedia(remoteAudioRef.current, 'remoteAudio');
     }
 
-    if (ringTimer) clearTimeout(ringTimer);
     setCallStatus('connected');
     playVideoChime();
   };
@@ -187,7 +186,6 @@ export default function VideoCallModal({
     if (!isOpen) return;
 
     let isSubscribed = true;
-    let ringTimer = null;
     let callTimeoutTimer = null;
 
     // 1. Instantly request local camera & audio stream so local preview starts immediately
@@ -202,16 +200,13 @@ export default function VideoCallModal({
     const handleStatusChange = (status) => {
       if (!isSubscribed) return;
       if (status === 'blocked') {
-        if (ringTimer) clearTimeout(ringTimer);
         setCallStatus('ended');
         setTimeout(() => onClose(), 1000);
       } else if (status === 'connected') {
-        if (ringTimer) clearTimeout(ringTimer);
         setCallStatus('connected');
         attachLocalStream();
         playVideoChime();
       } else if (status === 'declined' || status === 'ended') {
-        if (ringTimer) clearTimeout(ringTimer);
         setCallStatus('ended');
         setTimeout(() => onClose(), 1000);
       }
@@ -228,28 +223,20 @@ export default function VideoCallModal({
         onRemoteStream: handleRemoteStream,
         onStatusChange: handleStatusChange
       }).then((res) => {
+        if (!isSubscribed) return;
         if (res && res.error === 'CALL_BLOCKED') {
-          if (ringTimer) clearTimeout(ringTimer);
           setCallStatus('ended');
           setTimeout(() => onClose(), 1000);
           return;
         }
         attachLocalStream();
+        setCallStatus('ringing');
         if (webrtcCallService.hardwareError === 'camera_denied' || webrtcCallService.hardwareError === 'permission_denied') {
           setCameraNotice('Camera permission needed. Operating in audio fallback mode.');
         } else if (webrtcCallService.hardwareError === 'hardware_unavailable') {
           setCameraNotice('Microphone and camera devices unavailable.');
         }
       });
-
-      ringTimer = setTimeout(() => {
-        if (isSubscribed) {
-          setCallStatus((prev) => {
-            if (prev === 'connected' || prev === 'ended') return prev;
-            return 'ringing';
-          });
-        }
-      }, 1500);
 
       // Call timeout: if not answered within 45 seconds, conclude call
       callTimeoutTimer = setTimeout(() => {
@@ -285,7 +272,6 @@ export default function VideoCallModal({
 
     return () => {
       isSubscribed = false;
-      clearTimeout(ringTimer);
       clearTimeout(callTimeoutTimer);
       if (timerRef.current) clearInterval(timerRef.current);
       webrtcCallService.cleanup();
