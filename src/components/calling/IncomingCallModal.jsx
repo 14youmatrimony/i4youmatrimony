@@ -89,14 +89,18 @@ export default function IncomingCallModal({
     }
   };
 
-  const handleAcceptClick = () => {
+  const handleAcceptClick = async () => {
     stopAudio();
     try {
       webrtcCallService.primeAudioPlayback();
-      webrtcCallService.initLocalMedia(callType).catch(e => {
-        console.warn('[IncomingCall] Pre-request media permission notice:', e);
-      });
-    } catch (e) {}
+      // Strict Runtime Permission Flow (Before SDP Offer/Answer):
+      // On Android & iOS, explicitly request Camera and Microphone permissions at the exact moment the user clicks 'Accept Call'
+      await webrtcCallService.requestMediaPermissions(callType);
+    } catch (err) {
+      console.warn('[IncomingCall] Permissions rejected on accept:', err?.message);
+      alert('Camera and microphone permissions are required to accept this call. Please allow permissions in your device settings.');
+      return;
+    }
     if (onAccept) onAccept(incomingCall);
   };
 

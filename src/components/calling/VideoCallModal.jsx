@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  PhoneOff, 
-  SwitchCamera, 
-  ShieldCheck 
+import {
+  Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  PhoneOff,
+  SwitchCamera,
+  ShieldCheck,
+  Volume2
 } from 'lucide-react';
-import { webrtcCallService, Helper } from '../../services/webrtcCallService';
+import { webrtcCallService, Helper, RTCVideoRenderer } from '../../services/webrtcCallService';
 
 export default function VideoCallModal({
   isOpen,
@@ -28,6 +29,11 @@ export default function VideoCallModal({
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [cameraNotice, setCameraNotice] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
+  const [localStream, setLocalStream] = useState(null);
+
+  // Renderers instantiated via RTCVideoRenderer
+  const localRendererRef = useRef(new RTCVideoRenderer('localVideo'));
+  const remoteRendererRef = useRef(new RTCVideoRenderer('remoteVideo'));
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -38,14 +44,16 @@ export default function VideoCallModal({
   // Helper to safely play media with user-gesture unlock fallback
   const safePlayMedia = (mediaEl, label = 'media') => {
     if (!mediaEl) return;
-    mediaEl.play()
+    mediaEl
+      .play()
       .then(() => setAutoplayBlocked(false))
       .catch((err) => {
-        console.warn(`[VideoCall] ${label} autoplay blocked:`, err);
+        console.warn(`[VideoCall] ${label} autoplay blocked:`, err?.message);
         setAutoplayBlocked(true);
         const unlockGesture = () => {
           if (mediaEl) {
-            mediaEl.play()
+            mediaEl
+              .play()
               .then(() => setAutoplayBlocked(false))
               .catch(() => {});
           }
@@ -71,7 +79,7 @@ export default function VideoCallModal({
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.frequency.value = freq;
-        const startTime = ctx.currentTime + (idx * 0.09);
+        const startTime = ctx.currentTime + idx * 0.09;
         gain.gain.setValueAtTime(0.05, startTime);
         gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
         osc.connect(gain);
@@ -82,11 +90,16 @@ export default function VideoCallModal({
     } catch (e) {}
   };
 
-  // Attach local camera stream to local video element
+  // Attach local stream to localRenderer and local video DOM element
   const attachLocalStream = (customStream = null) => {
     const stream = customStream || webrtcCallService.localStream;
     if (stream) {
+      setLocalStream(stream);
       setHasCameraPermission(true);
+
+      // Set srcObject on localRenderer (already initialized)
+      localRendererRef.current.srcObject = stream;
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.muted = true;
@@ -95,7 +108,7 @@ export default function VideoCallModal({
     }
   };
 
-  // Direct user-gesture camera permission request handler
+  // Manual camera permission re-prompt handler
   const handleRequestCameraPermission = async () => {
     try {
       const stream = await webrtcCallService.requestMediaAccess('video', facingMode);
@@ -104,18 +117,20 @@ export default function VideoCallModal({
         setCameraNotice(null);
       }
     } catch (err) {
-      console.warn('[VideoCall] Manual camera request notice:', err);
+      console.warn('[VideoCall] Manual camera request notice:', err?.message);
     }
   };
 
   // Handle incoming remote media (both video and audio)
   const handleRemoteStream = (stream) => {
     if (!stream) return;
-    console.log('[VideoCall] handleRemoteStream received:', stream?.getTracks()?.map(t => `${t.kind}:${t.readyState}`));
+    console.log('[VideoCall] handleRemoteStream received stream with tracks:', stream?.getTracks?.().map((t) => `${t.kind}:${t.readyState}`));
+
+    // Trigger state rebuild (setState)
     setRemoteStream(stream);
 
     const checkTracks = () => {
-      const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live');
+      const vTracks = stream.getVideoTracks().filter((t) => t.readyState === 'live');
       if (vTracks.length > 0) {
         setHasRemoteVideo(true);
       }
@@ -125,6 +140,9 @@ export default function VideoCallModal({
     stream.onremovetrack = checkTracks;
     checkTracks();
 
+    // Assign to remoteRenderer.srcObject (which was initialized before set)
+    remoteRendererRef.current.srcObject = stream;
+
     // Attach to video element for rendering remote video
     if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== stream) {
       remoteVideoRef.current.srcObject = stream;
@@ -133,7 +151,7 @@ export default function VideoCallModal({
       safePlayMedia(remoteVideoRef.current, 'remoteVideo');
     }
 
-    // Dedicated audio element for clean, direct incoming voice
+    // Dedicated audio element for clean, direct incoming voice routed to speakerphone
     if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== stream) {
       remoteAudioRef.current.srcObject = stream;
     }
@@ -146,146 +164,126 @@ export default function VideoCallModal({
     playVideoChime();
   };
 
-  // Remote stream binding hook: ensure remote media is immediately attached to <video> and <audio> DOM elements
-  useEffect(() => {
-    const stream = remoteStream || webrtcCallService.remoteStream;
-    if (!stream) return;
-
-    const vTracks = stream.getVideoTracks().filter(t => t.readyState === 'live');
-    if (vTracks.length > 0) {
-      setHasRemoteVideo(true);
-    }
-
-    if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== stream) {
-      remoteVideoRef.current.srcObject = stream;
-    }
-    if (remoteVideoRef.current) {
-      safePlayMedia(remoteVideoRef.current, 'remoteVideo');
-    }
-
-    if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== stream) {
-      remoteAudioRef.current.srcObject = stream;
-    }
-    if (remoteAudioRef.current) {
-      Helper.setSpeakerphoneOn(true, remoteAudioRef.current);
-      safePlayMedia(remoteAudioRef.current, 'remoteAudio');
-    }
-
-    const checkTracks = () => {
-      const liveVTracks = stream.getVideoTracks().filter(t => t.readyState === 'live');
-      if (liveVTracks.length > 0) setHasRemoteVideo(true);
-    };
-    stream.onaddtrack = checkTracks;
-    stream.onremovetrack = checkTracks;
-    checkTracks();
-  }, [remoteStream, callStatus]);
-
-  // Local stream binding check
-  useEffect(() => {
-    if (callStatus === 'connected' && webrtcCallService.localStream && localVideoRef.current && !localVideoRef.current.srcObject) {
-      localVideoRef.current.srcObject = webrtcCallService.localStream;
-      localVideoRef.current.muted = true;
-      safePlayMedia(localVideoRef.current, 'localVideo');
-      setHasCameraPermission(true);
-    }
-  }, [callStatus]);
-
-  // Video Call Lifecycle
+  // Lifecycle & WebRTC session
   useEffect(() => {
     if (!isOpen) return;
 
     let isSubscribed = true;
     let callTimeoutTimer = null;
 
-    // 1. Instantly request local camera & audio stream so local preview starts immediately
-    webrtcCallService.initLocalMedia('video', facingMode).then((stream) => {
-      if (isSubscribed && stream) {
-        attachLocalStream(stream);
-      }
-    }).catch((err) => {
-      console.warn('[VideoCall] Initial camera preview error:', err);
-    });
+    const setupCall = async () => {
+      // 1. Initialize localRenderer and remoteRenderer BEFORE setting srcObject
+      await localRendererRef.current.initialize();
+      await remoteRendererRef.current.initialize();
 
-    const handleStatusChange = (status) => {
-      if (!isSubscribed) return;
-      if (status === 'blocked') {
-        setCallStatus('ended');
-        setTimeout(() => onClose(), 1000);
-      } else if (status === 'connected') {
+      // Attach elements to renderers
+      if (localVideoRef.current) {
+        localRendererRef.current.attachElement(localVideoRef.current, { muted: true, mirror: facingMode === 'user' });
+      }
+      if (remoteVideoRef.current) {
+        remoteRendererRef.current.attachElement(remoteVideoRef.current, { muted: false, mirror: false });
+      }
+
+      // Configure speakerphone
+      Helper.setSpeakerphoneOn(true, remoteAudioRef.current || remoteVideoRef.current);
+
+      // 2. Strict Runtime Permission Flow: verify local media stream
+      try {
+        const stream = await webrtcCallService.initLocalMedia('video', facingMode);
+        if (isSubscribed && stream) {
+          attachLocalStream(stream);
+        }
+      } catch (err) {
+        console.warn('[VideoCall] Local camera stream acquisition error:', err?.message);
+        if (webrtcCallService.hardwareError === 'permission_denied') {
+          setCameraNotice('Camera and microphone permission required. Please enable in settings.');
+        }
+      }
+
+      const handleStatusChange = (status) => {
+        if (!isSubscribed) return;
+        if (status === 'blocked') {
+          setCallStatus('ended');
+          setTimeout(() => onClose(), 1000);
+        } else if (status === 'connected') {
+          setCallStatus('connected');
+          attachLocalStream();
+          playVideoChime();
+        } else if (status === 'declined' || status === 'ended') {
+          setCallStatus('ended');
+          setTimeout(() => onClose(), 1000);
+        }
+      };
+
+      if (isCaller) {
+        setCallStatus('calling');
+        setCallDuration(0);
+
+        webrtcCallService
+          .startCall({
+            caller: currentUser,
+            callee: candidate,
+            callType: 'video',
+            onRemoteStream: handleRemoteStream,
+            onStatusChange: handleStatusChange
+          })
+          .then((res) => {
+            if (!isSubscribed) return;
+            if (res && res.error === 'CALL_BLOCKED') {
+              setCallStatus('ended');
+              setTimeout(() => onClose(), 1000);
+              return;
+            }
+            attachLocalStream();
+            setCallStatus('ringing');
+            if (webrtcCallService.hardwareError === 'permission_denied') {
+              setCameraNotice('Camera permission required. Please allow access.');
+            }
+          });
+
+        callTimeoutTimer = setTimeout(() => {
+          if (isSubscribed) {
+            setCallStatus((prev) => {
+              if (prev === 'connected' || prev === 'ended') return prev;
+              setTimeout(() => onClose(), 1200);
+              return 'ended';
+            });
+          }
+        }, 45000);
+      } else {
         setCallStatus('connected');
-        attachLocalStream();
-        playVideoChime();
-      } else if (status === 'declined' || status === 'ended') {
-        setCallStatus('ended');
-        setTimeout(() => onClose(), 1000);
+        setCallDuration(0);
+
+        webrtcCallService
+          .acceptCall({
+            callData: callSession,
+            currentUser,
+            onRemoteStream: handleRemoteStream,
+            onStatusChange: handleStatusChange
+          })
+          .then(() => {
+            attachLocalStream();
+            playVideoChime();
+            if (webrtcCallService.hardwareError === 'permission_denied') {
+              setCameraNotice('Camera permission required. Please allow access.');
+            }
+          });
       }
     };
 
-    if (isCaller) {
-      setCallStatus('calling');
-      setCallDuration(0);
-
-      webrtcCallService.startCall({
-        caller: currentUser,
-        callee: candidate,
-        callType: 'video',
-        onRemoteStream: handleRemoteStream,
-        onStatusChange: handleStatusChange
-      }).then((res) => {
-        if (!isSubscribed) return;
-        if (res && res.error === 'CALL_BLOCKED') {
-          setCallStatus('ended');
-          setTimeout(() => onClose(), 1000);
-          return;
-        }
-        attachLocalStream();
-        setCallStatus('ringing');
-        if (webrtcCallService.hardwareError === 'camera_denied' || webrtcCallService.hardwareError === 'permission_denied') {
-          setCameraNotice('Camera permission needed. Operating in audio fallback mode.');
-        } else if (webrtcCallService.hardwareError === 'hardware_unavailable') {
-          setCameraNotice('Microphone and camera devices unavailable.');
-        }
-      });
-
-      // Call timeout: if not answered within 45 seconds, conclude call
-      callTimeoutTimer = setTimeout(() => {
-        if (isSubscribed) {
-          setCallStatus((prev) => {
-            if (prev === 'connected' || prev === 'ended') return prev;
-            setTimeout(() => onClose(), 1200);
-            return 'ended';
-          });
-        }
-      }, 45000);
-
-    } else {
-      // Receiver accepting video call
-      setCallStatus('connected');
-      setCallDuration(0);
-
-      webrtcCallService.acceptCall({
-        callData: callSession,
-        currentUser,
-        onRemoteStream: handleRemoteStream,
-        onStatusChange: handleStatusChange
-      }).then(() => {
-        attachLocalStream();
-        playVideoChime();
-        if (webrtcCallService.hardwareError === 'camera_denied' || webrtcCallService.hardwareError === 'permission_denied') {
-          setCameraNotice('Camera permission needed. Operating in audio fallback mode.');
-        } else if (webrtcCallService.hardwareError === 'hardware_unavailable') {
-          setCameraNotice('Microphone and camera devices unavailable.');
-        }
-      });
-    }
+    setupCall();
 
     return () => {
       isSubscribed = false;
       clearTimeout(callTimeoutTimer);
       if (timerRef.current) clearInterval(timerRef.current);
+      localRendererRef.current.dispose();
+      remoteRendererRef.current.dispose();
       webrtcCallService.cleanup();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        try { audioContextRef.current.close(); } catch (e) {}
+        try {
+          audioContextRef.current.close();
+        } catch (e) {}
       }
     };
   }, [isOpen, isCaller]);
@@ -294,7 +292,7 @@ export default function VideoCallModal({
   useEffect(() => {
     if (callStatus === 'connected') {
       timerRef.current = setInterval(() => {
-        setCallDuration(d => d + 1);
+        setCallDuration((d) => d + 1);
       }, 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -328,8 +326,8 @@ export default function VideoCallModal({
     const nextMode = facingMode === 'user' ? 'environment' : 'user';
     setFacingMode(nextMode);
     const updatedStream = await webrtcCallService.switchCamera(nextMode);
-    if (updatedStream && localVideoRef.current) {
-      localVideoRef.current.srcObject = updatedStream;
+    if (updatedStream) {
+      attachLocalStream(updatedStream);
     }
   };
 
@@ -342,7 +340,7 @@ export default function VideoCallModal({
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 w-full h-[100dvh] bg-slate-950 overflow-hidden select-none flex flex-col justify-between"
       style={{
         height: '100dvh',
@@ -357,49 +355,47 @@ export default function VideoCallModal({
         }
       }}
     >
-      {/* Dedicated Hidden Remote Audio Element for guaranteed bidirectional voice audio */}
+      {/* Dedicated Remote Audio Element for guaranteed loudspeaker voice routing */}
       <audio ref={remoteAudioRef} autoPlay playsInline muted={false} controls={false} />
 
-      {/* Candidate Main Video Feed (Full Screen Responsive Flex Container) */}
+      {/* Main Remote Video Container */}
       <div className="relative flex-1 min-h-0 w-full bg-gradient-to-b from-[#0B192C] to-[#040911] overflow-hidden flex items-center justify-center">
-        
-        {/* Real Remote Video Feed - Always mounted so ref is never null, autoPlay, playsInline, muted for 100% mobile autoplay compliance */}
+        {/* Remote Video Feed */}
         <video
           ref={remoteVideoRef}
           autoPlay
           playsInline
-          muted={true}
+          muted={false}
           onLoadedMetadata={() => setHasRemoteVideo(true)}
           onLoadedData={() => setHasRemoteVideo(true)}
           onCanPlay={() => setHasRemoteVideo(true)}
           onPlaying={() => setHasRemoteVideo(true)}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${hasRemoteVideo ? 'opacity-100' : 'opacity-0'}`}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            hasRemoteVideo ? 'opacity-100' : 'opacity-0'
+          }`}
         />
 
-        {/* Autoplay blocked unpause button */}
+        {/* Autoplay blocked notification */}
         {autoplayBlocked && (
           <div className="absolute top-20 inset-x-4 z-40 flex justify-center">
             <button
               type="button"
               onClick={() => {
-                if (remoteVideoRef.current) {
-                  remoteVideoRef.current.play().catch(() => {});
-                }
-                if (remoteAudioRef.current) {
-                  remoteAudioRef.current.play().catch(() => {});
-                }
+                if (remoteVideoRef.current) remoteVideoRef.current.play().catch(() => {});
+                if (remoteAudioRef.current) remoteAudioRef.current.play().catch(() => {});
                 setAutoplayBlocked(false);
               }}
               className="py-2 px-4 rounded-full bg-amber-500 text-slate-950 font-bold text-xs shadow-xl animate-bounce flex items-center space-x-2 cursor-pointer hover:bg-amber-400"
             >
-              <span>🔊 Audio paused by browser • Tap to unmute</span>
+              <Volume2 className="w-4 h-4" />
+              <span>Tap to unmute incoming audio</span>
             </button>
           </div>
         )}
 
-        {/* Camera permission or device notice with retry button */}
+        {/* Camera permission banner */}
         {cameraNotice && (
-          <div 
+          <div
             className="absolute top-16 sm:top-20 inset-x-3 sm:inset-x-6 z-30 flex justify-center"
             style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
           >
@@ -416,11 +412,11 @@ export default function VideoCallModal({
           </div>
         )}
 
-        {/* Candidate Placeholder Photo shown when remote video is not yet active */}
+        {/* Candidate Placeholder Photo shown when remote video is connecting */}
         {!hasRemoteVideo && (
-          <img 
-            src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
-            alt={candidate.name} 
+          <img
+            src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'}
+            alt={candidate.name}
             className="absolute inset-0 w-full h-full object-cover filter brightness-90 animate-subtle-scale"
           />
         )}
@@ -428,33 +424,37 @@ export default function VideoCallModal({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
 
         {/* Top Info Bar */}
-        <div 
+        <div
           className="absolute top-3 sm:top-5 inset-x-3 sm:inset-x-5 flex items-center justify-between text-white z-20 pointer-events-auto"
           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10 shadow-lg">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <div>
               <h4 className="font-serif font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
                 <span>{candidate.name}</span>
                 {candidate.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
               </h4>
               <p className="text-[10px] sm:text-xs text-slate-300">
-                {callStatus === 'connected' ? formatDuration(callDuration) : (callStatus === 'ringing' ? 'Ringing...' : 'Connecting...')}
+                {callStatus === 'connected'
+                  ? formatDuration(callDuration)
+                  : callStatus === 'ringing'
+                  ? 'Ringing...'
+                  : 'Connecting...'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Connection Status Central Banner */}
+        {/* Connecting Ringing State Center Graphic */}
         {callStatus !== 'connected' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/50 backdrop-blur-xs px-4">
             <div className="relative">
               <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-[#D4AF37] overflow-hidden shadow-2xl">
-                <img 
-                  src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
-                  alt={candidate.name} 
-                  className="w-full h-full object-cover" 
+                <img
+                  src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'}
+                  alt={candidate.name}
+                  className="w-full h-full object-cover"
                 />
               </div>
               <div className="absolute inset-0 rounded-full border-2 border-emerald-400 animate-ping" />
@@ -473,7 +473,6 @@ export default function VideoCallModal({
 
         {/* Local User Picture-in-Picture (PIP) Window */}
         <div className="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 w-24 h-32 sm:w-32 sm:h-44 md:w-36 md:h-48 max-h-[35%] rounded-2xl overflow-hidden bg-black/80 border-2 border-[#D4AF37] shadow-2xl z-30 group">
-          {/* Always mounted local video so ref is never null */}
           <video
             ref={localVideoRef}
             autoPlay
@@ -488,20 +487,21 @@ export default function VideoCallModal({
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-800 flex items-center justify-center text-[#DFB76C] font-bold text-xs sm:text-sm">
                 {currentUser?.name?.[0] || 'You'}
               </div>
-              <span className="text-[9px] sm:text-[10px] text-slate-400">{isCameraOff ? 'Camera Off' : 'Starting...'}</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-400">
+                {isCameraOff ? 'Camera Off' : 'Starting...'}
+              </span>
             </div>
           )}
-          
+
           <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white backdrop-blur-xs flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
             <span>You</span>
           </div>
         </div>
-
       </div>
 
-      {/* Bottom Control Bar - Anchored securely at bottom with safe area insets */}
-      <div 
+      {/* Bottom Control Bar */}
+      <div
         className="w-full shrink-0 z-40 bg-[#060D17]/95 backdrop-blur-md border-t border-slate-800/80 px-3 py-3 sm:px-6 sm:py-4 flex items-center justify-center space-x-3 sm:space-x-5"
         style={{
           paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))'
@@ -512,8 +512,8 @@ export default function VideoCallModal({
           type="button"
           onClick={handleToggleMic}
           className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-md flex items-center justify-center ${
-            isMicMuted 
-              ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30' 
+            isMicMuted
+              ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30'
               : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
           }`}
           title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
@@ -526,8 +526,8 @@ export default function VideoCallModal({
           type="button"
           onClick={handleToggleCamera}
           className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-md flex items-center justify-center ${
-            isCameraOff 
-              ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30' 
+            isCameraOff
+              ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30'
               : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
           }`}
           title={isCameraOff ? 'Turn Camera On' : 'Turn Camera Off'}
@@ -555,9 +555,7 @@ export default function VideoCallModal({
           <PhoneOff className="w-5 h-5" />
           <span>End Call</span>
         </button>
-
       </div>
-
     </div>
   );
 }

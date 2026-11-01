@@ -8,30 +8,36 @@ import { interestService } from './interestService.js';
  */
 export const getRTCConfig = () => {
   const iceServers = [
+    // Google STUN servers
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
     { urls: 'stun:stun4.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' }
-  ];
-
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TURN_URL) {
-    iceServers.push({
-      urls: import.meta.env.VITE_TURN_URL,
-      username: import.meta.env.VITE_TURN_USERNAME || '',
-      credential: import.meta.env.VITE_TURN_CREDENTIAL || ''
-    });
-  } else {
-    // Open-source TURN relay template with TCP/UDP transports for mobile traversal
-    iceServers.push({
+    // Cloudflare STUN
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    // Metered / OpenRelay TURN servers with both UDP and TCP transport for mobile 4G/5G traversal
+    {
       urls: [
         'turn:openrelay.metered.ca:80',
         'turn:openrelay.metered.ca:443',
-        'turns:openrelay.metered.ca:443?transport=tcp'
+        'turn:openrelay.metered.ca:443?transport=tcp',
+        'turns:openrelay.metered.ca:443?transport=tcp',
+        'turns:openrelay.metered.ca:5349?transport=tcp'
       ],
       username: 'openrelayproject',
       credential: 'openrelayproject'
+    }
+  ];
+
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TURN_URL) {
+    const urls = import.meta.env.VITE_TURN_URL.includes(',')
+      ? import.meta.env.VITE_TURN_URL.split(',').map((u) => u.trim())
+      : import.meta.env.VITE_TURN_URL;
+    iceServers.push({
+      urls,
+      username: import.meta.env.VITE_TURN_USERNAME || '',
+      credential: import.meta.env.VITE_TURN_CREDENTIAL || ''
     });
   }
 
@@ -45,6 +51,103 @@ export const getRTCConfig = () => {
 };
 
 /**
+ * Standard Audio Constraints
+ * Explicitly enables echoCancellation, noiseSuppression, and autoGainControl.
+ */
+export const AUDIO_CONSTRAINTS = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  channelCount: { ideal: 1 },
+  sampleRate: { ideal: 48000 }
+};
+
+/**
+ * RTCVideoRenderer
+ * Cross-platform renderer abstraction supporting initialization lifecycle,
+ * media element attachment, track play-out, and resource disposal.
+ */
+export class RTCVideoRenderer {
+  constructor(name = 'renderer') {
+    this.name = name;
+    this._element = null;
+    this._srcObject = null;
+    this.isInitialized = false;
+    this.muted = false;
+    this.mirror = false;
+    this.onTrackUpdate = null;
+  }
+
+  async initialize() {
+    this.isInitialized = true;
+    console.log(`[RTCVideoRenderer:${this.name}] Initialized`);
+    return true;
+  }
+
+  attachElement(element, { muted = false, mirror = false } = {}) {
+    this._element = element;
+    this.muted = muted;
+    this.mirror = mirror;
+
+    if (element) {
+      element.playsInline = true;
+      element.autoplay = true;
+      element.muted = muted;
+      if (mirror) {
+        element.style.transform = 'scaleX(-1)';
+      }
+      if (this._srcObject) {
+        element.srcObject = this._srcObject;
+        element.play().catch((err) => {
+          console.warn(`[RTCVideoRenderer:${this.name}] Auto-play on attach notice:`, err?.message);
+        });
+      }
+    }
+  }
+
+  get srcObject() {
+    return this._srcObject;
+  }
+
+  set srcObject(stream) {
+    if (!this.isInitialized) {
+      console.warn(`[RTCVideoRenderer:${this.name}] Initializing renderer on first srcObject assignment`);
+      this.isInitialized = true;
+    }
+    this._srcObject = stream;
+    console.log(`[RTCVideoRenderer:${this.name}] Assigned srcObject with ${stream?.getTracks?.().length || 0} track(s)`);
+
+    if (this._element) {
+      this._element.srcObject = stream;
+      if (stream) {
+        this._element.play().catch((err) => {
+          console.warn(`[RTCVideoRenderer:${this.name}] Play failed on srcObject update:`, err?.message);
+        });
+      }
+    }
+
+    if (typeof this.onTrackUpdate === 'function') {
+      this.onTrackUpdate(stream);
+    }
+  }
+
+  get stream() {
+    return this._srcObject;
+  }
+
+  dispose() {
+    console.log(`[RTCVideoRenderer:${this.name}] Disposed`);
+    if (this._element) {
+      try {
+        this._element.srcObject = null;
+      } catch (e) {}
+    }
+    this._srcObject = null;
+    this.isInitialized = false;
+  }
+}
+
+/**
  * Audio Routing Helper for Loudspeaker & Speakerphone Management
  * Handles audio output routing and ensures sound is not routed to a dead earpiece.
  */
@@ -56,17 +159,18 @@ export const AudioRoutingHelper = {
     this.isSpeakerOn = enable;
     console.log('[WebRTC AudioRouting] setSpeakerphoneOn:', enable);
 
-    // 1. If media element supports setSinkId, select the appropriate output device
+    // 1. Select loudspeaker device via setSinkId if supported by the browser
     if (mediaElement && typeof mediaElement.setSinkId === 'function') {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+        const audioOutputs = devices.filter((d) => d.kind === 'audiooutput');
 
         if (enable) {
-          const speaker = audioOutputs.find(d => 
-            d.label.toLowerCase().includes('speaker') || 
-            d.label.toLowerCase().includes('loudspeaker') ||
-            d.deviceId === 'speaker'
+          const speaker = audioOutputs.find(
+            (d) =>
+              d.label.toLowerCase().includes('speaker') ||
+              d.label.toLowerCase().includes('loudspeaker') ||
+              d.deviceId === 'speaker'
           );
           if (speaker) {
             await mediaElement.setSinkId(speaker.deviceId);
@@ -76,10 +180,11 @@ export const AudioRoutingHelper = {
             await mediaElement.setSinkId('');
           }
         } else {
-          const receiver = audioOutputs.find(d => 
-            d.label.toLowerCase().includes('earpiece') || 
-            d.label.toLowerCase().includes('receiver') || 
-            d.label.toLowerCase().includes('phone')
+          const receiver = audioOutputs.find(
+            (d) =>
+              d.label.toLowerCase().includes('earpiece') ||
+              d.label.toLowerCase().includes('receiver') ||
+              d.label.toLowerCase().includes('phone')
           );
           if (receiver) {
             await mediaElement.setSinkId(receiver.deviceId);
@@ -92,7 +197,7 @@ export const AudioRoutingHelper = {
       }
     }
 
-    // 2. Ensure AudioContext is alive to prevent browser muting
+    // 2. Ensure AudioContext is active and not suspended to prevent mobile OS muting
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
@@ -118,6 +223,8 @@ class WebRTCCallService {
     this.peerConnection = null;
     this.localStream = null;
     this.remoteStream = null;
+    this.localRenderer = new RTCVideoRenderer('local');
+    this.remoteRenderer = new RTCVideoRenderer('remote');
     this.channel = null;
     this.isSubscribed = false;
     this.currentUser = null;
@@ -175,7 +282,7 @@ class WebRTCCallService {
   async ensureSubscribed() {
     this.getChannel();
     for (let i = 0; !this.isSubscribed && i < 30; i++) {
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 100));
     }
   }
 
@@ -215,8 +322,9 @@ class WebRTCCallService {
     if (!payload?.targetId) return;
 
     // Filter rule: target must match one of my registered identifiers
-    const isTarget = this.myIds.includes(String(payload.targetId)) ||
-      (Array.isArray(payload.data?.targetIds) && payload.data.targetIds.some(id => this.myIds.includes(String(id))));
+    const isTarget =
+      this.myIds.includes(String(payload.targetId)) ||
+      (Array.isArray(payload.data?.targetIds) && payload.data.targetIds.some((id) => this.myIds.includes(String(id))));
     if (!isTarget || this.myIds.includes(String(payload.senderId))) return;
 
     // 1. Incoming Call Invitation
@@ -224,7 +332,10 @@ class WebRTCCallService {
       if (!payload.callId || this.handledCallIds.has(payload.callId)) return;
       this.handledCallIds.add(payload.callId);
       try {
-        const auth = await interestService.verifyCallAuthorization(this.currentUser, payload.data?.caller || { id: payload.senderId });
+        const auth = await interestService.verifyCallAuthorization(
+          this.currentUser,
+          payload.data?.caller || { id: payload.senderId }
+        );
         if (!auth.authorized) return;
       } catch (e) {}
       this.inboxCallback?.({
@@ -246,14 +357,22 @@ class WebRTCCallService {
 
     // 2. Call Accepted (Caller handles callee acceptance -> sends SDP offer)
     if (payload.type === 'call-accepted' && this.isCaller && this.peerConnection) {
-      console.log('[WebRTC] Callee accepted call. Creating SDP offer...');
+      console.log('[WebRTC] Callee accepted call. Initializing SDP offer creation...');
       this.onCallStatusChangeCallback?.('connected');
+
+      // Guarantee local tracks are attached before creating offer
+      this.attachLocalTracksToPeerConnection();
+
       try {
-        // Ensure transceivers for audio and video
-        if (this.peerConnection.getTransceivers) {
+        // Ensure transceivers for unified-plan audio & video
+        if (typeof this.peerConnection.getTransceivers === 'function') {
           const transceivers = this.peerConnection.getTransceivers();
-          const hasAudio = transceivers.some(t => t.receiver.track?.kind === 'audio' || t.sender.track?.kind === 'audio');
-          const hasVideo = transceivers.some(t => t.receiver.track?.kind === 'video' || t.sender.track?.kind === 'video');
+          const hasAudio = transceivers.some(
+            (t) => t.receiver.track?.kind === 'audio' || t.sender.track?.kind === 'audio'
+          );
+          const hasVideo = transceivers.some(
+            (t) => t.receiver.track?.kind === 'video' || t.sender.track?.kind === 'video'
+          );
           if (!hasAudio) {
             this.peerConnection.addTransceiver('audio', { direction: 'sendrecv' });
           }
@@ -271,25 +390,30 @@ class WebRTCCallService {
           sdp: offer.sdp,
           type: offer.type || 'offer'
         });
-        console.log('[WebRTC] SDP offer sent successfully.');
+        console.log('[WebRTC] SDP offer sent successfully with unified-plan.');
       } catch (e) {
         console.error('[WebRTC] Create offer error:', e);
       }
     }
-    // 3. SDP Offer (Callee handles caller offer -> sets remote description -> sends SDP answer)
+    // 3. SDP Offer (Callee handles caller offer -> sets remote description -> flushes ICE candidates -> sends SDP answer)
     else if (payload.type === 'webrtc-offer' && this.peerConnection && payload.data?.sdp) {
       console.log('[WebRTC] Received SDP offer. Setting remote description...');
       try {
         const sdpData = payload.data.sdp;
         const sdpType = payload.data.type || 'offer';
-        const sdpString = typeof sdpData === 'string' ? sdpData : (sdpData?.sdp || sdpData);
+        const sdpString = typeof sdpData === 'string' ? sdpData : sdpData?.sdp || sdpData;
         const offerDesc = new RTCSessionDescription({
           type: sdpType,
           sdp: sdpString
         });
+
         await this.peerConnection.setRemoteDescription(offerDesc);
         this.isRemoteDescriptionSet = true;
+        console.log('[WebRTC] Callee remote description set. Flushing queued ICE candidates...');
         await this.flushIceCandidates();
+
+        // Attach local tracks before creating answer
+        this.attachLocalTracksToPeerConnection();
 
         const answer = await this.peerConnection.createAnswer({
           offerToReceiveAudio: true,
@@ -305,21 +429,22 @@ class WebRTCCallService {
         console.error('[WebRTC] Handle offer error:', e);
       }
     }
-    // 4. SDP Answer (Caller handles callee answer -> sets remote description)
+    // 4. SDP Answer (Caller handles callee answer -> sets remote description -> flushes ICE candidates)
     else if (payload.type === 'webrtc-answer' && this.peerConnection && payload.data?.sdp) {
       console.log('[WebRTC] Received SDP answer. Setting remote description...');
       try {
         const sdpData = payload.data.sdp;
         const sdpType = payload.data.type || 'answer';
-        const sdpString = typeof sdpData === 'string' ? sdpData : (sdpData?.sdp || sdpData);
+        const sdpString = typeof sdpData === 'string' ? sdpData : sdpData?.sdp || sdpData;
         const answerDesc = new RTCSessionDescription({
           type: sdpType,
           sdp: sdpString
         });
+
         await this.peerConnection.setRemoteDescription(answerDesc);
         this.isRemoteDescriptionSet = true;
+        console.log('[WebRTC] Caller remote description set. Flushing queued ICE candidates...');
         await this.flushIceCandidates();
-        console.log('[WebRTC] Remote description set and ICE candidates flushed on caller.');
       } catch (e) {
         console.error('[WebRTC] Handle answer error:', e);
       }
@@ -335,13 +460,19 @@ class WebRTCCallService {
     }
   }
 
+  /**
+   * Buffer incoming ICE candidates if peerConnection.getRemoteDescription() is null,
+   * and flush the queue immediately after setRemoteDescription succeeds.
+   */
   async addIceCandidateSafe(candidateData) {
     if (!candidateData) return;
     const candidateInit = typeof candidateData === 'string' ? { candidate: candidateData } : candidateData;
     if (!candidateInit.candidate && candidateInit.candidate !== '') return;
 
-    const remoteDesc = this.peerConnection?.remoteDescription || 
-      (typeof this.peerConnection?.getRemoteDescription === 'function' ? this.peerConnection.getRemoteDescription() : null);
+    const remoteDesc =
+      (typeof this.peerConnection?.getRemoteDescription === 'function'
+        ? this.peerConnection.getRemoteDescription()
+        : this.peerConnection?.remoteDescription) || null;
 
     if (this.peerConnection && remoteDesc && this.isRemoteDescriptionSet) {
       try {
@@ -351,27 +482,60 @@ class WebRTCCallService {
         this.iceCandidateQueue.push(candidateInit);
       }
     } else {
-      // Buffer incoming ICE candidates in an array if remote description is null
+      console.log('[WebRTC] Remote description is null, queueing ICE candidate. Total queued:', this.iceCandidateQueue.length + 1);
       this.iceCandidateQueue.push(candidateInit);
     }
   }
 
   async flushIceCandidates() {
     if (!this.peerConnection) return;
-    const remoteDesc = this.peerConnection.remoteDescription || 
-      (typeof this.peerConnection.getRemoteDescription === 'function' ? this.peerConnection.getRemoteDescription() : null);
+    const remoteDesc =
+      (typeof this.peerConnection.getRemoteDescription === 'function'
+        ? this.peerConnection.getRemoteDescription()
+        : this.peerConnection.remoteDescription) || null;
     if (!remoteDesc) return;
 
     const queue = [...this.iceCandidateQueue];
     this.iceCandidateQueue = [];
 
-    for (const candidate of queue) {
-      try {
-        await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) {
-        console.warn('[WebRTC] flush candidate notice:', e);
+    if (queue.length > 0) {
+      console.log(`[WebRTC] Flushing ${queue.length} buffered ICE candidate(s)...`);
+      for (const candidate of queue) {
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.warn('[WebRTC] flush candidate notice:', e?.message);
+        }
       }
     }
+  }
+
+  /**
+   * Proper Track Attachment & Renderer Initialization
+   * Loop through localStream.getTracks() and attach each track via peerConnection.addTrack(track, localStream).
+   * Listen to peerConnection.onTrack, extract event.streams[0], assign to remoteRenderer.srcObject, and trigger setState.
+   */
+  attachLocalTracksToPeerConnection() {
+    if (!this.peerConnection || !this.localStream) return;
+
+    const existingSenders = this.peerConnection.getSenders ? this.peerConnection.getSenders() : [];
+    const tracks = this.localStream.getTracks();
+
+    tracks.forEach((track) => {
+      const existingSender = existingSenders.find((s) => s.track && s.track.kind === track.kind);
+      if (existingSender) {
+        existingSender.replaceTrack(track).catch((err) => {
+          console.warn(`[WebRTC] replaceTrack warning for ${track.kind}:`, err?.message);
+        });
+      } else {
+        try {
+          console.log(`[WebRTC] Attaching ${track.kind} track via addTrack:`, track.label);
+          this.peerConnection.addTrack(track, this.localStream);
+        } catch (err) {
+          console.warn(`[WebRTC] addTrack warning for ${track.kind}:`, err?.message);
+        }
+      }
+    });
   }
 
   createPeerConnection() {
@@ -388,7 +552,11 @@ class WebRTCCallService {
     const config = getRTCConfig();
     this.peerConnection = new RTCPeerConnection(config);
     this.isRemoteDescriptionSet = false;
-    // Preserve any candidates already queued before createPeerConnection resolved
+
+    // Polyfill getRemoteDescription() method if not directly defined
+    if (typeof this.peerConnection.getRemoteDescription !== 'function') {
+      this.peerConnection.getRemoteDescription = () => this.peerConnection.remoteDescription;
+    }
 
     this.peerConnection.onicecandidate = (e) => {
       if (e.candidate) {
@@ -403,24 +571,46 @@ class WebRTCCallService {
       }
     };
 
-    this.peerConnection.ontrack = (e) => {
-      console.log('[WebRTC] ontrack event triggered. Track kind:', e.track?.kind, 'streams:', e.streams?.length);
-      if (!this.remoteStream) {
-        this.remoteStream = new MediaStream();
-      }
-      
-      const existing = this.remoteStream.getTracks().find(t => t.id === e.track.id || t.kind === e.track.kind);
-      if (existing) {
-        try { this.remoteStream.removeTrack(existing); } catch (err) {}
-      }
-      this.remoteStream.addTrack(e.track);
+    // Listen to peerConnection.onTrack, extract event.streams[0], assign it to remoteRenderer.srcObject, and trigger setState
+    this.peerConnection.ontrack = (event) => {
+      console.log('[WebRTC] peerConnection.ontrack event received:', {
+        kind: event.track?.kind,
+        streamsCount: event.streams?.length,
+        trackId: event.track?.id
+      });
 
-      if (e.track) {
-        e.track.enabled = true;
+      let stream = event.streams && event.streams[0] ? event.streams[0] : null;
+
+      if (!stream) {
+        if (!this.remoteStream) {
+          this.remoteStream = new MediaStream();
+        }
+        const existing = this.remoteStream.getTracks().find((t) => t.id === event.track.id || t.kind === event.track.kind);
+        if (existing) {
+          try {
+            this.remoteStream.removeTrack(existing);
+          } catch (err) {}
+        }
+        this.remoteStream.addTrack(event.track);
+        stream = this.remoteStream;
+      } else {
+        this.remoteStream = stream;
       }
 
-      // Always pass a new MediaStream instance so React state recognizes the updated reference
-      const freshStream = new MediaStream(this.remoteStream.getTracks());
+      if (event.track) {
+        event.track.enabled = true;
+      }
+
+      // Assign to remoteRenderer.srcObject
+      if (this.remoteRenderer) {
+        this.remoteRenderer.srcObject = stream;
+      }
+
+      // Automatically enable speakerphone routing
+      Helper.setSpeakerphoneOn(true);
+
+      // Trigger UI rebuild callback
+      const freshStream = new MediaStream(stream.getTracks());
       this.onRemoteStreamCallback?.(freshStream);
     };
 
@@ -428,6 +618,7 @@ class WebRTCCallService {
       const state = this.peerConnection?.connectionState;
       console.log('[WebRTC] PeerConnection state:', state);
       if (state === 'connected') {
+        Helper.setSpeakerphoneOn(true);
         this.onCallStatusChangeCallback?.('connected');
       } else if (state === 'failed' || state === 'closed') {
         console.warn('[WebRTC] PeerConnection entered', state);
@@ -436,28 +627,39 @@ class WebRTCCallService {
 
     this.peerConnection.oniceconnectionstatechange = () => {
       console.log('[WebRTC] ICE connection state:', this.peerConnection?.iceConnectionState);
+      if (this.peerConnection?.iceConnectionState === 'connected') {
+        Helper.setSpeakerphoneOn(true);
+      }
     };
   }
 
   /**
-   * Strict Runtime Permission Flow
-   * Explicitly requests Microphone and Camera permissions before creating SDP Offer/Answer.
-   * Ensures active localStream with live tracks is acquired.
+   * Strict Runtime Permission Flow (Before SDP Offer/Answer)
+   * Explicitly requests Camera and Microphone permissions at the exact moment
+   * the user clicks 'Call' or 'Accept Call'.
+   * Ensures active localStream with live tracks is returned before offer/answer creation.
    */
+  async requestMediaPermissions(callType = 'audio', facingMode = 'user') {
+    return this.initLocalMedia(callType, facingMode);
+  }
+
   async initLocalMedia(callType = 'audio', facingMode = 'user') {
     const isVideo = callType === 'video';
 
-    // 1. Check if we already have an active, live localStream with required tracks
+    // 1. Re-use existing live local stream if valid
     if (this.localStream) {
-      const liveAudio = this.localStream.getAudioTracks().filter(t => t.readyState === 'live');
-      const liveVideo = this.localStream.getVideoTracks().filter(t => t.readyState === 'live');
+      const liveAudio = this.localStream.getAudioTracks().filter((t) => t.readyState === 'live');
+      const liveVideo = this.localStream.getVideoTracks().filter((t) => t.readyState === 'live');
       if (liveAudio.length > 0 && (!isVideo || liveVideo.length > 0)) {
-        console.log('[WebRTC] Reusing existing live local stream');
+        console.log('[WebRTC] Reusing verified active local stream');
+        if (this.localRenderer && this.localRenderer.srcObject !== this.localStream) {
+          this.localRenderer.srcObject = this.localStream;
+        }
         return this.localStream;
       }
     }
 
-    // 2. Prevent concurrent duplicate getUserMedia requests
+    // 2. Concurrency lock
     if (this.mediaAcquisitionPromise) {
       return this.mediaAcquisitionPromise;
     }
@@ -468,43 +670,58 @@ class WebRTCCallService {
           throw new Error('getUserMedia is not supported on this browser or environment');
         }
 
-        const audioConstraints = {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-          sampleRate: 48000
-        };
+        const videoConstraints = isVideo
+          ? {
+              facingMode: { ideal: facingMode },
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 },
+              frameRate: { ideal: 30, max: 30 }
+            }
+          : false;
 
-        const videoConstraints = isVideo ? {
-          facingMode: { ideal: facingMode },
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
-          frameRate: { ideal: 30, max: 30 }
-        } : false;
-
-        console.log('[WebRTC] Requesting media permissions at call action:', { audio: audioConstraints, video: videoConstraints });
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: audioConstraints,
+        console.log('[WebRTC] Requesting Camera and Microphone permissions at user gesture:', {
+          audio: AUDIO_CONSTRAINTS,
           video: videoConstraints
         });
 
-        // Verify active tracks
-        const audioTracks = stream.getAudioTracks().filter(t => t.readyState === 'live');
-        const videoTracks = stream.getVideoTracks().filter(t => t.readyState === 'live');
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: AUDIO_CONSTRAINTS,
+          video: videoConstraints
+        });
+
+        // Verify active live tracks
+        const audioTracks = stream.getAudioTracks().filter((t) => t.readyState === 'live');
+        const videoTracks = stream.getVideoTracks().filter((t) => t.readyState === 'live');
         if (audioTracks.length === 0 && (!isVideo || videoTracks.length === 0)) {
-          throw new Error('No active media tracks acquired');
+          throw new Error('No active live media tracks acquired');
         }
 
         this.localStream = stream;
         this.hardwareError = null;
-        console.log('[WebRTC] Local media stream acquired. Audio tracks:', audioTracks.length, 'Video tracks:', videoTracks.length);
+
+        // Initialize localRenderer BEFORE assigning srcObject
+        if (this.localRenderer) {
+          if (!this.localRenderer.isInitialized) {
+            await this.localRenderer.initialize();
+          }
+          this.localRenderer.srcObject = stream;
+        }
+
+        console.log(
+          '[WebRTC] Local media stream acquired. Audio tracks:',
+          audioTracks.length,
+          'Video tracks:',
+          videoTracks.length
+        );
         return stream;
       } catch (err) {
         console.error('[WebRTC] getUserMedia failed:', err.name, err.message);
-        this.hardwareError = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' 
-          ? 'permission_denied' 
-          : (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError' ? 'hardware_unavailable' : 'media_error');
+        this.hardwareError =
+          err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
+            ? 'permission_denied'
+            : err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError'
+            ? 'hardware_unavailable'
+            : 'media_error';
         throw err;
       } finally {
         this.mediaAcquisitionPromise = null;
@@ -516,17 +733,7 @@ class WebRTCCallService {
 
   async requestMediaAccess(callType = 'audio', facingMode = 'user') {
     const stream = await this.initLocalMedia(callType, facingMode);
-    if (this.peerConnection && stream) {
-      const senders = this.peerConnection.getSenders();
-      stream.getTracks().forEach((track) => {
-        const sender = senders.find(s => s.track && s.track.kind === track.kind);
-        if (sender) {
-          sender.replaceTrack(track).catch(() => {});
-        } else {
-          this.peerConnection.addTrack(track, stream);
-        }
-      });
-    }
+    this.attachLocalTracksToPeerConnection();
     return stream;
   }
 
@@ -545,7 +752,7 @@ class WebRTCCallService {
           oldTrack.stop();
         }
         this.localStream.addTrack(newTrack);
-        const s = this.peerConnection?.getSenders().find(sn => sn.track?.kind === 'video');
+        const s = this.peerConnection?.getSenders().find((sn) => sn.track?.kind === 'video');
         if (s) await s.replaceTrack(newTrack);
       }
       return this.localStream;
@@ -555,11 +762,15 @@ class WebRTCCallService {
   }
 
   toggleAudio(enabled) {
-    this.localStream?.getAudioTracks().forEach(t => { t.enabled = enabled; });
+    this.localStream?.getAudioTracks().forEach((t) => {
+      t.enabled = enabled;
+    });
   }
 
   toggleVideo(enabled) {
-    this.localStream?.getVideoTracks().forEach(t => { t.enabled = enabled; });
+    this.localStream?.getVideoTracks().forEach((t) => {
+      t.enabled = enabled;
+    });
   }
 
   primeAudioPlayback() {
@@ -580,11 +791,21 @@ class WebRTCCallService {
     } catch (e) {}
   }
 
+  /**
+   * Start Call:
+   * 1. Requires active localStream from strict permission flow.
+   * 2. Initializes localRenderer and remoteRenderer BEFORE setting srcObject.
+   * 3. Creates PeerConnection with unified-plan.
+   * 4. Attaches tracks via peerConnection.addTrack(track, localStream).
+   * 5. Sends incoming-call signal to callee. (Does NOT create offer until callee accepts).
+   */
   async startCall({ caller, callee, callType = 'audio', onRemoteStream, onStatusChange }) {
     this.cleanupCallState();
 
     this.setSelfUser(caller);
-    const targetIds = [callee?.id, callee?.register_id, callee?.registerId, callee?.uid, callee?.userId].filter(Boolean).map(String);
+    const targetIds = [callee?.id, callee?.register_id, callee?.registerId, callee?.uid, callee?.userId]
+      .filter(Boolean)
+      .map(String);
     this.remoteUserId = targetIds[0] || String(callee);
     this.currentCallId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     this.callType = callType;
@@ -600,7 +821,7 @@ class WebRTCCallService {
       }
     } catch (e) {}
 
-    // 1. Strict Runtime Permission Flow: Explicitly request and verify active local stream
+    // Strict Runtime Permission Flow: Verify active local stream
     try {
       await this.initLocalMedia(callType);
     } catch (err) {
@@ -609,22 +830,21 @@ class WebRTCCallService {
       return { error: 'PERMISSION_DENIED', message: 'Microphone and/or camera permission denied' };
     }
 
-    // 2. Initialize RTCPeerConnection with STUN & TURN
+    // Initialize localRenderer and remoteRenderer BEFORE setting srcObject
+    await this.localRenderer.initialize();
+    await this.remoteRenderer.initialize();
+    this.localRenderer.srcObject = this.localStream;
+
+    // Initialize RTCPeerConnection with STUN & TURN
     this.createPeerConnection();
 
-    // 3. Attach all local tracks to peerConnection
-    if (this.localStream) {
-      this.localStream.getTracks().forEach((track) => {
-        try {
-          console.log('[WebRTC] Attaching local track to caller peerConnection:', track.kind, track.label);
-          this.peerConnection.addTrack(track, this.localStream);
-        } catch (e) {
-          console.warn('[WebRTC] addTrack warning:', e);
-        }
-      });
-    }
+    // Attach all local tracks to peerConnection
+    this.attachLocalTracksToPeerConnection();
 
-    // 4. Send incoming call invite to target peer
+    // Configure speakerphone
+    Helper.setSpeakerphoneOn(true);
+
+    // Send incoming call invite to target peer
     await this.sendSignal('incoming-call', {
       callId: this.currentCallId,
       callerId: this.myPrimaryId,
@@ -647,6 +867,14 @@ class WebRTCCallService {
     return { success: true, callId: this.currentCallId };
   }
 
+  /**
+   * Accept Call:
+   * 1. Requires active localStream from strict permission flow.
+   * 2. Initializes localRenderer and remoteRenderer BEFORE setting srcObject.
+   * 3. Creates PeerConnection with unified-plan.
+   * 4. Attaches tracks via peerConnection.addTrack(track, localStream).
+   * 5. Sends call-accepted signal to caller.
+   */
   async acceptCall({ callData, currentUser, onRemoteStream, onStatusChange }) {
     this.cleanupCallState();
 
@@ -658,7 +886,7 @@ class WebRTCCallService {
     this.onRemoteStreamCallback = onRemoteStream;
     this.onCallStatusChangeCallback = onStatusChange;
 
-    // 1. Strict Runtime Permission Flow: Request and verify active local stream before accepting
+    // Strict Runtime Permission Flow: Verify active local stream before accepting
     try {
       await this.initLocalMedia(this.callType);
     } catch (err) {
@@ -667,25 +895,24 @@ class WebRTCCallService {
       return { error: 'PERMISSION_DENIED', message: 'Microphone and/or camera permission denied' };
     }
 
-    // 2. Initialize RTCPeerConnection with STUN & TURN
+    // Initialize localRenderer and remoteRenderer BEFORE setting srcObject
+    await this.localRenderer.initialize();
+    await this.remoteRenderer.initialize();
+    this.localRenderer.srcObject = this.localStream;
+
+    // Initialize RTCPeerConnection with STUN & TURN
     this.createPeerConnection();
 
-    // 3. Attach all local tracks to peerConnection
-    if (this.localStream) {
-      this.localStream.getTracks().forEach((track) => {
-        try {
-          console.log('[WebRTC] Attaching local track to callee peerConnection:', track.kind, track.label);
-          this.peerConnection.addTrack(track, this.localStream);
-        } catch (e) {
-          console.warn('[WebRTC] addTrack warning:', e);
-        }
-      });
-    }
+    // Attach all local tracks to peerConnection
+    this.attachLocalTracksToPeerConnection();
 
-    // 4. Update status to connected
+    // Enable speakerphone
+    Helper.setSpeakerphoneOn(true);
+
+    // Update status to connected
     onStatusChange?.('connected');
 
-    // 5. Emit call-accepted back to caller
+    // Emit call-accepted back to caller so caller can create the SDP offer
     await this.sendSignal('call-accepted', { callId: this.currentCallId });
     return { success: true };
   }
@@ -734,9 +961,15 @@ class WebRTCCallService {
     }
     if (this.localStream) {
       try {
-        this.localStream.getTracks().forEach(t => t.stop());
+        this.localStream.getTracks().forEach((t) => t.stop());
       } catch (e) {}
       this.localStream = null;
+    }
+    if (this.localRenderer) {
+      this.localRenderer.dispose();
+    }
+    if (this.remoteRenderer) {
+      this.remoteRenderer.dispose();
     }
     this.remoteStream = null;
     this.currentCallId = '';

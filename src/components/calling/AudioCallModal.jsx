@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  PhoneOff, 
-  Mic, 
-  MicOff, 
-  Volume2, 
-  VolumeX, 
-  ShieldCheck, 
-  Grid, 
+import {
+  PhoneOff,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  ShieldCheck,
+  Grid,
   MapPin,
-  X,
-  Radio
+  X
 } from 'lucide-react';
-import { webrtcCallService, Helper } from '../../services/webrtcCallService';
+import { webrtcCallService, Helper, RTCVideoRenderer } from '../../services/webrtcCallService';
 
 export default function AudioCallModal({
   isOpen,
@@ -34,6 +33,9 @@ export default function AudioCallModal({
   const [isConnectedPeer, setIsConnectedPeer] = useState(false);
   const [remoteStream, setRemoteStream] = useState(null);
 
+  // Initialize remoteRenderer via RTCVideoRenderer
+  const remoteRendererRef = useRef(new RTCVideoRenderer('remoteAudio'));
+
   const timerRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -44,16 +46,18 @@ export default function AudioCallModal({
   // Helper to safely play media with user-gesture unlock fallback
   const safePlayMedia = (mediaEl, label = 'media') => {
     if (!mediaEl) return;
-    mediaEl.play()
+    mediaEl
+      .play()
       .then(() => {
         setAutoplayBlocked(false);
       })
       .catch((err) => {
-        console.warn(`[AudioCall] ${label} autoplay blocked by browser:`, err);
+        console.warn(`[AudioCall] ${label} autoplay blocked by browser:`, err?.message);
         setAutoplayBlocked(true);
         const unlockGesture = () => {
           if (mediaEl) {
-            mediaEl.play()
+            mediaEl
+              .play()
               .then(() => setAutoplayBlocked(false))
               .catch(() => {});
           }
@@ -65,12 +69,13 @@ export default function AudioCallModal({
       });
   };
 
-  // Web Audio Tone generator
+  // Tone generator for DTMF and cues
   const playTone = (freq1, freq2, duration = 0.15) => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = audioContextRef.current || new AudioCtx();
+      audioContextRef.current = ctx;
       if (ctx.state === 'suspended') ctx.resume();
 
       const osc1 = ctx.createOscillator();
@@ -141,14 +146,15 @@ export default function AudioCallModal({
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = audioContextRef.current || new AudioCtx();
+      audioContextRef.current = ctx;
       if (ctx.state === 'suspended') ctx.resume();
 
-      const notes = [523.25, 659.25, 783.99, 1046.50];
+      const notes = [523.25, 659.25, 783.99, 1046.5];
       notes.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.frequency.value = freq;
-        const startTime = ctx.currentTime + (idx * 0.08);
+        const startTime = ctx.currentTime + idx * 0.08;
         gain.gain.setValueAtTime(0.06, startTime);
         gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
         osc.connect(gain);
@@ -159,7 +165,7 @@ export default function AudioCallModal({
     } catch (e) {}
   };
 
-  // Mic analyser setup
+  // Microphone audio meter analyser setup
   const setupMicAnalyser = (stream) => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -188,11 +194,11 @@ export default function AudioCallModal({
       setHasMicPermission(true);
       setMicPermissionError(false);
     } catch (err) {
-      console.warn('[AudioCall] Mic analyser warning:', err);
+      console.warn('[AudioCall] Mic analyser warning:', err?.message);
     }
   };
 
-  // Explicit microphone permission request handler
+  // Explicit microphone permission re-request handler
   const handleRequestMicPermission = async () => {
     try {
       const stream = await webrtcCallService.requestMediaAccess('audio');
@@ -201,81 +207,61 @@ export default function AudioCallModal({
         setupMicAnalyser(stream);
       }
     } catch (err) {
-      console.warn('[AudioCall] Manual mic permission request notice:', err);
+      console.warn('[AudioCall] Manual mic permission request notice:', err?.message);
       setMicPermissionError(true);
     }
   };
 
-  // WebRTC & Audio Lifecycle
+  // Lifecycle
   useEffect(() => {
     if (!isOpen) return;
 
     let isSubscribed = true;
     let callTimeoutTimer = null;
 
-    // Callback when remote audio stream is received
-    const handleRemoteStream = (stream) => {
-      if (!stream) return;
-      console.log('[AudioCall] handleRemoteStream received stream with tracks:', stream.getTracks().map(t => `${t.kind}:${t.enabled}`));
-      setRemoteStream(stream);
+    const setupCall = async () => {
+      // 1. Initialize remoteRenderer (RTCVideoRenderer) BEFORE setting srcObject
+      await remoteRendererRef.current.initialize();
       if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = stream;
-        safePlayMedia(remoteAudioRef.current, 'remoteAudio');
+        remoteRendererRef.current.attachElement(remoteAudioRef.current, { muted: false });
       }
-      if (ringIntervalRef.current) {
-        clearInterval(ringIntervalRef.current);
-        ringIntervalRef.current = null;
-      }
-      setIsConnectedPeer(true);
-      setCallStatus('connected');
-      playConnectChime();
-    };
 
-    // Callback for status change from WebRTC signaling
-    const handleStatusChange = (status) => {
-      if (!isSubscribed) return;
-      if (status === 'blocked') {
+      // Configure speakerphone
+      Helper.setSpeakerphoneOn(isSpeakerOn, remoteAudioRef.current);
+
+      // Callback when remote audio stream is received
+      const handleRemoteStream = (stream) => {
+        if (!stream) return;
+        console.log(
+          '[AudioCall] handleRemoteStream received stream with tracks:',
+          stream.getTracks().map((t) => `${t.kind}:${t.enabled}`)
+        );
+
+        // Assign to remoteRenderer.srcObject
+        remoteRendererRef.current.srcObject = stream;
+
+        // Trigger UI state rebuild (setState)
+        setRemoteStream(stream);
+
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = stream;
+          Helper.setSpeakerphoneOn(isSpeakerOn, remoteAudioRef.current);
+          safePlayMedia(remoteAudioRef.current, 'remoteAudio');
+        }
+
         if (ringIntervalRef.current) {
           clearInterval(ringIntervalRef.current);
           ringIntervalRef.current = null;
         }
-        setCallStatus('ended');
-        playTone(380, 280, 0.3);
-        setTimeout(() => onClose(), 1200);
-      } else if (status === 'connected') {
-        if (ringIntervalRef.current) {
-          clearInterval(ringIntervalRef.current);
-          ringIntervalRef.current = null;
-        }
-        setCallStatus('connected');
         setIsConnectedPeer(true);
+        setCallStatus('connected');
         playConnectChime();
-      } else if (status === 'declined' || status === 'ended') {
-        if (ringIntervalRef.current) {
-          clearInterval(ringIntervalRef.current);
-          ringIntervalRef.current = null;
-        }
-        setCallStatus('ended');
-        playTone(380, 280, 0.3);
-        setTimeout(() => onClose(), 1200);
-      }
-    };
+      };
 
-    // Initiate or Accept
-    if (isCaller) {
-      setCallStatus('calling');
-      setCallDuration(0);
-      setDialedDigits('');
-
-      webrtcCallService.startCall({
-        caller: currentUser,
-        callee: candidate,
-        callType: 'audio',
-        onRemoteStream: handleRemoteStream,
-        onStatusChange: handleStatusChange
-      }).then((res) => {
+      // Callback for status change from WebRTC signaling
+      const handleStatusChange = (status) => {
         if (!isSubscribed) return;
-        if (res && res.error === 'CALL_BLOCKED') {
+        if (status === 'blocked') {
           if (ringIntervalRef.current) {
             clearInterval(ringIntervalRef.current);
             ringIntervalRef.current = null;
@@ -283,57 +269,101 @@ export default function AudioCallModal({
           setCallStatus('ended');
           playTone(380, 280, 0.3);
           setTimeout(() => onClose(), 1200);
-          return;
+        } else if (status === 'connected') {
+          if (ringIntervalRef.current) {
+            clearInterval(ringIntervalRef.current);
+            ringIntervalRef.current = null;
+          }
+          setCallStatus('connected');
+          setIsConnectedPeer(true);
+          playConnectChime();
+        } else if (status === 'declined' || status === 'ended') {
+          if (ringIntervalRef.current) {
+            clearInterval(ringIntervalRef.current);
+            ringIntervalRef.current = null;
+          }
+          setCallStatus('ended');
+          playTone(380, 280, 0.3);
+          setTimeout(() => onClose(), 1200);
         }
-        if (webrtcCallService.localStream) {
-          setupMicAnalyser(webrtcCallService.localStream);
-        }
-        if (webrtcCallService.hardwareError === 'permission_denied') {
-          setMicPermissionError(true);
-        }
-        setCallStatus((prev) => {
-          if (prev === 'connected' || prev === 'ended') return prev;
-          startRingingSound();
-          return 'ringing';
-        });
-      });
+      };
 
-      // Awaiting recipient answer timeout (45s)
-      callTimeoutTimer = setTimeout(() => {
-        if (isSubscribed) {
-          setCallStatus((prev) => {
-            if (prev === 'connected' || prev === 'ended') return prev;
-            if (ringIntervalRef.current) {
-              clearInterval(ringIntervalRef.current);
-              ringIntervalRef.current = null;
+      if (isCaller) {
+        setCallStatus('calling');
+        setCallDuration(0);
+        setDialedDigits('');
+
+        webrtcCallService
+          .startCall({
+            caller: currentUser,
+            callee: candidate,
+            callType: 'audio',
+            onRemoteStream: handleRemoteStream,
+            onStatusChange: handleStatusChange
+          })
+          .then((res) => {
+            if (!isSubscribed) return;
+            if (res && res.error === 'CALL_BLOCKED') {
+              if (ringIntervalRef.current) {
+                clearInterval(ringIntervalRef.current);
+                ringIntervalRef.current = null;
+              }
+              setCallStatus('ended');
+              playTone(380, 280, 0.3);
+              setTimeout(() => onClose(), 1200);
+              return;
             }
-            playTone(380, 280, 0.3);
-            setTimeout(() => onClose(), 1200);
-            return 'ended';
+            if (webrtcCallService.localStream) {
+              setupMicAnalyser(webrtcCallService.localStream);
+            }
+            if (webrtcCallService.hardwareError === 'permission_denied') {
+              setMicPermissionError(true);
+            }
+            setCallStatus((prev) => {
+              if (prev === 'connected' || prev === 'ended') return prev;
+              startRingingSound();
+              return 'ringing';
+            });
           });
-        }
-      }, 45000);
 
-    } else {
-      // Receiver answering incoming call
-      setCallStatus('connected');
-      setCallDuration(0);
+        callTimeoutTimer = setTimeout(() => {
+          if (isSubscribed) {
+            setCallStatus((prev) => {
+              if (prev === 'connected' || prev === 'ended') return prev;
+              if (ringIntervalRef.current) {
+                clearInterval(ringIntervalRef.current);
+                ringIntervalRef.current = null;
+              }
+              playTone(380, 280, 0.3);
+              setTimeout(() => onClose(), 1200);
+              return 'ended';
+            });
+          }
+        }, 45000);
+      } else {
+        setCallStatus('connected');
+        setCallDuration(0);
 
-      webrtcCallService.acceptCall({
-        callData: callSession,
-        currentUser,
-        onRemoteStream: handleRemoteStream,
-        onStatusChange: handleStatusChange
-      }).then(() => {
-        if (webrtcCallService.localStream) {
-          setupMicAnalyser(webrtcCallService.localStream);
-        }
-        if (webrtcCallService.hardwareError === 'permission_denied') {
-          setMicPermissionError(true);
-        }
-        playConnectChime();
-      });
-    }
+        webrtcCallService
+          .acceptCall({
+            callData: callSession,
+            currentUser,
+            onRemoteStream: handleRemoteStream,
+            onStatusChange: handleStatusChange
+          })
+          .then(() => {
+            if (webrtcCallService.localStream) {
+              setupMicAnalyser(webrtcCallService.localStream);
+            }
+            if (webrtcCallService.hardwareError === 'permission_denied') {
+              setMicPermissionError(true);
+            }
+            playConnectChime();
+          });
+      }
+    };
+
+    setupCall();
 
     return () => {
       isSubscribed = false;
@@ -341,9 +371,12 @@ export default function AudioCallModal({
       if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      remoteRendererRef.current.dispose();
       webrtcCallService.cleanup();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        try { audioContextRef.current.close(); } catch (e) {}
+        try {
+          audioContextRef.current.close();
+        } catch (e) {}
       }
     };
   }, [isOpen, isCaller]);
@@ -352,7 +385,7 @@ export default function AudioCallModal({
   useEffect(() => {
     if (callStatus === 'connected') {
       timerRef.current = setInterval(() => {
-        setCallDuration(d => d + 1);
+        setCallDuration((d) => d + 1);
       }, 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -362,7 +395,7 @@ export default function AudioCallModal({
     };
   }, [callStatus]);
 
-  // Remote stream binding hook: ensure remote audio is immediately attached to <audio> DOM element
+  // Sync speakerphone on stream changes
   useEffect(() => {
     const audioEl = remoteAudioRef.current;
     const stream = remoteStream || webrtcCallService.remoteStream;
@@ -373,14 +406,7 @@ export default function AudioCallModal({
     }
     Helper.setSpeakerphoneOn(isSpeakerOn, audioEl);
     safePlayMedia(audioEl, 'remoteAudio');
-
-    const handleTrackChange = () => {
-      Helper.setSpeakerphoneOn(isSpeakerOn, audioEl);
-      safePlayMedia(audioEl, 'remoteAudio');
-    };
-    stream.onaddtrack = handleTrackChange;
-    stream.onremovetrack = handleTrackChange;
-  }, [remoteStream, remoteAudioRef.current, callStatus, isSpeakerOn]);
+  }, [remoteStream, isSpeakerOn, callStatus]);
 
   if (!isOpen || !candidate) return null;
 
@@ -403,12 +429,20 @@ export default function AudioCallModal({
   };
 
   const handleKeypadPress = (digit) => {
-    setDialedDigits(prev => (prev + digit).slice(-12));
+    setDialedDigits((prev) => (prev + digit).slice(-12));
     const dtmf = {
-      '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
-      '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
-      '7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
-      '*': [941, 1209], '0': [941, 1336], '#': [941, 1477]
+      '1': [697, 1209],
+      '2': [697, 1336],
+      '3': [697, 1477],
+      '4': [770, 1209],
+      '5': [770, 1336],
+      '6': [770, 1477],
+      '7': [852, 1209],
+      '8': [852, 1336],
+      '9': [852, 1477],
+      '*': [941, 1209],
+      '0': [941, 1336],
+      '#': [941, 1477]
     };
     if (dtmf[digit]) {
       playTone(dtmf[digit][0], dtmf[digit][1], 0.12);
@@ -426,7 +460,7 @@ export default function AudioCallModal({
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 w-full h-[100dvh] bg-gradient-to-b from-[#060D17] via-[#0B192C] to-[#040911] text-white overflow-hidden select-none flex flex-col items-center justify-between animate-in fade-in"
       style={{
         height: '100dvh',
@@ -446,7 +480,7 @@ export default function AudioCallModal({
       }}
     >
       {/* Hidden WebRTC Remote Audio Output */}
-      <audio ref={remoteAudioRef} autoPlay playsInline />
+      <audio ref={remoteAudioRef} autoPlay playsInline muted={false} controls={false} />
 
       {/* Ambient Top Glow */}
       <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#D4AF37]/15 to-transparent pointer-events-none" />
@@ -454,7 +488,6 @@ export default function AudioCallModal({
 
       {/* Inner Responsive Column */}
       <div className="w-full max-w-md h-full flex flex-col items-center justify-between relative z-10">
-
         {/* Top Header Status */}
         <div className="text-center space-y-1 relative z-10 w-full shrink-0 pt-2 sm:pt-0">
           <div>
@@ -462,12 +495,16 @@ export default function AudioCallModal({
               {candidate.name}
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 flex items-center justify-center gap-1 mt-0.5">
-              <span>{candidate.age} yrs • {candidate.profession || 'Professional'}</span>
+              <span>
+                {candidate.age} yrs • {candidate.profession || 'Professional'}
+              </span>
             </p>
             {(candidate.district || candidate.city) && (
               <p className="text-xs text-slate-400 flex items-center justify-center gap-1 mt-0.5">
                 <MapPin className="w-3.5 h-3.5 text-[#DFB76C]" />
-                <span>{candidate.district || candidate.city}, {candidate.state || 'India'}</span>
+                <span>
+                  {candidate.district || candidate.city}, {candidate.state || 'India'}
+                </span>
               </p>
             )}
           </div>
@@ -487,7 +524,7 @@ export default function AudioCallModal({
             {callStatus === 'connected' && (
               <div className="flex flex-col items-center">
                 <div className="inline-flex items-center space-x-2 text-sm font-mono font-bold text-emerald-400 bg-emerald-950/70 px-3.5 py-1 rounded-full border border-emerald-500/40 shadow-inner">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span>{formatDuration(callDuration)}</span>
                 </div>
               </div>
@@ -505,7 +542,8 @@ export default function AudioCallModal({
               type="button"
               onClick={() => {
                 if (remoteAudioRef.current) {
-                  remoteAudioRef.current.play()
+                  remoteAudioRef.current
+                    .play()
                     .then(() => setAutoplayBlocked(false))
                     .catch(() => {});
                 }
@@ -513,11 +551,11 @@ export default function AudioCallModal({
               className="w-full mt-2 py-1.5 px-3 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs font-semibold flex items-center justify-center space-x-2 animate-bounce cursor-pointer shadow-lg"
             >
               <Volume2 className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Audio paused by browser • Tap to unmute</span>
+              <span>Tap to unmute incoming audio</span>
             </button>
           )}
 
-          {/* Microphone permission alert with direct user-gesture Allow button */}
+          {/* Microphone permission alert */}
           {micPermissionError && (
             <div className="w-full mt-2 py-2 px-3 rounded-2xl bg-rose-500/20 border border-rose-500/50 text-rose-200 text-xs font-medium flex items-center justify-between gap-2 shadow-lg animate-in fade-in">
               <span className="truncate">Microphone access needed</span>
@@ -537,7 +575,7 @@ export default function AudioCallModal({
           <div className="my-auto py-2 w-full max-w-xs bg-slate-900/90 border border-slate-700/80 rounded-2xl p-4 shadow-xl z-20 animate-in zoom-in-95 shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-slate-400 font-semibold">Touch Tones (DTMF)</span>
-              <button 
+              <button
                 type="button"
                 onClick={() => setIsKeypadOpen(false)}
                 className="p-1 rounded-lg text-slate-400 hover:text-white"
@@ -549,7 +587,7 @@ export default function AudioCallModal({
               {dialedDigits || <span className="text-slate-600 text-xs">Press keys below</span>}
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(key => (
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map((key) => (
                 <button
                   key={key}
                   type="button"
@@ -565,20 +603,20 @@ export default function AudioCallModal({
           <div className="relative my-auto py-3 sm:py-6 flex items-center justify-center shrink-0">
             {callStatus === 'connected' && (
               <>
-                <div 
-                  className="absolute rounded-full border border-emerald-500/30 pointer-events-none transition-all duration-100" 
+                <div
+                  className="absolute rounded-full border border-emerald-500/30 pointer-events-none transition-all duration-100"
                   style={{
-                    width: `${120 + (audioLevel * 1.0)}px`,
-                    height: `${120 + (audioLevel * 1.0)}px`,
-                    opacity: 0.3 + (audioLevel / 150)
+                    width: `${120 + audioLevel * 1.0}px`,
+                    height: `${120 + audioLevel * 1.0}px`,
+                    opacity: 0.3 + audioLevel / 150
                   }}
                 />
-                <div 
-                  className="absolute rounded-full border border-[#D4AF37]/30 pointer-events-none transition-all duration-150" 
+                <div
+                  className="absolute rounded-full border border-[#D4AF37]/30 pointer-events-none transition-all duration-150"
                   style={{
-                    width: `${150 + (audioLevel * 1.4)}px`,
-                    height: `${150 + (audioLevel * 1.4)}px`,
-                    opacity: 0.2 + (audioLevel / 200)
+                    width: `${150 + audioLevel * 1.4}px`,
+                    height: `${150 + audioLevel * 1.4}px`,
+                    opacity: 0.2 + audioLevel / 200
                   }}
                 />
                 <div className="absolute w-44 h-44 sm:w-56 sm:h-56 rounded-full border border-emerald-400/20 animate-ping pointer-events-none" />
@@ -586,9 +624,13 @@ export default function AudioCallModal({
             )}
 
             <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden ring-4 ring-[#D4AF37] shadow-2xl">
-              <img 
-                src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
-                alt={candidate.name} 
+              <img
+                src={
+                  candidate.photo ||
+                  candidate.photo_url ||
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'
+                }
+                alt={candidate.name}
                 className="w-full h-full object-cover"
               />
               {candidate.verified && (
@@ -600,17 +642,16 @@ export default function AudioCallModal({
           </div>
         )}
 
-        {/* Bottom Interactive Controls */}
+        {/* Bottom Controls */}
         <div className="w-full space-y-4 sm:space-y-5 relative z-10 shrink-0 pb-3 sm:pb-1">
           <div className="flex items-center justify-center space-x-6 sm:space-x-8">
-            
             {/* Mute Button */}
             <button
               type="button"
               onClick={handleToggleMute}
               className={`p-3.5 rounded-full border transition-all cursor-pointer shadow-md flex flex-col items-center ${
-                isMuted 
-                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30' 
+                isMuted
+                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/60 ring-2 ring-rose-500/30'
                   : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
               }`}
               title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
@@ -624,8 +665,8 @@ export default function AudioCallModal({
               type="button"
               onClick={handleToggleSpeaker}
               className={`p-3.5 rounded-full border transition-all cursor-pointer shadow-md flex flex-col items-center ${
-                isSpeakerOn 
-                  ? 'bg-[#DFB76C]/20 text-[#DFB76C] border-[#D4AF37]/60 ring-2 ring-[#DFB76C]/30' 
+                isSpeakerOn
+                  ? 'bg-[#DFB76C]/20 text-[#DFB76C] border-[#D4AF37]/60 ring-2 ring-[#DFB76C]/30'
                   : 'bg-white/10 hover:bg-white/20 text-slate-300 border-white/20'
               }`}
               title={isSpeakerOn ? 'Speaker On' : 'Speaker Off'}
@@ -639,8 +680,8 @@ export default function AudioCallModal({
               type="button"
               onClick={() => setIsKeypadOpen(!isKeypadOpen)}
               className={`p-3.5 rounded-full border transition-all cursor-pointer shadow-md flex flex-col items-center ${
-                isKeypadOpen 
-                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/60 ring-2 ring-blue-500/30' 
+                isKeypadOpen
+                  ? 'bg-blue-500/20 text-blue-400 border-blue-500/60 ring-2 ring-blue-500/30'
                   : 'bg-white/10 hover:bg-white/20 text-slate-300 border-white/20'
               }`}
               title="Keypad"
@@ -662,7 +703,6 @@ export default function AudioCallModal({
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );

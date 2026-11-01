@@ -3051,6 +3051,15 @@ export default function App() {
       return;
     }
 
+    // Strict Runtime Permission Flow: Request microphone permission at exact click moment
+    try {
+      await webrtcCallService.requestMediaPermissions('audio');
+    } catch (err) {
+      console.warn('[Calling] Audio call permission rejected:', err?.message);
+      showToast('Microphone permission is required to start an audio call.');
+      return;
+    }
+
     setIsCallCaller(true);
     setActiveCallSession(null);
     setActiveAudioCallCandidate(candidate);
@@ -3080,6 +3089,15 @@ export default function App() {
       } else {
         showToast(authCheck.reason);
       }
+      return;
+    }
+
+    // Strict Runtime Permission Flow: Request camera & microphone permissions at exact click moment
+    try {
+      await webrtcCallService.requestMediaPermissions('video');
+    } catch (err) {
+      console.warn('[Calling] Video call permission rejected:', err?.message);
+      showToast('Camera and microphone permissions are required to start a video call.');
       return;
     }
 
