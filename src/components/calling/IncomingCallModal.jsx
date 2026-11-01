@@ -17,12 +17,16 @@ export default function IncomingCallModal({
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
-        const ctx = new AudioCtx();
+        const ctx = window.__agyAudioContext && window.__agyAudioContext.state !== 'closed'
+          ? window.__agyAudioContext
+          : new AudioCtx();
         audioContextRef.current = ctx;
 
         const playRingSequence = () => {
           if (!audioContextRef.current || audioContextRef.current.state === 'closed') return;
-          if (ctx.state === 'suspended') ctx.resume();
+          if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+          }
 
           // Two-tone British/US style ring: 440Hz + 480Hz
           const tones = [
@@ -31,26 +35,28 @@ export default function IncomingCallModal({
           ];
 
           tones.forEach(({ f1, f2, start, dur }) => {
-            const osc1 = ctx.createOscillator();
-            const osc2 = ctx.createOscillator();
-            const gain = ctx.createGain();
+            try {
+              const osc1 = ctx.createOscillator();
+              const osc2 = ctx.createOscillator();
+              const gain = ctx.createGain();
 
-            osc1.frequency.value = f1;
-            osc2.frequency.value = f2;
+              osc1.frequency.value = f1;
+              osc2.frequency.value = f2;
 
-            const t = ctx.currentTime + start;
-            gain.gain.setValueAtTime(0.08, t);
-            gain.gain.linearRampToValueAtTime(0.08, t + dur - 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+              const t = ctx.currentTime + start;
+              gain.gain.setValueAtTime(0.08, t);
+              gain.gain.linearRampToValueAtTime(0.08, t + dur - 0.1);
+              gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
 
-            osc1.connect(gain);
-            osc2.connect(gain);
-            gain.connect(ctx.destination);
+              osc1.connect(gain);
+              osc2.connect(gain);
+              gain.connect(ctx.destination);
 
-            osc1.start(t);
-            osc2.start(t);
-            osc1.stop(t + dur);
-            osc2.stop(t + dur);
+              osc1.start(t);
+              osc2.start(t);
+              osc1.stop(t + dur);
+              osc2.stop(t + dur);
+            } catch (toneErr) {}
           });
         };
 
@@ -71,7 +77,7 @@ export default function IncomingCallModal({
     return () => {
       clearTimeout(autoDeclineTimer);
       if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed' && audioContextRef.current !== window.__agyAudioContext) {
         try { audioContextRef.current.close(); } catch (e) {}
       }
     };
@@ -84,7 +90,7 @@ export default function IncomingCallModal({
 
   const stopAudio = () => {
     if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed' && audioContextRef.current !== window.__agyAudioContext) {
       try { audioContextRef.current.close(); } catch (e) {}
     }
   };
@@ -92,7 +98,21 @@ export default function IncomingCallModal({
   const handleAcceptClick = async () => {
     stopAudio();
     try {
+      // Resume AudioContext inside the user interaction gesture immediately for iOS / Android
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        if (!window.__agyAudioContext || window.__agyAudioContext.state === 'closed') {
+          window.__agyAudioContext = new AudioCtx();
+        }
+        if (window.__agyAudioContext.state === 'suspended') {
+          await window.__agyAudioContext.resume().catch(() => {});
+        }
+      }
       webrtcCallService.primeAudioPlayback();
+      // Explicitly kick-start remote audio/video elements within user touch gesture
+      if (webrtcCallService.remoteRenderer?._element) {
+        webrtcCallService.remoteRenderer._element.play().catch(() => {});
+      }
       // Initialize media with safe fallback
       await webrtcCallService.requestMediaPermissions(callType);
     } catch (err) {

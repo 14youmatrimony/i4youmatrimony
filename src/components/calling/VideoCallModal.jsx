@@ -270,6 +270,13 @@ export default function VideoCallModal({
         setCallStatus('connected');
         setCallDuration(0);
 
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.play().catch(() => {});
+        }
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.play().catch(() => {});
+        }
+
         webrtcCallService
           .acceptCall({
             callData: callSession,
@@ -278,6 +285,12 @@ export default function VideoCallModal({
             onStatusChange: handleStatusChange
           })
           .then(() => {
+            if (remoteAudioRef.current) {
+              remoteAudioRef.current.play().catch(() => {});
+            }
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.play().catch(() => {});
+            }
             attachLocalStream();
             playVideoChime();
             if (webrtcCallService.hardwareError === 'permission_denied') {
@@ -372,15 +385,23 @@ export default function VideoCallModal({
       }}
     >
       {/* Dedicated Remote Audio Element for guaranteed loudspeaker voice routing */}
-      <audio ref={remoteAudioRef} autoPlay playsInline controls={false} />
+      <audio
+        ref={remoteAudioRef}
+        autoPlay={true}
+        playsInline={true}
+        webkit-playsinline="true"
+        controls={false}
+      />
 
       {/* Main Remote Video Container */}
       <div className="relative flex-1 min-h-0 w-full bg-gradient-to-b from-[#0B192C] to-[#040911] overflow-hidden flex items-center justify-center">
         {/* Remote Video Feed */}
         <video
           ref={remoteVideoRef}
-          autoPlay
-          playsInline
+          autoPlay={true}
+          playsInline={true}
+          webkit-playsinline="true"
+          controls={false}
           onLoadedMetadata={() => setHasRemoteVideo(true)}
           onLoadedData={() => setHasRemoteVideo(true)}
           onCanPlay={() => setHasRemoteVideo(true)}
@@ -490,8 +511,10 @@ export default function VideoCallModal({
         <div className="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 w-24 h-32 sm:w-32 sm:h-44 md:w-36 md:h-48 max-h-[35%] rounded-2xl overflow-hidden bg-black/80 border-2 border-[#D4AF37] shadow-2xl z-30 group">
           <video
             ref={localVideoRef}
-            autoPlay
-            playsInline
+            autoPlay={true}
+            playsInline={true}
+            webkit-playsinline="true"
+            controls={false}
             muted
             className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-200 ${
               hasCameraPermission && !isCameraOff ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'

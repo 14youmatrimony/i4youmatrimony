@@ -346,6 +346,10 @@ export default function AudioCallModal({
         setCallStatus('connected');
         setCallDuration(0);
 
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.play().catch(() => {});
+        }
+
         webrtcCallService
           .acceptCall({
             callData: callSession,
@@ -354,6 +358,9 @@ export default function AudioCallModal({
             onStatusChange: handleStatusChange
           })
           .then(() => {
+            if (remoteAudioRef.current) {
+              remoteAudioRef.current.play().catch(() => {});
+            }
             if (webrtcCallService.localStream) {
               setupMicAnalyser(webrtcCallService.localStream);
             }
@@ -483,7 +490,13 @@ export default function AudioCallModal({
       }}
     >
       {/* Hidden WebRTC Remote Audio Output */}
-      <audio ref={remoteAudioRef} autoPlay playsInline controls={false} />
+      <audio
+        ref={remoteAudioRef}
+        autoPlay={true}
+        playsInline={true}
+        webkit-playsinline="true"
+        controls={false}
+      />
 
       {/* Ambient Top Glow */}
       <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#D4AF37]/15 to-transparent pointer-events-none" />
