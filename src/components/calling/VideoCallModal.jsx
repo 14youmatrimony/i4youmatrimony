@@ -263,7 +263,7 @@ export default function VideoCallModal({
               return;
             }
             attachLocalStream();
-            setCallStatus('ringing');
+            setCallStatus((prev) => (prev === 'connected' || prev === 'ended' ? prev : 'ringing'));
             if (webrtcCallService.hardwareError === 'permission_denied') {
               setCameraNotice('Camera permission required. Please allow access.');
             }
@@ -297,6 +297,7 @@ export default function VideoCallModal({
             onStatusChange: handleStatusChange
           })
           .then(() => {
+            setCallStatus('connected');
             if (remoteAudioRef.current) {
               remoteAudioRef.current.play().catch(() => {});
             }

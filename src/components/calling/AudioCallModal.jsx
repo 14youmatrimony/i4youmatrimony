@@ -370,6 +370,8 @@ export default function AudioCallModal({
             onStatusChange: handleStatusChange
           })
           .then(() => {
+            setCallStatus('connected');
+            setIsConnectedPeer(true);
             if (remoteAudioRef.current) {
               remoteAudioRef.current.play().catch(() => {});
             }
