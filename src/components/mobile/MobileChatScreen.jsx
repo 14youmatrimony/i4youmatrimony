@@ -389,12 +389,40 @@ export default function MobileChatScreen({
   const [callAuthAlert, setCallAuthAlert] = useState(null);
 
   const handleAttemptCall = (type = 'audio') => {
-    if (!activeProfile) return;
+    const targetCandidate = activeProfile || { id: resolvedTargetId };
+    const receiverId = String(
+      targetCandidate?.id ||
+      targetCandidate?.user_id ||
+      targetCandidate?.userId ||
+      targetCandidate?.register_id ||
+      targetCandidate?.registerId ||
+      resolvedTargetId ||
+      ''
+    );
+    console.log("Initiating call to receiverId:", receiverId, {
+      callerId: currentUser?.id,
+      callerName: currentUser?.name,
+      callType: type,
+      targetCandidate
+    });
+
+    if (!receiverId) {
+      console.error("[Chat] Cannot initiate call: receiverId is missing!");
+      return;
+    }
+
+    const candidateToCall = {
+      ...targetCandidate,
+      id: receiverId,
+      name: targetCandidate.name || 'Candidate',
+      photo: targetCandidate.photo || targetCandidate.photo_url || ''
+    };
+
     if (isCallingUnlocked) {
       if (type === 'video' && onStartVideoCall) {
-        onStartVideoCall(activeProfile);
+        onStartVideoCall(candidateToCall);
       } else if (onStartAudioCall) {
-        onStartAudioCall(activeProfile);
+        onStartAudioCall(candidateToCall);
       }
       return;
     }

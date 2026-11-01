@@ -3071,15 +3071,51 @@ export default function App() {
       handleOpenRegister();
       return;
     }
-    const candidate = typeof candidateOrId === 'object' ? candidateOrId : profiles.find(p => p.id === candidateOrId);
+    const candidate = typeof candidateOrId === 'object'
+      ? candidateOrId
+      : (profiles.find(p => p && (
+          String(p.id) === String(candidateOrId) ||
+          (p.register_id && String(p.register_id) === String(candidateOrId)) ||
+          (p.registerId && String(p.registerId) === String(candidateOrId)) ||
+          (p.user_id && String(p.user_id) === String(candidateOrId))
+        )) || { id: candidateOrId, name: 'Candidate' });
     if (!candidate) return;
 
+    const receiverId = String(
+      candidate.id ||
+      candidate.user_id ||
+      candidate.userId ||
+      candidate.register_id ||
+      candidate.registerId ||
+      (typeof candidateOrId === 'string' ? candidateOrId : '') ||
+      ''
+    );
+    console.log("Initiating call to receiverId:", receiverId, {
+      callerId: currentUser?.id,
+      callerName: currentUser?.name,
+      callerPhoto: currentUser?.photo || currentUser?.photo_url,
+      callType: 'audio'
+    });
+
+    if (!receiverId) {
+      console.error("[Calling] Cannot start audio call: receiverId is missing!", candidateOrId);
+      showToast('Cannot initiate call: recipient identifier is missing.');
+      return;
+    }
+
+    const callCandidate = {
+      ...candidate,
+      id: receiverId,
+      name: candidate.name || 'Candidate',
+      photo: candidate.photo || candidate.photo_url || ''
+    };
+
     // Security Gate: Check mutual matrimonial interest status
-    const authCheck = await interestService.verifyCallAuthorization(currentUser, candidate);
+    const authCheck = await interestService.verifyCallAuthorization(currentUser, callCandidate);
     if (!authCheck.authorized) {
       if (authCheck.status === 'none') {
         showToast('Send an Interest first. Calling is unlocked once accepted.');
-        handleOpenSendInterest(candidate);
+        handleOpenSendInterest(callCandidate);
       } else if (authCheck.status === 'pending') {
         showToast('Interest is pending acceptance. You can call once they accept your interest.');
       } else if (authCheck.status === 'rejected') {
@@ -3099,8 +3135,8 @@ export default function App() {
 
     setIsCallCaller(true);
     setActiveCallSession(null);
-    setActiveAudioCallCandidate(candidate);
-    showToast(`Calling ${candidate.name}...`);
+    setActiveAudioCallCandidate(callCandidate);
+    showToast(`Calling ${callCandidate.name}...`);
   };
 
   // Start live Video Call with candidate (Authorized ONLY if Interest is Accepted)
@@ -3110,15 +3146,51 @@ export default function App() {
       handleOpenRegister();
       return;
     }
-    const candidate = typeof candidateOrId === 'object' ? candidateOrId : profiles.find(p => p.id === candidateOrId);
+    const candidate = typeof candidateOrId === 'object'
+      ? candidateOrId
+      : (profiles.find(p => p && (
+          String(p.id) === String(candidateOrId) ||
+          (p.register_id && String(p.register_id) === String(candidateOrId)) ||
+          (p.registerId && String(p.registerId) === String(candidateOrId)) ||
+          (p.user_id && String(p.user_id) === String(candidateOrId))
+        )) || { id: candidateOrId, name: 'Candidate' });
     if (!candidate) return;
 
+    const receiverId = String(
+      candidate.id ||
+      candidate.user_id ||
+      candidate.userId ||
+      candidate.register_id ||
+      candidate.registerId ||
+      (typeof candidateOrId === 'string' ? candidateOrId : '') ||
+      ''
+    );
+    console.log("Initiating call to receiverId:", receiverId, {
+      callerId: currentUser?.id,
+      callerName: currentUser?.name,
+      callerPhoto: currentUser?.photo || currentUser?.photo_url,
+      callType: 'video'
+    });
+
+    if (!receiverId) {
+      console.error("[Calling] Cannot start video call: receiverId is missing!", candidateOrId);
+      showToast('Cannot initiate call: recipient identifier is missing.');
+      return;
+    }
+
+    const callCandidate = {
+      ...candidate,
+      id: receiverId,
+      name: candidate.name || 'Candidate',
+      photo: candidate.photo || candidate.photo_url || ''
+    };
+
     // Security Gate: Check mutual matrimonial interest status
-    const authCheck = await interestService.verifyCallAuthorization(currentUser, candidate);
+    const authCheck = await interestService.verifyCallAuthorization(currentUser, callCandidate);
     if (!authCheck.authorized) {
       if (authCheck.status === 'none') {
         showToast('Send an Interest first. Calling is unlocked once accepted.');
-        handleOpenSendInterest(candidate);
+        handleOpenSendInterest(callCandidate);
       } else if (authCheck.status === 'pending') {
         showToast('Interest is pending acceptance. You can call once they accept your interest.');
       } else if (authCheck.status === 'rejected') {
@@ -3138,8 +3210,8 @@ export default function App() {
 
     setIsCallCaller(true);
     setActiveCallSession(null);
-    setActiveVideoCallCandidate(candidate);
-    showToast(`🎥 Live Video Call: Initiating HD video meeting with ${candidate.name}...`);
+    setActiveVideoCallCandidate(callCandidate);
+    showToast(`🎥 Live Video Call: Initiating HD video meeting with ${callCandidate.name}...`);
   };
 
   // Incoming Call Handlers (WebRTC P2P via Supabase Realtime)
