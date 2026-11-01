@@ -2735,12 +2735,16 @@ export default function App() {
       ? profile.name
       : (!isGeneric(extraData?.senderName || extraData?.name))
         ? (extraData.senderName || extraData.name)
-        : (!isGeneric(passedProfile?.name) ? passedProfile.name : 'Candidate');
+        : (!isGeneric(passedProfile?.name)
+            ? passedProfile.name
+            : (profile?.register_id || profile?.registerId
+                ? `Member ${profile.register_id || profile.registerId}`
+                : (targetId ? `Member ${targetId.slice(0, 8)}` : 'Verified Member')));
 
-    const resolvedPhoto = profile?.photo || profile?.photo_url || 
+    const resolvedPhoto = profile?.photo || profile?.photo_url || profile?.profilePic || profile?.avatar ||
       extraData?.senderPhoto || extraData?.photo || 
-      passedProfile?.photo || passedProfile?.photo_url || 
-      'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg';
+      passedProfile?.photo || passedProfile?.photo_url || passedProfile?.profilePic ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(resolvedName)}&background=0B192C&color=DFB76C&bold=true`;
 
     const partner = {
       ...(profile || passedProfile || {}),
@@ -2774,7 +2778,7 @@ export default function App() {
                 partnerUser: {
                   ...(c.partnerUser || {}),
                   ...partner,
-                  name: !isGeneric(resolvedName) ? resolvedName : (c.partnerUser?.name || 'Candidate')
+                  name: !isGeneric(resolvedName) ? resolvedName : (c.partnerUser?.name || 'Verified Member')
                 }, 
                 conversation_id: convId 
               } 
@@ -2783,7 +2787,7 @@ export default function App() {
       }
     });
 
-    // If profile name is still generic 'Candidate', asynchronously fetch from Supabase to update live
+    // If profile name is still generic, asynchronously fetch from Supabase to update live
     if (isGeneric(resolvedName) && targetId) {
       fetchLiveUserProfile(targetId).then(liveUser => {
         if (liveUser && !isGeneric(liveUser.name)) {

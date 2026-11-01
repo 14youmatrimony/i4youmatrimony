@@ -120,15 +120,41 @@ export default function MobileChatScreen({
 
   const [livePartnerUser, setLivePartnerUser] = useState(null);
 
-  // Reset live partner state on candidate switch
+  // Extract target partner ID from all possible incoming sources (prop, activeChatId, URL route params)
+  const resolvedTargetId = useMemo(() => {
+    if (activeProfileId) return String(activeProfileId);
+    if (propActiveConv?.partnerUser?.id) return String(propActiveConv.partnerUser.id);
+    if (propActiveConv?.profileId) return String(propActiveConv.profileId);
+    if (activeChatId && String(activeChatId).includes(':::')) {
+      const parts = String(activeChatId).split(':::');
+      const other = parts.find(id => id && String(id) !== String(currentUser?.id));
+      if (other) return String(other);
+    }
+    // Check route query / path params for active partner ID
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        const qId = url.searchParams.get('user_id') || url.searchParams.get('userId') || url.searchParams.get('profile') || url.searchParams.get('profile_id');
+        if (qId) return String(qId);
+        const segments = url.pathname.split('/').filter(Boolean);
+        if (segments.length >= 2 && (segments[0] === 'chat' || (segments[0] === 'app' && segments[1] === 'chat'))) {
+          const sid = segments[0] === 'chat' ? segments[1] : segments[2];
+          if (sid) return String(sid);
+        }
+      } catch (e) {}
+    }
+    return null;
+  }, [activeProfileId, propActiveConv, activeChatId, currentUser?.id]);
+
+  // Reset live partner state on partner switch
   useEffect(() => {
     setLivePartnerUser(null);
-  }, [activeProfileId]);
+  }, [resolvedTargetId]);
 
-  // Dynamically fetch and synchronize partner profile from Supabase
+  // Dynamically fetch and synchronize partner profile from database
   useEffect(() => {
-    if (!activeProfileId || !currentUser) return;
-    const targetId = String(activeProfileId);
+    if (!resolvedTargetId || !currentUser) return;
+    const targetId = String(resolvedTargetId);
     if (targetId === String(currentUser.id) || isSelfProfile({ id: targetId }, currentUser)) return;
 
     let isMounted = true;
@@ -155,7 +181,7 @@ export default function MobileChatScreen({
                 ...(c.partnerUser || {}),
                 ...fetchedProfile,
                 name: resolvedName,
-                photo: fetchedProfile.photo || fetchedProfile.photo_url || c.partnerUser?.photo
+                photo: fetchedProfile.photo || fetchedProfile.photo_url || fetchedProfile.profilePic || c.partnerUser?.photo
               }
             };
           }
@@ -169,14 +195,14 @@ export default function MobileChatScreen({
     return () => {
       isMounted = false;
     };
-  }, [activeProfileId, currentUser, activeChatId, setConversations]);
+  }, [resolvedTargetId, currentUser, activeChatId, setConversations]);
 
   // Strictly resolve chat partner (partnerUser), ensuring currentUser is never resolved as partner
   const partnerUser = useMemo(() => {
-    if (!currentUser || !activeProfileId) return null;
+    if (!currentUser || !resolvedTargetId) return null;
     const currentUserId = String(currentUser.id);
     const currentUserRegId = currentUser.register_id || currentUser.registerId ? String(currentUser.register_id || currentUser.registerId) : null;
-    const targetId = String(activeProfileId);
+    const targetId = String(resolvedTargetId);
 
     // Strictly ensure partner is NOT current user (WHERE user_id != current_user_id)
     if (
@@ -193,24 +219,19 @@ export default function MobileChatScreen({
       return ['candidate', 'verified member', 'a verified member', 'member', 'someone'].includes(lower);
     };
 
-    // 1. Prioritize livePartnerUser if fetched from Supabase
-    if (livePartnerUser && !isSelfProfile(livePartnerUser, currentUser)) {
-      const matchLive = String(livePartnerUser.id) === targetId ||
-        (livePartnerUser.register_id && String(livePartnerUser.register_id) === targetId) ||
-        (livePartnerUser.registerId && String(livePartnerUser.registerId) === targetId);
-      if (matchLive && !isGenericName(livePartnerUser.name)) {
-        return {
-          ...livePartnerUser,
-          id: String(livePartnerUser.id || targetId),
-          name: livePartnerUser.name,
-          photo: livePartnerUser.photo || livePartnerUser.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
-          onlineStatus: livePartnerUser.onlineStatus || 'Online'
-        };
-      }
-    }
+    // Candidate sources priority:
+    // A. propActiveConv.partnerUser
+    const propPartner = propActiveConv?.partnerUser && !isSelfProfile(propActiveConv.partnerUser, currentUser)
+      ? propActiveConv.partnerUser
+      : null;
 
-    // 2. Check profiles array passed as prop
-    const found = profiles.find(p => 
+    // B. livePartnerUser from Supabase / database
+    const livePartner = livePartnerUser && !isSelfProfile(livePartnerUser, currentUser)
+      ? livePartnerUser
+      : null;
+
+    // C. profiles list from parent props
+    const foundInProfiles = (profiles || []).find(p => 
       p && !isSelfProfile(p, currentUser) && (
         String(p.id) === targetId ||
         (p.register_id && String(p.register_id) === targetId) ||
@@ -218,64 +239,86 @@ export default function MobileChatScreen({
       )
     );
 
-    if (found && !isGenericName(found.name)) {
-      return {
-        ...found,
-        id: String(found.id || targetId),
-        name: found.name,
-        photo: found.photo || found.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
-        onlineStatus: found.onlineStatus || 'Online'
-      };
-    }
+    // D. active conversation object from state
+    const conv = (conversations || []).find(c => 
+      String(c.profileId) === targetId || 
+      (activeChatId && c.conversation_id === activeChatId)
+    );
+    const convPartner = conv?.partnerUser && !isSelfProfile(conv.partnerUser, currentUser)
+      ? conv.partnerUser
+      : null;
 
-    // 3. Check active conversation object in state
-    const conv = conversations.find(c => String(c.profileId) === targetId || (activeChatId && c.conversation_id === activeChatId));
-    if (conv?.partnerUser && !isSelfProfile(conv.partnerUser, currentUser) && !isGenericName(conv.partnerUser.name)) {
-      return {
-        ...conv.partnerUser,
-        id: String(conv.partnerUser.id || targetId),
-        name: conv.partnerUser.name,
-        photo: conv.partnerUser.photo || conv.partnerUser.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
-        onlineStatus: conv.partnerUser.onlineStatus || 'Online'
-      };
-    }
-
-    // 4. Check cached profiles in localStorage for immediate synchronous resolution
+    // E. LocalStorage cache
+    let cachedPartner = null;
     try {
       const cachedRaw = localStorage.getItem('i4u_cached_profiles');
       if (cachedRaw) {
         const cachedList = JSON.parse(cachedRaw);
         if (Array.isArray(cachedList)) {
-          const cachedMatch = cachedList.find(p => p && !isSelfProfile(p, currentUser) && (
+          cachedPartner = cachedList.find(p => p && !isSelfProfile(p, currentUser) && (
             String(p.id) === targetId ||
             (p.register_id && String(p.register_id) === targetId) ||
             (p.registerId && String(p.registerId) === targetId)
-          ));
-          if (cachedMatch && !isGenericName(cachedMatch.name)) {
-            return {
-              ...cachedMatch,
-              id: String(cachedMatch.id || targetId),
-              name: cachedMatch.name,
-              photo: cachedMatch.photo || cachedMatch.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
-              onlineStatus: cachedMatch.onlineStatus || 'Online'
-            };
-          }
+          )) || null;
         }
       }
     } catch (e) {}
 
-    // 5. Fallback while fetching profile from Supabase
-    return {
-      id: targetId,
-      name: (found?.name && !isGenericName(found.name))
-        ? found.name
-        : ((conv?.partnerUser?.name && !isGenericName(conv.partnerUser.name))
-            ? conv.partnerUser.name
-            : 'Candidate'),
-      photo: found?.photo || found?.photo_url || conv?.partnerUser?.photo || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg',
-      onlineStatus: 'Online'
+    // F. Route query params
+    let routeName = null;
+    let routePhoto = null;
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        routeName = url.searchParams.get('partner_name') || url.searchParams.get('name') || url.searchParams.get('user_name');
+        routePhoto = url.searchParams.get('partner_photo') || url.searchParams.get('photo') || url.searchParams.get('photo_url') || url.searchParams.get('profilePic') || url.searchParams.get('avatar');
+      } catch (e) {}
+    }
+
+    // Combine candidate details in priority order
+    const mergedUser = {
+      ...(cachedPartner || {}),
+      ...(convPartner || {}),
+      ...(foundInProfiles || {}),
+      ...(propPartner || {}),
+      ...(livePartner || {})
     };
-  }, [profiles, currentUser, activeProfileId, conversations, activeChatId, livePartnerUser]);
+
+    // Dynamically resolve real name
+    const resolvedName = 
+      (!isGenericName(livePartner?.name || livePartner?.fullName) ? (livePartner.name || livePartner.fullName) : null) ||
+      (!isGenericName(propPartner?.name) ? propPartner.name : null) ||
+      (!isGenericName(foundInProfiles?.name) ? foundInProfiles.name : null) ||
+      (!isGenericName(convPartner?.name) ? convPartner.name : null) ||
+      (!isGenericName(cachedPartner?.name) ? cachedPartner.name : null) ||
+      (!isGenericName(routeName) ? routeName : null) ||
+      (mergedUser.register_id || mergedUser.registerId ? `Member ${mergedUser.register_id || mergedUser.registerId}` : null) ||
+      (targetId.toUpperCase().startsWith('I4Y') || targetId.toUpperCase().startsWith('I4U') ? `Member ${targetId.toUpperCase()}` : null) ||
+      'Verified Member';
+
+    // Dynamically resolve real avatar photo URL
+    const resolvedPhoto = 
+      livePartner?.photo || livePartner?.photo_url || livePartner?.profilePic || livePartner?.avatar ||
+      propPartner?.photo || propPartner?.photo_url || propPartner?.profilePic || propPartner?.avatar ||
+      foundInProfiles?.photo || foundInProfiles?.photo_url || foundInProfiles?.profilePic || foundInProfiles?.avatar ||
+      convPartner?.photo || convPartner?.photo_url || convPartner?.profilePic || convPartner?.avatar ||
+      cachedPartner?.photo || cachedPartner?.photo_url || cachedPartner?.profilePic || cachedPartner?.avatar ||
+      routePhoto ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(resolvedName)}&background=0B192C&color=DFB76C&bold=true`;
+
+    return {
+      ...mergedUser,
+      id: targetId,
+      name: resolvedName,
+      photo: resolvedPhoto,
+      photo_url: resolvedPhoto,
+      onlineStatus: mergedUser.onlineStatus || 'Online',
+      verified: mergedUser.verified !== undefined ? Boolean(mergedUser.verified) : true,
+      city: mergedUser.city || mergedUser.district || '',
+      district: mergedUser.district || mergedUser.city || '',
+      profession: mergedUser.profession || ''
+    };
+  }, [profiles, currentUser, resolvedTargetId, conversations, activeChatId, livePartnerUser, propActiveConv]);
 
   const activeProfile = partnerUser;
 
@@ -804,8 +847,12 @@ export default function MobileChatScreen({
               onClick={() => onSelectProfile(partnerUser)}
             >
               <img 
-                src={partnerUser.photo} 
+                src={partnerUser.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(partnerUser.name)}&background=0B192C&color=DFB76C&bold=true`} 
                 alt={partnerUser.name}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(partnerUser.name)}&background=0B192C&color=DFB76C&bold=true`;
+                }}
                 className="w-9 h-9 rounded-full object-cover ring-1 ring-[#DFB76C]" 
               />
               <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-1.5 ring-[#0B192C]"></span>
@@ -1018,7 +1065,7 @@ export default function MobileChatScreen({
                 type="text"
                 value={inputText}
                 onChange={handleInputChange}
-                placeholder={"Message " + (partnerUser?.name || 'partner') + "..."}
+                placeholder={`Message ${partnerUser?.name || 'partner'}...`}
                 className={`flex-1 px-3 py-2 rounded-xl text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none transition-colors ${
                   isDarkMode 
                     ? 'bg-slate-800/90 border border-slate-700 text-white placeholder-slate-400 focus:bg-slate-800' 
@@ -1119,8 +1166,12 @@ export default function MobileChatScreen({
               >
                 <div className="relative shrink-0">
                   <img 
-                    src={profile.photo || profile.photo_url || 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'} 
+                    src={profile.photo || profile.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'Member')}&background=0B192C&color=DFB76C&bold=true`} 
                     alt={profile.name}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'Member')}&background=0B192C&color=DFB76C&bold=true`;
+                    }}
                     className="w-12 h-12 rounded-full object-cover ring-2 ring-[#DFB76C]/50" 
                   />
                   <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white"></span>

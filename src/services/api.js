@@ -1401,30 +1401,33 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
 export async function fetchLiveUserProfile(userId) {
   if (!userId) return null;
 
+  const cleanId = String(userId).trim();
+  const cleanIdLower = cleanId.toLowerCase();
+  const regIdToken = cleanId.includes('_') ? cleanId.split('_')[0] : cleanId;
+
   // 1. Try Supabase direct query
   if (isSupabaseConfigured()) {
     try {
-      const cleanId = String(userId).trim();
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
       const isRegId = cleanId.toUpperCase().startsWith('I4Y') || cleanId.toUpperCase().startsWith('I4U');
 
       let query = supabase.from('profiles').select(PROFILE_DETAIL_COLUMNS);
       if (isUuid) {
-        query = query.or(`id.eq.${cleanId},register_id.ilike.${cleanId}`);
+        query = query.or(`id.eq.${cleanId},register_id.ilike.${cleanId},register_id.ilike.${regIdToken}`);
       } else if (isRegId) {
-        query = query.ilike('register_id', cleanId);
+        query = query.or(`register_id.ilike.${cleanId},register_id.ilike.${regIdToken}`);
       } else {
-        query = query.or(`register_id.ilike.${cleanId},phone.eq.${cleanId}`);
+        query = query.or(`register_id.ilike.${cleanId},register_id.ilike.${regIdToken},phone.eq.${cleanId}`);
       }
 
       let { data, error } = await query.limit(1).maybeSingle();
       if (error) {
         // Fallback query with select('*') if any custom column in PROFILE_DETAIL_COLUMNS is missing
         const fallbackQuery = isUuid
-          ? supabase.from('profiles').select('*').or(`id.eq.${cleanId},register_id.ilike.${cleanId}`).limit(1).maybeSingle()
+          ? supabase.from('profiles').select('*').or(`id.eq.${cleanId},register_id.ilike.${cleanId},register_id.ilike.${regIdToken}`).limit(1).maybeSingle()
           : isRegId
-            ? supabase.from('profiles').select('*').ilike('register_id', cleanId).limit(1).maybeSingle()
-            : supabase.from('profiles').select('*').or(`register_id.ilike.${cleanId},phone.eq.${cleanId}`).limit(1).maybeSingle();
+            ? supabase.from('profiles').select('*').or(`register_id.ilike.${cleanId},register_id.ilike.${regIdToken}`).limit(1).maybeSingle()
+            : supabase.from('profiles').select('*').or(`register_id.ilike.${cleanId},register_id.ilike.${regIdToken},phone.eq.${cleanId}`).limit(1).maybeSingle();
         const fallbackRes = await fallbackQuery;
         if (!fallbackRes.error && fallbackRes.data) {
           data = fallbackRes.data;
@@ -1440,7 +1443,18 @@ export async function fetchLiveUserProfile(userId) {
     }
   }
 
-  // 2. Try Flask API (local dev only)
+  // 2. Check INITIAL_PROFILES / mock profiles
+  if (Array.isArray(INITIAL_PROFILES)) {
+    const foundMock = INITIAL_PROFILES.find((p) => {
+      if (!p) return false;
+      const pId = String(p.id || '').toLowerCase();
+      const pReg = String(p.register_id || p.registerId || '').toLowerCase();
+      return pId === cleanIdLower || pReg === cleanIdLower || pReg === regIdToken.toLowerCase();
+    });
+    if (foundMock) return foundMock;
+  }
+
+  // 3. Try Flask API (local dev only)
   try {
     const data = await safeFetchJson(`${API_BASE}/public/profile/${userId}?_t=${Date.now()}`, {}, 1200);
     if (data && data.success && data.profile) {

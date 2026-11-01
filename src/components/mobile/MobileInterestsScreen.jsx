@@ -316,18 +316,14 @@ export default function MobileInterestsScreen({
           )
         );
 
-        // Data Mapping: Extract sender or interest_from details from API response
-        const senderData = rec.sender || rec.interest_from;
-        const defaultAvatar = isMaleUser 
-          ? 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
-          : 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653762896.jpg';
-
         const candidateName = (!isGenericPlaceholder(matching?.name) ? matching.name : null) ||
                               (!isGenericPlaceholder(senderData?.name) ? senderData.name : null) ||
                               (!isGenericPlaceholder(rec.sender_name) ? rec.sender_name : null) ||
                               (!isGenericPlaceholder(rec.senderName) ? rec.senderName : null) ||
                               (matching?.register_id ? `Member ${matching.register_id}` : null) ||
-                              (sid ? `Member ${sid}` : 'Candidate');
+                              (sid ? `Member ${sid}` : 'Verified Member');
+
+        const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(candidateName || 'Member')}&background=0B192C&color=DFB76C&bold=true`;
 
         const base = matching || senderData || {
           id: sid,
@@ -435,16 +431,14 @@ export default function MobileInterestsScreen({
       );
 
       const senderData = item.sender || item.profile;
-      const defaultAvatar = isMaleUser 
-        ? 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1021_1791653762897.jpg'
-        : 'https://kzvdzospvgzlfkkptadl.supabase.co/storage/v1/object/public/avatars/profile_i4y1020_1791653762896.jpg';
-
       const candidateName = (!isGenericPlaceholder(matching?.name) ? matching.name : null) ||
                             (!isGenericPlaceholder(senderData?.name) ? senderData.name : null) ||
                             (!isGenericPlaceholder(item.sender_name) ? item.sender_name : null) ||
                             (!isGenericPlaceholder(item.senderName) ? item.senderName : null) ||
                             (matching?.register_id ? `Member ${matching.register_id}` : null) ||
-                            (sid ? `Member ${sid}` : 'Candidate');
+                            (sid ? `Member ${sid}` : 'Verified Member');
+
+      const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(candidateName || 'Member')}&background=0B192C&color=DFB76C&bold=true`;
 
       const base = matching || senderData || {
         id: sid,
