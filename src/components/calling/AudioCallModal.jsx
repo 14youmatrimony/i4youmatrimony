@@ -10,7 +10,7 @@ import {
   MapPin,
   X
 } from 'lucide-react';
-import { webrtcCallService, Helper, RTCVideoRenderer } from '../../services/webrtcCallService';
+import { webrtcCallService, AudioRoutingHelper, Helper, RTCVideoRenderer } from '../../services/webrtcCallService';
 
 export default function AudioCallModal({
   isOpen,
@@ -224,10 +224,11 @@ export default function AudioCallModal({
       await remoteRendererRef.current.initialize();
       if (remoteAudioRef.current) {
         remoteRendererRef.current.attachElement(remoteAudioRef.current, { muted: false });
+        webrtcCallService.remoteRenderer.attachElement(remoteAudioRef.current, { muted: false });
       }
 
       // Configure speakerphone
-      Helper.setSpeakerphoneOn(isSpeakerOn, remoteAudioRef.current);
+      AudioRoutingHelper.setSpeakerphoneOn(isSpeakerOn, remoteAudioRef.current);
 
       // Callback when remote audio stream is received
       const handleRemoteStream = (stream) => {
@@ -240,12 +241,13 @@ export default function AudioCallModal({
         // Assign to remoteRenderer.srcObject
         remoteRendererRef.current.srcObject = stream;
 
-        // Trigger UI state rebuild (setState)
+        // Trigger UI state rebuild (setState) immediately so audio plays live
         setRemoteStream(stream);
 
         if (remoteAudioRef.current) {
           remoteAudioRef.current.srcObject = stream;
-          Helper.setSpeakerphoneOn(isSpeakerOn, remoteAudioRef.current);
+          remoteAudioRef.current.muted = false;
+          AudioRoutingHelper.setSpeakerphoneOn(isSpeakerOn, remoteAudioRef.current);
           safePlayMedia(remoteAudioRef.current, 'remoteAudio');
         }
 
@@ -404,7 +406,8 @@ export default function AudioCallModal({
     if (audioEl.srcObject !== stream) {
       audioEl.srcObject = stream;
     }
-    Helper.setSpeakerphoneOn(isSpeakerOn, audioEl);
+    audioEl.muted = false;
+    AudioRoutingHelper.setSpeakerphoneOn(isSpeakerOn, audioEl);
     safePlayMedia(audioEl, 'remoteAudio');
   }, [remoteStream, isSpeakerOn, callStatus]);
 
@@ -425,7 +428,7 @@ export default function AudioCallModal({
   const handleToggleSpeaker = async () => {
     const nextSpeaker = !isSpeakerOn;
     setIsSpeakerOn(nextSpeaker);
-    await Helper.setSpeakerphoneOn(nextSpeaker, remoteAudioRef.current);
+    await AudioRoutingHelper.setSpeakerphoneOn(nextSpeaker, remoteAudioRef.current);
   };
 
   const handleKeypadPress = (digit) => {
@@ -480,7 +483,7 @@ export default function AudioCallModal({
       }}
     >
       {/* Hidden WebRTC Remote Audio Output */}
-      <audio ref={remoteAudioRef} autoPlay playsInline muted={false} controls={false} />
+      <audio ref={remoteAudioRef} autoPlay playsInline controls={false} />
 
       {/* Ambient Top Glow */}
       <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#D4AF37]/15 to-transparent pointer-events-none" />

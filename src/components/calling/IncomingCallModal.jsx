@@ -94,7 +94,7 @@ export default function IncomingCallModal({
     try {
       webrtcCallService.primeAudioPlayback();
       // Strict Runtime Permission Flow (Before SDP Offer/Answer):
-      // On Android & iOS, explicitly request Camera and Microphone permissions at the exact moment the user clicks 'Accept Call'
+      // Explicitly request Camera and Microphone permissions at the exact moment the user clicks 'Accept Call'
       await webrtcCallService.requestMediaPermissions(callType);
     } catch (err) {
       console.warn('[IncomingCall] Permissions rejected on accept:', err?.message);

@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Volume2
 } from 'lucide-react';
-import { webrtcCallService, Helper, RTCVideoRenderer } from '../../services/webrtcCallService';
+import { webrtcCallService, AudioRoutingHelper, Helper, RTCVideoRenderer } from '../../services/webrtcCallService';
 
 export default function VideoCallModal({
   isOpen,
@@ -94,11 +94,16 @@ export default function VideoCallModal({
   const attachLocalStream = (customStream = null) => {
     const stream = customStream || webrtcCallService.localStream;
     if (stream) {
+      stream.getTracks().forEach((track) => {
+        track.enabled = true;
+      });
+
       setLocalStream(stream);
       setHasCameraPermission(true);
 
-      // Set srcObject on localRenderer (already initialized)
+      // Set srcObject on localRenderer
       localRendererRef.current.srcObject = stream;
+      webrtcCallService.localRenderer.srcObject = stream;
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
@@ -124,9 +129,12 @@ export default function VideoCallModal({
   // Handle incoming remote media (both video and audio)
   const handleRemoteStream = (stream) => {
     if (!stream) return;
-    console.log('[VideoCall] handleRemoteStream received stream with tracks:', stream?.getTracks?.().map((t) => `${t.kind}:${t.readyState}`));
+    console.log(
+      '[VideoCall] handleRemoteStream received stream with tracks:',
+      stream?.getTracks?.().map((t) => `${t.kind}:${t.readyState}`)
+    );
 
-    // Trigger state rebuild (setState)
+    // Trigger state rebuild (setState) immediately so video and audio render live
     setRemoteStream(stream);
 
     const checkTracks = () => {
@@ -140,23 +148,29 @@ export default function VideoCallModal({
     stream.onremovetrack = checkTracks;
     checkTracks();
 
-    // Assign to remoteRenderer.srcObject (which was initialized before set)
+    // Assign to remoteRenderer.srcObject
     remoteRendererRef.current.srcObject = stream;
+    webrtcCallService.remoteRenderer.srcObject = stream;
 
     // Attach to video element for rendering remote video
-    if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== stream) {
-      remoteVideoRef.current.srcObject = stream;
-    }
     if (remoteVideoRef.current) {
-      safePlayMedia(remoteVideoRef.current, 'remoteVideo');
+      remoteVideoRef.current.srcObject = stream;
+      remoteVideoRef.current.play().catch((err) => {
+        console.warn('[VideoCall] remoteVideo unmuted play notice, retrying with muted video to satisfy autoplay:', err?.message);
+        // Fallback: Mute the video element so the video track RENDERS without being blocked,
+        // while the dedicated remoteAudio element below delivers clear unmuted sound.
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.muted = true;
+          remoteVideoRef.current.play().catch(() => {});
+        }
+      });
     }
 
     // Dedicated audio element for clean, direct incoming voice routed to speakerphone
-    if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== stream) {
-      remoteAudioRef.current.srcObject = stream;
-    }
     if (remoteAudioRef.current) {
-      Helper.setSpeakerphoneOn(true, remoteAudioRef.current);
+      remoteAudioRef.current.srcObject = stream;
+      remoteAudioRef.current.muted = false;
+      AudioRoutingHelper.setSpeakerphoneOn(true, remoteAudioRef.current);
       safePlayMedia(remoteAudioRef.current, 'remoteAudio');
     }
 
@@ -179,13 +193,15 @@ export default function VideoCallModal({
       // Attach elements to renderers
       if (localVideoRef.current) {
         localRendererRef.current.attachElement(localVideoRef.current, { muted: true, mirror: facingMode === 'user' });
+        webrtcCallService.localRenderer.attachElement(localVideoRef.current, { muted: true, mirror: facingMode === 'user' });
       }
       if (remoteVideoRef.current) {
         remoteRendererRef.current.attachElement(remoteVideoRef.current, { muted: false, mirror: false });
+        webrtcCallService.remoteRenderer.attachElement(remoteVideoRef.current, { muted: false, mirror: false });
       }
 
-      // Configure speakerphone
-      Helper.setSpeakerphoneOn(true, remoteAudioRef.current || remoteVideoRef.current);
+      // Configure speakerphone by default for video calls
+      AudioRoutingHelper.setSpeakerphoneOn(true, remoteAudioRef.current || remoteVideoRef.current);
 
       // 2. Strict Runtime Permission Flow: verify local media stream
       try {
@@ -356,7 +372,7 @@ export default function VideoCallModal({
       }}
     >
       {/* Dedicated Remote Audio Element for guaranteed loudspeaker voice routing */}
-      <audio ref={remoteAudioRef} autoPlay playsInline muted={false} controls={false} />
+      <audio ref={remoteAudioRef} autoPlay playsInline controls={false} />
 
       {/* Main Remote Video Container */}
       <div className="relative flex-1 min-h-0 w-full bg-gradient-to-b from-[#0B192C] to-[#040911] overflow-hidden flex items-center justify-center">
@@ -365,7 +381,6 @@ export default function VideoCallModal({
           ref={remoteVideoRef}
           autoPlay
           playsInline
-          muted={false}
           onLoadedMetadata={() => setHasRemoteVideo(true)}
           onLoadedData={() => setHasRemoteVideo(true)}
           onCanPlay={() => setHasRemoteVideo(true)}
