@@ -316,11 +316,22 @@ export default function MobileInterestsScreen({
           )
         );
 
+        const senderData = rec?.sender || 
+                           rec?.profile || 
+                           rec?.interest_from || 
+                           rec?.senderData || 
+                           rec?.metadata?.senderData || 
+                           rec?.metadata?.sender || 
+                           rec?.metadata?.profile || 
+                           null;
+
         const candidateName = (!isGenericPlaceholder(matching?.name) ? matching.name : null) ||
                               (!isGenericPlaceholder(senderData?.name) ? senderData.name : null) ||
-                              (!isGenericPlaceholder(rec.sender_name) ? rec.sender_name : null) ||
-                              (!isGenericPlaceholder(rec.senderName) ? rec.senderName : null) ||
+                              (!isGenericPlaceholder(rec?.sender_name) ? rec.sender_name : null) ||
+                              (!isGenericPlaceholder(rec?.senderName) ? rec.senderName : null) ||
                               (matching?.register_id ? `Member ${matching.register_id}` : null) ||
+                              (senderData?.register_id ? `Member ${senderData.register_id}` : null) ||
+                              (senderData?.registerId ? `Member ${senderData.registerId}` : null) ||
                               (sid ? `Member ${sid}` : 'Verified Member');
 
         const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(candidateName || 'Member')}&background=0B192C&color=DFB76C&bold=true`;
@@ -337,19 +348,19 @@ export default function MobileInterestsScreen({
 
         const item = {
           ...base,
-          id: base.id || sid,
+          id: base?.id || senderData?.id || sid,
           name: candidateName,
-          age: base.age || senderData?.age || 26,
-          profession: base.profession || senderData?.profession || 'Professional',
-          city: base.city || base.district || senderData?.location || senderData?.city || 'India',
-          district: base.district || base.city || senderData?.district || '',
-          state: base.state || senderData?.state || '',
-          photo: base.photo || base.avatar || senderData?.photo || senderData?.avatar || defaultAvatar,
-          interestMessage: rec.message || '',
-          interestId: rec.interest_id || rec.interestId || rec.id,
-          interest_id: rec.interest_id || rec.interestId || rec.id,
-          interestStatus: rec.status || 'pending',
-          interestCreatedAt: rec.created_at || rec.createdAt,
+          age: base?.age || senderData?.age || rec?.sender_age || 26,
+          profession: base?.profession || senderData?.profession || rec?.sender_profession || 'Professional',
+          city: base?.city || base?.district || senderData?.location || senderData?.city || rec?.sender_location || rec?.sender_city || 'India',
+          district: base?.district || base?.city || senderData?.district || rec?.sender_district || '',
+          state: base?.state || senderData?.state || rec?.sender_state || '',
+          photo: base?.photo || base?.avatar || senderData?.photo || senderData?.avatar || rec?.sender_photo || defaultAvatar,
+          interestMessage: rec?.message || '',
+          interestId: rec?.interest_id || rec?.interestId || rec?.id,
+          interest_id: rec?.interest_id || rec?.interestId || rec?.id,
+          interestStatus: rec?.status || 'pending',
+          interestCreatedAt: rec?.created_at || rec?.createdAt,
           activityType: 'interest',
           isContactView: false
         };
@@ -430,12 +441,22 @@ export default function MobileInterestsScreen({
         )
       );
 
-      const senderData = item.sender || item.profile;
+      const senderData = item?.sender || 
+                         item?.profile || 
+                         item?.interest_from || 
+                         item?.senderData || 
+                         item?.metadata?.senderData || 
+                         item?.metadata?.sender || 
+                         item?.metadata?.profile || 
+                         null;
+
       const candidateName = (!isGenericPlaceholder(matching?.name) ? matching.name : null) ||
                             (!isGenericPlaceholder(senderData?.name) ? senderData.name : null) ||
-                            (!isGenericPlaceholder(item.sender_name) ? item.sender_name : null) ||
-                            (!isGenericPlaceholder(item.senderName) ? item.senderName : null) ||
+                            (!isGenericPlaceholder(item?.sender_name) ? item.sender_name : null) ||
+                            (!isGenericPlaceholder(item?.senderName) ? item.senderName : null) ||
                             (matching?.register_id ? `Member ${matching.register_id}` : null) ||
+                            (senderData?.register_id ? `Member ${senderData.register_id}` : null) ||
+                            (senderData?.registerId ? `Member ${senderData.registerId}` : null) ||
                             (sid ? `Member ${sid}` : 'Verified Member');
 
       const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(candidateName || 'Member')}&background=0B192C&color=DFB76C&bold=true`;
@@ -452,21 +473,21 @@ export default function MobileInterestsScreen({
 
       const cardItem = {
         ...base,
-        id: base.id || sid,
+        id: base?.id || senderData?.id || sid,
         name: candidateName,
-        age: base.age || senderData?.age || 26,
-        profession: base.profession || senderData?.profession || 'Professional',
-        city: base.city || base.district || senderData?.location || senderData?.city || 'India',
-        district: base.district || base.city || senderData?.district || '',
-        state: base.state || senderData?.state || '',
-        photo: base.photo || base.avatar || senderData?.photo || senderData?.avatar || defaultAvatar,
-        interestMessage: item.message || '',
-        interestId: item.id || `notif_${sid}`,
-        interest_id: item.id || `notif_${sid}`,
-        interestStatus: item.status || 'pending',
-        interestCreatedAt: item.created_at || item.createdAt || item.timestamp,
-        activityType: item.activityType || 'interest',
-        isContactView: Boolean(item.isContactView)
+        age: base?.age || senderData?.age || item?.sender_age || 26,
+        profession: base?.profession || senderData?.profession || item?.sender_profession || 'Professional',
+        city: base?.city || base?.district || senderData?.location || senderData?.city || item?.sender_location || item?.sender_city || 'India',
+        district: base?.district || base?.city || senderData?.district || item?.sender_district || '',
+        state: base?.state || senderData?.state || item?.sender_state || '',
+        photo: base?.photo || base?.avatar || senderData?.photo || senderData?.avatar || item?.sender_photo || defaultAvatar,
+        interestMessage: item?.message || '',
+        interestId: item?.id || `notif_${sid}`,
+        interest_id: item?.id || `notif_${sid}`,
+        interestStatus: item?.status || 'pending',
+        interestCreatedAt: item?.created_at || item?.createdAt || item?.timestamp,
+        activityType: item?.activityType || 'interest',
+        isContactView: Boolean(item?.isContactView)
       };
 
       seenCandidateIds.add(sid);
