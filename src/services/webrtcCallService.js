@@ -282,7 +282,6 @@ class WebRTCCallService {
     this.localRenderer = new RTCVideoRenderer('local');
     this.remoteRenderer = new RTCVideoRenderer('remote');
     this.channel = null;
-    this.userChannels = new Map();
     this.dbChannel = null;
     this.pollInterval = null;
     this.sessionPollInterval = null;
@@ -322,6 +321,10 @@ class WebRTCCallService {
     this.myPrimaryId = String(user.id || user.uid || user.register_id || user.registerId || this.myIds[0] || '');
   }
 
+  /**
+   * Global signaling channel across all users.
+   * Connected once and kept open for zero-latency signaling.
+   */
   getChannel() {
     if (this.channel) return this.channel;
     if (!isSupabaseConfigured() || !supabase) return null;
@@ -330,9 +333,9 @@ class WebRTCCallService {
       this.channel
         .on('broadcast', { event: 'signal' }, ({ payload }) => this.handleIncomingSignal(payload))
         .on('broadcast', { event: 'call_signal' }, ({ payload }) => this.handleIncomingSignal(payload))
-        .on('broadcast', { event: 'incoming_call' }, ({ payload }) => this.handleIncomingCallPayload(payload))
         .subscribe((status) => {
           this.isSubscribed = status === 'SUBSCRIBED';
+          console.log('[WebRTC] global_webrtc_signaling status:', status);
         });
       return this.channel;
     } catch (e) {
@@ -349,65 +352,36 @@ class WebRTCCallService {
   }
 
   /**
-   * Listen for incoming calls across 4 complementary channels:
-   * 1. Direct Realtime broadcast channel: incoming_call:${currentUserId}
-   * 2. Supabase Realtime postgres_changes on call_requests table
-   * 3. 2.5-second active fallback database polling
-   * 4. Global broadcast channel: global_webrtc_signaling
+   * Listen for incoming calls across both:
+   * 1. Realtime broadcast channel ('global_webrtc_signaling')
+   * 2. Supabase Realtime postgres_changes on 'call_requests' table
+   * 3. 2-second fallback active database polling on 'call_requests' table
    */
   subscribeToUserInbox(user, onIncomingCall) {
     if (!user) return () => {};
     this.setSelfUser(user);
     this.inboxCallback = onIncomingCall;
 
-    // 1. Join global signaling broadcast channel
+    // 1. Connect to global signaling broadcast channel
     this.getChannel();
 
     if (isSupabaseConfigured() && supabase) {
-      // 2. Direct broadcast channels: incoming_call:${id} for each of my registered identifiers
-      this.myIds.forEach((uid) => {
-        if (!this.userChannels.has(uid)) {
-          try {
-            const ch = supabase.channel(`incoming_call:${uid}`, {
-              config: { broadcast: { self: false } }
-            });
-
-            ch.on('broadcast', { event: 'incoming_call' }, ({ payload }) => {
-              console.log(`[WebRTC] Received direct incoming_call on channel incoming_call:${uid}:`, payload);
-              this.handleIncomingCallPayload(payload);
-            });
-
-            ch.on('broadcast', { event: 'signal' }, ({ payload }) => {
-              this.handleIncomingSignal(payload);
-            });
-
-            ch.subscribe((status) => {
-              console.log(`[WebRTC] Channel incoming_call:${uid} status:`, status);
-            });
-
-            this.userChannels.set(uid, ch);
-          } catch (err) {
-            console.warn(`[WebRTC] Error subscribing to incoming_call:${uid}:`, err);
-          }
-        }
-      });
-
-      // 3. Supabase Realtime postgres_changes on call_requests table
+      // 2. Realtime postgres_changes on call_requests table
       if (!this.dbChannel) {
         try {
-          const dbCh = supabase.channel(`call_db_changes:${this.myPrimaryId}`);
-          dbCh.on(
+          this.dbChannel = supabase.channel(`call_db_inbox:${this.myPrimaryId}`);
+          this.dbChannel.on(
             'postgres_changes',
             {
-              event: '*',
+              event: 'INSERT',
               schema: 'public',
               table: 'call_requests'
             },
             (payload) => {
-              const row = payload.new || payload.record;
+              const row = payload.new;
               if (!row) return;
               const isTarget = this.myIds.some(
-                (id) => String(id).toLowerCase() === String(row.callee_id || row.receiver_id || '').toLowerCase()
+                (id) => String(id).toLowerCase() === String(row.callee_id || '').toLowerCase()
               );
               if (isTarget && row.status === 'ringing') {
                 console.log('[WebRTC] Realtime postgres_changes detected ringing call:', row);
@@ -415,45 +389,39 @@ class WebRTCCallService {
               }
             }
           );
-          dbCh.subscribe();
-          this.dbChannel = dbCh;
+          this.dbChannel.subscribe();
         } catch (dbSubErr) {
           console.warn('[WebRTC] Supabase postgres_changes subscription notice:', dbSubErr);
         }
       }
 
-      // 4. Reliable 2.5-second fallback database poll
+      // 3. Fallback active polling on call_requests table (every 2 seconds)
       if (!this.pollInterval) {
         const pollPendingCalls = async () => {
-          // If already in an active or connected call, skip polling
           if (this.currentCallId || !this.currentUser || !this.inboxCallback) return;
           try {
-            const fortySecAgo = new Date(Date.now() - 40000).toISOString();
-            const orQuery = this.myIds.map((id) => `callee_id.eq.${id}`).join(',');
+            const fortyFiveSecAgo = new Date(Date.now() - 45000).toISOString();
             const { data, error } = await supabase
               .from('call_requests')
-              .select('*')
-              .or(orQuery)
+              .select('id, caller_id, callee_id, caller_name, caller_photo, call_type, channel_name, status, created_at')
+              .in('callee_id', this.myIds)
               .eq('status', 'ringing')
-              .gte('created_at', fortySecAgo)
+              .gte('created_at', fortyFiveSecAgo)
               .order('created_at', { ascending: false })
               .limit(1);
 
             if (!error && Array.isArray(data) && data.length > 0) {
               const row = data[0];
               if (!this.handledCallIds.has(row.id)) {
-                console.log('[WebRTC] 2.5s fallback poll found active ringing call:', row);
+                console.log('[WebRTC] 2s fallback poll found active ringing call:', row);
                 this.handleIncomingCallFromDb(row);
               }
             }
-          } catch (pollErr) {
-            // Non-critical network poll fallback
-          }
+          } catch (pollErr) {}
         };
 
-        // Run immediate check + 2.5s recurring interval
         pollPendingCalls();
-        this.pollInterval = setInterval(pollPendingCalls, 2500);
+        this.pollInterval = setInterval(pollPendingCalls, 2000);
       }
     }
 
@@ -478,12 +446,6 @@ class WebRTCCallService {
       } catch (e) {}
       this.dbChannel = null;
     }
-    this.userChannels.forEach((ch) => {
-      try {
-        ch.unsubscribe();
-      } catch (e) {}
-    });
-    this.userChannels.clear();
   }
 
   handleIncomingCallPayload(payload) {
@@ -492,34 +454,35 @@ class WebRTCCallService {
     if (!callId || this.handledCallIds.has(callId)) return;
 
     // Check if target matches
-    const targetStr = String(payload.targetId || payload.receiverId || payload.calleeId || '').trim().toLowerCase();
+    const targetStr = String(payload.targetId || payload.calleeId || '').trim().toLowerCase();
     const myIdsLower = this.myIds.map((id) => String(id).trim().toLowerCase());
     const isTarget =
       !targetStr ||
       myIdsLower.includes(targetStr) ||
-      (Array.isArray(payload.targetIds) && payload.targetIds.some((id) => myIdsLower.includes(String(id).trim().toLowerCase())));
+      (Array.isArray(payload.data?.targetIds) && payload.data.targetIds.some((id) => myIdsLower.includes(String(id).trim().toLowerCase())));
 
-    if (!isTarget || myIdsLower.includes(String(payload.callerId || payload.senderId).trim().toLowerCase())) return;
+    if (!isTarget || myIdsLower.includes(String(payload.senderId || payload.callerId).trim().toLowerCase())) return;
 
     this.handledCallIds.add(callId);
 
     const callData = {
       callId,
-      callType: payload.callType || 'audio',
-      callerId: String(payload.callerId || payload.senderId || payload.caller?.id || ''),
-      targetId: String(payload.targetId || payload.receiverId || this.myPrimaryId),
-      receiverId: String(payload.targetId || payload.receiverId || this.myPrimaryId),
-      caller: payload.caller || {
-        id: String(payload.callerId || payload.senderId || ''),
-        name: payload.callerName || 'Candidate',
-        photo: payload.callerPhoto || payload.callerAvatar || '',
-        verified: true
+      callType: payload.data?.callType || payload.callType || 'audio',
+      callerId: String(payload.senderId || payload.callerId || payload.data?.caller?.id || ''),
+      calleeId: String(payload.targetId || this.myPrimaryId),
+      targetId: String(payload.targetId || this.myPrimaryId),
+      receiverId: String(payload.targetId || this.myPrimaryId),
+      channelName: payload.data?.channelName || `call-session-${callId}`,
+      caller: payload.data?.caller || {
+        id: String(payload.senderId || payload.callerId || ''),
+        name: payload.data?.callerName || 'Candidate',
+        photo: payload.data?.callerAvatar || payload.data?.callerPhoto || ''
       },
-      offer: payload.offer || payload.data?.offer || null,
+      offer: payload.data?.offer || payload.offer || null,
       timestamp: Date.now()
     };
 
-    console.log('[WebRTC] Delivering incoming call to UI callback from broadcast:', callData);
+    console.log('[WebRTC] Delivering incoming call to UI callback from broadcast signal:', callData);
     if (typeof this.inboxCallback === 'function') {
       this.inboxCallback(callData);
     }
@@ -534,19 +497,21 @@ class WebRTCCallService {
       callId,
       callType: row.call_type || 'audio',
       callerId: String(row.caller_id || ''),
-      targetId: String(row.callee_id || row.receiver_id || this.myPrimaryId),
-      receiverId: String(row.callee_id || row.receiver_id || this.myPrimaryId),
+      calleeId: String(row.callee_id || this.myPrimaryId),
+      targetId: String(row.callee_id || this.myPrimaryId),
+      receiverId: String(row.callee_id || this.myPrimaryId),
+      channelName: row.channel_name || `call-session-${row.id}`,
       caller: {
         id: String(row.caller_id || ''),
         name: row.caller_name || 'Candidate',
         photo: row.caller_photo || '',
         verified: true
       },
-      offer: row.offer || null,
-      timestamp: Date.now()
+      offer: null,
+      timestamp: new Date(row.created_at || Date.now()).getTime()
     };
 
-    console.log('[WebRTC] Delivering incoming call to UI callback from Database:', callData);
+    console.log('[WebRTC] Delivering incoming call to UI callback from Database row:', callData);
     if (typeof this.inboxCallback === 'function') {
       this.inboxCallback(callData);
     }
@@ -556,16 +521,15 @@ class WebRTCCallService {
     await this.ensureSubscribed();
 
     const payload = {
-      callId: this.currentCallId,
+      callId: data.callId || this.currentCallId,
       senderId: this.myPrimaryId,
-      targetId: this.remoteUserId,
+      targetId: data.targetId || this.remoteUserId,
       type,
       data
     };
 
-    console.log(`[WebRTC] >>> Sending signal: ${type} to ${this.remoteUserId}`);
+    console.log(`[WebRTC] >>> Sending signal: ${type} to ${payload.targetId} (callId: ${payload.callId})`);
 
-    // 1. Broadcast on global signaling channel
     const ch = this.getChannel();
     if (ch) {
       try {
@@ -575,32 +539,8 @@ class WebRTCCallService {
           payload
         });
       } catch (err) {
-        console.warn(`[WebRTC] sendSignal on global channel notice:`, err?.message);
+        console.warn(`[WebRTC] sendSignal notice:`, err?.message);
       }
-    }
-
-    // 2. Direct broadcast on target's incoming_call channel
-    if (this.remoteUserId && isSupabaseConfigured() && supabase) {
-      try {
-        const directCh = supabase.channel(`incoming_call:${this.remoteUserId}`);
-        directCh.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            directCh.send({
-              type: 'broadcast',
-              event: 'signal',
-              payload
-            }).catch(() => {});
-
-            if (type === 'incoming-call') {
-              directCh.send({
-                type: 'broadcast',
-                event: 'incoming_call',
-                payload: { ...payload, ...data }
-              }).catch(() => {});
-            }
-          }
-        });
-      } catch (e) {}
     }
   }
 
@@ -617,67 +557,27 @@ class WebRTCCallService {
 
     // 1. Incoming Call Invitation
     if (payload.type === 'incoming-call') {
-      const callId = payload.callId || payload.data?.callId;
-      if (!callId || this.handledCallIds.has(callId)) return;
-      this.handledCallIds.add(callId);
-
-      try {
-        const auth = await interestService.verifyCallAuthorization(
-          this.currentUser,
-          payload.data?.caller || { id: payload.senderId }
-        );
-        if (!auth.authorized) return;
-      } catch (e) {}
-
-      this.inboxCallback?.({
-        callId,
-        callType: payload.data?.callType || 'audio',
-        caller: payload.data?.caller || {
-          id: payload.senderId,
-          name: payload.data?.callerName || 'Candidate',
-          photo: payload.data?.callerAvatar || payload.data?.callerPhoto || ''
-        },
-        callerId: payload.senderId,
-        targetId: payload.targetId,
-        receiverId: payload.targetId,
-        offer: payload.data?.offer || payload.offer || null,
-        timestamp: Date.now()
-      });
+      this.handleIncomingCallPayload(payload);
       return;
     }
 
+    // Filter out messages for other calls if an active call exists
     if (this.currentCallId && payload.callId && payload.callId !== this.currentCallId) return;
 
-    // 2. Call Accepted (Caller handles callee acceptance -> sends SDP offer if not sent upfront)
-    if (payload.type === 'call-accepted' && this.isCaller && this.peerConnection) {
-      console.log('[WebRTC] Callee accepted call. Initializing SDP offer or finalizing connection...');
-      this.onCallStatusChangeCallback?.('connected');
-
-      // If we didn't send offer upfront, send it now
-      if (!this.peerConnection.localDescription) {
-        this.attachLocalTracksToPeerConnection();
-        try {
-          const offer = await this.peerConnection.createOffer();
-          await this.peerConnection.setLocalDescription(offer);
-          console.log('[WebRTC] Local description (offer) set. Sending webrtc-offer...');
-          await this.sendSignal('webrtc-offer', {
-            sdp: offer.sdp,
-            type: offer.type || 'offer'
-          });
-        } catch (e) {
-          console.error('[WebRTC] Create offer error:', e);
-        }
-      }
+    // 2. Call Accepted (Receiver accepted call -> caller transitions to connected and handles SDP handshake)
+    if (payload.type === 'call-accepted' && this.isCaller) {
+      console.log('[WebRTC] Received call-accepted signal from receiver');
+      this.handleCallAcceptedByReceiver();
     }
-    // 3. SDP Offer (Callee handles caller offer -> sets remote description -> flushes ICE candidates -> sends SDP answer)
-    else if (payload.type === 'webrtc-offer' && this.peerConnection && payload.data?.sdp) {
-      console.log('[WebRTC] Received SDP offer. Setting remote description...');
+    // 3. SDP Offer (Receiver handles caller offer -> sets remote description -> flushes ICE candidates -> sends SDP answer)
+    else if (payload.type === 'webrtc-offer' && this.peerConnection && (payload.data?.sdp || payload.sdp)) {
+      console.log('[WebRTC] Callee received SDP offer. Setting remote description...');
       try {
-        const sdpData = payload.data.sdp;
-        const sdpType = payload.data.type || 'offer';
+        const sdpData = payload.data?.sdp || payload.sdp;
+        const sdpType = payload.data?.type || payload.type || 'offer';
         const sdpString = typeof sdpData === 'string' ? sdpData : sdpData?.sdp || sdpData;
         const offerDesc = new RTCSessionDescription({
-          type: sdpType,
+          type: sdpType === 'webrtc-offer' ? 'offer' : sdpType,
           sdp: sdpString
         });
 
@@ -692,42 +592,33 @@ class WebRTCCallService {
 
         const answer = await this.peerConnection.createAnswer();
         await this.peerConnection.setLocalDescription(answer);
-        console.log('[WebRTC] Local description (answer) set. Sending webrtc-answer...');
+        console.log('[WebRTC] Callee local description (answer) set. Sending webrtc-answer...');
         await this.sendSignal('webrtc-answer', {
           sdp: answer.sdp,
-          type: 'answer'
+          type: 'answer',
+          callId: this.currentCallId
         });
-
-        // Also update call_requests row
-        if (isSupabaseConfigured() && supabase && this.currentCallId) {
-          try {
-            await supabase.from('call_requests').update({
-              status: 'accepted',
-              answer: answer.sdp
-            }).eq('id', this.currentCallId);
-          } catch (e) {}
-        }
 
         await this.flushLocalIceCandidates();
       } catch (e) {
         console.error('[WebRTC] Handle offer error:', e);
       }
     }
-    // 4. SDP Answer (Caller handles callee answer -> sets remote description -> flushes ICE candidates)
-    else if (payload.type === 'webrtc-answer' && this.peerConnection && payload.data?.sdp) {
-      console.log('[WebRTC] Received SDP answer. Setting remote description...');
+    // 4. SDP Answer (Caller handles callee answer -> sets remote description -> flushes ICE candidates -> connected)
+    else if (payload.type === 'webrtc-answer' && this.peerConnection && (payload.data?.sdp || payload.sdp)) {
+      console.log('[WebRTC] Caller received SDP answer. Setting remote description...');
       try {
-        const sdpData = payload.data.sdp;
-        const sdpType = payload.data.type || 'answer';
+        const sdpData = payload.data?.sdp || payload.sdp;
+        const sdpType = payload.data?.type || payload.type || 'answer';
         const sdpString = typeof sdpData === 'string' ? sdpData : sdpData?.sdp || sdpData;
         const answerDesc = new RTCSessionDescription({
-          type: sdpType,
+          type: sdpType === 'webrtc-answer' ? 'answer' : sdpType,
           sdp: sdpString
         });
 
         await this.peerConnection.setRemoteDescription(answerDesc);
         this.isRemoteDescriptionSet = true;
-        console.log('[WebRTC] Caller remote description set. Flushing queued ICE candidates...');
+        console.log('[WebRTC] Caller remote description set successfully. Flushing queued ICE candidates...');
         
         await this.flushIncomingIceCandidates();
         await this.flushLocalIceCandidates();
@@ -738,13 +629,47 @@ class WebRTCCallService {
       }
     }
     // 5. ICE Candidate (Queued until setRemoteDescription succeeds)
-    else if (payload.type === 'ice-candidate') {
-      await this.addIceCandidateSafe(payload.data?.candidate);
+    else if (payload.type === 'webrtc-candidate' || payload.type === 'ice-candidate') {
+      const cand = payload.data?.candidate || payload.candidate;
+      await this.addIceCandidateSafe(cand);
     }
     // 6. Call Ended / Declined
     else if (payload.type === 'call-ended' || payload.type === 'call-declined') {
       this.onCallStatusChangeCallback?.(payload.type === 'call-declined' ? 'declined' : 'ended');
       this.cleanupCallState(false);
+    }
+  }
+
+  /**
+   * Caller transitions to connected when receiver accepts (via signal or database update)
+   */
+  async handleCallAcceptedByReceiver() {
+    if (!this.isCaller) return;
+    console.log('[WebRTC] Caller handling receiver acceptance -> transitioning state to connected');
+    this.onCallStatusChangeCallback?.('connected');
+
+    if (this.sessionPollInterval) {
+      clearInterval(this.sessionPollInterval);
+      this.sessionPollInterval = null;
+    }
+
+    // Ensure local tracks are attached
+    this.attachLocalTracksToPeerConnection();
+
+    // If local description (offer) was not created yet, create and send it now
+    if (this.peerConnection && !this.peerConnection.localDescription) {
+      try {
+        const offer = await this.peerConnection.createOffer();
+        await this.peerConnection.setLocalDescription(offer);
+        console.log('[WebRTC] Local description (offer) set. Sending webrtc-offer...');
+        await this.sendSignal('webrtc-offer', {
+          sdp: offer.sdp,
+          type: offer.type || 'offer',
+          callId: this.currentCallId
+        });
+      } catch (e) {
+        console.error('[WebRTC] Create offer error:', e);
+      }
     }
   }
 
@@ -806,7 +731,7 @@ class WebRTCCallService {
     if (queue.length > 0) {
       console.log(`[WebRTC] Sending ${queue.length} local buffered ICE candidate(s) to remote peer...`);
       for (const candidate of queue) {
-        await this.sendSignal('ice-candidate', { candidate });
+        await this.sendSignal('ice-candidate', { candidate, callId: this.currentCallId });
       }
     }
   }
@@ -935,7 +860,7 @@ class WebRTCCallService {
         };
 
         if (this.isRemoteDescriptionSet && this.peerConnection?.remoteDescription) {
-          await this.sendSignal('ice-candidate', { candidate: candidatePayload });
+          await this.sendSignal('ice-candidate', { candidate: candidatePayload, callId: this.currentCallId });
         } else {
           console.log('[WebRTC] Buffering local ICE candidate until remote description is set');
           this.localIceCandidateQueue.push(candidatePayload);
@@ -1017,7 +942,7 @@ class WebRTCCallService {
   /**
    * Strict Runtime Permission Flow & Media Initialization:
    * Requests camera and microphone permissions BEFORE creating or joining call sessions.
-   * Ensures getUserMedia local audio and video tracks are properly initialized and enabled (enabled = true).
+   * Ensures getUserMedia local audio and video tracks are properly initialized and enabled.
    */
   async requestMediaPermissions(callType = 'audio', facingMode = 'user') {
     return this.initLocalMedia(callType, facingMode);
@@ -1041,8 +966,7 @@ class WebRTCCallService {
         return this.localStream;
       }
 
-      // If existing stream cannot be reused (e.g. upgrading to video or tracks inactive),
-      // cleanly stop old media tracks so the device hardware is never locked by browser
+      // If existing stream cannot be reused cleanly stop old media tracks
       try {
         this.localStream.getTracks().forEach((track) => {
           try {
@@ -1070,7 +994,6 @@ class WebRTCCallService {
         this.localStream = stream;
         this.hardwareError = null;
 
-        // Store persistent permission grant in localStorage if any tracks were obtained
         try {
           if (stream.getTracks().length > 0) {
             localStorage.setItem('app_permissions_granted', 'true');
@@ -1175,9 +1098,10 @@ class WebRTCCallService {
    * 4. Creates PeerConnection with STUN/TURN.
    * 5. Publishes local tracks.
    * 6. Generates upfront SDP Offer.
-   * 7. Inserts call record in Supabase call_requests / calls table.
-   * 8. Broadcasts incoming call on incoming_call:${receiverId} channel AND global_webrtc_signaling.
+   * 7. Inserts call record in Supabase call_requests table (strictly valid columns only!).
+   * 8. Broadcasts incoming call on global_webrtc_signaling.
    * 9. Dispatches high-priority push notification.
+   * 10. Actively listens for acceptance via broadcast and DB polling to connect immediately.
    */
   async startCall({ caller, callee, callType = 'audio', onRemoteStream, onStatusChange }) {
     // Preserve local tracks if they were already acquired in user click
@@ -1251,9 +1175,9 @@ class WebRTCCallService {
     const callerPhoto = caller.photo || caller.photo_url || caller.photos?.[0] || '';
     const callerName = caller.name || 'Caller';
 
-    // 1. Insert/upsert row into call_requests table
+    // 1. Insert row into Supabase 'call_requests' table (ONLY existing schema columns!)
     if (isSupabaseConfigured() && supabase) {
-      const baseCallRow = {
+      const callRecord = {
         id: this.currentCallId,
         caller_id: String(this.myPrimaryId),
         callee_id: String(this.remoteUserId),
@@ -1265,36 +1189,20 @@ class WebRTCCallService {
         created_at: new Date().toISOString()
       };
       try {
-        const fullRow = { ...baseCallRow };
-        if (offerSdp) fullRow.offer = offerSdp;
-        const { error: insErr } = await supabase.from('call_requests').upsert(fullRow);
+        const { error: insErr } = await supabase.from('call_requests').insert([callRecord]);
         if (insErr) {
-          await supabase.from('call_requests').upsert(baseCallRow);
+          console.error("Supabase Call Insert Error:", insErr);
+        } else {
+          console.log('[WebRTC] Inserted call_requests row successfully:', this.currentCallId);
         }
-      } catch (dbErr) {
-        console.warn('[WebRTC] Supabase call_requests notice:', dbErr?.message);
+      } catch (err) {
+        console.error("Supabase Call Insert Error:", err);
       }
-
-      // Also try table calls if it exists
-      try {
-        await supabase.from('calls').upsert({
-          id: this.currentCallId,
-          caller_id: String(this.myPrimaryId),
-          receiver_id: String(this.remoteUserId),
-          callee_id: String(this.remoteUserId),
-          caller_name: String(callerName),
-          caller_photo: String(callerPhoto),
-          call_type: callType,
-          status: 'ringing',
-          created_at: new Date().toISOString()
-        });
-      } catch (e) {}
     }
 
     const incomingPayload = {
       callId: this.currentCallId,
       callerId: this.myPrimaryId,
-      receiverId: this.remoteUserId,
       calleeId: this.remoteUserId,
       callerName,
       callerPhoto,
@@ -1310,39 +1218,13 @@ class WebRTCCallService {
       targetId: this.remoteUserId,
       targetIds,
       callType,
-      offer: offerSdp
+      offer: offerSdp ? { sdp: offerSdp, type: 'offer' } : null
     };
 
-    // 2. Send Realtime broadcast on incoming_call:${receiverId} channel
-    if (isSupabaseConfigured() && supabase) {
-      for (const tid of targetIds) {
-        try {
-          const directCh = supabase.channel(`incoming_call:${tid}`);
-          directCh.subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-              directCh.send({
-                type: 'broadcast',
-                event: 'incoming_call',
-                payload: incomingPayload
-              }).catch(() => {});
-              directCh.send({
-                type: 'broadcast',
-                event: 'signal',
-                payload: { ...incomingPayload, type: 'incoming-call', data: incomingPayload }
-              }).catch(() => {});
-            }
-          });
-        } catch (e) {}
-      }
-    }
+    // 2. Broadcast incoming-call invitation over global_webrtc_signaling
+    await this.sendSignal('incoming-call', incomingPayload);
 
-    // 3. Send via global signaling broadcast
-    await this.sendSignal('incoming-call', {
-      ...incomingPayload,
-      callerAvatar: callerPhoto
-    });
-
-    // 4. Dispatch native push notification to wake up device if backgrounded or locked
+    // 3. Dispatch native push notification to wake up device if backgrounded or locked
     try {
       fcmNotificationService?.dispatchCallPushNotification?.({
         calleeId: this.remoteUserId,
@@ -1353,11 +1235,11 @@ class WebRTCCallService {
       }).catch(() => {});
     } catch (e) {}
 
-    // 5. Caller listens for acceptance / answer SDP via database polling as active fallback
+    // 4. Caller monitors database status as active fallback
     if (isSupabaseConfigured() && supabase) {
       if (this.sessionPollInterval) clearInterval(this.sessionPollInterval);
       this.sessionPollInterval = setInterval(async () => {
-        if (!this.isCaller || !this.currentCallId || this.isRemoteDescriptionSet) {
+        if (!this.isCaller || !this.currentCallId) {
           if (this.sessionPollInterval) clearInterval(this.sessionPollInterval);
           this.sessionPollInterval = null;
           return;
@@ -1365,28 +1247,15 @@ class WebRTCCallService {
         try {
           const { data, error } = await supabase
             .from('call_requests')
-            .select('*')
+            .select('id, status')
             .eq('id', this.currentCallId)
             .limit(1)
             .maybeSingle();
 
           if (!error && data) {
-            if (data.status === 'accepted' && data.answer) {
-              console.log('[WebRTC] Found answer in database via polling:', data.id);
-              if (this.sessionPollInterval) clearInterval(this.sessionPollInterval);
-              this.sessionPollInterval = null;
-
-              if (this.peerConnection && !this.isRemoteDescriptionSet) {
-                const answerDesc = new RTCSessionDescription({
-                  type: 'answer',
-                  sdp: data.answer
-                });
-                await this.peerConnection.setRemoteDescription(answerDesc);
-                this.isRemoteDescriptionSet = true;
-                await this.flushIncomingIceCandidates();
-                await this.flushLocalIceCandidates();
-                this.onCallStatusChangeCallback?.('connected');
-              }
+            if (data.status === 'accepted' || data.status === 'answered') {
+              console.log('[WebRTC] Found accepted status in database via polling:', data.id);
+              this.handleCallAcceptedByReceiver();
             } else if (data.status === 'declined' || data.status === 'ended') {
               if (this.sessionPollInterval) clearInterval(this.sessionPollInterval);
               this.sessionPollInterval = null;
@@ -1408,9 +1277,10 @@ class WebRTCCallService {
    * 3. Initializes localRenderer and remoteRenderer.
    * 4. Creates PeerConnection with STUN/TURN.
    * 5. Publishes local tracks.
-   * 6. Sets remote description from User A's offer and creates SDP answer.
-   * 7. Updates database status to 'accepted' with answer SDP.
-   * 8. Emits answer / acceptance signal back to caller.
+   * 6. Updates call_requests table with status 'accepted' (strictly valid columns only!).
+   * 7. Changes UI status to 'connected'.
+   * 8. Emits call-accepted back to caller.
+   * 9. If caller provided upfront offer, sets remote description and sends SDP answer.
    */
   async acceptCall({ callData, currentUser, onRemoteStream, onStatusChange }) {
     // Preserve local tracks if they were already acquired in user accept gesture
@@ -1447,18 +1317,39 @@ class WebRTCCallService {
     // Enable speakerphone
     AudioRoutingHelper.setSpeakerphoneOn(true);
 
-    // Notify connected status
+    // Notify connected status immediately on receiver
     onStatusChange?.('connected');
 
-    const offerSdp = callData.offer || (callData.data && callData.data.offer);
+    // Update database status to accepted in call_requests (ONLY existing schema columns!)
+    if (isSupabaseConfigured() && supabase && this.currentCallId) {
+      try {
+        const { error: updErr } = await supabase
+          .from('call_requests')
+          .update({ status: 'accepted' })
+          .eq('id', this.currentCallId);
+        if (updErr) {
+          console.error("Supabase Call Update Error:", updErr);
+        } else {
+          console.log('[WebRTC] Updated call_requests status to accepted in DB');
+        }
+      } catch (e) {
+        console.error("Supabase Call Update Error:", e);
+      }
+    }
 
-    // If caller provided upfront SDP offer:
-    if (offerSdp) {
+    // Always emit call-accepted back to caller so caller knows call is accepted immediately
+    await this.sendSignal('call-accepted', { callId: this.currentCallId });
+
+    const offerData = callData.offer || (callData.data && callData.data.offer);
+
+    // If caller provided upfront SDP offer, set it and send answer back
+    if (offerData && this.peerConnection) {
       try {
         console.log('[WebRTC] Setting upfront SDP offer from caller...');
+        const sdpString = typeof offerData === 'string' ? offerData : (offerData.sdp || offerData);
         const offerDesc = new RTCSessionDescription({
           type: 'offer',
-          sdp: typeof offerSdp === 'string' ? offerSdp : offerSdp.sdp || offerSdp
+          sdp: sdpString
         });
         await this.peerConnection.setRemoteDescription(offerDesc);
         this.isRemoteDescriptionSet = true;
@@ -1475,80 +1366,54 @@ class WebRTCCallService {
           callId: this.currentCallId
         });
 
-        // Update database status to accepted with answer SDP
-        if (isSupabaseConfigured() && supabase && this.currentCallId) {
-          try {
-            await supabase.from('call_requests').update({
-              status: 'accepted',
-              answer: answer.sdp
-            }).eq('id', this.currentCallId);
-          } catch (e) {}
-        }
-
         await this.flushLocalIceCandidates();
-        return { success: true };
       } catch (err) {
-        console.warn('[WebRTC] Error handling upfront offer in acceptCall, falling back to signal exchange:', err);
+        console.warn('[WebRTC] Error handling upfront offer in acceptCall, awaiting webrtc-offer signal:', err);
       }
     }
 
-    // Update database status to accepted
-    if (isSupabaseConfigured() && supabase && this.currentCallId) {
-      try {
-        await supabase.from('call_requests').update({
-          status: 'accepted'
-        }).eq('id', this.currentCallId);
-      } catch (e) {}
-    }
-
-    // Emit call-accepted back to caller so caller can create the SDP offer
-    await this.sendSignal('call-accepted', { callId: this.currentCallId });
     return { success: true };
   }
 
   async declineCall({ callData, reason = 'declined' }) {
     const cId = callData?.callId || this.currentCallId;
     if (callData) {
-      const targetId = String(callData.callerId || callData.caller?.id || callData.senderId);
-      const ch = this.getChannel();
-      if (ch) {
-        await this.ensureSubscribed();
-        try {
-          await ch.send({
-            type: 'broadcast',
-            event: 'signal',
-            payload: {
-              callId: cId,
-              senderId: this.myPrimaryId,
-              targetId,
-              type: 'call-declined',
-              data: { reason }
-            }
-          });
-        } catch (e) {}
-      }
+      const targetId = String(callData.callerId || callData.caller?.id || callData.senderId || this.remoteUserId || '');
+      await this.sendSignal('call-declined', { callId: cId, reason, targetId });
     }
     if (isSupabaseConfigured() && supabase && cId) {
       try {
-        await supabase.from('call_requests').update({
-          status: 'declined',
-          ended_at: new Date().toISOString()
-        }).eq('id', cId);
+        const { error: updErr } = await supabase
+          .from('call_requests')
+          .update({
+            status: 'declined',
+            ended_at: new Date().toISOString()
+          })
+          .eq('id', cId);
+        if (updErr) {
+          console.error("Supabase Call Update Error:", updErr);
+        }
       } catch (e) {}
     }
     this.cleanupCallState(false);
   }
 
   async endCall() {
-    if (this.currentCallId && this.remoteUserId) {
+    if (this.currentCallId) {
       await this.sendSignal('call-ended', { callId: this.currentCallId });
     }
     if (isSupabaseConfigured() && supabase && this.currentCallId) {
       try {
-        await supabase.from('call_requests').update({
-          status: 'ended',
-          ended_at: new Date().toISOString()
-        }).eq('id', this.currentCallId);
+        const { error: updErr } = await supabase
+          .from('call_requests')
+          .update({
+            status: 'ended',
+            ended_at: new Date().toISOString()
+          })
+          .eq('id', this.currentCallId);
+        if (updErr) {
+          console.error("Supabase Call Update Error:", updErr);
+        }
       } catch (e) {}
     }
     this.cleanupCallState(false);
