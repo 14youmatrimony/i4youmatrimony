@@ -186,6 +186,11 @@ export default function VideoCallModal({
     let callTimeoutTimer = null;
 
     const setupCall = async () => {
+      // Reset any prior media element sources before starting or accepting
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+
       // 1. Initialize localRenderer and remoteRenderer BEFORE setting srcObject
       await localRendererRef.current.initialize();
       await remoteRendererRef.current.initialize();
@@ -308,6 +313,9 @@ export default function VideoCallModal({
       if (timerRef.current) clearInterval(timerRef.current);
       localRendererRef.current.dispose();
       remoteRendererRef.current.dispose();
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
       webrtcCallService.cleanup();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         try {

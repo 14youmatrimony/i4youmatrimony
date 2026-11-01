@@ -220,6 +220,9 @@ export default function AudioCallModal({
     let callTimeoutTimer = null;
 
     const setupCall = async () => {
+      // Reset any prior media element sources before starting or accepting
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+
       // 1. Initialize remoteRenderer (RTCVideoRenderer) BEFORE setting srcObject
       await remoteRendererRef.current.initialize();
       if (remoteAudioRef.current) {
@@ -381,6 +384,7 @@ export default function AudioCallModal({
       if (timerRef.current) clearInterval(timerRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       remoteRendererRef.current.dispose();
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
       webrtcCallService.cleanup();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         try {
