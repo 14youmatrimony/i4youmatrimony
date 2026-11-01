@@ -412,7 +412,7 @@ export function mapSupabaseRowToProfile(r) {
   const isApproved = r.aadhaar_status === 'approved' || (Boolean(r.aadhaar_verified) && !isSentBack);
 
   const cleanPhoto = sanitizeUrl(r.photo);
-  const cleanPhotoUrl = sanitizeUrl(r.photo_url);
+  const cleanPhotoUrl = sanitizeUrl(r.photo_url || r.avatar_url || r.profile_photo || r.profilePic);
 
   const resolvedPhoto = (singlePhotos.length > 0 ? singlePhotos[0] : null) || 
                         cleanPhoto || 
@@ -425,12 +425,15 @@ export function mapSupabaseRowToProfile(r) {
     singlePhotos = [resolvedPhoto, ...singlePhotos.filter(p => p !== resolvedPhoto)].slice(0, 5);
   }
 
+  const resolvedName = r.name || r.full_name || r.fullName || r.displayName || r.userName || '';
+
   return {
     id: r.id,
     registerId: r.register_id || r.id,
     register_id: r.register_id || r.id,
     email: r.email || null,
-    name: r.name,
+    name: resolvedName,
+    fullName: resolvedName,
     age: r.age,
     gender: r.gender,
     height: r.height || "5'6\"",
@@ -1406,29 +1409,36 @@ export async function fetchLiveUserProfile(userId) {
   const regIdToken = cleanId.includes('_') ? cleanId.split('_')[0] : cleanId;
 
   // 1. Try Supabase direct query
-  if (isSupabaseConfigured()) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
-      const isRegId = cleanId.toUpperCase().startsWith('I4Y') || cleanId.toUpperCase().startsWith('I4U');
-
-      let query = supabase.from('profiles').select(PROFILE_DETAIL_COLUMNS);
-      if (isUuid) {
-        query = query.or(`id.eq.${cleanId},register_id.ilike.${cleanId},register_id.ilike.${regIdToken}`);
-      } else if (isRegId) {
-        query = query.or(`register_id.ilike.${cleanId},register_id.ilike.${regIdToken}`);
-      } else {
-        query = query.or(`register_id.ilike.${cleanId},register_id.ilike.${regIdToken},phone.eq.${cleanId}`);
+      // In PostgreSQL profiles table, id is VARCHAR(100), register_id is VARCHAR(30), phone is VARCHAR(20)
+      // Unconditionally query by id, register_id, and phone without UUID format restrictions
+      const orTokens = [
+        `id.eq.${cleanId}`,
+        `register_id.ilike.${cleanId}`,
+        `register_id.ilike.${regIdToken}`
+      ];
+      if (cleanId.replace(/\D/g, '').length >= 10) {
+        orTokens.push(`phone.eq.${cleanId}`);
       }
+      const orCondition = orTokens.join(',');
 
-      let { data, error } = await query.limit(1).maybeSingle();
-      if (error) {
+      let { data, error } = await supabase
+        .from('profiles')
+        .select(PROFILE_DETAIL_COLUMNS)
+        .or(orCondition)
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) {
         // Fallback query with select('*') if any custom column in PROFILE_DETAIL_COLUMNS is missing
-        const fallbackQuery = isUuid
-          ? supabase.from('profiles').select('*').or(`id.eq.${cleanId},register_id.ilike.${cleanId},register_id.ilike.${regIdToken}`).limit(1).maybeSingle()
-          : isRegId
-            ? supabase.from('profiles').select('*').or(`register_id.ilike.${cleanId},register_id.ilike.${regIdToken}`).limit(1).maybeSingle()
-            : supabase.from('profiles').select('*').or(`register_id.ilike.${cleanId},register_id.ilike.${regIdToken},phone.eq.${cleanId}`).limit(1).maybeSingle();
-        const fallbackRes = await fallbackQuery;
+        const fallbackRes = await supabase
+          .from('profiles')
+          .select('*')
+          .or(orCondition)
+          .limit(1)
+          .maybeSingle();
+
         if (!fallbackRes.error && fallbackRes.data) {
           data = fallbackRes.data;
           error = null;
@@ -1439,11 +1449,40 @@ export async function fetchLiveUserProfile(userId) {
         return mapSupabaseRowToProfile(data);
       }
     } catch (sbErr) {
-      console.warn('[Supabase fetchLiveUserProfile Warning]:', sbErr.message);
+      console.warn('[Supabase fetchLiveUserProfile Warning]:', sbErr?.message);
     }
   }
 
-  // 2. Check INITIAL_PROFILES / mock profiles
+  // 2. Check localStorage cached profiles (i4u_cached_profiles)
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('i4u_cached_profiles');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          const found = parsed.find(p => p && (
+            String(p.id).toLowerCase() === cleanIdLower ||
+            String(p.register_id || p.registerId || '').toLowerCase() === cleanIdLower ||
+            String(p.register_id || p.registerId || '').toLowerCase() === regIdToken.toLowerCase() ||
+            (p.phone && String(p.phone).replace(/\D/g, '') === cleanId.replace(/\D/g, '') && cleanId.replace(/\D/g, '').length >= 10)
+          ));
+          if (found) {
+            const resolvedName = found.name || found.full_name || found.fullName || found.displayName;
+            if (resolvedName && !['candidate', 'verified member', 'a verified member', 'member'].includes(resolvedName.toLowerCase().trim())) {
+              return {
+                ...found,
+                name: resolvedName,
+                fullName: resolvedName,
+                photo: found.photo || found.photo_url || found.avatar_url || found.profile_photo || found.profilePic
+              };
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 3. Check INITIAL_PROFILES / mock profiles
   if (Array.isArray(INITIAL_PROFILES)) {
     const foundMock = INITIAL_PROFILES.find((p) => {
       if (!p) return false;
@@ -1454,7 +1493,7 @@ export async function fetchLiveUserProfile(userId) {
     if (foundMock) return foundMock;
   }
 
-  // 3. Try Flask API (local dev only)
+  // 4. Try Flask API (local dev only)
   try {
     const data = await safeFetchJson(`${API_BASE}/public/profile/${userId}?_t=${Date.now()}`, {}, 1200);
     if (data && data.success && data.profile) {

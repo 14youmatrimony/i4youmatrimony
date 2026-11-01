@@ -2729,7 +2729,7 @@ export default function App() {
     const isGeneric = (n) => !n || ['candidate', 'verified member', 'a verified member', 'member', 'someone'].includes(String(n).toLowerCase().trim());
 
     // 2. Resolve profile across passed object, profiles feed, and local cache
-    let profile = (passedProfile && !isGeneric(passedProfile.name)) ? passedProfile : null;
+    let profile = (passedProfile && !isGeneric(passedProfile.name || passedProfile.full_name || passedProfile.fullName)) ? passedProfile : null;
 
     if (!profile) {
       profile = profiles.find(p => 
@@ -2741,7 +2741,7 @@ export default function App() {
       ) || null;
     }
 
-    if (!profile || isGeneric(profile.name)) {
+    if (!profile || isGeneric(profile.name || profile.full_name || profile.fullName)) {
       try {
         const cachedRaw = localStorage.getItem('i4u_cached_profiles');
         if (cachedRaw) {
@@ -2752,7 +2752,7 @@ export default function App() {
               (p.register_id && String(p.register_id) === targetId) ||
               (p.registerId && String(p.registerId) === targetId)
             ));
-            if (cachedMatch && !isGeneric(cachedMatch.name)) {
+            if (cachedMatch && !isGeneric(cachedMatch.name || cachedMatch.full_name || cachedMatch.fullName)) {
               profile = cachedMatch;
             }
           }
@@ -2760,19 +2760,19 @@ export default function App() {
       } catch (e) {}
     }
 
-    const resolvedName = (!isGeneric(profile?.name))
-      ? profile.name
-      : (!isGeneric(extraData?.senderName || extraData?.name))
-        ? (extraData.senderName || extraData.name)
-        : (!isGeneric(passedProfile?.name)
-            ? passedProfile.name
+    const resolvedName = (!isGeneric(profile?.name || profile?.full_name || profile?.fullName))
+      ? (profile.name || profile.full_name || profile.fullName)
+      : (!isGeneric(extraData?.senderName || extraData?.name || extraData?.full_name))
+        ? (extraData.senderName || extraData.name || extraData.full_name)
+        : (!isGeneric(passedProfile?.name || passedProfile?.full_name || passedProfile?.fullName))
+            ? (passedProfile.name || passedProfile.full_name || passedProfile.fullName)
             : (profile?.register_id || profile?.registerId
                 ? `Member ${profile.register_id || profile.registerId}`
-                : (targetId ? `Member ${targetId.slice(0, 8)}` : 'Verified Member')));
+                : (targetId ? `Member ${targetId.slice(0, 8)}` : 'Candidate'));
 
-    const resolvedPhoto = profile?.photo || profile?.photo_url || profile?.profilePic || profile?.avatar ||
+    const resolvedPhoto = profile?.photo || profile?.photo_url || profile?.avatar_url || profile?.profile_photo || profile?.profilePic || profile?.avatar ||
       extraData?.senderPhoto || extraData?.photo || 
-      passedProfile?.photo || passedProfile?.photo_url || passedProfile?.profilePic ||
+      passedProfile?.photo || passedProfile?.photo_url || passedProfile?.avatar_url || passedProfile?.profile_photo || passedProfile?.profilePic ||
       `https://ui-avatars.com/api/?name=${encodeURIComponent(resolvedName)}&background=0B192C&color=DFB76C&bold=true`;
 
     const partner = {
@@ -2780,6 +2780,8 @@ export default function App() {
       id: targetId,
       name: resolvedName,
       photo: resolvedPhoto,
+      photo_url: resolvedPhoto,
+      avatar_url: resolvedPhoto,
       onlineStatus: 'Online'
     };
 
@@ -2807,7 +2809,11 @@ export default function App() {
                 partnerUser: {
                   ...(c.partnerUser || {}),
                   ...partner,
-                  name: !isGeneric(resolvedName) ? resolvedName : (c.partnerUser?.name || 'Verified Member')
+                  id: targetId,
+                  name: !isGeneric(resolvedName) ? resolvedName : (!isGeneric(c.partnerUser?.name) ? c.partnerUser.name : (targetId ? `Member ${targetId.slice(0, 8)}` : 'Candidate')),
+                  photo: resolvedPhoto,
+                  photo_url: resolvedPhoto,
+                  avatar_url: resolvedPhoto
                 }, 
                 conversation_id: convId 
               } 

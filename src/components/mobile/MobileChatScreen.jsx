@@ -125,6 +125,13 @@ export default function MobileChatScreen({
     if (activeProfileId) return String(activeProfileId);
     if (propActiveConv?.partnerUser?.id) return String(propActiveConv.partnerUser.id);
     if (propActiveConv?.profileId) return String(propActiveConv.profileId);
+    if (activeChatId && Array.isArray(conversations)) {
+      const convMatch = conversations.find(c => c && (
+        c.conversation_id === activeChatId || c.conversationId === activeChatId
+      ));
+      if (convMatch?.profileId) return String(convMatch.profileId);
+      if (convMatch?.partnerUser?.id) return String(convMatch.partnerUser.id);
+    }
     if (activeChatId && String(activeChatId).includes(':::')) {
       const parts = String(activeChatId).split(':::');
       const other = parts.find(id => id && String(id) !== String(currentUser?.id));
@@ -144,7 +151,7 @@ export default function MobileChatScreen({
       } catch (e) {}
     }
     return null;
-  }, [activeProfileId, propActiveConv, activeChatId, currentUser?.id]);
+  }, [activeProfileId, propActiveConv, activeChatId, currentUser?.id, conversations]);
 
   // Reset live partner state on partner switch
   useEffect(() => {
@@ -160,7 +167,7 @@ export default function MobileChatScreen({
     let isMounted = true;
     fetchLiveUserProfile(targetId).then((fetchedProfile) => {
       if (!isMounted || !fetchedProfile) return;
-      const resolvedName = fetchedProfile.name || fetchedProfile.fullName;
+      const resolvedName = fetchedProfile.name || fetchedProfile.fullName || fetchedProfile.full_name;
       if (!resolvedName) return;
 
       setLivePartnerUser(fetchedProfile);
@@ -170,7 +177,7 @@ export default function MobileChatScreen({
         const list = Array.isArray(prev) ? prev : [];
         return list.map((c) => {
           const isMatch = String(c.profileId) === targetId ||
-            (activeChatId && c.conversation_id === activeChatId) ||
+            (activeChatId && (c.conversation_id === activeChatId || c.conversationId === activeChatId)) ||
             (fetchedProfile.register_id && String(c.profileId) === String(fetchedProfile.register_id)) ||
             (fetchedProfile.id && String(c.profileId) === String(fetchedProfile.id));
 
@@ -180,8 +187,9 @@ export default function MobileChatScreen({
               partnerUser: {
                 ...(c.partnerUser || {}),
                 ...fetchedProfile,
+                id: targetId,
                 name: resolvedName,
-                photo: fetchedProfile.photo || fetchedProfile.photo_url || fetchedProfile.profilePic || c.partnerUser?.photo
+                photo: fetchedProfile.photo || fetchedProfile.photo_url || fetchedProfile.avatar_url || fetchedProfile.profile_photo || fetchedProfile.profilePic || c.partnerUser?.photo
               }
             };
           }
@@ -219,6 +227,19 @@ export default function MobileChatScreen({
       return ['candidate', 'verified member', 'a verified member', 'member', 'someone'].includes(lower);
     };
 
+    const extractName = (p) => {
+      if (!p) return null;
+      const val = p.name || p.full_name || p.fullName || p.displayName || p.partner_name || p.userName;
+      return !isGenericName(val) ? String(val).trim() : null;
+    };
+
+    const extractPhoto = (p) => {
+      if (!p) return null;
+      return p.photo || p.photo_url || p.avatar_url || p.profile_photo || p.profilePic || p.avatar || 
+        (Array.isArray(p.single_photos) ? p.single_photos[0] : null) || 
+        (Array.isArray(p.photos) ? p.photos[0] : null);
+    };
+
     // Candidate sources priority:
     // A. propActiveConv.partnerUser
     const propPartner = propActiveConv?.partnerUser && !isSelfProfile(propActiveConv.partnerUser, currentUser)
@@ -242,7 +263,7 @@ export default function MobileChatScreen({
     // D. active conversation object from state
     const conv = (conversations || []).find(c => 
       String(c.profileId) === targetId || 
-      (activeChatId && c.conversation_id === activeChatId)
+      (activeChatId && (c.conversation_id === activeChatId || c.conversationId === activeChatId))
     );
     const convPartner = conv?.partnerUser && !isSelfProfile(conv.partnerUser, currentUser)
       ? conv.partnerUser
@@ -270,7 +291,7 @@ export default function MobileChatScreen({
     if (typeof window !== 'undefined') {
       try {
         const url = new URL(window.location.href);
-        routeName = url.searchParams.get('partner_name') || url.searchParams.get('name') || url.searchParams.get('user_name');
+        routeName = url.searchParams.get('partner_name') || url.searchParams.get('name') || url.searchParams.get('user_name') || url.searchParams.get('full_name');
         routePhoto = url.searchParams.get('partner_photo') || url.searchParams.get('photo') || url.searchParams.get('photo_url') || url.searchParams.get('profilePic') || url.searchParams.get('avatar');
       } catch (e) {}
     }
@@ -286,24 +307,26 @@ export default function MobileChatScreen({
 
     // Dynamically resolve real name
     const resolvedName = 
-      (!isGenericName(livePartner?.name || livePartner?.fullName) ? (livePartner.name || livePartner.fullName) : null) ||
-      (!isGenericName(propPartner?.name) ? propPartner.name : null) ||
-      (!isGenericName(foundInProfiles?.name) ? foundInProfiles.name : null) ||
-      (!isGenericName(convPartner?.name) ? convPartner.name : null) ||
-      (!isGenericName(cachedPartner?.name) ? cachedPartner.name : null) ||
+      extractName(livePartner) ||
+      extractName(propPartner) ||
+      extractName(foundInProfiles) ||
+      extractName(convPartner) ||
+      extractName(cachedPartner) ||
       (!isGenericName(routeName) ? routeName : null) ||
+      extractName(mergedUser) ||
       (mergedUser.register_id || mergedUser.registerId ? `Member ${mergedUser.register_id || mergedUser.registerId}` : null) ||
       (targetId.toUpperCase().startsWith('I4Y') || targetId.toUpperCase().startsWith('I4U') ? `Member ${targetId.toUpperCase()}` : null) ||
-      'Verified Member';
+      (targetId ? `Member ${targetId.slice(0, 8)}` : 'Candidate');
 
     // Dynamically resolve real avatar photo URL
     const resolvedPhoto = 
-      livePartner?.photo || livePartner?.photo_url || livePartner?.profilePic || livePartner?.avatar ||
-      propPartner?.photo || propPartner?.photo_url || propPartner?.profilePic || propPartner?.avatar ||
-      foundInProfiles?.photo || foundInProfiles?.photo_url || foundInProfiles?.profilePic || foundInProfiles?.avatar ||
-      convPartner?.photo || convPartner?.photo_url || convPartner?.profilePic || convPartner?.avatar ||
-      cachedPartner?.photo || cachedPartner?.photo_url || cachedPartner?.profilePic || cachedPartner?.avatar ||
+      extractPhoto(livePartner) ||
+      extractPhoto(propPartner) ||
+      extractPhoto(foundInProfiles) ||
+      extractPhoto(convPartner) ||
+      extractPhoto(cachedPartner) ||
       routePhoto ||
+      extractPhoto(mergedUser) ||
       `https://ui-avatars.com/api/?name=${encodeURIComponent(resolvedName)}&background=0B192C&color=DFB76C&bold=true`;
 
     return {
@@ -312,6 +335,7 @@ export default function MobileChatScreen({
       name: resolvedName,
       photo: resolvedPhoto,
       photo_url: resolvedPhoto,
+      avatar_url: resolvedPhoto,
       onlineStatus: mergedUser.onlineStatus || 'Online',
       verified: mergedUser.verified !== undefined ? Boolean(mergedUser.verified) : true,
       city: mergedUser.city || mergedUser.district || '',

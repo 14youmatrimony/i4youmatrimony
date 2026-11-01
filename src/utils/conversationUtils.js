@@ -94,7 +94,28 @@ export function getActiveConversations(conversations = [], currentUser, profiles
       )
     );
 
-    const partner = matchedProfile || c.partnerUser;
+    let partner = matchedProfile ? { ...(c.partnerUser || {}), ...matchedProfile } : (c.partnerUser || null);
+
+    const isGeneric = (n) => !n || ['candidate', 'verified member', 'a verified member', 'member', 'someone'].includes(String(n).toLowerCase().trim());
+    if (!partner || isGeneric(partner.name || partner.full_name || partner.fullName)) {
+      try {
+        const cachedRaw = localStorage.getItem('i4u_cached_profiles');
+        if (cachedRaw) {
+          const cachedProfiles = JSON.parse(cachedRaw);
+          if (Array.isArray(cachedProfiles)) {
+            const foundCached = cachedProfiles.find(p => p && (
+              String(p.id) === pid || 
+              (p.register_id && String(p.register_id) === pid) ||
+              (p.registerId && String(p.registerId) === pid)
+            ));
+            if (foundCached && !isGeneric(foundCached.name || foundCached.full_name || foundCached.fullName)) {
+              partner = { ...(partner || {}), ...foundCached };
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
     if (!partner || isSelfProfile(partner, currentUser)) continue;
 
     const partnerIdStr = String(partner.id);
