@@ -34,6 +34,7 @@ export default function VideoCallModal({
   // Renderers instantiated via RTCVideoRenderer
   const localRendererRef = useRef(new RTCVideoRenderer('localVideo'));
   const remoteRendererRef = useRef(new RTCVideoRenderer('remoteVideo'));
+  const remoteStreamRef = useRef(null);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -129,49 +130,54 @@ export default function VideoCallModal({
   // Handle incoming remote media (both video and audio)
   const handleRemoteStream = (stream) => {
     if (!stream) return;
-    console.log(
-      '[VideoCall] handleRemoteStream received stream with tracks:',
-      stream?.getTracks?.().map((t) => `${t.kind}:${t.readyState}`)
-    );
+    if (!remoteStreamRef.current) {
+      remoteStreamRef.current = new MediaStream();
+    }
 
-    // Trigger state rebuild (setState) immediately so video and audio render live
-    setRemoteStream(stream);
+    if (typeof stream.getTracks === 'function') {
+      stream.getTracks().forEach((track) => {
+        track.enabled = true;
+        const existing = remoteStreamRef.current.getTracks().find((t) => t.id === track.id);
+        if (!existing) {
+          remoteStreamRef.current.addTrack(track);
+        }
+      });
+    }
+
+    const activeStream = remoteStreamRef.current;
+    setRemoteStream(activeStream);
 
     const checkTracks = () => {
-      const vTracks = stream.getVideoTracks().filter((t) => t.readyState === 'live');
+      const vTracks = activeStream.getVideoTracks().filter((t) => t.readyState === 'live');
       if (vTracks.length > 0) {
         setHasRemoteVideo(true);
       }
     };
 
-    stream.onaddtrack = checkTracks;
-    stream.onremovetrack = checkTracks;
+    activeStream.onaddtrack = checkTracks;
+    activeStream.onremovetrack = checkTracks;
     checkTracks();
 
     // Assign to remoteRenderer.srcObject
-    remoteRendererRef.current.srcObject = stream;
-    webrtcCallService.remoteRenderer.srcObject = stream;
+    if (remoteRendererRef.current) {
+      remoteRendererRef.current.srcObject = activeStream;
+    }
+    if (webrtcCallService.remoteRenderer) {
+      webrtcCallService.remoteRenderer.srcObject = activeStream;
+    }
 
     // Attach to video element for rendering remote video
     if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = stream;
-      remoteVideoRef.current.play().catch((err) => {
-        console.warn('[VideoCall] remoteVideo unmuted play notice, retrying with muted video to satisfy autoplay:', err?.message);
-        // Fallback: Mute the video element so the video track RENDERS without being blocked,
-        // while the dedicated remoteAudio element below delivers clear unmuted sound.
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.muted = true;
-          remoteVideoRef.current.play().catch(() => {});
-        }
-      });
+      remoteVideoRef.current.srcObject = activeStream;
+      remoteVideoRef.current.play().catch(() => {});
     }
 
     // Dedicated audio element for clean, direct incoming voice routed to speakerphone
     if (remoteAudioRef.current) {
-      remoteAudioRef.current.srcObject = stream;
+      remoteAudioRef.current.srcObject = activeStream;
       remoteAudioRef.current.muted = false;
       AudioRoutingHelper.setSpeakerphoneOn(true, remoteAudioRef.current);
-      safePlayMedia(remoteAudioRef.current, 'remoteAudio');
+      remoteAudioRef.current.play().catch(() => {});
     }
 
     setCallStatus('connected');
@@ -187,6 +193,7 @@ export default function VideoCallModal({
 
     const setupCall = async () => {
       // Reset any prior media element sources before starting or accepting
+      remoteStreamRef.current = null;
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
       if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
@@ -313,6 +320,7 @@ export default function VideoCallModal({
       if (timerRef.current) clearInterval(timerRef.current);
       localRendererRef.current.dispose();
       remoteRendererRef.current.dispose();
+      remoteStreamRef.current = null;
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
       if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;

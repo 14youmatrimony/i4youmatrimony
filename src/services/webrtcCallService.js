@@ -688,48 +688,46 @@ class WebRTCCallService {
       }
     };
 
-    // Receiving & Rendering Remote Tracks
+    // Receiving & Rendering Remote Tracks (Root Cause #4: iPhone <-> Android Stream Attachment & Autoplay Fix)
     this.peerConnection.ontrack = (event) => {
       console.log('[WebRTC] peerConnection.ontrack received remote media track:', {
         kind: event.track?.kind,
-        streamsCount: event.streams?.length,
+        hasStreams: !!(event.streams && event.streams[0]),
         trackId: event.track?.id
       });
 
-      if (event.track) {
+      if (!this.remoteStream) {
+        this.remoteStream = new MediaStream();
+      }
+
+      if (event.streams && event.streams[0]) {
+        event.streams[0].getTracks().forEach((track) => {
+          track.enabled = true;
+          const existing = this.remoteStream.getTracks().find((t) => t.id === track.id);
+          if (!existing) {
+            this.remoteStream.addTrack(track);
+          }
+        });
+      } else if (event.track) {
         event.track.enabled = true;
+        const existing = this.remoteStream.getTracks().find((t) => t.id === event.track.id);
+        if (!existing) {
+          this.remoteStream.addTrack(event.track);
+        }
       }
 
-      let stream = event.streams && event.streams[0] ? event.streams[0] : null;
-
-      if (!stream) {
-        if (!this.remoteStream) {
-          this.remoteStream = new MediaStream();
-        }
-        const existing = this.remoteStream.getTracks().find((t) => t.id === event.track.id || t.kind === event.track.kind);
-        if (existing) {
-          try {
-            this.remoteStream.removeTrack(existing);
-          } catch (err) {}
-        }
-        this.remoteStream.addTrack(event.track);
-        stream = this.remoteStream;
-      } else {
-        this.remoteStream = stream;
-      }
-
-      stream.getTracks().forEach((track) => {
+      this.remoteStream.getTracks().forEach((track) => {
         track.enabled = true;
       });
 
       if (this.remoteRenderer) {
-        this.remoteRenderer.srcObject = stream;
+        this.remoteRenderer.srcObject = this.remoteStream;
       }
 
       AudioRoutingHelper.setSpeakerphoneOn(true);
 
       if (typeof this.onRemoteStreamCallback === 'function') {
-        this.onRemoteStreamCallback(stream);
+        this.onRemoteStreamCallback(this.remoteStream);
       }
     };
 
@@ -749,6 +747,15 @@ class WebRTCCallService {
       console.log('[WebRTC] ICE connection state:', iceState);
       if (iceState === 'connected' || iceState === 'completed') {
         AudioRoutingHelper.setSpeakerphoneOn(true);
+      } else if (iceState === 'failed') {
+        console.warn('[WebRTC] ICE connection failed, automatically calling restartIce()...');
+        try {
+          if (typeof this.peerConnection.restartIce === 'function') {
+            this.peerConnection.restartIce();
+          }
+        } catch (iceErr) {
+          console.warn('[WebRTC] restartIce notice:', iceErr);
+        }
       }
     };
   }

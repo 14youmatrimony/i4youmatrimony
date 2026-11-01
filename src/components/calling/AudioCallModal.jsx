@@ -35,6 +35,7 @@ export default function AudioCallModal({
 
   // Initialize remoteRenderer via RTCVideoRenderer
   const remoteRendererRef = useRef(new RTCVideoRenderer('remoteAudio'));
+  const remoteStreamRef = useRef(null);
 
   const timerRef = useRef(null);
   const remoteAudioRef = useRef(null);
@@ -221,6 +222,7 @@ export default function AudioCallModal({
 
     const setupCall = async () => {
       // Reset any prior media element sources before starting or accepting
+      remoteStreamRef.current = null;
       if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
 
       // 1. Initialize remoteRenderer (RTCVideoRenderer) BEFORE setting srcObject
@@ -236,22 +238,29 @@ export default function AudioCallModal({
       // Callback when remote audio stream is received
       const handleRemoteStream = (stream) => {
         if (!stream) return;
-        console.log(
-          '[AudioCall] handleRemoteStream received stream with tracks:',
-          stream.getTracks().map((t) => `${t.kind}:${t.enabled}`)
-        );
+        if (!remoteStreamRef.current) {
+          remoteStreamRef.current = new MediaStream();
+        }
 
-        // Assign to remoteRenderer.srcObject
-        remoteRendererRef.current.srcObject = stream;
+        if (typeof stream.getTracks === 'function') {
+          stream.getTracks().forEach((track) => {
+            track.enabled = true;
+            const existing = remoteStreamRef.current.getTracks().find((t) => t.id === track.id);
+            if (!existing) {
+              remoteStreamRef.current.addTrack(track);
+            }
+          });
+        }
 
-        // Trigger UI state rebuild (setState) immediately so audio plays live
-        setRemoteStream(stream);
+        const activeStream = remoteStreamRef.current;
+        remoteRendererRef.current.srcObject = activeStream;
+        setRemoteStream(activeStream);
 
         if (remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = stream;
+          remoteAudioRef.current.srcObject = activeStream;
           remoteAudioRef.current.muted = false;
           AudioRoutingHelper.setSpeakerphoneOn(isSpeakerOn, remoteAudioRef.current);
-          safePlayMedia(remoteAudioRef.current, 'remoteAudio');
+          remoteAudioRef.current.play().catch(() => {});
         }
 
         if (ringIntervalRef.current) {
@@ -384,6 +393,7 @@ export default function AudioCallModal({
       if (timerRef.current) clearInterval(timerRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       remoteRendererRef.current.dispose();
+      remoteStreamRef.current = null;
       if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
       webrtcCallService.cleanup();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
