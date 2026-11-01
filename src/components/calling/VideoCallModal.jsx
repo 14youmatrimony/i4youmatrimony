@@ -225,7 +225,7 @@ export default function VideoCallModal({
           setCallStatus('connected');
           attachLocalStream();
           playVideoChime();
-        } else if (status === 'declined' || status === 'ended') {
+        } else if (status === 'declined' || status === 'ended' || status === 'rejected') {
           setCallStatus('ended');
           setTimeout(() => onClose(), 1000);
         }

@@ -70,12 +70,22 @@ export default function IncomingCallModal({
     // Auto decline if not answered within 45 seconds
     const autoDeclineTimer = setTimeout(() => {
       if (onDecline && incomingCall) {
-        onDecline(incomingCall, 'timeout');
+        onDecline(incomingCall, 'rejected');
       }
     }, 45000);
 
+    // Listen to call cancellation by caller from public.calls
+    const callId = incomingCall.callId || incomingCall.id;
+    const unsubStatus = webrtcCallService.listenToCallStatus(callId, (st) => {
+      if (st === 'ended' || st === 'rejected') {
+        if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
+        if (onDecline) onDecline(incomingCall, st);
+      }
+    });
+
     return () => {
       clearTimeout(autoDeclineTimer);
+      if (unsubStatus) unsubStatus();
       if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
       if (audioContextRef.current && audioContextRef.current.state !== 'closed' && audioContextRef.current !== window.__agyAudioContext) {
         try { audioContextRef.current.close(); } catch (e) {}
@@ -85,8 +95,10 @@ export default function IncomingCallModal({
 
   if (!incomingCall) return null;
 
-  const { caller, callType = 'audio' } = incomingCall;
-  const isVideo = callType === 'video';
+  const { caller, callType = 'audio', callerName, callerPhoto } = incomingCall;
+  const isVideo = (callType || incomingCall.call_type) === 'video';
+  const displayName = caller?.name || callerName || incomingCall.caller_name || 'Candidate';
+  const displayPhoto = caller?.photo || caller?.photo_url || callerPhoto || incomingCall.caller_photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400';
 
   const stopAudio = () => {
     if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
@@ -98,7 +110,6 @@ export default function IncomingCallModal({
   const handleAcceptClick = async () => {
     stopAudio();
     try {
-      // Resume AudioContext inside the user interaction gesture immediately for iOS / Android
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
         if (!window.__agyAudioContext || window.__agyAudioContext.state === 'closed') {
@@ -109,22 +120,19 @@ export default function IncomingCallModal({
         }
       }
       webrtcCallService.primeAudioPlayback();
-      // Explicitly kick-start remote audio/video elements within user touch gesture
       if (webrtcCallService.remoteRenderer?._element) {
         webrtcCallService.remoteRenderer._element.play().catch(() => {});
       }
-      // Initialize media with safe fallback
       await webrtcCallService.requestMediaPermissions(callType);
     } catch (err) {
       console.warn('[IncomingCall] Non-blocking media acquisition notice on accept:', err);
     }
-    // ALWAYS accept and connect the call without any blocking alerts or early returns!
     if (onAccept) onAccept(incomingCall);
   };
 
   const handleDeclineClick = () => {
     stopAudio();
-    if (onDecline) onDecline(incomingCall, 'declined');
+    if (onDecline) onDecline(incomingCall, 'rejected');
   };
 
   return (
@@ -157,7 +165,7 @@ export default function IncomingCallModal({
 
           <div className="pt-2">
             <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-wide">
-              {caller?.name || 'Candidate'}
+              {displayName}
             </h2>
             {caller?.profession && (
               <p className="text-xs sm:text-sm text-slate-300 mt-1 font-medium">
@@ -184,8 +192,8 @@ export default function IncomingCallModal({
           
           <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-4 ring-[#D4AF37] shadow-2xl">
             <img 
-              src={caller?.photo || caller?.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'} 
-              alt={caller?.name || 'Caller'} 
+              src={displayPhoto} 
+              alt={displayName} 
               className="w-full h-full object-cover"
             />
             <div className="absolute bottom-1 right-1 bg-emerald-600 text-white p-1 rounded-full ring-2 ring-[#0B192C]">

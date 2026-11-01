@@ -279,7 +279,7 @@ export default function AudioCallModal({
           setCallStatus('connected');
           setIsConnectedPeer(true);
           playConnectChime();
-        } else if (status === 'declined' || status === 'ended') {
+        } else if (status === 'declined' || status === 'ended' || status === 'rejected') {
           if (ringIntervalRef.current) {
             clearInterval(ringIntervalRef.current);
             ringIntervalRef.current = null;
