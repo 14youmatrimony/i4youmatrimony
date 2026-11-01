@@ -1,12 +1,14 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Phone, PhoneOff, Video, ShieldCheck, MapPin } from 'lucide-react';
 import { webrtcCallService } from '../../services/webrtcCallService';
 
 export default function IncomingCallModal({
   incomingCall,
   onAccept,
-  onDecline
+  onDecline,
+  showToast
 }) {
+  const [permissionNotice, setPermissionNotice] = useState(null);
   const audioContextRef = useRef(null);
   const ringIntervalRef = useRef(null);
 
@@ -97,9 +99,17 @@ export default function IncomingCallModal({
       // Explicitly request Camera and Microphone permissions at the exact moment the user clicks 'Accept Call'
       await webrtcCallService.requestMediaPermissions(callType);
     } catch (err) {
-      console.warn('[IncomingCall] Permissions rejected on accept:', err?.message);
-      alert('Camera and microphone permissions are required to accept this call. Please allow permissions in your device settings.');
-      return;
+      console.warn('[IncomingCall] Permissions error on accept:', err?.name, err?.message);
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        const msg = callType === 'video'
+          ? 'Camera and microphone permissions are required to accept this call. Please allow permissions in your device settings.'
+          : 'Microphone permission is required to accept this call. Please allow permissions in your device settings.';
+        setPermissionNotice(msg);
+        if (typeof showToast === 'function') {
+          showToast(msg);
+        }
+        return;
+      }
     }
     if (onAccept) onAccept(incomingCall);
   };
@@ -178,6 +188,12 @@ export default function IncomingCallModal({
 
         {/* Bottom Accept / Decline Actions */}
         <div className="w-full space-y-4 sm:space-y-6 relative z-10 shrink-0 pb-3 sm:pb-1">
+          {permissionNotice && (
+            <div className="mx-2 p-3 rounded-2xl bg-rose-500/20 border border-rose-500/50 text-rose-200 text-xs text-center backdrop-blur-md animate-in fade-in shadow-lg">
+              {permissionNotice}
+            </div>
+          )}
+
           <div className="flex items-center justify-around px-4">
             
             {/* Decline Button */}

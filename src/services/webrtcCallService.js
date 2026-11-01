@@ -721,6 +721,17 @@ class WebRTCCallService {
         }
         return this.localStream;
       }
+
+      // If existing stream cannot be reused (e.g. upgrading to video or tracks inactive),
+      // cleanly stop old media tracks so the device hardware is never locked by browser
+      try {
+        this.localStream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch (e) {}
+        });
+      } catch (e) {}
+      this.localStream = null;
     }
 
     // 2. Concurrency lock
@@ -734,24 +745,62 @@ class WebRTCCallService {
           throw new Error('getUserMedia is not supported on this browser or environment');
         }
 
-        const videoConstraints = isVideo
-          ? {
-              facingMode: { ideal: facingMode },
-              width: { ideal: 1280, max: 1920 },
-              height: { ideal: 720, max: 1080 },
-              frameRate: { ideal: 30, max: 30 }
+        let stream = null;
+
+        if (!isVideo) {
+          // Voice Call: ONLY request audio, DO NOT request camera
+          console.log('[WebRTC] Requesting Voice Call (Audio-only) permissions:', {
+            audio: AUDIO_CONSTRAINTS,
+            video: false
+          });
+
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: AUDIO_CONSTRAINTS,
+            video: false
+          });
+        } else {
+          // Video Call: Request both camera and audio
+          const videoConstraints = {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30, max: 30 }
+          };
+
+          console.log('[WebRTC] Requesting Video Call permissions:', {
+            audio: AUDIO_CONSTRAINTS,
+            video: videoConstraints
+          });
+
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: AUDIO_CONSTRAINTS,
+              video: videoConstraints
+            });
+          } catch (camErr) {
+            console.warn('[WebRTC] Video stream acquisition error:', camErr.name, camErr.message);
+
+            // If user explicitly denied permissions, rethrow so UI can notify cleanly
+            if (camErr.name === 'NotAllowedError' || camErr.name === 'PermissionDeniedError') {
+              throw camErr;
             }
-          : false;
 
-        console.log('[WebRTC] Requesting Camera and Microphone permissions:', {
-          audio: AUDIO_CONSTRAINTS,
-          video: videoConstraints
-        });
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: AUDIO_CONSTRAINTS,
-          video: videoConstraints
-        });
+            // Automatic fallback: If camera is busy (NotReadableError e.g. testing two tabs on same laptop),
+            // or no camera device found (NotFoundError), automatically fall back to audio-only stream
+            // so the call STILL connects with clear audio instead of blocking!
+            console.log('[WebRTC] Camera unavailable or busy. Automatically falling back to audio-only stream...');
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                audio: AUDIO_CONSTRAINTS,
+                video: false
+              });
+              this.hardwareError = 'camera_fallback';
+            } catch (audioErr) {
+              console.error('[WebRTC] Audio fallback also failed:', audioErr.name, audioErr.message);
+              throw audioErr;
+            }
+          }
+        }
 
         // Ensure all local tracks are explicitly enabled
         stream.getTracks().forEach((track) => {
@@ -761,12 +810,19 @@ class WebRTCCallService {
         // Verify active live tracks
         const audioTracks = stream.getAudioTracks().filter((t) => t.readyState === 'live');
         const videoTracks = stream.getVideoTracks().filter((t) => t.readyState === 'live');
-        if (audioTracks.length === 0 && (!isVideo || videoTracks.length === 0)) {
+        if (audioTracks.length === 0 && videoTracks.length === 0) {
           throw new Error('No active live media tracks acquired');
         }
 
         this.localStream = stream;
-        this.hardwareError = null;
+        if (this.hardwareError !== 'camera_fallback') {
+          this.hardwareError = null;
+        }
+
+        // Store persistent permission grant in localStorage
+        try {
+          localStorage.setItem('app_permissions_granted', 'true');
+        } catch (e) {}
 
         // Initialize localRenderer BEFORE assigning srcObject
         if (this.localRenderer) {

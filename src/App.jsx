@@ -40,6 +40,7 @@ import SendInterestModal from './components/SendInterestModal';
 import AudioCallModal from './components/calling/AudioCallModal';
 import VideoCallModal from './components/calling/VideoCallModal';
 import IncomingCallModal from './components/calling/IncomingCallModal';
+import PermissionOnboardingModal, { checkPermissionsGranted } from './components/common/PermissionOnboardingModal';
 import { webrtcCallService } from './services/webrtcCallService';
 import { liveChatService, deduplicateMessageList } from './services/liveChatService';
 import { interestService } from './services/interestService';
@@ -380,6 +381,9 @@ export default function App() {
     return initialMode === 'app' ? 'login' : 'app';
   });
 
+  // WhatsApp / Instagram-style One-Time Initial Device Permissions Onboarding State
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+
   // Smooth post-splash transition handler:
   // Respects parameterized deep-link routes and authenticates state
   const handleSplashFinish = useCallback(() => {
@@ -401,7 +405,32 @@ export default function App() {
         setCurrentScreen('app');
       }
     }
+
+    // Check device permissions onboarding status after splash finishes
+    checkPermissionsGranted().then((granted) => {
+      if (!granted) {
+        setTimeout(() => {
+          setShowPermissionModal(true);
+        }, 1000);
+      }
+    });
   }, []);
+
+  // Proactive check on initial load in case splash is brief or already dismissed
+  useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(async () => {
+      if (!isMounted) return;
+      const granted = await checkPermissionsGranted();
+      if (!granted && isMounted && !showSplash) {
+        setShowPermissionModal(true);
+      }
+    }, 2200);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [showSplash]);
 
   const [activeTab, setActiveTab] = useState(() => {
     const route = parseRouteParams();
@@ -3059,9 +3088,11 @@ export default function App() {
     try {
       await webrtcCallService.requestMediaPermissions('audio');
     } catch (err) {
-      console.warn('[Calling] Audio call permission rejected:', err?.message);
-      showToast('Microphone permission is required to start an audio call.');
-      return;
+      console.warn('[Calling] Audio call permission rejected:', err?.name, err?.message);
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        showToast('Microphone permission is required to start an audio call.');
+        return;
+      }
     }
 
     setIsCallCaller(true);
@@ -3100,9 +3131,11 @@ export default function App() {
     try {
       await webrtcCallService.requestMediaPermissions('video');
     } catch (err) {
-      console.warn('[Calling] Video call permission rejected:', err?.message);
-      showToast('Camera and microphone permissions are required to start a video call.');
-      return;
+      console.warn('[Calling] Video call permission rejected:', err?.name, err?.message);
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        showToast('Camera and microphone permissions are required to start a video call.');
+        return;
+      }
     }
 
     setIsCallCaller(true);
@@ -3720,6 +3753,15 @@ export default function App() {
     setIsDirectChatOpen(false);
     setCurrentScreen('app');
     setActiveTab('feed');
+
+    // WhatsApp / Instagram-style permission check on login
+    checkPermissionsGranted().then((granted) => {
+      if (!granted) {
+        setTimeout(() => {
+          setShowPermissionModal(true);
+        }, 600);
+      }
+    });
   };
 
   // 1-Click Demo Persona Switcher (Bride Priya vs Groom Rohan)
@@ -5159,6 +5201,7 @@ export default function App() {
         incomingCall={incomingCallSession}
         onAccept={handleAcceptIncomingCall}
         onDecline={handleDeclineIncomingCall}
+        showToast={showToast}
       />
     )}
 
@@ -5203,6 +5246,18 @@ export default function App() {
           setPremiumPromptFeature(null);
           handleOpenOffers();
         }}
+      />
+    )}
+
+    {/* WhatsApp / Instagram-style One-Time Initial Device Permissions Onboarding Modal */}
+    {showPermissionModal && (
+      <PermissionOnboardingModal
+        isOpen={showPermissionModal}
+        onComplete={() => {
+          setShowPermissionModal(false);
+          showToast('Device permissions enabled successfully! ✨');
+        }}
+        onDismiss={() => setShowPermissionModal(false)}
       />
     )}
 
