@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, deleteNotificationApi } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { profileSyncService } from './services/profileSyncService';
@@ -471,24 +471,24 @@ export default function App() {
   const [profiles, setProfiles] = useState(() => {
     const sanitizeProfilePhotos = (p) => {
       if (!p) return p;
-      const defaultMale = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800';
-      const defaultFemale = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-      const fallback = String(p.gender).toLowerCase() === 'male' ? defaultMale : defaultFemale;
       const fixUrl = (url) => {
-        if (!url || typeof url !== 'string' || !url.trim() || url === 'null') return fallback;
+        if (!url || typeof url !== 'string' || !url.trim() || url === 'null' || isFakeAvatarUrl(url)) return null;
         if (url.includes('ejtkrilhntdbsiavugta.supabase.co') || url.includes('pheqzsfrwhjxspaaroea.supabase.co')) {
           return url.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://kzvdzospvgzlfkkptadl.supabase.co');
         }
         return url;
       };
-      const fixedPhoto = fixUrl(p.photo || p.photo_url);
+      const resolved = resolveProfilePhoto(p);
+      const fixedPhoto = fixUrl(resolved);
+      const fixedSingle = (Array.isArray(p.singlePhotos) ? p.singlePhotos : [])
+        .map(fixUrl)
+        .filter(Boolean);
+
       return {
         ...p,
-        photo: fixedPhoto,
-        photo_url: fixedPhoto,
-        singlePhotos: Array.isArray(p.singlePhotos) && p.singlePhotos.length > 0 
-          ? p.singlePhotos.map(fixUrl) 
-          : [fixedPhoto]
+        photo: fixedPhoto || null,
+        photo_url: fixedPhoto || null,
+        singlePhotos: fixedSingle.length > 0 ? fixedSingle : (fixedPhoto ? [fixedPhoto] : [])
       };
     };
 
@@ -1845,14 +1845,20 @@ export default function App() {
       }
 
       const interestId = payload.interest_id || payload.interestId || payload.id;
+      const rawSenderPhoto = resolveProfilePhoto(matchedPartner) || 
+        resolveProfilePhoto(payload.sender) || 
+        resolveProfilePhoto({ photo: payload.senderPhoto });
       const senderObj = matchedPartner || payload.sender || {
         id: sId,
         name: payload.senderName || 'Candidate',
-        photo: payload.senderPhoto || null,
+        photo: rawSenderPhoto || null,
         age: payload.senderAge || null,
         profession: payload.senderProfession || null,
         city: payload.senderCity || payload.senderDistrict || null
       };
+      if (senderObj) {
+        senderObj.photo = rawSenderPhoto || resolveProfilePhoto(senderObj) || null;
+      }
       const senderDisplayName = cleanCandidateName(senderObj?.name) ||
         cleanCandidateName(payload.senderName) ||
         (senderObj?.register_id ? `Member ${senderObj.register_id}` : 'Candidate');

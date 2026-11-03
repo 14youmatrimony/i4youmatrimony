@@ -36,7 +36,8 @@ import AadhaarVerificationScreen from '../AadhaarVerificationScreen';
 import MobilePhotoManagerSheet from './MobilePhotoManagerSheet';
 import EditProfileModal from '../EditProfileModal';
 import SelfieVerificationSection from '../SelfieVerificationSection';
-import { updateLiveUserProfile, syncProfileToSupabase } from '../../services/api';
+import { updateLiveUserProfile, syncProfileToSupabase, resolveProfilePhoto } from '../../services/api';
+import SafeAvatar from '../common/SafeAvatar';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { useTheme } from '../../context/ThemeContext';
 import { isKundaliApplicableReligion } from '../../data/religionData';
@@ -577,16 +578,12 @@ export default function MobileAccountScreen({
             className="relative cursor-pointer group shrink-0"
             title="Click to manage profile photos"
           >
-            <img 
-              src={currentUser?.singlePhotos?.[0] || currentUser?.photo || (currentUser?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300")} 
+            <SafeAvatar
+              src={resolveProfilePhoto(currentUser)}
               alt={currentUser?.name || "Profile"}
-              draggable={false}
-              onDragStart={(e) => e.preventDefault()}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                if (screenshotRestricted) triggerScreenshotBlock('right-click');
-              }}
-              className={`w-16 h-16 rounded-full object-cover ring-2 ${currentUser?.aadhaarVerified ? 'ring-emerald-400' : 'ring-[#DFB76C]'} group-hover:opacity-90 transition-opacity select-none`} 
+              gender={currentUser?.gender}
+              size="lg"
+              className={`w-16 h-16 ring-2 ${currentUser?.aadhaarVerified ? 'ring-emerald-400' : 'ring-[#DFB76C]'} group-hover:opacity-90 transition-opacity select-none`}
             />
             <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
               <Camera className="w-5 h-5 text-[#DFB76C]" />
@@ -1728,14 +1725,7 @@ export default function MobileAccountScreen({
         <SelfieVerificationSection
           isOpen={showSelfieModal}
           onClose={() => setShowSelfieModal(false)}
-          profilePhoto={
-            currentUser?.photo || 
-            (currentUser?.singlePhotos && currentUser.singlePhotos[0]) ||
-            (currentUser?.photos && currentUser.photos[0]) ||
-            (currentUser?.gender === 'Male' 
-              ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=600" 
-              : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600")
-          }
+          profilePhoto={resolveProfilePhoto(currentUser) || null}
           isVerified={Boolean(currentUser?.selfieVerified || currentUser?.selfie_verified)}
           verifiedScore={currentUser?.selfieScore || currentUser?.selfie_match_score}
           verifiedSelfie={currentUser?.selfiePhoto || currentUser?.selfie_photo}
@@ -1846,10 +1836,12 @@ export default function MobileAccountScreen({
                         }}
                       >
                         <div className="relative shrink-0">
-                          <img 
-                            src={visitor.photo || (String(visitor.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')}
+                          <SafeAvatar 
+                            src={resolveProfilePhoto(visitor)}
                             alt={visitor.name}
-                            className="w-12 h-12 rounded-2xl object-cover border-2 border-slate-200 group-hover:border-[#D4AF37] transition-colors shadow-xs"
+                            gender={visitor.gender}
+                            size="md"
+                            className="w-12 h-12 border-2 border-slate-200 group-hover:border-[#D4AF37] transition-colors shadow-xs"
                           />
                           {visitor.isOnline && (
                             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" title="Online now" />

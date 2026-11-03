@@ -14,7 +14,9 @@ import {
   sendBackendInterest,
   respondBackendInterest,
   fetchBackendReceivedInterests,
-  fetchBackendSentInterests
+  fetchBackendSentInterests,
+  resolveProfilePhoto,
+  cleanCandidateName
 } from './api.js';
 
 const generateUUID = () => {
@@ -981,9 +983,6 @@ class InterestService {
       } catch (e) {}
     }
 
-    // Default fallback avatar
-    const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
-
     const enriched = rawRecords.map((rec, index) => {
       const senderId = String(rec.sender_id || rec.senderId);
       const receiverId = String(rec.receiver_id || rec.receiverId);
@@ -1003,14 +1002,15 @@ class InterestService {
         senderProfile = rec.sender || rec.interest_from;
       }
 
-      const isBadName = (n) => !n || ['verified member', 'a verified member', 'member'].includes(String(n).toLowerCase().trim());
-      const sName = !isBadName(senderProfile?.name)
-        ? senderProfile.name
-        : (!isBadName(rec.sender_name || rec.senderName) ? (rec.sender_name || rec.senderName) : 'Candidate');
+      const defaultFallback = senderProfile?.register_id ? `Member ${senderProfile.register_id}` : (senderId && senderId.length <= 12 ? `Member ${senderId}` : 'Candidate');
+      const sName = cleanCandidateName(
+        senderProfile?.name || senderProfile?.full_name,
+        cleanCandidateName(rec.sender_name || rec.senderName, defaultFallback)
+      );
 
-      const sPhoto = senderProfile?.photo || senderProfile?.photo_url || rec.sender_photo || defaultAvatar;
+      const sPhoto = resolveProfilePhoto(senderProfile) || resolveProfilePhoto(rec.sender_photo) || null;
       const sAge = senderProfile?.age || rec.sender_age || 26;
-      const sProf = senderProfile?.profession || rec.sender_profession || 'Professional';
+      const sProf = senderProfile?.profession || senderProfile?.occupation || rec.sender_profession || 'Professional';
       const sLoc = senderProfile?.district || senderProfile?.city || rec.sender_location || 'Kerala';
       const sVer = Boolean(senderProfile?.verified || senderProfile?.aadhaar_verified);
 
@@ -1577,13 +1577,44 @@ class InterestService {
       sendBackendInterest({ receiver_id: String(receiverId), message: message || '' }).catch(() => {});
 
       // Record in notifications table
+      let senderName = cleanCandidateName(typeof sender === 'object' ? sender?.name : null, null);
+      let senderPhoto = resolveProfilePhoto(typeof sender === 'object' ? sender : null);
+      let senderAge = (typeof sender === 'object' ? sender?.age : null) || null;
+      let senderProfession = (typeof sender === 'object' ? (sender?.profession || sender?.occupation) : null) || null;
+      let senderCity = (typeof sender === 'object' ? (sender?.city || sender?.district) : null) || null;
+      let senderObj = typeof sender === 'object' ? sender : null;
+
       try {
-        const senderObj = typeof sender === 'object' ? sender : null;
-        const senderName = (senderObj?.name && senderObj.name.toLowerCase() !== 'verified member') ? senderObj.name : 'Candidate';
-        const senderPhoto = senderObj?.photo || senderObj?.photo_url || null;
-        const senderAge = senderObj?.age || null;
-        const senderProfession = senderObj?.profession || null;
-        const senderCity = senderObj?.city || senderObj?.district || null;
+        if (!senderName || !senderPhoto || !senderAge || !senderProfession || !senderCity) {
+          try {
+            const { data: dbSenderRows } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', String(senderId))
+              .limit(1);
+            if (Array.isArray(dbSenderRows) && dbSenderRows.length > 0) {
+              const sp = dbSenderRows[0];
+              senderName = senderName || cleanCandidateName(sp.name || sp.full_name, null);
+              senderPhoto = senderPhoto || resolveProfilePhoto(sp);
+              senderAge = senderAge || sp.age || null;
+              senderProfession = senderProfession || sp.profession || sp.occupation || null;
+              senderCity = senderCity || sp.district || sp.city || null;
+              if (!senderObj) {
+                senderObj = {
+                  id: String(senderId),
+                  register_id: sp.register_id || String(senderId),
+                  name: senderName || 'Candidate',
+                  photo: senderPhoto,
+                  age: senderAge,
+                  profession: senderProfession,
+                  city: senderCity,
+                  verified: Boolean(sp.verified || sp.aadhaar_verified)
+                };
+              }
+            }
+          } catch (e) {}
+        }
+        senderName = senderName || 'Candidate';
 
         await supabase.from('notifications').insert([
           {
@@ -1591,7 +1622,7 @@ class InterestService {
             recipient_id: String(receiverId),
             recipient_register_id: receiver?.register_id || receiver?.registerId || null,
             type: 'interest_received',
-            title: `New Matrimonial Interest from ${senderName}`,
+            title: `💖 Interest from ${senderName}!`,
             message: message || `${senderName} reviewed your profile on I 4 You and expressed interest in connecting.`,
             metadata: {
               senderId: String(senderId),
@@ -1631,8 +1662,7 @@ class InterestService {
           const chn = supabase.channel(`user-interest-inbox-${tid}`);
           chn.subscribe((chnStatus) => {
             if (chnStatus === 'SUBSCRIBED') {
-              const senderObj = typeof sender === 'object' ? sender : null;
-              const senderDisplayName = (senderObj?.name && senderObj.name.toLowerCase() !== 'verified member') ? senderObj.name : 'Candidate';
+              const senderDisplayName = senderName || 'Candidate';
               chn.send({
                 type: 'broadcast',
                 event: 'interest-received',
@@ -1641,20 +1671,21 @@ class InterestService {
                   receiverId: String(receiverId),
                   status: 'pending',
                   message: message || '',
+                  title: `💖 Interest from ${senderDisplayName}!`,
                   senderName: senderDisplayName,
-                  senderPhoto: senderObj?.photo || senderObj?.photo_url || null,
-                  senderAge: senderObj?.age || null,
-                  senderProfession: senderObj?.profession || null,
-                  senderCity: senderObj?.city || senderObj?.district || null,
-                  sender: senderObj ? {
+                  senderPhoto: senderPhoto,
+                  senderAge: senderAge,
+                  senderProfession: senderProfession,
+                  senderCity: senderCity,
+                  sender: {
                     id: String(senderId),
-                    name: senderObj.name,
-                    photo: senderObj.photo || senderObj.photo_url || null,
-                    age: senderObj.age,
-                    profession: senderObj.profession,
-                    city: senderObj.city || senderObj.district,
-                    verified: Boolean(senderObj.verified || senderObj.aadhaar_verified)
-                  } : null,
+                    name: senderDisplayName,
+                    photo: senderPhoto,
+                    age: senderAge,
+                    profession: senderProfession,
+                    city: senderCity,
+                    verified: Boolean(senderObj?.verified || senderObj?.aadhaar_verified)
+                  },
                   timestamp: Date.now()
                 }
               }).catch(() => {});

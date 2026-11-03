@@ -29,6 +29,7 @@ import { calculateLocationMatch } from '../../data/locationData';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { isKundaliApplicableReligion } from '../../data/religionData';
 import { useInterestStatus, interestService } from '../../services/interestService';
+import { resolveProfilePhoto, isFakeAvatarUrl } from '../../services/api';
 
 export default function MobileProfileDetailSheet({
   profile,
@@ -137,9 +138,11 @@ export default function MobileProfileDetailSheet({
 
   if (!profile) return null;
 
-  const singlePhotos = profile.singlePhotos?.length 
-    ? profile.singlePhotos 
-    : [profile.photo];
+  const resolvedPhoto = resolveProfilePhoto(profile);
+  const singlePhotos = (Array.isArray(profile.singlePhotos) && profile.singlePhotos.length > 0)
+    ? profile.singlePhotos.filter(p => !isFakeAvatarUrl(p))
+    : (resolvedPhoto ? [resolvedPhoto] : []);
+  const activePhoto = singlePhotos[currentSinglePhotoIdx] || resolvedPhoto || null;
   const familyPhotos = profile.familyPhotos?.length 
     ? profile.familyPhotos 
     : [
@@ -284,38 +287,45 @@ export default function MobileProfileDetailSheet({
               if (screenshotRestricted) triggerScreenshotBlock('right-click');
             }}
           >
-            <img 
-              src={singlePhotos[currentSinglePhotoIdx] || profile.photo || (String(profile.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
-              alt={profile.name} 
-              draggable={false}
-              onDragStart={(e) => e.preventDefault()}
-              onError={(e) => {
-                const fallback = String(profile.gender).toLowerCase() === 'male'
-                  ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
-                  : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-                if (e.currentTarget.src !== fallback) {
-                  e.currentTarget.src = fallback;
-                }
-              }}
-              onClick={() => {
-                if (!profile.hidePhotos && profile.photoVisibility !== 'request') {
-                  setFullscreenPhoto({
-                    url: singlePhotos[currentSinglePhotoIdx] || profile.photo,
-                    title: `Single Photo ${currentSinglePhotoIdx + 1} of ${singlePhotos.length}`,
-                    isFamily: false
-                  });
-                }
-              }}
-              className={`w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-102 select-none ${
-                profile.hidePhotos
-                  ? 'blur-2xl scale-125 opacity-30 grayscale'
-                  : profile.photoVisibility === 'request'
-                  ? 'blur-xl scale-110 opacity-70'
-                  : profile.photoVisibility === 'accepted' && !isInterested
-                  ? 'blur-lg scale-110 opacity-75'
-                  : ''
-              }`}
-            />
+            {activePhoto ? (
+              <img 
+                src={activePhoto} 
+                alt={profile.name} 
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fb = e.currentTarget.parentElement?.querySelector('.detail-avatar-fallback');
+                  if (fb) fb.classList.remove('hidden');
+                }}
+                onClick={() => {
+                  if (!profile.hidePhotos && profile.photoVisibility !== 'request') {
+                    setFullscreenPhoto({
+                      url: activePhoto,
+                      title: `Single Photo ${currentSinglePhotoIdx + 1} of ${singlePhotos.length || 1}`,
+                      isFamily: false
+                    });
+                  }
+                }}
+                className={`w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-102 select-none ${
+                  profile.hidePhotos
+                    ? 'blur-2xl scale-125 opacity-30 grayscale'
+                    : profile.photoVisibility === 'request'
+                    ? 'blur-xl scale-110 opacity-70'
+                    : profile.photoVisibility === 'accepted' && !isInterested
+                    ? 'blur-lg scale-110 opacity-75'
+                    : ''
+                }`} 
+              />
+            ) : null}
+            <div className={`detail-avatar-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] font-serif ${activePhoto ? 'hidden' : ''}`}>
+              <div className="w-28 h-28 rounded-full border-2 border-[#DFB76C]/40 flex items-center justify-center bg-[#0B192C]/80 shadow-2xl mb-3">
+                <span className="text-5xl font-bold font-serif text-[#DFB76C]">
+                  {(profile.name || 'C').charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <span className="text-sm font-sans text-slate-300 font-medium">Verified Profile</span>
+            </div>
             {/* Elegant Gradient Overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-black/20 to-transparent pointer-events-none"></div>
 

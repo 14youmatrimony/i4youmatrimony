@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { addCacheBuster } from '../../utils/cacheBuster';
-
-const DEFAULT_FEMALE = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
-const DEFAULT_MALE = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400';
+import { isFakeAvatarUrl } from '../../services/api';
 
 /**
  * SafeAvatar
- * Renders user avatar photo with automatic error fallback to gender avatar or initials.
+ * Renders user avatar photo with automatic error fallback to initials or silhouette.
+ * NEVER renders fake Unsplash or AI placeholder faces.
  * Includes cache-busting mechanisms for Cloudflare R2 / Supabase Storage URLs so web users
  * never see stale cached profile photos.
  */
@@ -20,32 +19,28 @@ export default function SafeAvatar({
   badgeContent = null,
   onClick = null
 }) {
-  const isMale = String(gender).toLowerCase() === 'male';
-  const fallbackUrl = isMale ? DEFAULT_MALE : DEFAULT_FEMALE;
+  const isValidSrc = src && typeof src === 'string' && src.trim() !== '' && !isFakeAvatarUrl(src);
 
   const resolveSafeSrc = (url) => {
-    if (!url || typeof url !== 'string' || url.trim() === '') {
-      return fallbackUrl;
+    if (!url || typeof url !== 'string' || url.trim() === '' || isFakeAvatarUrl(url)) {
+      return null;
     }
     return addCacheBuster(url);
   };
 
   const [imgSrc, setImgSrc] = useState(() => resolveSafeSrc(src));
-  const [hasError, setHasError] = useState(!src);
-  const [imgFailed, setImgFailed] = useState(false);
+  const [imgFailed, setImgFailed] = useState(!isValidSrc);
 
   // Sync reactively if prop changes
   React.useEffect(() => {
-    if (src && src.trim() !== '') {
+    if (src && src.trim() !== '' && !isFakeAvatarUrl(src)) {
       setImgSrc(resolveSafeSrc(src));
-      setHasError(false);
       setImgFailed(false);
     } else {
-      setImgSrc(fallbackUrl);
-      setHasError(true);
-      setImgFailed(false);
+      setImgSrc(null);
+      setImgFailed(true);
     }
-  }, [src, fallbackUrl]);
+  }, [src]);
 
   const sizeClasses = {
     xs: 'w-7 h-7 text-xs',
@@ -57,23 +52,21 @@ export default function SafeAvatar({
   }[size] || 'w-10 h-10 text-sm';
 
   const handleError = () => {
-    if (!hasError && imgSrc !== fallbackUrl) {
-      setImgSrc(fallbackUrl);
-      setHasError(true);
-    } else {
-      setImgFailed(true);
-    }
+    setImgFailed(true);
   };
 
   const getInitials = (str) => {
     if (!str || typeof str !== 'string') return 'C';
+    const lower = str.toLowerCase().trim();
+    if (lower === 'verified candidate' || lower === 'a verified candidate') return 'C';
+    if (lower === 'verified member' || lower === 'a verified member') return 'M';
     const words = str.replace(/[^a-zA-Z\s]/g, '').trim().split(/\s+/).filter(Boolean);
     if (words.length === 0) return 'C';
     if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
     return (words[0].slice(0, 1) + words[words.length - 1].slice(0, 1)).toUpperCase();
   };
 
-  if (imgFailed) {
+  if (imgFailed || !imgSrc) {
     return (
       <div 
         className={`relative inline-flex items-center justify-center shrink-0 rounded-full select-none bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] border border-[#DFB76C]/40 font-bold ${sizeClasses} ${className}`}

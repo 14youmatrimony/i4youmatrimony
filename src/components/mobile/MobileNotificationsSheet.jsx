@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import NotificationCard from './NotificationCard';
+import { resolveProfilePhoto, cleanCandidateName, mapSupabaseRowToProfile } from '../../services/api';
+import { supabase, isSupabaseConfigured } from '../../services/supabase';
 
 // Standalone module helpers to guarantee zero ReferenceError / TDZ initialization bugs
 function isSelfProfileHelper(p, currentUser) {
@@ -167,21 +169,61 @@ export default function MobileNotificationsSheet({
 
   const isSelfProfile = (p) => isSelfProfileHelper(p, currentUser);
 
+  const [liveProfilesMap, setLiveProfilesMap] = useState(() => new Map());
+
+  // Batch-fetch any missing sender profile records directly from Supabase profiles table
+  useEffect(() => {
+    if (!isOpen || !Array.isArray(notifications) || notifications.length === 0) return;
+    if (!isSupabaseConfigured() || !supabase) return;
+
+    const senderIds = new Set();
+    notifications.forEach((n) => {
+      if (isPaymentNotification(n)) return;
+      const sId = n.senderId || n.sender_id || n.metadata?.senderId || n.metadata?.sender_id || n.metadata?.from_user_id || n.metadata?.actor_id || n.profileId;
+      if (sId && !isSelfProfileHelper({ id: sId }, currentUser)) {
+        senderIds.add(String(sId));
+      }
+    });
+
+    const knownIds = new Set((profiles || []).map(p => String(p?.id || '')));
+    const missingIds = Array.from(senderIds).filter(id => !knownIds.has(id) && !liveProfilesMap.has(id));
+
+    if (missingIds.length === 0) return;
+
+    let isMounted = true;
+    supabase
+      .from('profiles')
+      .select('*')
+      .in('id', missingIds)
+      .then(({ data, error }) => {
+        if (!isMounted || error || !Array.isArray(data)) return;
+        setLiveProfilesMap((prev) => {
+          const next = new Map(prev);
+          data.forEach(row => {
+            const mapped = mapSupabaseRowToProfile(row);
+            if (mapped?.id) next.set(String(mapped.id), mapped);
+            if (row?.id) next.set(String(row.id), mapped);
+            if (row?.user_id) next.set(String(row.user_id), mapped);
+            if (row?.register_id) next.set(String(row.register_id), mapped);
+          });
+          return next;
+        });
+      })
+      .catch(() => {});
+
+    return () => { isMounted = false; };
+  }, [isOpen, notifications, profiles, currentUser, liveProfilesMap]);
+
   const getProfile = (profileId, notif = null, index = 0) => {
     // Payment notifications must NEVER map or borrow candidate profiles!
     if (isPaymentNotification(notif)) return null;
     if (!profileId && !notif) return null;
 
-    const isUserMale = (currentUser?.gender || '').toLowerCase() === 'male';
-    const defaultPhoto = isUserMale
-      ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400'
-      : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
-
     const formatSafeId = (id) => {
       if (!id) return 'Candidate';
       const str = String(id).trim();
       if (str.startsWith('usr_') || str.startsWith('sim-') || str.includes('_') || /^[0-9]+$/.test(str)) {
-        return 'Verified Candidate';
+        return 'Candidate';
       }
       return `Member ${str.toUpperCase()}`;
     };
@@ -209,9 +251,9 @@ export default function MobileNotificationsSheet({
 
     const effectiveSenderId = (rawSenderId && !isSelfProfile({ id: rawSenderId })) ? String(rawSenderId) : null;
 
-    // Direct match against candidate database
-    let matchedProfile = null;
-    if (effectiveSenderId) {
+    // Direct match against live profiles or candidate database
+    let matchedProfile = effectiveSenderId ? liveProfilesMap.get(effectiveSenderId) : null;
+    if (!matchedProfile && effectiveSenderId) {
       const sDigits = effectiveSenderId.replace(/[^0-9]/g, '');
       matchedProfile = (profiles || []).find(p => {
         if (!p || isSelfProfile(p)) return false;
@@ -227,7 +269,7 @@ export default function MobileNotificationsSheet({
       });
     }
 
-    // Extract sender name from title / message (e.g. "💖 Interest from Dr. Anu jose" -> "Dr. Anu jose")
+    // Extract sender name from title / message (e.g. "💖 Interest from Arjun" -> "Arjun")
     const extractSenderName = (title, message) => {
       const fullText = `${title || ''} ${message || ''}`.trim();
       if (!fullText) return '';
@@ -254,35 +296,39 @@ export default function MobileNotificationsSheet({
       );
     }
 
-    // Scenario A: Authentic Profile found in database
+    // Scenario A: Authentic Profile found in live profiles or database
     if (matchedProfile) {
-      const resolvedName = (!isGenericPlaceholder(matchedProfile.name) ? matchedProfile.name : null) ||
-                           cleanSenderName ||
-                           extractedName ||
-                           (matchedProfile.register_id ? `Member ${matchedProfile.register_id}` : 'Candidate');
+      const resolvedName = cleanCandidateName(
+        matchedProfile.name || matchedProfile.full_name || cleanSenderName || extractedName,
+        matchedProfile.register_id ? `Member ${matchedProfile.register_id}` : 'Candidate'
+      );
+      const sPhoto = resolveProfilePhoto(matchedProfile) || resolveProfilePhoto(senderData) || resolveProfilePhoto(notif?.sender_photo) || null;
       return {
         ...matchedProfile,
         id: matchedProfile.id,
         name: resolvedName,
-        age: matchedProfile.age || 26,
-        profession: matchedProfile.profession || 'Professional',
-        city: matchedProfile.district || matchedProfile.city || 'Kerala',
-        location: matchedProfile.district || matchedProfile.city || matchedProfile.location || 'Kerala',
-        photo: matchedProfile.photo || matchedProfile.photo_url || defaultPhoto,
+        fullName: resolvedName,
+        age: matchedProfile.age || notif?.sender_age || senderData?.age || null,
+        profession: matchedProfile.profession || matchedProfile.occupation || notif?.sender_profession || senderData?.profession || 'Professional',
+        city: matchedProfile.district || matchedProfile.city || notif?.sender_location || senderData?.city || 'Kerala',
+        location: matchedProfile.district || matchedProfile.city || matchedProfile.location || notif?.sender_location || 'Kerala',
+        photo: sPhoto,
+        photo_url: sPhoto,
+        avatar_url: sPhoto,
+        singlePhotos: sPhoto ? [sPhoto] : [],
         verified: Boolean(matchedProfile.verified || matchedProfile.aadhaar_verified || matchedProfile.aadhaarVerified)
       };
     }
 
     // Scenario B: API senderData object or notif payload contains real candidate details
     if ((senderData && typeof senderData === 'object' && !isSelfProfile(senderData)) || notif?.sender_name || notif?.sender_photo) {
-      const candidateName = cleanSenderName ||
-                            (!isGenericPlaceholder(senderData?.name) ? senderData.name : null) || 
-                            (!isGenericPlaceholder(senderData?.senderName) ? senderData.senderName : null) ||
-                            extractedName ||
-                            (effectiveSenderId ? formatSafeId(effectiveSenderId) : 'Candidate');
+      const candidateName = cleanCandidateName(
+        cleanSenderName || senderData?.name || senderData?.fullName || senderData?.senderName || extractedName,
+        effectiveSenderId ? formatSafeId(effectiveSenderId) : 'Candidate'
+      );
 
-      const sPhoto = notif?.sender_photo || notif?.sender_image || senderData?.photo || senderData?.avatar || senderData?.photo_url || senderData?.senderPhoto || defaultPhoto;
-      const sAge = notif?.sender_age || senderData?.age || senderData?.senderAge || 26;
+      const sPhoto = resolveProfilePhoto(senderData) || resolveProfilePhoto(notif?.sender_photo) || resolveProfilePhoto(notif?.sender_image) || null;
+      const sAge = notif?.sender_age || senderData?.age || senderData?.senderAge || null;
       const sProfession = notif?.sender_profession || senderData?.profession || senderData?.senderProfession || notif?.badge || 'Professional';
       const sLocation = notif?.sender_location || notif?.sender_city || senderData?.city || senderData?.senderCity || senderData?.district || 'Kerala';
       const sVerified = Boolean(senderData?.verified || senderData?.aadhaarVerified || senderData?.aadhaar_verified || notif?.sender_verified);
@@ -290,15 +336,18 @@ export default function MobileNotificationsSheet({
       return {
         id: effectiveSenderId || senderData?.id || notif?.sender_id || `sender-${notif?.notification_id || notif?.id || index}`,
         name: candidateName,
+        fullName: candidateName,
         age: sAge,
-        gender: senderData?.gender || (isUserMale ? 'Female' : 'Male'),
+        gender: senderData?.gender || 'Candidate',
         profession: sProfession,
         city: sLocation,
         location: sLocation,
         district: senderData?.district || sLocation,
         state: senderData?.state || 'Kerala',
         photo: sPhoto,
-        singlePhotos: [sPhoto],
+        photo_url: sPhoto,
+        avatar_url: sPhoto,
+        singlePhotos: sPhoto ? [sPhoto] : [],
         about: senderData?.about || notif?.quote || notif?.message || 'Authentic matrimony verified profile',
         verified: sVerified,
         aadhaarVerified: sVerified
@@ -306,18 +355,25 @@ export default function MobileNotificationsSheet({
     }
 
     // Scenario C: Clean authentic fallback without borrowing another candidate's identity
-    const fallbackName = cleanSenderName || extractedName || notif?.metadata?.senderName || (effectiveSenderId ? formatSafeId(effectiveSenderId) : 'Candidate');
+    const fallbackName = cleanCandidateName(
+      cleanSenderName || extractedName || notif?.metadata?.senderName,
+      effectiveSenderId ? formatSafeId(effectiveSenderId) : 'Candidate'
+    );
+    const sPhoto = resolveProfilePhoto(notif?.sender_photo) || null;
     return {
       id: effectiveSenderId || profileId || notif?.notification_id || notif?.id || `sender-${index}`,
       name: fallbackName,
-      age: notif?.sender_age || 26,
-      gender: isUserMale ? 'Female' : 'Male',
+      fullName: fallbackName,
+      age: notif?.sender_age || null,
+      gender: 'Candidate',
       profession: notif?.sender_profession || notif?.badge || 'Professional',
       city: notif?.sender_location || 'Kerala',
       district: notif?.sender_location || 'Ernakulam',
       state: 'Kerala',
-      photo: notif?.sender_photo || defaultPhoto,
-      singlePhotos: [notif?.sender_photo || defaultPhoto],
+      photo: sPhoto,
+      photo_url: sPhoto,
+      avatar_url: sPhoto,
+      singlePhotos: sPhoto ? [sPhoto] : [],
       about: notif?.quote || notif?.message || 'Authentic matrimony verified profile',
       verified: true,
       aadhaarVerified: true

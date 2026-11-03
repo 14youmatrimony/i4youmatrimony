@@ -18,6 +18,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { addCacheBuster } from '../../utils/cacheBuster';
+import { resolveProfilePhoto, cleanCandidateName } from '../../services/api';
 
 /**
  * NotificationCard
@@ -81,29 +82,38 @@ export default function NotificationCard({
 
   // Helper to extract clean initials for avatar fallback
   const getInitials = (name) => {
-    if (!name || typeof name !== 'string') return 'VC';
+    if (!name || typeof name !== 'string') return 'C';
     const words = name.trim().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return 'VC';
+    if (words.length === 0) return 'C';
     if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
     return (words[0].slice(0, 1) + words[words.length - 1].slice(0, 1)).toUpperCase();
   };
 
   // Dynamic variable bindings for real sender details from API / database
   const candidateName = 
-    cleanValidName(notif.sender_name) ||
-    cleanValidName(notif.senderName) ||
-    cleanValidName(notif.sender?.name) ||
-    cleanValidName(profile?.name) ||
-    cleanValidName(notif.interest_from?.name) ||
-    cleanValidName(notif.metadata?.senderName) ||
+    cleanCandidateName(notif.sender_name, null) ||
+    cleanCandidateName(notif.senderName, null) ||
+    cleanCandidateName(notif.sender?.name, null) ||
+    cleanCandidateName(profile?.name, null) ||
+    cleanCandidateName(notif.interest_from?.name, null) ||
+    cleanCandidateName(notif.metadata?.senderName, null) ||
     (profile?.register_id ? `Member ${String(profile.register_id).toUpperCase()}` : null) ||
     (profile?.registerId ? `Member ${String(profile.registerId).toUpperCase()}` : null) ||
-    (notif.sender_id && !String(notif.sender_id).startsWith('sim-') && !String(notif.sender_id).startsWith('usr_') && !String(notif.sender_id).includes('_') ? `Member ${notif.sender_id}` : null) ||
-    'Verified Candidate';
+    (notif.sender_id && !String(notif.sender_id).startsWith('sim-') && !String(notif.sender_id).startsWith('usr_') && !String(notif.sender_id).includes('_') && !String(notif.sender_id).includes('-') ? `Member ${notif.sender_id}` : null) ||
+    'Candidate';
 
   const candidateInitials = getInitials(candidateName);
 
-  const rawPhoto = profile?.photo || profile?.photo_url || notif.sender_photo || notif.senderPhoto || notif.sender_image || profile?.avatar || notif.sender?.photo || null;
+  const rawPhoto = 
+    resolveProfilePhoto(profile) || 
+    resolveProfilePhoto(notif.sender) || 
+    resolveProfilePhoto(notif.profile) || 
+    resolveProfilePhoto(notif.interest_from) || 
+    resolveProfilePhoto(notif.metadata?.sender) ||
+    resolveProfilePhoto(notif.sender_photo) || 
+    resolveProfilePhoto(notif.senderPhoto) || 
+    resolveProfilePhoto(notif.sender_image) || 
+    null;
   const stableTimestamp = profile?.updated_at || profile?.created_at || notif.created_at || notif.timestamp || null;
   const candidatePhoto = rawPhoto ? (stableTimestamp ? addCacheBuster(rawPhoto, stableTimestamp) : rawPhoto) : null;
 
@@ -113,7 +123,7 @@ export default function NotificationCard({
   }, [rawPhoto]);
 
   const displayAge = profile?.age || notif.sender_age || notif.senderAge || notif.sender?.age || null;
-  const displayProfession = profile?.profession || notif.sender_profession || notif.senderProfession || notif.sender?.profession || null;
+  const displayProfession = profile?.profession || profile?.occupation || notif.sender_profession || notif.senderProfession || notif.sender?.profession || null;
   const displayLocation = profile?.district || profile?.city || profile?.location || notif.sender_location || notif.sender_city || notif.sender_district || notif.sender?.city || null;
   const isVerified = Boolean(profile?.aadhaarVerified || profile?.verified || profile?.aadhaar_verified || notif.sender_verified || notif.sender?.verified);
 
@@ -124,11 +134,16 @@ export default function NotificationCard({
     }
     if (notif.title) {
       const sanitizedTitle = notif.title
+        .replace(/a verified candidate|verified candidate/gi, candidateName)
         .replace(/a verified member|verified member/gi, candidateName)
         .replace(/member\s+usr_[0-9a-zA-Z_]+/gi, candidateName)
         .replace(/usr_[0-9a-zA-Z_]+/gi, candidateName)
         .trim();
-      if (!sanitizedTitle.toLowerCase().includes('verified member') && !sanitizedTitle.toLowerCase().includes('usr_')) {
+      if (
+        !sanitizedTitle.toLowerCase().includes('verified member') && 
+        !sanitizedTitle.toLowerCase().includes('verified candidate') && 
+        !sanitizedTitle.toLowerCase().includes('usr_')
+      ) {
         return sanitizedTitle;
       }
     }
@@ -153,6 +168,7 @@ export default function NotificationCard({
     const rawMsg = notif.message || notif.subtitle || '';
     if (!rawMsg) return '';
     return rawMsg
+      .replace(/a verified candidate|verified candidate/gi, candidateName)
       .replace(/a verified member|verified member/gi, candidateName)
       .replace(/member\s+usr_[0-9a-zA-Z_]+/gi, candidateName)
       .replace(/usr_[0-9a-zA-Z_]+/gi, candidateName)

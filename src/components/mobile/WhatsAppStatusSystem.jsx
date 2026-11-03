@@ -19,6 +19,8 @@ import {
   Image as ImageIcon,
   Check
 } from 'lucide-react';
+import SafeAvatar from '../common/SafeAvatar';
+import { resolveProfilePhoto } from '../../services/api';
 
 // Sample background gradients for WhatsApp-style text status
 const TEXT_GRADIENTS = [
@@ -182,7 +184,7 @@ export function WhatsAppStoryViewerModal({
   if (!status || typeof status !== 'object') {
     status = {
       type: 'photo',
-      mediaUrl: profile?.photo || profile?.coverPhoto || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800",
+      mediaUrl: resolveProfilePhoto(profile) || profile?.coverPhoto || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800",
       caption: profile?.about || `${profile?.name || 'Candidate'}'s Story`,
       timestamp: 'Just now'
     };
@@ -254,10 +256,12 @@ export function WhatsAppStoryViewerModal({
             if (!isOwnStatus && profile && onOpenProfile) onOpenProfile(profile);
           }}
         >
-          <img 
-            src={profile?.photo || status?.mediaUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"} 
+          <SafeAvatar 
+            src={resolveProfilePhoto(profile) || (status?.mediaUrl && !status.mediaUrl.includes('images.unsplash.com') ? status.mediaUrl : null)} 
             alt={profile?.name || 'Status'} 
-            className="w-10 h-10 rounded-full object-cover ring-2 ring-[#DFB76C]"
+            gender={profile?.gender}
+            size="sm"
+            className="w-10 h-10 ring-2 ring-[#DFB76C] shrink-0"
           />
           <div className="min-w-0">
             <div className="flex items-center space-x-1.5">

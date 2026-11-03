@@ -8,6 +8,7 @@ import { uploadProfilePhoto } from './storageService';
 import { sanitizeInput, hashPasswordSha256 } from '../utils/security';
 import { sendRegistrationEmail } from './emailNotificationService';
 import { DEMO_USER_FEMALE, DEMO_USER_MALE } from '../data/mockProfiles';
+import { resolveProfilePhoto, isFakeAvatarUrl } from './api';
 
 // Built-in Demo Credentials for Instant Offline / Testing Access
 export const DEMO_CREDENTIALS = [
@@ -644,25 +645,15 @@ function mapSupabaseToSession(row) {
   } catch (e) {}
   if (!Array.isArray(familyPhotos)) familyPhotos = [];
 
-  const defaultMale = 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800';
-  const defaultFemale = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800';
-  const defaultAvatar = (row.gender || '').toLowerCase() === 'male' ? defaultMale : defaultFemale;
+  const cleanSinglePhotos = singlePhotos.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+  const rawResolved = resolveProfilePhoto(row);
+  const resolvedPhoto = (!isFakeAvatarUrl(rawResolved) ? rawResolved : null) || 
+                        (cleanSinglePhotos.length > 0 ? cleanSinglePhotos[0] : null) || 
+                        null;
 
-  const isCustomSingle = singlePhotos.length > 0 && !singlePhotos[0].includes('images.unsplash.com');
-  const isCustomPhoto = row.photo && !row.photo.includes('images.unsplash.com');
-  const isCustomPhotoUrl = row.photo_url && !row.photo_url.includes('images.unsplash.com');
-
-  const resolvedPhoto = (isCustomSingle ? singlePhotos[0] : null) || 
-                        (isCustomPhoto ? row.photo : null) || 
-                        (isCustomPhotoUrl ? row.photo_url : null) || 
-                        row.photo || 
-                        row.photo_url || 
-                        defaultAvatar;
-
-  if (singlePhotos.length === 0) {
-    singlePhotos = [resolvedPhoto];
-  } else if (singlePhotos[0] !== resolvedPhoto && !singlePhotos[0].includes('images.unsplash.com')) {
-    singlePhotos = [resolvedPhoto, ...singlePhotos.filter(p => p !== resolvedPhoto)].slice(0, 5);
+  singlePhotos = cleanSinglePhotos;
+  if (resolvedPhoto && !singlePhotos.includes(resolvedPhoto)) {
+    singlePhotos = [resolvedPhoto, ...singlePhotos].slice(0, 5);
   }
 
   return {

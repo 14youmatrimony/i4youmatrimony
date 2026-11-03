@@ -35,7 +35,7 @@ import {
   getTargetGenderLabel, 
   isSelfProfile 
 } from '../../utils/genderMatch';
-import { isDemoProfile } from '../../services/api';
+import { isDemoProfile, resolveProfilePhoto } from '../../services/api';
 import { interestService } from '../../services/interestService';
 
 export default function MobileMatchFeed({
@@ -623,29 +623,36 @@ export default function MobileMatchFeed({
                       if (screenshotRestricted) triggerScreenshotBlock('right-click');
                     }}
                   >
-                    <img 
-                      src={profile.photo || (String(profile.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
-                      alt={profile.name}
-                      draggable={false}
-                      onDragStart={(e) => e.preventDefault()}
-                      onError={(e) => {
-                        const fallback = String(profile.gender).toLowerCase() === 'male'
-                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
-                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-                        if (e.currentTarget.src !== fallback) {
-                          e.currentTarget.src = fallback;
-                        }
-                      }}
-                      className={`w-full h-full object-cover select-none pointer-events-none transition-transform duration-300 group-hover:scale-105 ${
-                        profile.hidePhotos
-                          ? 'blur-2xl scale-125 opacity-30 grayscale'
-                          : profile.photoVisibility === 'request'
-                          ? 'blur-xl scale-110 opacity-70'
-                          : profile.photoVisibility === 'accepted' && !isInterested
-                          ? 'blur-lg scale-110 opacity-75'
-                          : ''
-                      }`} 
-                    />
+                    {resolveProfilePhoto(profile) ? (
+                      <img 
+                        src={resolveProfilePhoto(profile)} 
+                        alt={profile.name}
+                        draggable={false}
+                        onDragStart={(e) => e.preventDefault()}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fb = e.currentTarget.parentElement?.querySelector('.avatar-placeholder-fallback');
+                          if (fb) fb.classList.remove('hidden');
+                        }}
+                        className={`w-full h-full object-cover select-none pointer-events-none transition-transform duration-300 group-hover:scale-105 ${
+                          profile.hidePhotos
+                            ? 'blur-2xl scale-125 opacity-30 grayscale'
+                            : profile.photoVisibility === 'request'
+                            ? 'blur-xl scale-110 opacity-70'
+                            : profile.photoVisibility === 'accepted' && !isInterested
+                            ? 'blur-lg scale-110 opacity-75'
+                            : ''
+                        }`} 
+                      />
+                    ) : null}
+                    <div className={`avatar-placeholder-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] font-serif ${resolveProfilePhoto(profile) ? 'hidden' : ''}`}>
+                      <div className="w-16 h-16 rounded-full border border-[#DFB76C]/40 flex items-center justify-center bg-[#0B192C]/80 shadow-md mb-1.5">
+                        <span className="text-2xl font-bold font-serif text-[#DFB76C]">
+                          {(profile.name || 'C').charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-sans text-slate-300 font-medium">Verified Profile</span>
+                    </div>
                     
                     {/* Dark gradient for bottom text contrast */}
                     <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none"></div>
@@ -840,29 +847,36 @@ export default function MobileMatchFeed({
                       if (screenshotRestricted) triggerScreenshotBlock('right-click');
                     }}
                   >
-                    <img 
-                      src={profile.photo || (String(profile.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
-                      alt={profile.name}
-                      draggable={false}
-                      onDragStart={(e) => e.preventDefault()}
-                      onError={(e) => {
-                        const fallback = String(profile.gender).toLowerCase() === 'male'
-                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
-                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-                        if (e.currentTarget.src !== fallback) {
-                          e.currentTarget.src = fallback;
-                        }
-                      }}
-                      className={`w-full h-full object-cover select-none pointer-events-none transition-transform duration-300 group-hover:scale-102 ${
-                        profile.hidePhotos
-                          ? 'blur-2xl scale-125 opacity-30 grayscale'
-                          : profile.photoVisibility === 'request'
-                          ? 'blur-xl scale-110 opacity-70'
-                          : profile.photoVisibility === 'accepted' && !isInterested
-                          ? 'blur-lg scale-110 opacity-75'
-                          : ''
-                      }`} 
-                    />
+                    {resolveProfilePhoto(profile) ? (
+                      <img 
+                        src={resolveProfilePhoto(profile)} 
+                        alt={profile.name}
+                        draggable={false}
+                        onDragStart={(e) => e.preventDefault()}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fb = e.currentTarget.parentElement?.querySelector('.avatar-placeholder-fallback');
+                          if (fb) fb.classList.remove('hidden');
+                        }}
+                        className={`w-full h-full object-cover select-none pointer-events-none transition-transform duration-300 group-hover:scale-102 ${
+                          profile.hidePhotos
+                            ? 'blur-2xl scale-125 opacity-30 grayscale'
+                            : profile.photoVisibility === 'request'
+                            ? 'blur-xl scale-110 opacity-70'
+                            : profile.photoVisibility === 'accepted' && !isInterested
+                            ? 'blur-lg scale-110 opacity-75'
+                            : ''
+                        }`} 
+                      />
+                    ) : null}
+                    <div className={`avatar-placeholder-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] font-serif ${resolveProfilePhoto(profile) ? 'hidden' : ''}`}>
+                      <div className="w-24 h-24 rounded-full border-2 border-[#DFB76C]/40 flex items-center justify-center bg-[#0B192C]/80 shadow-lg mb-2">
+                        <span className="text-4xl font-bold font-serif text-[#DFB76C]">
+                          {(profile.name || 'C').charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="text-xs font-sans text-slate-300 font-medium">Verified Profile</span>
+                    </div>
                     
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent pointer-events-none"></div>
 

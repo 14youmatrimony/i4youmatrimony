@@ -359,20 +359,128 @@ export async function safeFetchJson(url, options = {}, timeoutMs = 1500) {
 }
 
 /**
+ * Helper to identify placeholder/AI face image URLs that must NEVER be shown as user avatars.
+ */
+export function isFakeAvatarUrl(url) {
+  if (!url || typeof url !== 'string') return true;
+  const str = url.trim().toLowerCase();
+  if (
+    !str ||
+    str === 'null' ||
+    str === 'undefined' ||
+    str.includes('dicebear') ||
+    str.includes('pravatar') ||
+    str.includes('placeholder') ||
+    str.includes('ui-avatars.com') ||
+    str.includes('photo-1535713875002-d1d0cf377fde') ||
+    str.includes('photo-1507003211169-0a1dd7228f2d') ||
+    str.includes('photo-1534528741775-53994a69daeb') ||
+    str.includes('photo-1506794778202-cad84cf45f1d') ||
+    str.includes('photo-1544005313-94ddf0286df2')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Resolves genuine user profile photo by checking all candidate fields:
+ * photo_url, avatar_url, profile_photo, photo, photos[0], images[0], singlePhotos[0].
+ * Returns null if no genuine photo exists or if it's a fake/placeholder URL.
+ */
+export function resolveProfilePhoto(profile) {
+  if (!profile) return null;
+  if (typeof profile === 'string') {
+    const s = profile.trim();
+    if (!s || isFakeAvatarUrl(s)) return null;
+    return s;
+  }
+
+  // 1. Direct photo fields
+  let candidate =
+    profile.photo_url ||
+    profile.avatar_url ||
+    profile.profile_photo ||
+    profile.profilePic ||
+    profile.photo ||
+    profile.image ||
+    profile.avatar ||
+    (Array.isArray(profile.photos) && profile.photos[0]) ||
+    (Array.isArray(profile.images) && profile.images[0]) ||
+    (Array.isArray(profile.singlePhotos) && profile.singlePhotos[0]);
+
+  // 2. Parse JSON strings if arrays are stringified in database
+  if (!candidate && typeof profile.single_photos === 'string' && profile.single_photos.trim().startsWith('[')) {
+    try {
+      const arr = JSON.parse(profile.single_photos);
+      if (Array.isArray(arr) && arr.length > 0) candidate = arr[0];
+    } catch (e) {}
+  }
+  if (!candidate && typeof profile.photos === 'string' && profile.photos.trim().startsWith('[')) {
+    try {
+      const arr = JSON.parse(profile.photos);
+      if (Array.isArray(arr) && arr.length > 0) candidate = arr[0];
+    } catch (e) {}
+  }
+  if (!candidate && typeof profile.images === 'string' && profile.images.trim().startsWith('[')) {
+    try {
+      const arr = JSON.parse(profile.images);
+      if (Array.isArray(arr) && arr.length > 0) candidate = arr[0];
+    } catch (e) {}
+  }
+
+  if (typeof candidate === 'string') {
+    const s = candidate.trim();
+    if (!s || isFakeAvatarUrl(s)) return null;
+    return s;
+  }
+
+  return null;
+}
+
+/**
+ * Cleans candidate names and purges all generic 'Verified Candidate' or 'Verified Member' placeholders.
+ */
+export function cleanCandidateName(rawName, fallback = 'Candidate') {
+  if (!rawName || typeof rawName !== 'string') return fallback;
+  const clean = rawName.trim();
+  const lower = clean.toLowerCase();
+  if (
+    lower === '' ||
+    lower === 'verified member' ||
+    lower === 'a verified member' ||
+    lower === 'member' ||
+    lower === 'a member' ||
+    lower === 'candidate' ||
+    lower === 'a candidate' ||
+    lower === 'verified candidate' ||
+    lower === 'a verified candidate' ||
+    lower === 'someone' ||
+    lower === 'null' ||
+    lower === 'undefined' ||
+    lower.startsWith('usr_') ||
+    lower.startsWith('member usr_') ||
+    lower.includes('usr_') ||
+    lower.startsWith('sim-') ||
+    lower.startsWith('auth_')
+  ) {
+    return fallback;
+  }
+  return clean;
+}
+
+/**
  * Maps Supabase raw database row into candidate profile structure expected by UI
  */
 export function mapSupabaseRowToProfile(r) {
   if (!r) return null;
 
-  const defaultMale = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800';
-  const defaultFemale = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-  const defaultFallback = String(r.gender).toLowerCase() === 'male' ? defaultMale : defaultFemale;
   const profileTimestamp = r.updated_at || r.created_at || null;
 
   const sanitizeUrl = (u) => {
     if (!u || typeof u !== 'string') return null;
     let str = u.trim();
-    if (!str || str === 'null' || str === 'undefined') return null;
+    if (!str || str === 'null' || str === 'undefined' || isFakeAvatarUrl(str)) return null;
     if (str.includes('ejtkrilhntdbsiavugta.supabase.co') || str.includes('pheqzsfrwhjxspaaroea.supabase.co')) {
       str = str.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://kzvdzospvgzlfkkptadl.supabase.co');
     }
@@ -402,11 +510,9 @@ export function mapSupabaseRowToProfile(r) {
       }
     }
   } catch (e) {
-    familyPhotos = ['https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800'];
+    familyPhotos = [];
   }
-  if (!familyPhotos || familyPhotos.length === 0) {
-    familyPhotos = ['https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800'];
-  }
+  if (!Array.isArray(familyPhotos)) familyPhotos = [];
 
   const isSentBack = r.aadhaar_status === 'sent_back';
   const isApproved = r.aadhaar_status === 'approved' || (Boolean(r.aadhaar_verified) && !isSentBack);
@@ -414,18 +520,23 @@ export function mapSupabaseRowToProfile(r) {
   const cleanPhoto = sanitizeUrl(r.photo);
   const cleanPhotoUrl = sanitizeUrl(r.photo_url || r.avatar_url || r.profile_photo || r.profilePic);
 
+  // Strictly resolve genuine uploaded photo; NEVER assign fake AI face fallback
   const resolvedPhoto = (singlePhotos.length > 0 ? singlePhotos[0] : null) || 
                         cleanPhoto || 
                         cleanPhotoUrl || 
-                        defaultFallback;
+                        null;
 
-  if (singlePhotos.length === 0) {
-    singlePhotos = [resolvedPhoto];
-  } else if (singlePhotos[0] !== resolvedPhoto) {
-    singlePhotos = [resolvedPhoto, ...singlePhotos.filter(p => p !== resolvedPhoto)].slice(0, 5);
+  if (resolvedPhoto) {
+    if (singlePhotos.length === 0) {
+      singlePhotos = [resolvedPhoto];
+    } else if (singlePhotos[0] !== resolvedPhoto) {
+      singlePhotos = [resolvedPhoto, ...singlePhotos.filter(p => p !== resolvedPhoto)].slice(0, 5);
+    }
   }
 
-  const resolvedName = r.name || r.full_name || r.fullName || r.displayName || r.userName || '';
+  const rawName = r.name || r.full_name || r.fullName || r.displayName || r.userName || '';
+  const fallbackMemberName = r.register_id ? `Member ${r.register_id}` : 'Candidate';
+  const resolvedName = cleanCandidateName(rawName, fallbackMemberName);
 
   return {
     id: r.id,
@@ -1798,7 +1909,8 @@ export async function fetchBackendSentInterests() {
 /**
  * Dynamically fetches all real notifications for a user from PostgreSQL backend/database.
  * Ensures dynamic binding for sender's name, photo, age, profession, and location,
- * and strictly unique notification_id / id to prevent duplication and UI looping.
+ * batch-fetches live profile records directly from Supabase profiles table,
+ * and completely purges any stale 'Verified Candidate' or 'Verified Member' placeholders.
  */
 export async function fetchUserNotifications(userOrId, allProfiles = []) {
   if (!userOrId) return [];
@@ -1819,36 +1931,18 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
   const cleanId = userIds[0] || '';
   if (!cleanId) return [];
 
-  // Helper to strictly sanitize candidate names and purge 'Verified Member' placeholders
   const sanitizeName = (rawName, fallback = 'Candidate') => {
-    if (!rawName || typeof rawName !== 'string') return fallback;
-    const clean = rawName.trim();
-    const lower = clean.toLowerCase();
-    if (
-      lower === '' ||
-      lower === 'verified member' ||
-      lower === 'a verified member' ||
-      lower === 'member' ||
-      lower === 'a member' ||
-      lower === 'candidate' ||
-      lower === 'a candidate' ||
-      lower === 'verified candidate' ||
-      lower === 'someone' ||
-      lower === 'null' ||
-      lower === 'undefined' ||
-      lower.startsWith('usr_') ||
-      lower.startsWith('member usr_') ||
-      lower.includes('usr_') ||
-      lower.startsWith('sim-')
-    ) {
-      return fallback;
-    }
-    return clean;
+    return cleanCandidateName(rawName, fallback);
   };
 
   const sanitizeText = (text, candidateName) => {
     if (!text || typeof text !== 'string') return '';
-    return text.replace(/a verified member|verified member/gi, candidateName).trim();
+    return text
+      .replace(/a verified candidate|verified candidate/gi, candidateName)
+      .replace(/a verified member|verified member/gi, candidateName)
+      .replace(/member\s+usr_[0-9a-zA-Z_]+/gi, candidateName)
+      .replace(/usr_[0-9a-zA-Z_]+/gi, candidateName)
+      .trim();
   };
 
   // 1. Try FastAPI/Flask backend with PostgreSQL
@@ -1859,12 +1953,44 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
     }, 3000);
 
     if (res && res.success && Array.isArray(res.data)) {
+      // Collect sender IDs from backend rows to enrich with Supabase live profiles if needed
+      const backendSenderIds = res.data
+        .map(i => i.sender_id || i.senderId || i.profileId)
+        .filter(Boolean)
+        .map(String)
+        .filter(id => !userIds.includes(id));
+
+      const backendProfilesMap = new Map();
+      if (isSupabaseConfigured() && supabase && backendSenderIds.length > 0) {
+        try {
+          const { data: liveProfs } = await supabase.from('profiles').select('*').in('id', backendSenderIds);
+          if (Array.isArray(liveProfs)) {
+            liveProfs.forEach(p => {
+              const m = mapSupabaseRowToProfile(p);
+              if (m?.id) backendProfilesMap.set(String(m.id), m);
+              if (p?.id) backendProfilesMap.set(String(p.id), m);
+              if (p?.register_id) backendProfilesMap.set(String(p.register_id), m);
+            });
+          }
+        } catch (e) {}
+      }
+
       return res.data.map(item => {
-        const sName = sanitizeName(item.sender_name || item.senderName || item.sender?.name, 'Candidate');
+        const sId = String(item.sender_id || item.senderId || item.profileId || '');
+        const matched = backendProfilesMap.get(sId);
+        const sName = sanitizeName(
+          matched?.name || matched?.full_name || item.sender_name || item.senderName || item.sender?.name,
+          matched?.register_id ? `Member ${matched.register_id}` : 'Candidate'
+        );
+        const sPhoto = resolveProfilePhoto(matched) || resolveProfilePhoto(item.sender_photo) || null;
         return {
           ...item,
           sender_name: sName,
-          title: sanitizeText(item.title, sName) || `💖 Interest from ${sName}!`,
+          sender_photo: sPhoto,
+          sender_age: matched?.age || item.sender_age || null,
+          sender_profession: matched?.profession || item.sender_profession || null,
+          sender_location: matched?.district || matched?.city || item.sender_location || null,
+          title: sanitizeText(item.title, sName) || (item.type === 'interest' || item.type === 'interest_received' ? `💖 Interest from ${sName}!` : `Notification from ${sName}`),
           message: sanitizeText(item.message, sName) || `${sName} expressed matrimonial interest in connecting with you.`
         };
       });
@@ -1908,26 +2034,90 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         .order('updated_at', { ascending: false })
         .limit(40);
 
+      // Collect all sender IDs from interests and notifications
+      const rawSenderIds = [];
+      (interestRows || []).forEach(row => {
+        const sId = String(row.sender_id || row.senderId || '');
+        if (sId && !userIds.includes(sId)) rawSenderIds.push(sId);
+      });
+      (notifRows || []).forEach(row => {
+        const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.from_user_id || row.metadata?.actor_id || row.sender_id || '');
+        if (sId && !userIds.includes(sId)) rawSenderIds.push(sId);
+      });
+      const uniqueSenderIds = Array.from(new Set(rawSenderIds));
+
+      // Batch-fetch live sender profile records directly from Supabase profiles table
+      const profilesMap = new Map();
+
+      // Seed with whatever profiles were passed in allProfiles
+      (allProfiles || []).forEach(p => {
+        if (p?.id) profilesMap.set(String(p.id), p);
+        if (p?.user_id) profilesMap.set(String(p.user_id), p);
+        if (p?.register_id) profilesMap.set(String(p.register_id), p);
+        if (p?.registerId) profilesMap.set(String(p.registerId), p);
+      });
+
+      // Batch-fetch live profiles for all senders from Supabase profiles table
+      if (uniqueSenderIds.length > 0) {
+        try {
+          const { data: dbSenders, error: sErr } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', uniqueSenderIds);
+          if (!sErr && Array.isArray(dbSenders)) {
+            dbSenders.forEach(row => {
+              const mapped = mapSupabaseRowToProfile(row);
+              if (mapped?.id) profilesMap.set(String(mapped.id), mapped);
+              if (row?.id) profilesMap.set(String(row.id), mapped);
+              if (row?.user_id) profilesMap.set(String(row.user_id), mapped);
+              if (row?.register_id) profilesMap.set(String(row.register_id), mapped);
+            });
+          }
+        } catch (err) {
+          console.warn('[fetchUserNotifications] Batch fetch sender profiles by id notice:', err);
+        }
+
+        // Check if any sender IDs were register_ids
+        const missingRegIds = uniqueSenderIds.filter(id => !profilesMap.has(String(id)));
+        if (missingRegIds.length > 0) {
+          try {
+            const { data: dbRegSenders } = await supabase
+              .from('profiles')
+              .select('*')
+              .in('register_id', missingRegIds);
+            if (Array.isArray(dbRegSenders)) {
+              dbRegSenders.forEach(row => {
+                const mapped = mapSupabaseRowToProfile(row);
+                if (mapped?.id) profilesMap.set(String(mapped.id), mapped);
+                if (row?.id) profilesMap.set(String(row.id), mapped);
+                if (row?.register_id) profilesMap.set(String(row.register_id), mapped);
+              });
+            }
+          } catch (e) {}
+        }
+      }
+
       const combined = [];
       const seen = new Set();
 
-      // Helper to map profile
+      // Helper to map profile from profilesMap
       const findProfile = (senderId) => {
         if (!senderId) return null;
         const sId = String(senderId).trim();
+        if (profilesMap.has(sId)) return profilesMap.get(sId);
         const sDigits = sId.replace(/[^0-9]/g, '');
-        return (allProfiles || []).find(p => {
-          if (!p) return false;
+        for (const p of profilesMap.values()) {
+          if (!p) continue;
           const pId = String(p.id || '');
           const pUserId = String(p.user_id || '');
           const pReg = String(p.register_id || p.registerId || '');
-          if (pId === sId || pUserId === sId || pReg === sId) return true;
+          if (pId === sId || pUserId === sId || pReg === sId) return p;
           if (sDigits && sDigits.length >= 7) {
             const pPhone = String(p.mobile || p.phone || '').replace(/[^0-9]/g, '');
-            if (pPhone && (pPhone === sDigits || pPhone.endsWith(sDigits) || sDigits.endsWith(pPhone))) return true;
+            if (pPhone && (pPhone === sDigits || pPhone.endsWith(sDigits) || sDigits.endsWith(pPhone))) return p;
           }
-          return false;
-        });
+        }
+        return null;
       };
 
       (interestRows || []).forEach(row => {
@@ -1940,23 +2130,26 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         seen.add(senderInterestKey);
 
         const matched = findProfile(sId);
-        const sName = sanitizeName(matched?.name) !== 'Candidate'
-          ? matched.name
-          : (sanitizeName(row.metadata?.senderName) !== 'Candidate'
-              ? row.metadata.senderName
-              : (matched?.register_id ? `Member ${matched.register_id}` : (sId && !sId.startsWith('usr_') && !sId.startsWith('sim-') && !sId.includes('_') ? `Member ${sId}` : 'Verified Candidate')));
+        const fallbackMemberName = matched?.register_id ? `Member ${matched.register_id}` : (sId && sId.length <= 12 ? `Member ${sId}` : 'Candidate');
+        const sName = sanitizeName(
+          matched?.name || matched?.full_name,
+          sanitizeName(row.metadata?.senderName, fallbackMemberName)
+        );
 
-        const sPhoto = matched?.photo || matched?.photo_url || (row.metadata?.senderPhoto) || null;
-        const sAge = matched?.age || 26;
-        const sProfession = matched?.profession || 'Professional';
-        const sLocation = matched?.district || matched?.city || matched?.state || 'Kerala';
+        const sPhoto = resolveProfilePhoto(matched) || resolveProfilePhoto(row.metadata?.senderPhoto) || null;
+        const sAge = matched?.age || row.metadata?.senderAge || null;
+        const sProfession = matched?.profession || matched?.occupation || row.metadata?.senderProfession || null;
+        const sLocation = matched?.district || matched?.city || matched?.state || row.metadata?.senderCity || row.metadata?.senderDistrict || null;
         const sVerified = Boolean(matched?.verified || matched?.aadhaar_verified);
 
         const senderObj = {
           id: sId,
           register_id: matched?.register_id || matched?.registerId || sId,
           name: sName,
+          fullName: sName,
           photo: sPhoto,
+          photo_url: sPhoto,
+          avatar_url: sPhoto,
           age: sAge,
           profession: sProfession,
           city: sLocation,
@@ -1981,6 +2174,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
           sender_location: sLocation,
           sender: senderObj,
           profile: senderObj,
+          interest_from: senderObj,
           type: 'interest',
           title: `💖 Interest from ${sName}!`,
           message: cleanMsg,
@@ -2024,7 +2218,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
           return;
         }
 
-        const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.sender_id || '');
+        const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.from_user_id || row.metadata?.actor_id || row.sender_id || '');
         const rId = String(row.recipient_id || row.recipient_register_id || '');
         const isInterestRow = row.type === 'interest' || row.type === 'interest_received';
         if (isInterestRow && (!sId || userIds.includes(sId))) return; // STRICT GUARD: sender cannot be logged-in user!
@@ -2037,29 +2231,46 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         }
 
         const matched = findProfile(sId);
-        const sName = sanitizeName(matched?.name) !== 'Candidate'
-          ? matched.name
-          : (sanitizeName(row.metadata?.senderName) !== 'Candidate'
-              ? row.metadata.senderName
-              : (matched?.register_id ? `Member ${matched.register_id}` : (sId && !sId.startsWith('usr_') && !sId.startsWith('sim-') && !sId.includes('_') ? `Member ${sId}` : 'Verified Candidate')));
+        const fallbackMemberName = matched?.register_id ? `Member ${matched.register_id}` : (sId && sId.length <= 12 ? `Member ${sId}` : 'Candidate');
+        const sName = sanitizeName(
+          matched?.name || matched?.full_name,
+          sanitizeName(row.metadata?.senderName, fallbackMemberName)
+        );
 
-        const sPhoto = matched?.photo || matched?.photo_url || row.metadata?.senderPhoto || null;
-        const sAge = matched?.age || row.metadata?.senderAge || 26;
-        const sProfession = matched?.profession || row.metadata?.senderProfession || 'Professional';
-        const sLocation = matched?.district || matched?.city || row.metadata?.senderCity || 'Kerala';
+        const sPhoto = resolveProfilePhoto(matched) || resolveProfilePhoto(row.metadata?.senderPhoto) || null;
+        const sAge = matched?.age || row.metadata?.senderAge || null;
+        const sProfession = matched?.profession || matched?.occupation || row.metadata?.senderProfession || null;
+        const sLocation = matched?.district || matched?.city || row.metadata?.senderCity || row.metadata?.senderDistrict || null;
+        const sVerified = Boolean(matched?.verified || matched?.aadhaar_verified);
 
         const senderObj = {
           id: sId,
           register_id: matched?.register_id || matched?.registerId || sId,
           name: sName,
+          fullName: sName,
           photo: sPhoto,
+          photo_url: sPhoto,
+          avatar_url: sPhoto,
           age: sAge,
           profession: sProfession,
           city: sLocation,
-          location: sLocation
+          district: matched?.district || sLocation,
+          location: sLocation,
+          verified: sVerified,
+          aadhaarVerified: sVerified
         };
 
-        const cleanTitle = sanitizeText(row.title, sName) || `New Notification from ${sName}`;
+        const defaultTitle = isInterestRow
+          ? `💖 Interest from ${sName}!`
+          : row.type === 'message' || row.type === 'chat_message' || row.type === 'message_received'
+            ? `💬 Message from ${sName}`
+            : row.type === 'profile_shortlisted' || row.type === 'shortlist'
+              ? `⭐ ${sName} shortlisted your profile!`
+              : row.type === 'contact_viewed' || row.type === 'contact'
+                ? `👁️ Contact Details Viewed by ${sName}`
+                : `Notification from ${sName}`;
+
+        const cleanTitle = sanitizeText(row.title, sName) || defaultTitle;
         const cleanMsg = sanitizeText(row.message, sName) || '';
 
         combined.push({
@@ -2075,6 +2286,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
           sender_location: sLocation,
           sender: senderObj,
           profile: senderObj,
+          interest_from: senderObj,
           type: row.type || 'interest',
           title: cleanTitle,
           message: cleanMsg,

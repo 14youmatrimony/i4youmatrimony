@@ -15,6 +15,8 @@ import {
   LogOut,
   Edit3
 } from 'lucide-react';
+import SafeAvatar from '../common/SafeAvatar';
+import { resolveProfilePhoto } from '../../services/api';
 
 export default function WebsiteNavbar({
   viewMode,
@@ -291,10 +293,12 @@ export default function WebsiteNavbar({
                   <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-[#D4AF37]/30">
                     <div className="flex items-center space-x-2.5">
                       <div className="relative">
-                        <img 
-                          src={currentUser.photo || (currentUser?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150")} 
-                          alt={currentUser.name || "Member"} 
-                          className="w-9 h-9 rounded-full object-cover ring-1 ring-emerald-400"
+                        <SafeAvatar
+                          src={resolveProfilePhoto(currentUser)}
+                          alt={currentUser.name || "Member"}
+                          gender={currentUser.gender}
+                          size="sm"
+                          className="w-9 h-9 ring-1 ring-emerald-400"
                         />
                         {currentUser.aadhaarVerified && (
                           <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 text-white rounded-full flex items-center justify-center ring-1 ring-[#0B192C]">

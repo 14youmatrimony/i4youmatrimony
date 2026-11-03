@@ -15,6 +15,8 @@ import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { getTargetCandidateGender, isCandidateMatchingTarget, normalizeGender } from '../../utils/genderMatch';
 import { getAppMode } from '../../config/appConfig';
 import { interestService } from '../../services/interestService';
+import SafeAvatar from '../common/SafeAvatar';
+import { resolveProfilePhoto } from '../../services/api';
 
 export default function MobileInterestsScreen({
   profiles = [],
@@ -334,12 +336,12 @@ export default function MobileInterestsScreen({
                               (senderData?.registerId ? `Member ${senderData.registerId}` : null) ||
                               (sid ? `Member ${sid}` : 'Verified Member');
 
-        const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(candidateName || 'Member')}&background=0B192C&color=DFB76C&bold=true`;
+        const rawSenderPhoto = resolveProfilePhoto(matching) || resolveProfilePhoto(senderData) || resolveProfilePhoto(rec) || null;
 
         const base = matching || senderData || {
           id: sid,
           name: candidateName,
-          photo: defaultAvatar,
+          photo: rawSenderPhoto,
           age: 26,
           city: 'India',
           gunasMatch: '28/36 Gunas',
@@ -355,7 +357,7 @@ export default function MobileInterestsScreen({
           city: base?.city || base?.district || senderData?.location || senderData?.city || rec?.sender_location || rec?.sender_city || 'India',
           district: base?.district || base?.city || senderData?.district || rec?.sender_district || '',
           state: base?.state || senderData?.state || rec?.sender_state || '',
-          photo: base?.photo || base?.avatar || senderData?.photo || senderData?.avatar || rec?.sender_photo || defaultAvatar,
+          photo: rawSenderPhoto || resolveProfilePhoto(base) || null,
           interestMessage: rec?.message || '',
           interestId: rec?.interest_id || rec?.interestId || rec?.id,
           interest_id: rec?.interest_id || rec?.interestId || rec?.id,
@@ -459,12 +461,12 @@ export default function MobileInterestsScreen({
                             (senderData?.registerId ? `Member ${senderData.registerId}` : null) ||
                             (sid ? `Member ${sid}` : 'Verified Member');
 
-      const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(candidateName || 'Member')}&background=0B192C&color=DFB76C&bold=true`;
+      const rawSenderPhoto = resolveProfilePhoto(matching) || resolveProfilePhoto(senderData) || resolveProfilePhoto(item) || null;
 
       const base = matching || senderData || {
         id: sid,
         name: candidateName,
-        photo: defaultAvatar,
+        photo: rawSenderPhoto,
         age: 26,
         city: 'India',
         gunasMatch: '28/36 Gunas',
@@ -480,7 +482,7 @@ export default function MobileInterestsScreen({
         city: base?.city || base?.district || senderData?.location || senderData?.city || item?.sender_location || item?.sender_city || 'India',
         district: base?.district || base?.city || senderData?.district || item?.sender_district || '',
         state: base?.state || senderData?.state || item?.sender_state || '',
-        photo: base?.photo || base?.avatar || senderData?.photo || senderData?.avatar || item?.sender_photo || defaultAvatar,
+        photo: rawSenderPhoto || resolveProfilePhoto(base) || null,
         interestMessage: item?.message || '',
         interestId: item?.id || `notif_${sid}`,
         interest_id: item?.id || `notif_${sid}`,
@@ -610,24 +612,12 @@ export default function MobileInterestsScreen({
                 return (
                   <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 flex items-center justify-between gap-3 shadow-sm">
                     <div className="flex items-center space-x-3 min-w-0 cursor-pointer" onClick={() => onSelectProfile(p)}>
-                      <img 
-                        src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
-                        alt={p.name} 
-                        draggable={false}
-                        onDragStart={(e) => e.preventDefault()}
-                        onError={(e) => {
-                          const fallback = String(p.gender).toLowerCase() === 'male'
-                            ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
-                            : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-                          if (e.currentTarget.src !== fallback) {
-                            e.currentTarget.src = fallback;
-                          }
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          if (screenshotRestricted) triggerScreenshotBlock('right-click');
-                        }}
-                        className="w-12 h-12 rounded-full object-cover ring-2 ring-[#DFB76C] select-none photo-protected" 
+                      <SafeAvatar
+                        src={resolveProfilePhoto(p)}
+                        alt={p.name}
+                        gender={p.gender}
+                        size="md"
+                        className="w-12 h-12 ring-2 ring-[#DFB76C] select-none photo-protected shrink-0"
                       />
                       <div className="min-w-0">
                         <h4 className="font-serif font-bold text-sm text-slate-900 truncate">{p.name}</h4>
@@ -755,24 +745,12 @@ export default function MobileInterestsScreen({
                 return (
                   <div key={p.id || p.interestId} className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-3 shadow-sm transition-all hover:border-amber-300">
                     <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onSelectProfile(p)}>
-                      <img 
-                        src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
-                        alt={p.name} 
-                        draggable={false}
-                        onDragStart={(e) => e.preventDefault()}
-                        onError={(e) => {
-                          const fallback = String(p.gender).toLowerCase() === 'male'
-                            ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
-                            : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-                          if (e.currentTarget.src !== fallback) {
-                            e.currentTarget.src = fallback;
-                          }
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          if (screenshotRestricted) triggerScreenshotBlock('right-click');
-                        }}
-                        className="w-14 h-14 rounded-2xl object-cover ring-2 ring-[#DFB76C] select-none photo-protected" 
+                      <SafeAvatar
+                        src={resolveProfilePhoto(p)}
+                        alt={p.name}
+                        gender={p.gender}
+                        size="lg"
+                        className="w-14 h-14 ring-2 ring-[#DFB76C] select-none photo-protected shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-1.5">
@@ -901,10 +879,12 @@ export default function MobileInterestsScreen({
                   {declinedProfiles.map(dp => (
                     <div key={dp.id} className="bg-slate-50 rounded-2xl p-3 flex items-center justify-between border border-slate-200">
                       <div className="flex items-center space-x-3 min-w-0 cursor-pointer" onClick={() => onSelectProfile(dp)}>
-                        <img 
-                          src={dp.photo} 
+                        <SafeAvatar 
+                          src={resolveProfilePhoto(dp)} 
                           alt={dp.name} 
-                          className="w-10 h-10 rounded-xl object-cover grayscale opacity-75 border border-slate-200" 
+                          gender={dp.gender}
+                          size="sm"
+                          className="w-10 h-10 grayscale opacity-75 border border-slate-200 shrink-0" 
                         />
                         <div className="min-w-0">
                           <h5 className="font-serif font-bold text-xs text-slate-700 truncate">{dp.name}</h5>
@@ -938,24 +918,12 @@ export default function MobileInterestsScreen({
               shortlistedProfiles.map(p => (
                 <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 flex items-center justify-between gap-3 shadow-sm">
                   <div className="flex items-center space-x-3 min-w-0" onClick={() => onSelectProfile(p)}>
-                    <img 
-                      src={p.photo || (String(p.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
-                      alt={p.name} 
-                      draggable={false}
-                      onDragStart={(e) => e.preventDefault()}
-                      onError={(e) => {
-                        const fallback = String(p.gender).toLowerCase() === 'male'
-                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
-                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-                        if (e.currentTarget.src !== fallback) {
-                          e.currentTarget.src = fallback;
-                        }
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        if (screenshotRestricted) triggerScreenshotBlock('right-click');
-                      }}
-                      className="w-12 h-12 rounded-full object-cover ring-2 ring-rose-200 select-none photo-protected" 
+                    <SafeAvatar
+                      src={resolveProfilePhoto(p)}
+                      alt={p.name}
+                      gender={p.gender}
+                      size="md"
+                      className="w-12 h-12 ring-2 ring-rose-200 select-none photo-protected shrink-0"
                     />
                     <div className="min-w-0">
                       <h4 className="font-serif font-bold text-sm text-slate-900 truncate">{p.name}</h4>
