@@ -134,40 +134,7 @@ export default function MobileNotificationsSheet({
     };
   }, [isOpen, checkFilterScroll]);
 
-  const handleFilterScroll = (direction) => {
-    const el = filterScrollRef.current;
-    if (el) {
-      const amount = direction === 'left' ? -160 : 160;
-      el.scrollBy({ left: amount, behavior: 'smooth' });
-      setTimeout(checkFilterScroll, 250);
-    }
-  };
-
-  const handleMouseDown = (e) => {
-    const el = filterScrollRef.current;
-    if (!el) return;
-    isDraggingRef.current = true;
-    startXRef.current = e.pageX - el.offsetLeft;
-    scrollLeftStartRef.current = el.scrollLeft;
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDraggingRef.current) return;
-    e.preventDefault();
-    const el = filterScrollRef.current;
-    const x = e.pageX - el.offsetLeft;
-    const walk = (x - startXRef.current) * 1.5;
-    el.scrollLeft = scrollLeftStartRef.current - walk;
-    checkFilterScroll();
-  };
-
-  const handleMouseUpOrLeave = () => {
-    isDraggingRef.current = false;
-  };
-
-  if (!isOpen) return null;
-
-  const isSelfProfile = (p) => isSelfProfileHelper(p, currentUser);
+  const isSelfProfile = useCallback((p) => isSelfProfileHelper(p, currentUser), [currentUser]);
 
   const [liveProfilesMap, setLiveProfilesMap] = useState(() => new Map());
 
@@ -212,7 +179,38 @@ export default function MobileNotificationsSheet({
       .catch(() => {});
 
     return () => { isMounted = false; };
-  }, [isOpen, notifications, profiles, currentUser, liveProfilesMap]);
+  }, [isOpen, notifications, profiles, currentUser]);
+
+  const handleFilterScroll = (direction) => {
+    const el = filterScrollRef.current;
+    if (el) {
+      const amount = direction === 'left' ? -160 : 160;
+      el.scrollBy({ left: amount, behavior: 'smooth' });
+      setTimeout(checkFilterScroll, 250);
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    const el = filterScrollRef.current;
+    if (!el) return;
+    isDraggingRef.current = true;
+    startXRef.current = e.pageX - el.offsetLeft;
+    scrollLeftStartRef.current = el.scrollLeft;
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    const el = filterScrollRef.current;
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - startXRef.current) * 1.5;
+    el.scrollLeft = scrollLeftStartRef.current - walk;
+    checkFilterScroll();
+  };
+
+  const handleMouseUpOrLeave = () => {
+    isDraggingRef.current = false;
+  };
 
   const getProfile = (profileId, notif = null, index = 0) => {
     // Payment notifications must NEVER map or borrow candidate profiles!
@@ -665,6 +663,8 @@ export default function MobileNotificationsSheet({
   })();
 
   const unreadCount = (groupedNotifications || []).filter(n => n && !n.isRead).length;
+
+  if (!isOpen) return null;
 
   const sheetContent = (
     <div className="flex flex-col h-full w-full overflow-hidden bg-slate-50">

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { addCacheBuster } from '../../utils/cacheBuster';
 import { resolveProfilePhoto, cleanCandidateName } from '../../services/api';
+import SafeAvatar from '../common/SafeAvatar';
 
 /**
  * NotificationCard
@@ -116,11 +117,6 @@ export default function NotificationCard({
     null;
   const stableTimestamp = profile?.updated_at || profile?.created_at || notif.created_at || notif.timestamp || null;
   const candidatePhoto = rawPhoto ? (stableTimestamp ? addCacheBuster(rawPhoto, stableTimestamp) : rawPhoto) : null;
-
-  const [imgError, setImgError] = React.useState(false);
-  React.useEffect(() => {
-    setImgError(false);
-  }, [rawPhoto]);
 
   const displayAge = profile?.age || notif.sender_age || notif.senderAge || notif.sender?.age || null;
   const displayProfession = profile?.profession || profile?.occupation || notif.sender_profession || notif.senderProfession || notif.sender?.profession || null;
@@ -370,29 +366,13 @@ export default function NotificationCard({
             title="Click to view full candidate profile"
           >
             <div className="flex items-center space-x-1.5 min-w-0 flex-1">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden shrink-0 border border-slate-300 shadow-2xs bg-slate-100 flex items-center justify-center relative select-none">
-                {candidatePhoto && !imgError ? (
-                  <img
-                    src={candidatePhoto}
-                    alt=""
-                    onError={() => setImgError(true)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      triggerScreenshotBlock?.('right-click');
-                    }}
-                    draggable={false}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div
-                    className="w-full h-full bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] font-bold text-[10px] sm:text-[11px] flex items-center justify-center tracking-tight select-none border border-[#DFB76C]/40"
-                    title={candidateName}
-                  >
-                    {candidateInitials}
-                  </div>
-                )}
-              </div>
+              <SafeAvatar
+                src={candidatePhoto}
+                alt={candidateName}
+                gender={profile?.gender || notif?.sender?.gender}
+                size="sm"
+                className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 border border-slate-300 shadow-2xs"
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-1">
                   <span className="text-[10.5px] sm:text-[11.5px] font-bold text-slate-900 truncate group-hover/card:text-[#8C6D1F] transition-colors">
