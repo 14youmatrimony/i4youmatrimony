@@ -312,6 +312,7 @@ class WebRTCCallService {
     this.isSyncingReceiverCandidates = false;
     this.hasPendingReceiverCandidateSync = false;
     this.isCallRowInserted = false;
+    this.isCallConnected = false;
 
     this.dbInboxChannel = null;
     this.activeCallChannel = null;
@@ -380,6 +381,7 @@ class WebRTCCallService {
     this.isSyncingReceiverCandidates = false;
     this.hasPendingReceiverCandidateSync = false;
     this.isCallRowInserted = false;
+    this.isCallConnected = false;
 
     if (this.activeCallChannel) {
       try {
@@ -754,7 +756,14 @@ class WebRTCCallService {
       console.log('[WebRTC] PeerConnection state changed:', state);
       if (state === 'connected') {
         AudioRoutingHelper.setSpeakerphoneOn(true);
-        this.onCallStatusChangeCallback?.('connected');
+        if (this.sessionPollInterval) {
+          clearInterval(this.sessionPollInterval);
+          this.sessionPollInterval = null;
+        }
+        if (!this.isCallConnected) {
+          this.isCallConnected = true;
+          this.onCallStatusChangeCallback?.('connected');
+        }
       } else if (state === 'failed' || state === 'closed') {
         console.warn('[WebRTC] PeerConnection state entered', state);
       }
@@ -1003,6 +1012,7 @@ class WebRTCCallService {
     this.remoteUserId = receiverUUID;
     this.callType = callType;
     this.isCaller = true;
+    this.isCallConnected = false;
     this.onRemoteStreamCallback = onRemoteStream;
     this.onCallStatusChangeCallback = onStatusChange;
 
@@ -1097,6 +1107,10 @@ class WebRTCCallService {
 
         if (row.status === 'rejected' || row.status === 'ended') {
           console.log(`[WebRTC] Call status changed to ${row.status} in public.calls`);
+          if (this.sessionPollInterval) {
+            clearInterval(this.sessionPollInterval);
+            this.sessionPollInterval = null;
+          }
           this.onCallStatusChangeCallback?.(row.status);
           this.cleanupCallState(false);
           return;
@@ -1105,7 +1119,14 @@ class WebRTCCallService {
         // As soon as data.status === 'accepted' or data.answer is non-null:
         // 1. Immediately update Caller's UI state from 'calling' to 'connected' / 'in-call' so it NEVER stays stuck on "Calling..."!
         if (row.status === 'accepted' || row.answer) {
-          this.onCallStatusChangeCallback?.('connected');
+          if (this.sessionPollInterval) {
+            clearInterval(this.sessionPollInterval);
+            this.sessionPollInterval = null;
+          }
+          if (!this.isCallConnected) {
+            this.isCallConnected = true;
+            this.onCallStatusChangeCallback?.('connected');
+          }
         }
 
         // 2. Call await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer)) if !peerConnection.currentRemoteDescription
@@ -1122,7 +1143,10 @@ class WebRTCCallService {
             this.isRemoteDescriptionSet = true;
             console.log('[WebRTC] Caller remote description set successfully');
 
-            this.onCallStatusChangeCallback?.('connected');
+            if (!this.isCallConnected) {
+              this.isCallConnected = true;
+              this.onCallStatusChangeCallback?.('connected');
+            }
             await this.flushPendingCandidates();
           } catch (err) {
             console.error('[WebRTC] Caller error setting remote description from answer:', err);
@@ -1161,7 +1185,7 @@ class WebRTCCallService {
 
       if (this.sessionPollInterval) clearInterval(this.sessionPollInterval);
       this.sessionPollInterval = setInterval(async () => {
-        if (!this.isCaller || !this.currentCallId) {
+        if (!this.isCaller || !this.currentCallId || this.isCallConnected) {
           if (this.sessionPollInterval) clearInterval(this.sessionPollInterval);
           this.sessionPollInterval = null;
           return;
@@ -1315,7 +1339,14 @@ class WebRTCCallService {
     }
 
     // 6. Immediately transition Receiver's UI to connected
-    this.onCallStatusChangeCallback?.('connected');
+    if (this.sessionPollInterval) {
+      clearInterval(this.sessionPollInterval);
+      this.sessionPollInterval = null;
+    }
+    if (!this.isCallConnected) {
+      this.isCallConnected = true;
+      this.onCallStatusChangeCallback?.('connected');
+    }
 
     // 7. Listen for termination or additional caller_candidates
     if (isSupabaseConfigured() && supabase && this.currentCallId) {
@@ -1324,9 +1355,20 @@ class WebRTCCallService {
 
         if (row.status === 'rejected' || row.status === 'ended') {
           console.log(`[WebRTC] Active call session was ${row.status}`);
+          if (this.sessionPollInterval) {
+            clearInterval(this.sessionPollInterval);
+            this.sessionPollInterval = null;
+          }
           this.onCallStatusChangeCallback?.(row.status);
           this.cleanupCallState(false);
           return;
+        }
+
+        if (row.status === 'accepted') {
+          if (this.sessionPollInterval) {
+            clearInterval(this.sessionPollInterval);
+            this.sessionPollInterval = null;
+          }
         }
 
         if (Array.isArray(row.caller_candidates) && row.caller_candidates.length > 0) {

@@ -40,9 +40,38 @@ export default function AudioCallModal({
   const timerRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const audioContextRef = useRef(null);
+  const toneAudioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
   const ringIntervalRef = useRef(null);
+  const activeOscillatorsRef = useRef([]);
+  const isAlreadyConnectedRef = useRef(false);
+
+  // Strict helper to completely silence and stop all ringtones, dial tones, and oscillators
+  const stopAllCallTones = () => {
+    if (ringIntervalRef.current) {
+      clearInterval(ringIntervalRef.current);
+      ringIntervalRef.current = null;
+    }
+
+    if (Array.isArray(activeOscillatorsRef.current)) {
+      activeOscillatorsRef.current.forEach((osc) => {
+        try {
+          osc.stop();
+          osc.disconnect();
+        } catch (e) {}
+      });
+      activeOscillatorsRef.current = [];
+    }
+
+    if (toneAudioContextRef.current && toneAudioContextRef.current.state !== 'closed') {
+      try {
+        if (toneAudioContextRef.current.state === 'running') {
+          toneAudioContextRef.current.suspend().catch(() => {});
+        }
+      } catch (e) {}
+    }
+  };
 
   // Helper to safely play media with user-gesture unlock fallback
   const safePlayMedia = (mediaEl, label = 'media') => {
@@ -75,13 +104,20 @@ export default function AudioCallModal({
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
-      const ctx = audioContextRef.current || new AudioCtx();
-      audioContextRef.current = ctx;
-      if (ctx.state === 'suspended') ctx.resume();
+      const ctx = toneAudioContextRef.current || new AudioCtx();
+      toneAudioContextRef.current = ctx;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
       const osc1 = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
+
+      activeOscillatorsRef.current.push(osc1, osc2);
+      const cleanupOsc = (osc) => {
+        activeOscillatorsRef.current = activeOscillatorsRef.current.filter((o) => o !== osc);
+      };
+      osc1.onended = () => cleanupOsc(osc1);
+      osc2.onended = () => cleanupOsc(osc2);
 
       osc1.frequency.value = freq1;
       osc2.frequency.value = freq2;
@@ -102,34 +138,49 @@ export default function AudioCallModal({
 
   // Ringing Sound
   const startRingingSound = () => {
+    if (isAlreadyConnectedRef.current) return null;
+    stopAllCallTones();
+
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return null;
-      const ctx = audioContextRef.current || new AudioCtx();
-      audioContextRef.current = ctx;
-      if (ctx.state === 'suspended') ctx.resume();
+      const ctx = toneAudioContextRef.current || new AudioCtx();
+      toneAudioContextRef.current = ctx;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
       const playRingBurst = () => {
-        if (callStatus === 'connected' || callStatus === 'ended') return;
-        const osc1 = ctx.createOscillator();
-        const osc2 = ctx.createOscillator();
-        const gain = ctx.createGain();
+        if (isAlreadyConnectedRef.current) {
+          stopAllCallTones();
+          return;
+        }
+        try {
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
 
-        osc1.frequency.value = 440;
-        osc2.frequency.value = 480;
+          activeOscillatorsRef.current.push(osc1, osc2);
+          const cleanupOsc = (osc) => {
+            activeOscillatorsRef.current = activeOscillatorsRef.current.filter((o) => o !== osc);
+          };
+          osc1.onended = () => cleanupOsc(osc1);
+          osc2.onended = () => cleanupOsc(osc2);
 
-        gain.gain.setValueAtTime(0.05, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 1.2);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.4);
+          osc1.frequency.value = 440;
+          osc2.frequency.value = 480;
 
-        osc1.connect(gain);
-        osc2.connect(gain);
-        gain.connect(ctx.destination);
+          gain.gain.setValueAtTime(0.05, ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 1.2);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.4);
 
-        osc1.start();
-        osc2.start();
-        osc1.stop(ctx.currentTime + 1.4);
-        osc2.stop(ctx.currentTime + 1.4);
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc1.start();
+          osc2.start();
+          osc1.stop(ctx.currentTime + 1.4);
+          osc2.stop(ctx.currentTime + 1.4);
+        } catch (e) {}
       };
 
       playRingBurst();
@@ -141,19 +192,25 @@ export default function AudioCallModal({
     }
   };
 
-  // Connect chime
+  // Connect chime (runs at most once per connected call)
   const playConnectChime = () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
-      const ctx = audioContextRef.current || new AudioCtx();
-      audioContextRef.current = ctx;
-      if (ctx.state === 'suspended') ctx.resume();
+      const ctx = toneAudioContextRef.current || new AudioCtx();
+      toneAudioContextRef.current = ctx;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
       const notes = [523.25, 659.25, 783.99, 1046.5];
       notes.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
+
+        activeOscillatorsRef.current.push(osc);
+        osc.onended = () => {
+          activeOscillatorsRef.current = activeOscillatorsRef.current.filter((o) => o !== osc);
+        };
+
         osc.frequency.value = freq;
         const startTime = ctx.currentTime + idx * 0.08;
         gain.gain.setValueAtTime(0.06, startTime);
@@ -221,6 +278,7 @@ export default function AudioCallModal({
     let callTimeoutTimer = null;
 
     const setupCall = async () => {
+      isAlreadyConnectedRef.current = false;
       // Reset any prior media element sources before starting or accepting
       remoteStreamRef.current = null;
       if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
@@ -263,39 +321,33 @@ export default function AudioCallModal({
           remoteAudioRef.current.play().catch(() => {});
         }
 
-        if (ringIntervalRef.current) {
-          clearInterval(ringIntervalRef.current);
-          ringIntervalRef.current = null;
+        stopAllCallTones();
+        if (!isAlreadyConnectedRef.current) {
+          isAlreadyConnectedRef.current = true;
+          setIsConnectedPeer(true);
+          setCallStatus('connected');
+          playConnectChime();
         }
-        setIsConnectedPeer(true);
-        setCallStatus('connected');
-        playConnectChime();
       };
 
       // Callback for status change from WebRTC signaling
       const handleStatusChange = (status) => {
         if (!isSubscribed) return;
         if (status === 'blocked') {
-          if (ringIntervalRef.current) {
-            clearInterval(ringIntervalRef.current);
-            ringIntervalRef.current = null;
-          }
+          stopAllCallTones();
           setCallStatus('ended');
           playTone(380, 280, 0.3);
           setTimeout(() => onClose(), 1200);
         } else if (status === 'connected') {
-          if (ringIntervalRef.current) {
-            clearInterval(ringIntervalRef.current);
-            ringIntervalRef.current = null;
+          stopAllCallTones();
+          if (!isAlreadyConnectedRef.current) {
+            isAlreadyConnectedRef.current = true;
+            setCallStatus('connected');
+            setIsConnectedPeer(true);
+            playConnectChime();
           }
-          setCallStatus('connected');
-          setIsConnectedPeer(true);
-          playConnectChime();
         } else if (status === 'declined' || status === 'ended' || status === 'rejected') {
-          if (ringIntervalRef.current) {
-            clearInterval(ringIntervalRef.current);
-            ringIntervalRef.current = null;
-          }
+          stopAllCallTones();
           setCallStatus('ended');
           playTone(380, 280, 0.3);
           setTimeout(() => onClose(), 1200);
@@ -318,10 +370,7 @@ export default function AudioCallModal({
           .then((res) => {
             if (!isSubscribed) return;
             if (res && res.error === 'CALL_BLOCKED') {
-              if (ringIntervalRef.current) {
-                clearInterval(ringIntervalRef.current);
-                ringIntervalRef.current = null;
-              }
+              stopAllCallTones();
               setCallStatus('ended');
               playTone(380, 280, 0.3);
               setTimeout(() => onClose(), 1200);
@@ -334,7 +383,7 @@ export default function AudioCallModal({
               setMicPermissionError(true);
             }
             setCallStatus((prev) => {
-              if (prev === 'connected' || prev === 'ended') return prev;
+              if (prev === 'connected' || prev === 'ended' || isAlreadyConnectedRef.current) return prev;
               startRingingSound();
               return 'ringing';
             });
@@ -344,10 +393,7 @@ export default function AudioCallModal({
           if (isSubscribed) {
             setCallStatus((prev) => {
               if (prev === 'connected' || prev === 'ended') return prev;
-              if (ringIntervalRef.current) {
-                clearInterval(ringIntervalRef.current);
-                ringIntervalRef.current = null;
-              }
+              stopAllCallTones();
               playTone(380, 280, 0.3);
               setTimeout(() => onClose(), 1200);
               return 'ended';
@@ -355,6 +401,8 @@ export default function AudioCallModal({
           }
         }, 45000);
       } else {
+        stopAllCallTones();
+        isAlreadyConnectedRef.current = true;
         setCallStatus('connected');
         setCallDuration(0);
 
@@ -370,6 +418,7 @@ export default function AudioCallModal({
             onStatusChange: handleStatusChange
           })
           .then(() => {
+            stopAllCallTones();
             setCallStatus('connected');
             setIsConnectedPeer(true);
             if (remoteAudioRef.current) {
@@ -381,7 +430,6 @@ export default function AudioCallModal({
             if (webrtcCallService.hardwareError === 'permission_denied') {
               setMicPermissionError(true);
             }
-            playConnectChime();
           });
       }
     };
@@ -390,8 +438,8 @@ export default function AudioCallModal({
 
     return () => {
       isSubscribed = false;
+      stopAllCallTones();
       clearTimeout(callTimeoutTimer);
-      if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       remoteRendererRef.current.dispose();
@@ -401,6 +449,11 @@ export default function AudioCallModal({
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         try {
           audioContextRef.current.close();
+        } catch (e) {}
+      }
+      if (toneAudioContextRef.current && toneAudioContextRef.current.state !== 'closed') {
+        try {
+          toneAudioContextRef.current.close();
         } catch (e) {}
       }
     };
@@ -476,9 +529,9 @@ export default function AudioCallModal({
   };
 
   const handleEndCall = () => {
+    stopAllCallTones();
     setCallStatus('ended');
     playTone(400, 300, 0.2);
-    if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
     webrtcCallService.endCall();
     setTimeout(() => {
       onClose();

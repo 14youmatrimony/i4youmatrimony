@@ -9,6 +9,26 @@ export default function IncomingCallModal({
 }) {
   const audioContextRef = useRef(null);
   const ringIntervalRef = useRef(null);
+  const activeOscillatorsRef = useRef([]);
+
+  const stopAudio = () => {
+    if (ringIntervalRef.current) {
+      clearInterval(ringIntervalRef.current);
+      ringIntervalRef.current = null;
+    }
+    if (Array.isArray(activeOscillatorsRef.current)) {
+      activeOscillatorsRef.current.forEach((osc) => {
+        try {
+          osc.stop();
+          osc.disconnect();
+        } catch (e) {}
+      });
+      activeOscillatorsRef.current = [];
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed' && audioContextRef.current !== window.__agyAudioContext) {
+      try { audioContextRef.current.close(); } catch (e) {}
+    }
+  };
 
   // Play pleasant incoming ringtone using Web Audio API
   useEffect(() => {
@@ -40,6 +60,13 @@ export default function IncomingCallModal({
               const osc2 = ctx.createOscillator();
               const gain = ctx.createGain();
 
+              activeOscillatorsRef.current.push(osc1, osc2);
+              const cleanupOsc = (osc) => {
+                activeOscillatorsRef.current = activeOscillatorsRef.current.filter((o) => o !== osc);
+              };
+              osc1.onended = () => cleanupOsc(osc1);
+              osc2.onended = () => cleanupOsc(osc2);
+
               osc1.frequency.value = f1;
               osc2.frequency.value = f2;
 
@@ -69,6 +96,7 @@ export default function IncomingCallModal({
 
     // Auto decline if not answered within 45 seconds
     const autoDeclineTimer = setTimeout(() => {
+      stopAudio();
       if (onDecline && incomingCall) {
         onDecline(incomingCall, 'rejected');
       }
@@ -78,18 +106,15 @@ export default function IncomingCallModal({
     const callId = incomingCall.callId || incomingCall.id;
     const unsubStatus = webrtcCallService.listenToCallStatus(callId, (st) => {
       if (st === 'ended' || st === 'rejected') {
-        if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
+        stopAudio();
         if (onDecline) onDecline(incomingCall, st);
       }
     });
 
     return () => {
+      stopAudio();
       clearTimeout(autoDeclineTimer);
       if (unsubStatus) unsubStatus();
-      if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed' && audioContextRef.current !== window.__agyAudioContext) {
-        try { audioContextRef.current.close(); } catch (e) {}
-      }
     };
   }, [incomingCall]);
 
@@ -99,13 +124,6 @@ export default function IncomingCallModal({
   const isVideo = (callType || incomingCall.call_type) === 'video';
   const displayName = caller?.name || callerName || incomingCall.caller_name || 'Candidate';
   const displayPhoto = caller?.photo || caller?.photo_url || callerPhoto || incomingCall.caller_photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400';
-
-  const stopAudio = () => {
-    if (ringIntervalRef.current) clearInterval(ringIntervalRef.current);
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed' && audioContextRef.current !== window.__agyAudioContext) {
-      try { audioContextRef.current.close(); } catch (e) {}
-    }
-  };
 
   const handleAcceptClick = async () => {
     stopAudio();

@@ -40,7 +40,30 @@ export default function VideoCallModal({
   const remoteVideoRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const timerRef = useRef(null);
-  const audioContextRef = useRef(null);
+  const toneAudioContextRef = useRef(null);
+  const activeOscillatorsRef = useRef([]);
+  const isAlreadyConnectedRef = useRef(false);
+
+  // Strict helper to completely silence and stop all video call tones and chimes
+  const stopAllCallTones = () => {
+    if (Array.isArray(activeOscillatorsRef.current)) {
+      activeOscillatorsRef.current.forEach((osc) => {
+        try {
+          osc.stop();
+          osc.disconnect();
+        } catch (e) {}
+      });
+      activeOscillatorsRef.current = [];
+    }
+
+    if (toneAudioContextRef.current && toneAudioContextRef.current.state !== 'closed') {
+      try {
+        if (toneAudioContextRef.current.state === 'running') {
+          toneAudioContextRef.current.suspend().catch(() => {});
+        }
+      } catch (e) {}
+    }
+  };
 
   // Helper to safely play media with user-gesture unlock fallback
   const safePlayMedia = (mediaEl, label = 'media') => {
@@ -66,19 +89,25 @@ export default function VideoCallModal({
       });
   };
 
-  // Play pleasant chime on connect
+  // Play pleasant chime on connect (runs at most once per connected call)
   const playVideoChime = () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
-      const ctx = audioContextRef.current || new AudioCtx();
-      audioContextRef.current = ctx;
-      if (ctx.state === 'suspended') ctx.resume();
+      const ctx = toneAudioContextRef.current || new AudioCtx();
+      toneAudioContextRef.current = ctx;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
 
       const notes = [440, 554.37, 659.25, 880];
       notes.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
+
+        activeOscillatorsRef.current.push(osc);
+        osc.onended = () => {
+          activeOscillatorsRef.current = activeOscillatorsRef.current.filter((o) => o !== osc);
+        };
+
         osc.frequency.value = freq;
         const startTime = ctx.currentTime + idx * 0.09;
         gain.gain.setValueAtTime(0.05, startTime);
@@ -180,8 +209,12 @@ export default function VideoCallModal({
       remoteAudioRef.current.play().catch(() => {});
     }
 
-    setCallStatus('connected');
-    playVideoChime();
+    stopAllCallTones();
+    if (!isAlreadyConnectedRef.current) {
+      isAlreadyConnectedRef.current = true;
+      setCallStatus('connected');
+      playVideoChime();
+    }
   };
 
   // Lifecycle & WebRTC session
@@ -192,6 +225,9 @@ export default function VideoCallModal({
     let callTimeoutTimer = null;
 
     const setupCall = async () => {
+      // Reset connected guard
+      isAlreadyConnectedRef.current = false;
+
       // Reset any prior media element sources before starting or accepting
       remoteStreamRef.current = null;
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
@@ -231,13 +267,19 @@ export default function VideoCallModal({
       const handleStatusChange = (status) => {
         if (!isSubscribed) return;
         if (status === 'blocked') {
+          stopAllCallTones();
           setCallStatus('ended');
           setTimeout(() => onClose(), 1000);
         } else if (status === 'connected') {
-          setCallStatus('connected');
-          attachLocalStream();
-          playVideoChime();
+          stopAllCallTones();
+          if (!isAlreadyConnectedRef.current) {
+            isAlreadyConnectedRef.current = true;
+            setCallStatus('connected');
+            attachLocalStream();
+            playVideoChime();
+          }
         } else if (status === 'declined' || status === 'ended' || status === 'rejected') {
+          stopAllCallTones();
           setCallStatus('ended');
           setTimeout(() => onClose(), 1000);
         }
@@ -258,12 +300,13 @@ export default function VideoCallModal({
           .then((res) => {
             if (!isSubscribed) return;
             if (res && res.error === 'CALL_BLOCKED') {
+              stopAllCallTones();
               setCallStatus('ended');
               setTimeout(() => onClose(), 1000);
               return;
             }
             attachLocalStream();
-            setCallStatus((prev) => (prev === 'connected' || prev === 'ended' ? prev : 'ringing'));
+            setCallStatus((prev) => (prev === 'connected' || prev === 'ended' || isAlreadyConnectedRef.current ? prev : 'ringing'));
             if (webrtcCallService.hardwareError === 'permission_denied') {
               setCameraNotice('Camera permission required. Please allow access.');
             }
@@ -272,13 +315,16 @@ export default function VideoCallModal({
         callTimeoutTimer = setTimeout(() => {
           if (isSubscribed) {
             setCallStatus((prev) => {
-              if (prev === 'connected' || prev === 'ended') return prev;
+              if (prev === 'connected' || prev === 'ended' || isAlreadyConnectedRef.current) return prev;
+              stopAllCallTones();
               setTimeout(() => onClose(), 1200);
               return 'ended';
             });
           }
         }, 45000);
       } else {
+        stopAllCallTones();
+        isAlreadyConnectedRef.current = true;
         setCallStatus('connected');
         setCallDuration(0);
 
@@ -297,6 +343,7 @@ export default function VideoCallModal({
             onStatusChange: handleStatusChange
           })
           .then(() => {
+            stopAllCallTones();
             setCallStatus('connected');
             if (remoteAudioRef.current) {
               remoteAudioRef.current.play().catch(() => {});
@@ -305,7 +352,6 @@ export default function VideoCallModal({
               remoteVideoRef.current.play().catch(() => {});
             }
             attachLocalStream();
-            playVideoChime();
             if (webrtcCallService.hardwareError === 'permission_denied') {
               setCameraNotice('Camera permission required. Please allow access.');
             }
@@ -317,6 +363,7 @@ export default function VideoCallModal({
 
     return () => {
       isSubscribed = false;
+      stopAllCallTones();
       clearTimeout(callTimeoutTimer);
       if (timerRef.current) clearInterval(timerRef.current);
       localRendererRef.current.dispose();
@@ -326,9 +373,9 @@ export default function VideoCallModal({
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
       if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
       webrtcCallService.cleanup();
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      if (toneAudioContextRef.current && toneAudioContextRef.current.state !== 'closed') {
         try {
-          audioContextRef.current.close();
+          toneAudioContextRef.current.close();
         } catch (e) {}
       }
     };
@@ -378,6 +425,7 @@ export default function VideoCallModal({
   };
 
   const handleEndCall = () => {
+    stopAllCallTones();
     setCallStatus('ended');
     webrtcCallService.endCall();
     setTimeout(() => {
