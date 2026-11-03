@@ -781,10 +781,11 @@ class LiveChatService {
     let acceptedInterests = [];
 
     if (isSupabaseConfigured() && supabase) {
-      try {
-        const cleanIds = userIds.map((id) => String(id).replace(/["']/g, '')).filter(Boolean);
-        if (cleanIds.length > 0) {
-          // 1. Fetch all messages involving the current user as sender or receiver
+      const cleanIds = userIds.map((id) => String(id).replace(/["']/g, '')).filter(Boolean);
+
+      // 1. Fetch all messages involving the current user as sender or receiver
+      if (cleanIds.length > 0) {
+        try {
           const [sentRes, recvRes] = await Promise.all([
             supabase
               .from('messages')
@@ -798,7 +799,7 @@ class LiveChatService {
               .order('created_at', { ascending: false })
           ]);
 
-          const combined = [...(sentRes.data || []), ...(recvRes.data || [])];
+          const combined = [...(sentRes?.data || []), ...(recvRes?.data || [])];
           const seenMsgIds = new Set();
           combined.forEach((m) => {
             if (m && m.id && !seenMsgIds.has(m.id)) {
@@ -808,8 +809,12 @@ class LiveChatService {
               }
             }
           });
+        } catch (msgErr) {
+          console.warn('[LiveChat] Notice: Error querying messages table:', msgErr?.message || msgErr);
+        }
 
-          // 2. Fetch all accepted matches/interests from interests table
+        // 2. Fetch all accepted matches/interests from interests table
+        try {
           const [intSentRes, intRecvRes] = await Promise.all([
             supabase
               .from('interests')
@@ -823,7 +828,7 @@ class LiveChatService {
               .eq('status', 'accepted')
           ]);
 
-          const combinedInt = [...(intSentRes.data || []), ...(intRecvRes.data || [])];
+          const combinedInt = [...(intSentRes?.data || []), ...(intRecvRes?.data || [])];
           const seenIntIds = new Set();
           combinedInt.forEach((r) => {
             if (r && r.id && !seenIntIds.has(r.id)) {
@@ -833,9 +838,9 @@ class LiveChatService {
               }
             }
           });
+        } catch (intErr) {
+          console.warn('[LiveChat] Notice: Error querying interests table:', intErr?.message || intErr);
         }
-      } catch (e) {
-        console.warn('[LiveChat] Error querying Supabase messages and interests:', e);
       }
     }
 
