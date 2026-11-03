@@ -23,6 +23,7 @@ import { useInterestStatus, interestService } from '../../services/interestServi
 import { getActiveConversations } from '../../utils/conversationUtils';
 import { fcmNotificationService } from '../../services/fcmNotificationService';
 import { fetchLiveUserProfile } from '../../services/api';
+import { supabase, isSupabaseConfigured } from '../../services/supabase';
 
 const POPULAR_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '😊', '🌺', '🌟', '💫', '🕊️', '❤️', '🌹'];
 
@@ -54,6 +55,7 @@ export default function MobileChatScreen({
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(() => !Array.isArray(conversations) || conversations.length === 0);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
@@ -69,33 +71,74 @@ export default function MobileChatScreen({
     }
   }, [inConversation, isDirectChatOpen, setIsDirectChatOpen]);
 
-  // Real-time foreground FCM push notification & Live Chat message stream listener
+  // Dedicated live conversation fetcher: queries Supabase directly for active chats & accepted matches
+  const loadLiveConversations = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const freshConvs = await liveChatService.fetchConversationsForUser(currentUser, profiles);
+      if (Array.isArray(freshConvs)) {
+        setConversations(freshConvs);
+      }
+    } catch (err) {
+      console.warn('[MobileChatScreen] Error fetching live conversations:', err);
+    } finally {
+      setIsLoadingConversations(false);
+    }
+  }, [currentUser, profiles, setConversations]);
+
+  // Always fetch live conversations directly from Supabase on mount or when user changes
+  useEffect(() => {
+    loadLiveConversations();
+  }, [loadLiveConversations]);
+
+  // Real-time foreground FCM push notification, Live Chat service events & Supabase Realtime channel
   useEffect(() => {
     if (!currentUser?.id) return;
 
-    // 1. Subscribe to FCM foreground push notifications to automatically refresh the chat list in real-time
+    // 1. Subscribe to FCM foreground push notifications
     const unsubFCM = fcmNotificationService.subscribeToForegroundFCM(() => {
-      liveChatService.fetchConversationsForUser(currentUser, profiles).then((freshConvs) => {
-        if (Array.isArray(freshConvs)) {
-          setConversations(freshConvs);
-        }
-      }).catch(() => {});
+      loadLiveConversations();
     });
 
-    // 2. Subscribe to incoming live messages via Supabase Realtime / WebSockets
+    // 2. Subscribe to incoming live messages via LiveChatService
     const unsubMsg = liveChatService.onMessage(() => {
-      liveChatService.fetchConversationsForUser(currentUser, profiles).then((freshConvs) => {
-        if (Array.isArray(freshConvs)) {
-          setConversations(freshConvs);
-        }
-      }).catch(() => {});
+      loadLiveConversations();
     });
+
+    // 3. Supabase Realtime subscription on messages and interests table for immediate cross-device sync
+    let realtimeChannel = null;
+    if (isSupabaseConfigured() && supabase) {
+      const curId = String(currentUser.id);
+      const chName = `messages-list-realtime-${curId}-${Math.random().toString(36).slice(2, 7)}`;
+      realtimeChannel = supabase
+        .channel(chName)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'messages' },
+          () => {
+            loadLiveConversations();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'interests' },
+          (payload) => {
+            if (payload?.new?.status === 'accepted' || payload?.eventType === 'INSERT') {
+              loadLiveConversations();
+            }
+          }
+        )
+        .subscribe();
+    }
 
     return () => {
       unsubFCM();
       unsubMsg();
+      if (realtimeChannel) {
+        try { supabase.removeChannel(realtimeChannel); } catch (e) {}
+      }
     };
-  }, [currentUser, profiles, setConversations]);
+  }, [currentUser?.id, loadLiveConversations]);
 
   // Active, verified conversations with valid messages (Strictly aligned with badge count)
   const activeConversationsList = useMemo(() => {
@@ -1158,7 +1201,14 @@ export default function MobileChatScreen({
         />
       </div>
 
-      {filteredChatConversations.length === 0 ? (
+      {isLoadingConversations && (!conversations || conversations.length === 0) ? (
+        <div className={`py-16 px-6 text-center space-y-3.5 rounded-2xl border shadow-xs mt-2 ${
+          isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
+        }`}>
+          <div className="w-10 h-10 rounded-full border-2 border-[#D4AF37] border-t-transparent animate-spin mx-auto" />
+          <p className="text-xs text-slate-500 font-medium">Loading your conversations & matches...</p>
+        </div>
+      ) : filteredChatConversations.length === 0 ? (
         <div className={`py-16 px-6 text-center space-y-3.5 rounded-2xl border shadow-xs mt-2 ${
           isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
         }`}>
@@ -1240,7 +1290,7 @@ export default function MobileChatScreen({
                       )}
                     </div>
                     <span className="text-[10px] text-slate-400 shrink-0 ml-2">
-                      {lastMsg?.time || ''}
+                      {lastMsg?.time || (conv.updated_at ? new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')}
                     </span>
                   </div>
 
@@ -1253,7 +1303,7 @@ export default function MobileChatScreen({
                       {isLastMsgFromMe && (
                         <span className="text-slate-400 font-normal">You: </span>
                       )}
-                      {lastMsg?.text || 'No messages yet'}
+                      {lastMsg?.text || lastMsg?.content || (conv.isAccepted || conv.status === 'accepted' ? 'Matched! Start chatting 👋' : 'No messages yet')}
                     </p>
 
                     {conv?.unreadCount > 0 && (

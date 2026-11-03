@@ -31,8 +31,10 @@ export function isConversationActiveAndRenderable(c, currentUser, profiles = [],
   if (userIds.includes(pid)) return false;
   if (isSelfProfile({ id: pid }, currentUser)) return false;
 
-  // Strictly require at least one real message
-  if (!Array.isArray(c.messages) || c.messages.length === 0) return false;
+  // Require at least one real message OR an accepted match
+  const hasMessages = Array.isArray(c.messages) && c.messages.length > 0;
+  const isAccepted = c.isAccepted === true || c.status === 'accepted' || c.isMatch === true;
+  if (!hasMessages && !isAccepted) return false;
 
   // Exclude explicitly declined, rejected, or blocked threads
   if (Array.isArray(declinedReceivedIds) && declinedReceivedIds.some(dId => String(dId) === pid)) {
@@ -123,7 +125,8 @@ export function getActiveConversations(conversations = [], currentUser, profiles
     seenIds.add(partnerIdStr);
 
     const cleanMessages = deduplicateMessageList(c.messages || []);
-    if (cleanMessages.length === 0) continue;
+    const isAccepted = c.isAccepted === true || c.status === 'accepted' || c.isMatch === true;
+    if (cleanMessages.length === 0 && !isAccepted) continue;
 
     // Tally actual unread incoming messages sent by the partner
     const actualUnread = cleanMessages.filter(m => {
@@ -139,12 +142,12 @@ export function getActiveConversations(conversations = [], currentUser, profiles
     });
   }
 
-  // Sort conversations descending by latest message timestamp (newest active chats on top)
+  // Sort conversations descending by latest message timestamp or update time (newest active chats on top)
   activeList.sort((a, b) => {
     const lastA = a.messages?.[a.messages.length - 1];
     const lastB = b.messages?.[b.messages.length - 1];
-    const timeA = new Date(lastA?.created_at || lastA?.timestamp || 0).getTime();
-    const timeB = new Date(lastB?.created_at || lastB?.timestamp || 0).getTime();
+    const timeA = new Date(lastA?.created_at || lastA?.timestamp || a.updated_at || a.created_at || 0).getTime();
+    const timeB = new Date(lastB?.created_at || lastB?.timestamp || b.updated_at || b.created_at || 0).getTime();
     return timeB - timeA;
   });
 
