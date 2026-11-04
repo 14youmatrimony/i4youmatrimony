@@ -1372,6 +1372,89 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
       : updateData.familyPhotos;
   }
 
+  // 2.5. Permanent Core Identity Fields Lock Protection:
+  // If the existing profile already has full_name/name, age, gender, height, religion, or mother_tongue
+  // set in the database, those 6 fields are NEVER overwritten with modified values during profile updates.
+  let existingProfile = null;
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const isRegId = cleanId.toUpperCase().startsWith('I4Y');
+      const orTokens = [
+        `id.eq.${cleanId}`,
+        `register_id.ilike.${cleanId}`
+      ];
+      if (cleanId.replace(/\D/g, '').length >= 10) {
+        orTokens.push(`phone.eq.${cleanId}`);
+      }
+      const { data: existingRows } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(orTokens.join(','))
+        .limit(1);
+
+      if (existingRows && existingRows.length > 0) {
+        existingProfile = existingRows[0];
+      }
+    } catch (fetchErr) {
+      console.warn('[updateLiveUserProfile] Lock check warning (Supabase fetch):', fetchErr?.message);
+    }
+  }
+
+  // Fallback to local session storage if existing profile row was not yet found in Supabase
+  if (!existingProfile) {
+    try {
+      const savedAuth = localStorage.getItem('i4u_auth_user');
+      if (savedAuth) {
+        const parsed = JSON.parse(savedAuth);
+        if (parsed?.id === cleanId || parsed?.register_id === cleanId || parsed?.registerId === cleanId || parsed?.phone === cleanId) {
+          existingProfile = parsed;
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Strictly protect and retain original values for the 6 core identity fields
+  if (existingProfile) {
+    // 1. Full Name (name / full_name)
+    const existingName = existingProfile.name || existingProfile.full_name || existingProfile.fullName;
+    if (existingName && String(existingName).trim()) {
+      payload.name = existingName;
+      if (existingProfile.full_name) {
+        payload.full_name = existingProfile.full_name;
+      }
+    }
+
+    // 2. Age (age / dob)
+    const existingAge = existingProfile.age ?? existingProfile.dob;
+    if (existingAge != null && String(existingAge).trim() !== '' && Number(existingAge) > 0) {
+      payload.age = typeof existingProfile.age === 'number' ? existingProfile.age : (parseInt(existingProfile.age, 10) || existingAge);
+    }
+
+    // 3. Gender (gender)
+    const existingGender = existingProfile.gender;
+    if (existingGender && String(existingGender).trim()) {
+      payload.gender = existingGender;
+    }
+
+    // 4. Height (height)
+    const existingHeight = existingProfile.height;
+    if (existingHeight && String(existingHeight).trim()) {
+      payload.height = existingHeight;
+    }
+
+    // 5. Religion (religion)
+    const existingReligion = existingProfile.religion;
+    if (existingReligion && String(existingReligion).trim()) {
+      payload.religion = existingReligion;
+    }
+
+    // 6. Mother Tongue (mother_tongue / motherTongue)
+    const existingMotherTongue = existingProfile.mother_tongue || existingProfile.motherTongue;
+    if (existingMotherTongue && String(existingMotherTongue).trim()) {
+      payload.mother_tongue = existingMotherTongue;
+    }
+  }
+
   // 3. Execute Supabase update query
   if (isSupabaseConfigured()) {
     try {
@@ -1399,6 +1482,20 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
           const currentSaved = localStorage.getItem('i4u_auth_user');
           const parsed = currentSaved ? JSON.parse(currentSaved) : {};
           const fullData = { ...parsed, ...updateData, id: cleanId };
+          if (existingProfile) {
+            const lockedName = existingProfile.name || existingProfile.full_name || existingProfile.fullName;
+            if (lockedName && String(lockedName).trim()) fullData.name = lockedName;
+            const lockedAge = existingProfile.age ?? existingProfile.dob;
+            if (lockedAge != null && String(lockedAge).trim() !== '' && Number(lockedAge) > 0) fullData.age = lockedAge;
+            if (existingProfile.gender && String(existingProfile.gender).trim()) fullData.gender = existingProfile.gender;
+            if (existingProfile.height && String(existingProfile.height).trim()) fullData.height = existingProfile.height;
+            if (existingProfile.religion && String(existingProfile.religion).trim()) fullData.religion = existingProfile.religion;
+            const lockedMotherTongue = existingProfile.mother_tongue || existingProfile.motherTongue;
+            if (lockedMotherTongue && String(lockedMotherTongue).trim()) {
+              fullData.mother_tongue = lockedMotherTongue;
+              fullData.motherTongue = lockedMotherTongue;
+            }
+          }
           const syncRes = await syncProfileToSupabase(fullData);
           if (syncRes && syncRes.data && syncRes.data.length > 0) {
             updatedRow = syncRes.data[0];
@@ -1415,9 +1512,35 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
         const backendPayload = {
           userId: cleanId,
           id: cleanId,
-          ...payload,
-          ...updateData
+          ...updateData,
+          ...payload
         };
+        // Explicitly retain locked identity fields in backend sync
+        if (existingProfile) {
+          const lockedName = existingProfile.name || existingProfile.full_name || existingProfile.fullName;
+          if (lockedName && String(lockedName).trim()) {
+            backendPayload.name = lockedName;
+            backendPayload.fullName = lockedName;
+          }
+          const lockedAge = existingProfile.age ?? existingProfile.dob;
+          if (lockedAge != null && String(lockedAge).trim() !== '' && Number(lockedAge) > 0) {
+            backendPayload.age = lockedAge;
+          }
+          if (existingProfile.gender && String(existingProfile.gender).trim()) {
+            backendPayload.gender = existingProfile.gender;
+          }
+          if (existingProfile.height && String(existingProfile.height).trim()) {
+            backendPayload.height = existingProfile.height;
+          }
+          if (existingProfile.religion && String(existingProfile.religion).trim()) {
+            backendPayload.religion = existingProfile.religion;
+          }
+          const lockedMotherTongue = existingProfile.mother_tongue || existingProfile.motherTongue;
+          if (lockedMotherTongue && String(lockedMotherTongue).trim()) {
+            backendPayload.mother_tongue = lockedMotherTongue;
+            backendPayload.motherTongue = lockedMotherTongue;
+          }
+        }
         await safeFetchJson(`${API_BASE}/public/update-profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1433,6 +1556,31 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
         const currentSaved = localStorage.getItem('i4u_auth_user');
         const parsed = currentSaved ? JSON.parse(currentSaved) : {};
         mergedUser = { ...parsed, ...updateData, ...(mappedProfile || {}) };
+        if (existingProfile) {
+          const lockedName = existingProfile.name || existingProfile.full_name || existingProfile.fullName;
+          if (lockedName && String(lockedName).trim()) {
+            mergedUser.name = lockedName;
+            if (mergedUser.fullName) mergedUser.fullName = lockedName;
+          }
+          const lockedAge = existingProfile.age ?? existingProfile.dob;
+          if (lockedAge != null && String(lockedAge).trim() !== '' && Number(lockedAge) > 0) {
+            mergedUser.age = lockedAge;
+          }
+          if (existingProfile.gender && String(existingProfile.gender).trim()) {
+            mergedUser.gender = existingProfile.gender;
+          }
+          if (existingProfile.height && String(existingProfile.height).trim()) {
+            mergedUser.height = existingProfile.height;
+          }
+          if (existingProfile.religion && String(existingProfile.religion).trim()) {
+            mergedUser.religion = existingProfile.religion;
+          }
+          const lockedMotherTongue = existingProfile.mother_tongue || existingProfile.motherTongue;
+          if (lockedMotherTongue && String(lockedMotherTongue).trim()) {
+            mergedUser.motherTongue = lockedMotherTongue;
+            mergedUser.mother_tongue = lockedMotherTongue;
+          }
+        }
         if (photoUrl) mergedUser.photo = photoUrl;
         localStorage.setItem('i4u_auth_user', JSON.stringify(mergedUser));
         if (cleanId) {

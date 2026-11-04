@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, Check, AlertCircle, Loader2, Save, User, 
-  MapPin, Briefcase, Sparkles 
+  MapPin, Briefcase, Sparkles, Lock 
 } from 'lucide-react';
 import { fetchLiveUserProfile, updateLiveUserProfile } from '../services/api';
 
@@ -9,10 +9,11 @@ import { fetchLiveUserProfile, updateLiveUserProfile } from '../services/api';
  * EditProfileModal
  * Production-ready profile editing component with:
  * 1. Supabase direct state hydration on mount (useEffect)
- * 2. Proper e.preventDefault() form submission handling
- * 3. Robust async Supabase update execution
- * 4. Loading indicators, error banners, and success toasts
- * 5. Instant session persistence to localStorage
+ * 2. Permanent Lock on 6 Core Identity Fields (Full Name, Age, Gender, Height, Religion, Mother Tongue)
+ * 3. Proper e.preventDefault() form submission handling
+ * 4. Robust async Supabase update execution
+ * 5. Loading indicators, error banners, and success toasts
+ * 6. Instant session persistence to localStorage
  */
 export default function EditProfileModal({ 
   currentUser, 
@@ -37,13 +38,13 @@ export default function EditProfileModal({
       } catch (e) {}
     }
     return {
-      name: source?.name || '',
+      name: source?.name || source?.fullName || source?.full_name || '',
       phone: source?.phone || source?.mobile || '',
       email: source?.email || '',
-      age: source?.age ? String(source.age) : '',
-      gender: source?.gender || 'Female',
+      age: source?.age ? String(source.age) : (source?.dob ? String(source.dob) : ''),
+      gender: source?.gender || '',
       height: source?.height || '',
-      religion: source?.religion || 'Hindu',
+      religion: source?.religion || '',
       caste: source?.caste || '',
       motherTongue: source?.motherTongue || source?.mother_tongue || '',
       maritalStatus: source?.maritalStatus || source?.marital_status || 'Never Married',
@@ -63,6 +64,19 @@ export default function EditProfileModal({
   // Form State initialized immediately with whatever current user data exists
   const [formData, setFormData] = useState(() => getInitialFormData(currentUser));
 
+  // Keep a reference to the saved profile state (from props, storage, or fresh Supabase query)
+  // to know which core identity fields already have saved values.
+  const [savedRecord, setSavedRecord] = useState(() => {
+    let source = currentUser;
+    if (!source) {
+      try {
+        const saved = localStorage.getItem('i4u_auth_user');
+        if (saved) source = JSON.parse(saved);
+      } catch (e) {}
+    }
+    return source || {};
+  });
+
   // 1. STATE HYDRATION ON MOUNT (useEffect)
   // Hydrates immediately from props/storage, and synchronizes fresh data directly from Supabase
   useEffect(() => {
@@ -71,6 +85,9 @@ export default function EditProfileModal({
     let isMounted = true;
     const initial = getInitialFormData(currentUser);
     setFormData(initial);
+    if (currentUser) {
+      setSavedRecord(currentUser);
+    }
 
     // If we already have basic details, do not block the UI with full-screen loader
     const hasInitialData = Boolean(initial.name || initial.phone);
@@ -107,6 +124,7 @@ export default function EditProfileModal({
               ...prev,
               ...getInitialFormData(freshData)
             }));
+            setSavedRecord(freshData);
           }
         }
       } catch (fetchErr) {
@@ -126,9 +144,73 @@ export default function EditProfileModal({
     };
   }, [isOpen, currentUser]);
 
-  // Handle generic input changes
+  // Helper to determine if a specific core identity field is permanently locked
+  // Once a user has registered and saved these 6 core identity fields, they must be
+  // PERMANENTLY LOCKED and CANNOT be edited or changed again.
+  const isFieldSaved = (fieldKey) => {
+    const checkValue = (val) => {
+      if (val === undefined || val === null) return false;
+      const str = String(val).trim();
+      return str.length > 0;
+    };
+
+    if (fieldKey === 'name') {
+      return (
+        checkValue(savedRecord?.name) ||
+        checkValue(savedRecord?.fullName) ||
+        checkValue(savedRecord?.full_name) ||
+        checkValue(currentUser?.name) ||
+        checkValue(currentUser?.fullName) ||
+        checkValue(currentUser?.full_name)
+      );
+    }
+    if (fieldKey === 'age') {
+      const v = savedRecord?.age ?? currentUser?.age ?? savedRecord?.dob ?? currentUser?.dob;
+      if (v === undefined || v === null) return false;
+      const str = String(v).trim();
+      return str.length > 0 && !isNaN(Number(str)) && Number(str) >= 18;
+    }
+    if (fieldKey === 'gender') {
+      return checkValue(savedRecord?.gender) || checkValue(currentUser?.gender);
+    }
+    if (fieldKey === 'height') {
+      return checkValue(savedRecord?.height) || checkValue(currentUser?.height);
+    }
+    if (fieldKey === 'religion') {
+      return checkValue(savedRecord?.religion) || checkValue(currentUser?.religion);
+    }
+    if (fieldKey === 'motherTongue' || fieldKey === 'mother_tongue') {
+      return (
+        checkValue(savedRecord?.motherTongue) ||
+        checkValue(savedRecord?.mother_tongue) ||
+        checkValue(currentUser?.motherTongue) ||
+        checkValue(currentUser?.mother_tongue)
+      );
+    }
+    return false;
+  };
+
+  const isNameLocked = isFieldSaved('name');
+  const isAgeLocked = isFieldSaved('age');
+  const isGenderLocked = isFieldSaved('gender');
+  const isHeightLocked = isFieldSaved('height');
+  const isReligionLocked = isFieldSaved('religion');
+  const isMotherTongueLocked = isFieldSaved('motherTongue');
+
+  // Handle generic input changes, strictly blocking locked fields
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // Strict block if field is permanently locked
+    if (
+      (name === 'name' && isNameLocked) ||
+      (name === 'age' && isAgeLocked) ||
+      (name === 'gender' && isGenderLocked) ||
+      (name === 'height' && isHeightLocked) ||
+      (name === 'religion' && isReligionLocked) ||
+      ((name === 'motherTongue' || name === 'mother_tongue') && isMotherTongueLocked)
+    ) {
+      return;
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: value
@@ -182,18 +264,44 @@ export default function EditProfileModal({
       return;
     }
 
+    // Construct safe update payload: locked fields strictly retain original database values
+    const safePayload = { ...formData };
+    if (isNameLocked) {
+      safePayload.name = savedRecord?.name || savedRecord?.full_name || savedRecord?.fullName || currentUser?.name || formData.name;
+    }
+    if (isAgeLocked) {
+      safePayload.age = savedRecord?.age ?? currentUser?.age ?? formData.age;
+    }
+    if (isGenderLocked) {
+      safePayload.gender = savedRecord?.gender || currentUser?.gender || formData.gender;
+    }
+    if (isHeightLocked) {
+      safePayload.height = savedRecord?.height || currentUser?.height || formData.height;
+    }
+    if (isReligionLocked) {
+      safePayload.religion = savedRecord?.religion || currentUser?.religion || formData.religion;
+    }
+    if (isMotherTongueLocked) {
+      safePayload.motherTongue = savedRecord?.motherTongue || savedRecord?.mother_tongue || currentUser?.motherTongue || currentUser?.mother_tongue || formData.motherTongue;
+      safePayload.mother_tongue = safePayload.motherTongue;
+    }
+
     try {
       // 1. Call updateLiveUserProfile helper to sync Supabase & update localStorage
-      const result = await updateLiveUserProfile(identifier, formData);
+      const result = await updateLiveUserProfile(identifier, safePayload);
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to update profile in database.');
       }
 
+      // Update local savedRecord so any newly-filled empty field becomes permanently locked immediately
+      const updatedProfile = result.profile || safePayload;
+      setSavedRecord(updatedProfile);
+
       // 2. Show success toast and trigger parent callback
       setSuccessMsg('Profile updated and saved to Supabase successfully! ✨');
       if (onProfileUpdated) {
-        onProfileUpdated(result.profile || formData);
+        onProfileUpdated(updatedProfile);
       }
 
       setTimeout(() => {
@@ -301,22 +409,69 @@ export default function EditProfileModal({
             <>
               {/* TAB 1: Personal & Astro */}
               {activeTab === 'personal' && (
-                <div className="space-y-3">
+                <div className="space-y-3.5">
+                  {/* Security Notice on Core Identity Fields */}
+                  <div className="p-3 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-amber-900 text-xs flex items-start gap-2.5 shadow-xs">
+                    <div className="p-1 rounded-lg bg-amber-100 text-amber-700 shrink-0 mt-0.5">
+                      <Lock className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="font-bold block text-amber-950">Protected Core Identity Fields</span>
+                      <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
+                        For matrimonial authenticity and member security, your Full Name, Age, Gender, Height, Religion, and Mother Tongue are permanently locked once saved and cannot be edited.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 1. Full Name & 2. Age */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <span>Full Name *</span>
+                          {isNameLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
+                        </label>
+                        {isNameLocked && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                            <Lock className="w-2.5 h-2.5 text-slate-500" />
+                            Verified Permanent
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         name="name"
                         required
                         value={formData.name}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                        disabled={isNameLocked}
+                        readOnly={isNameLocked}
+                        className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
+                          isNameLocked
+                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
+                        }`}
                         placeholder="Candidate Name"
                       />
+                      {isNameLocked && (
+                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                          <span>🔒 Core identity field &bull; Cannot be changed</span>
+                        </p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Age *</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <span>Age *</span>
+                          {isAgeLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
+                        </label>
+                        {isAgeLocked && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                            <Lock className="w-2.5 h-2.5 text-slate-500" />
+                            Verified Permanent
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="number"
                         name="age"
@@ -325,63 +480,166 @@ export default function EditProfileModal({
                         max="80"
                         value={formData.age}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                        disabled={isAgeLocked}
+                        readOnly={isAgeLocked}
+                        className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
+                          isAgeLocked
+                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
+                        }`}
                         placeholder="e.g. 26"
                       />
+                      {isAgeLocked && (
+                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                          <span>🔒 Age is permanent and cannot be modified</span>
+                        </p>
+                      )}
                     </div>
                   </div>
 
+                  {/* 3. Gender & 4. Height */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Gender *</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <span>Gender *</span>
+                          {isGenderLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
+                        </label>
+                        {isGenderLocked && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                            <Lock className="w-2.5 h-2.5 text-slate-500" />
+                            Verified Permanent
+                          </span>
+                        )}
+                      </div>
                       <select
                         name="gender"
                         value={formData.gender}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                        disabled={isGenderLocked}
+                        readOnly={isGenderLocked}
+                        className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
+                          isGenderLocked
+                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
+                        }`}
                       >
+                        {!formData.gender && <option value="">Select Gender</option>}
                         <option value="Female">Female (Bride)</option>
                         <option value="Male">Male (Groom)</option>
                       </select>
+                      {isGenderLocked && (
+                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                          <span>🔒 Profile gender is permanent and cannot be modified</span>
+                        </p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Height</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <span>Height</span>
+                          {isHeightLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
+                        </label>
+                        {isHeightLocked && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                            <Lock className="w-2.5 h-2.5 text-slate-500" />
+                            Verified Permanent
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         name="height"
                         value={formData.height}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                        disabled={isHeightLocked}
+                        readOnly={isHeightLocked}
+                        className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
+                          isHeightLocked
+                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
+                        }`}
                         placeholder="e.g. 5'6'' (168 cm)"
                       />
+                      {isHeightLocked && (
+                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                          <span>🔒 Height is permanent once saved</span>
+                        </p>
+                      )}
                     </div>
                   </div>
 
+                  {/* 5. Religion & 6. Mother Tongue */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Religion</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <span>Religion</span>
+                          {isReligionLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
+                        </label>
+                        {isReligionLocked && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                            <Lock className="w-2.5 h-2.5 text-slate-500" />
+                            Verified Permanent
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         name="religion"
                         value={formData.religion}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                        disabled={isReligionLocked}
+                        readOnly={isReligionLocked}
+                        className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
+                          isReligionLocked
+                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
+                        }`}
                         placeholder="Hindu / Christian / Muslim"
                       />
+                      {isReligionLocked && (
+                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                          <span>🔒 Religion is permanent once saved</span>
+                        </p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Mother Tongue</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <span>Mother Tongue</span>
+                          {isMotherTongueLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
+                        </label>
+                        {isMotherTongueLocked && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                            <Lock className="w-2.5 h-2.5 text-slate-500" />
+                            Verified Permanent
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         name="motherTongue"
                         value={formData.motherTongue}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
-                        placeholder="Malayalam / Marathi"
+                        disabled={isMotherTongueLocked}
+                        readOnly={isMotherTongueLocked}
+                        className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
+                          isMotherTongueLocked
+                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
+                        }`}
+                        placeholder="Malayalam / Marathi / Hindi"
                       />
+                      {isMotherTongueLocked && (
+                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                          <span>🔒 Mother tongue is permanent once saved</span>
+                        </p>
+                      )}
                     </div>
                   </div>
 
+                  {/* Fully Editable Lifestyle Fields */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Diet</label>
