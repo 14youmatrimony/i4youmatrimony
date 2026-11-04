@@ -50,6 +50,7 @@ import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePrompt
 import { getAppMode, setAppMode } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
 import { isNriProfile, getProfileCountry, isSameAbroadCountry, normalizeCountry } from './data/locationData';
+import { isCountryMatch } from './data/worldCountries';
 
 import { 
   INITIAL_PROFILES, 
@@ -4211,8 +4212,7 @@ export default function App() {
           const isEur = europeKeywords.some(k => candidateCountry.toLowerCase().includes(k));
           if (!isEur) return false;
         } else {
-          const normFilter = normalizeCountry(selectedCountryFilter);
-          if (normCandCountry !== normFilter) return false;
+          if (!isCountryMatch(p, selectedCountryFilter)) return false;
         }
       }
 

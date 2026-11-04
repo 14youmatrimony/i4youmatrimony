@@ -22,6 +22,7 @@ import { STATES_AND_CITIES, getDistrictsForState, NRI_COUNTRIES, isNriProfile, g
 import { RELIGIONS, EDUCATION_CATEGORIES } from '../RegistrationWizard';
 import SearchableSelect from '../common/SearchableSelect';
 import DualRangeSlider from '../common/DualRangeSlider';
+import CountryNriFilterBar from '../common/CountryNriFilterBar';
 
 export const PROFESSION_OPTIONS = [
   'All Professions',
@@ -434,38 +435,12 @@ export default function MobileFilterBottomSheet({
               )}
             </div>
 
-            {/* Quick Filter Chips */}
-            <div className="flex flex-wrap gap-1.5">
-              {[
-                { id: 'All Profiles', label: 'All Profiles' },
-                { id: 'Working Abroad (NRI)', label: '✈️ Abroad (NRI)' },
-                ...(isNriProfile(currentUser) ? [{ id: 'Same Country as Me', label: `🌎 Same Country (${normalizeCountry(getProfileCountry(currentUser))})` }] : []),
-                { id: 'India', label: '🇮🇳 India' },
-                { id: 'USA', label: '🇺🇸 USA' },
-                { id: 'UAE', label: '🇦🇪 UAE' },
-                { id: 'UK', label: '🇬🇧 UK' },
-                { id: 'Canada', label: '🇨🇦 Canada' },
-                { id: 'Australia', label: '🇦🇺 Australia' },
-                { id: 'GCC / Middle East', label: 'GCC / Middle East' },
-                { id: 'Europe', label: 'Europe' }
-              ].map((chip) => {
-                const isActive = (selectedCountryFilter || 'All Profiles') === chip.id;
-                return (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    onClick={() => setSelectedCountryFilter && setSelectedCountryFilter(chip.id)}
-                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-[#0B192C] text-[#DFB76C] shadow-xs'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {chip.label}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Quick Filter Bar */}
+            <CountryNriFilterBar
+              selectedCountry={selectedCountryFilter || 'All Profiles'}
+              onSelectCountry={(chipId) => setSelectedCountryFilter && setSelectedCountryFilter(chipId)}
+              currentUser={currentUser}
+            />
 
             {/* If India or All Profiles, display State & District selector */}
             {(!selectedCountryFilter || selectedCountryFilter === 'All Profiles' || selectedCountryFilter === 'India') && (

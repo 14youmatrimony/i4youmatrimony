@@ -32,6 +32,7 @@ import {
   Plane
 } from 'lucide-react';
 import SearchableSelect from './common/SearchableSelect';
+import WorldCountrySearchSelect from './common/WorldCountrySearchSelect';
 import DualRangeSlider from './common/DualRangeSlider';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '../utils/security';
 import { optimizeImageFile } from '../utils/imageOptimizer';
@@ -2096,13 +2097,12 @@ export default function RegistrationWizard({
                   {formData.is_nri && (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-amber-200/70 animate-in fade-in duration-200">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                          Country Abroad *
-                        </label>
-                        <select
-                          value={formData.work_country || 'USA'}
-                          onChange={(e) => {
-                            const val = e.target.value;
+                        <WorldCountrySearchSelect
+                          label="Country Abroad"
+                          required
+                          excludeIndia
+                          value={formData.work_country || 'United States'}
+                          onChange={(val) => {
                             setFormData(prev => ({ 
                               ...prev, 
                               work_country: val, 
@@ -2110,12 +2110,9 @@ export default function RegistrationWizard({
                               jobLocation: `${prev.work_city ? prev.work_city + ', ' : ''}${val}` 
                             }));
                           }}
-                          className="w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800 focus:ring-2 focus:ring-[#D4AF37] focus:outline-none"
-                        >
-                          {NRI_COUNTRIES.filter(c => c !== 'India').map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
+                          placeholder="🔍 Search any country..."
+                          buttonClassName="h-10"
+                        />
                       </div>
 
                       <div>
@@ -2993,13 +2990,12 @@ export default function RegistrationWizard({
                 </div>
 
                 <div>
-                  <SearchableSelect 
+                  <WorldCountrySearchSelect 
                     label="Preferred Country / NRI Preference"
                     value={formData.preferred_countries || 'Any'}
                     onChange={(val) => setFormData(prev => ({ ...prev, preferred_countries: val, preferredCountries: val }))}
-                    options={PREFERRED_COUNTRY_OPTIONS}
-                    placeholder="Select Preferred Country"
-                    searchPlaceholder="Search Country (India, USA, UAE...)..."
+                    allowAny
+                    placeholder="🔍 Search any country (e.g. United States, UAE)..."
                     buttonClassName="h-10 font-bold"
                   />
                 </div>

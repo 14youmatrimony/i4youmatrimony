@@ -38,6 +38,7 @@ import {
   NRI_COUNTRIES 
 } from '../../data/locationData';
 import { useTheme } from '../../context/ThemeContext';
+import CountryNriFilterBar from '../common/CountryNriFilterBar';
 import { 
   getTargetCandidateGender, 
   isCandidateMatchingTarget, 
@@ -527,37 +528,13 @@ export default function MobileMatchFeed({
           </div>
         )}
 
-        {/* Discover Country / NRI Filter Chips Bar */}
+        {/* Discover Country / NRI Filter Bar */}
         <div className="px-1 py-1">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {[
-              { id: 'All Profiles', label: 'All Profiles' },
-              { id: 'Working Abroad (NRI)', label: '✈️ Abroad (NRI)' },
-              ...(isNriProfile(currentUser) ? [{ id: 'Same Country as Me', label: `🌎 Same Country (${normalizeCountry(getProfileCountry(currentUser))})` }] : []),
-              { id: 'India', label: '🇮🇳 India' },
-              { id: 'USA', label: '🇺🇸 USA' },
-              { id: 'UAE', label: '🇦🇪 UAE' },
-              { id: 'UK', label: '🇬🇧 UK' },
-              { id: 'Canada', label: '🇨🇦 Canada' },
-              { id: 'Australia', label: '🇦🇺 Australia' }
-            ].map((chip) => {
-              const isActive = (selectedCountryFilter || 'All Profiles') === chip.id;
-              return (
-                <button
-                  key={chip.id}
-                  type="button"
-                  onClick={() => setSelectedCountryFilter && setSelectedCountryFilter(chip.id)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-[#0B192C] text-[#DFB76C] shadow-xs'
-                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs'
-                  }`}
-                >
-                  {chip.label}
-                </button>
-              );
-            })}
-          </div>
+          <CountryNriFilterBar
+            selectedCountry={selectedCountryFilter || 'All Profiles'}
+            onSelectCountry={(countryId) => setSelectedCountryFilter && setSelectedCountryFilter(countryId)}
+            currentUser={currentUser}
+          />
         </div>
 
         {/* Quick Feed Layout Switcher Bar */}

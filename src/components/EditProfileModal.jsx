@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { fetchLiveUserProfile, updateLiveUserProfile } from '../services/api';
 import { NRI_COUNTRIES, RESIDENCY_STATUS_OPTIONS, PREFERRED_COUNTRY_OPTIONS } from '../data/locationData';
+import WorldCountrySearchSelect from './common/WorldCountrySearchSelect';
 
 /**
  * EditProfileModal
@@ -803,23 +804,16 @@ export default function EditProfileModal({
                       <div className="space-y-3 pt-2.5 border-t border-amber-200/70 animate-in fade-in duration-200">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
-                              <span>Current Country Abroad *</span>
-                              <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded font-semibold">NRI</span>
-                            </label>
-                            <select
-                              name="work_country"
-                              value={formData.work_country || 'USA'}
-                              onChange={(e) => {
-                                const val = e.target.value;
+                            <WorldCountrySearchSelect
+                              label="Current Country Abroad"
+                              required
+                              excludeIndia
+                              value={formData.work_country || 'United States'}
+                              onChange={(val) => {
                                 setFormData(prev => ({ ...prev, work_country: val, country: val }));
                               }}
-                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800 font-bold"
-                            >
-                              {NRI_COUNTRIES.filter(c => c !== 'India').map((c) => (
-                                <option key={c} value={c}>{c}</option>
-                              ))}
-                            </select>
+                              placeholder="🔍 Search any country..."
+                            />
                           </div>
 
                           <div>
@@ -974,23 +968,23 @@ export default function EditProfileModal({
               {activeTab === 'preferences' && (
                 <div className="space-y-3.5">
                   <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-[#D4AF37]/40 space-y-2">
-                    <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-[#8C6D1F]" />
-                      <span>Preferred Country / Location *</span>
-                    </label>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      Select which countries you are open to for your partner (e.g. India Only, specific NRI countries like USA, UAE, Canada, or Any).
-                    </p>
-                    <select
-                      name="preferred_countries"
+                    <WorldCountrySearchSelect
+                      label="Preferred Country / Location"
+                      required
+                      allowAny
                       value={formData.preferred_countries || 'Any'}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800 font-bold"
-                    >
-                      {PREFERRED_COUNTRY_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          preferred_countries: val, 
+                          preferredCountries: val 
+                        }));
+                      }}
+                      placeholder="🔍 Search any country (e.g. United States, UAE)..."
+                    />
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Select which countries you are open to for your partner (e.g. Any Country, India Only, specific countries like United States, United Arab Emirates, Canada, Australia).
+                    </p>
                   </div>
 
                   <div>

@@ -26,6 +26,8 @@ import {
 import { RELIGIONS } from '../RegistrationWizard';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import SearchableSelect from '../common/SearchableSelect';
+import CountryNriFilterBar from '../common/CountryNriFilterBar';
+import { isCountryMatch } from '../../data/worldCountries';
 import { sanitizeSearchTerm } from '../../utils/security';
 import { getTargetCandidateGender, isCandidateMatchingTarget } from '../../utils/genderMatch';
 import { isDemoProfile, resolveProfilePhoto } from '../../services/api';
@@ -117,8 +119,7 @@ export default function MobileSearchScreen({
             const isEur = europeKeywords.some(k => candidateCountry.toLowerCase().includes(k));
             if (!isEur) return false;
           } else {
-            const normFilter = normalizeCountry(selectedCountry);
-            if (normCandCountry !== normFilter) return false;
+            if (!isCountryMatch(p, selectedCountry)) return false;
           }
         }
 
@@ -239,7 +240,7 @@ export default function MobileSearchScreen({
         </div>
 
 
-        {/* Country / NRI Quick Filter Chips */}
+        {/* Country / NRI Filter */}
         <div className="space-y-1.5 pt-1.5 border-t border-slate-100">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
             <span className="flex items-center gap-1">
@@ -252,38 +253,11 @@ export default function MobileSearchScreen({
               </span>
             )}
           </div>
-          
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {[
-              { id: 'All Profiles', label: 'All Profiles' },
-              { id: 'Working Abroad (NRI)', label: '✈️ Abroad (NRI)' },
-              ...(isNriProfile(currentUser) ? [{ id: 'Same Country as Me', label: `🌎 Same Country (${normalizeCountry(getProfileCountry(currentUser))})` }] : []),
-              { id: 'India', label: '🇮🇳 India' },
-              { id: 'USA', label: '🇺🇸 USA' },
-              { id: 'UAE', label: '🇦🇪 UAE' },
-              { id: 'UK', label: '🇬🇧 UK' },
-              { id: 'Canada', label: '🇨🇦 Canada' },
-              { id: 'Australia', label: '🇦🇺 Australia' },
-              { id: 'GCC / Middle East', label: 'GCC' },
-              { id: 'Europe', label: 'Europe' }
-            ].map(c => {
-              const isActive = selectedCountry === c.id;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setSelectedCountry(c.id)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-[#0B192C] text-[#DFB76C] shadow-2xs font-extrabold'
-                      : 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200/70'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
+          <CountryNriFilterBar
+            selectedCountry={selectedCountry}
+            onSelectCountry={(cId) => setSelectedCountry(cId)}
+            currentUser={currentUser}
+          />
         </div>
 
       </div>

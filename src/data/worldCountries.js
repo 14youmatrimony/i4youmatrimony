@@ -1,0 +1,324 @@
+// Complete standardized dataset of all world countries with flags and aliases
+// Covers 195 sovereign nations + key global hubs for NRI matrimonial filtering
+
+import { normalizeCountry, getProfileCountry, isNriProfile } from './locationData.js';
+
+export const WORLD_COUNTRIES = [
+  { name: 'Afghanistan', code: 'AF', flag: '🇦🇫', aliases: ['Kabul'] },
+  { name: 'Albania', code: 'AL', flag: '🇦🇱', aliases: ['Tirana'] },
+  { name: 'Algeria', code: 'DZ', flag: '🇩🇿', aliases: ['Algiers'] },
+  { name: 'Andorra', code: 'AD', flag: '🇦🇩', aliases: [] },
+  { name: 'Angola', code: 'AO', flag: '🇦🇴', aliases: ['Luanda'] },
+  { name: 'Antigua and Barbuda', code: 'AG', flag: '🇦🇬', aliases: [] },
+  { name: 'Argentina', code: 'AR', flag: '🇦🇷', aliases: ['Buenos Aires'] },
+  { name: 'Armenia', code: 'AM', flag: '🇦🇲', aliases: ['Yerevan'] },
+  { name: 'Australia', code: 'AU', flag: '🇦🇺', aliases: ['AU', 'Aussie', 'Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide'], popular: true },
+  { name: 'Austria', code: 'AT', flag: '🇦🇹', aliases: ['Vienna'] },
+  { name: 'Azerbaijan', code: 'AZ', flag: '🇦🇿', aliases: ['Baku'] },
+  { name: 'Bahamas', code: 'BS', flag: '🇧🇸', aliases: ['Nassau'] },
+  { name: 'Bahrain', code: 'BH', flag: '🇧🇭', aliases: ['BH', 'Manama'], popular: true },
+  { name: 'Bangladesh', code: 'BD', flag: '🇧🇩', aliases: ['BD', 'Dhaka'] },
+  { name: 'Barbados', code: 'BB', flag: '🇧🇧', aliases: ['Bridgetown'] },
+  { name: 'Belarus', code: 'BY', flag: '🇧🇾', aliases: ['Minsk'] },
+  { name: 'Belgium', code: 'BE', flag: '🇧🇪', aliases: ['Brussels'] },
+  { name: 'Belize', code: 'BZ', flag: '🇧🇿', aliases: [] },
+  { name: 'Benin', code: 'BJ', flag: '🇧🇯', aliases: [] },
+  { name: 'Bhutan', code: 'BT', flag: '🇧🇹', aliases: ['Thimphu'] },
+  { name: 'Bolivia', code: 'BO', flag: '🇧🇴', aliases: ['La Paz'] },
+  { name: 'Bosnia and Herzegovina', code: 'BA', flag: '🇧🇦', aliases: ['Sarajevo'] },
+  { name: 'Botswana', code: 'BW', flag: '🇧🇼', aliases: [] },
+  { name: 'Brazil', code: 'BR', flag: '🇧🇷', aliases: ['Brasil', 'Sao Paulo', 'Rio'] },
+  { name: 'Brunei', code: 'BN', flag: '🇧🇳', aliases: [] },
+  { name: 'Bulgaria', code: 'BG', flag: '🇧🇬', aliases: ['Sofia'] },
+  { name: 'Burkina Faso', code: 'BF', flag: '🇧🇫', aliases: [] },
+  { name: 'Burundi', code: 'BI', flag: '🇧🇮', aliases: [] },
+  { name: 'Cabo Verde', code: 'CV', flag: '🇨🇻', aliases: ['Cape Verde'] },
+  { name: 'Cambodia', code: 'KH', flag: '🇰🇭', aliases: ['Phnom Penh'] },
+  { name: 'Cameroon', code: 'CM', flag: '🇨🇲', aliases: [] },
+  { name: 'Canada', code: 'CA', flag: '🇨🇦', aliases: ['CA', 'Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa', 'Edmonton'], popular: true },
+  { name: 'Central African Republic', code: 'CF', flag: '🇨🇫', aliases: [] },
+  { name: 'Chad', code: 'TD', flag: '🇹🇩', aliases: [] },
+  { name: 'Chile', code: 'CL', flag: '🇨🇱', aliases: ['Santiago'] },
+  { name: 'China', code: 'CN', flag: '🇨🇳', aliases: ['CN', 'Beijing', 'Shanghai', 'Shenzhen'] },
+  { name: 'Colombia', code: 'CO', flag: '🇨🇴', aliases: ['Bogota'] },
+  { name: 'Comoros', code: 'KM', flag: '🇰🇲', aliases: [] },
+  { name: 'Congo (Republic of the)', code: 'CG', flag: '🇨🇬', aliases: ['Brazzaville'] },
+  { name: 'Costa Rica', code: 'CR', flag: '🇨🇷', aliases: ['San Jose'] },
+  { name: 'Croatia', code: 'HR', flag: '🇭🇷', aliases: ['Zagreb'] },
+  { name: 'Cuba', code: 'CU', flag: '🇨🇺', aliases: ['Havana'] },
+  { name: 'Cyprus', code: 'CY', flag: '🇨🇾', aliases: ['Nicosia'] },
+  { name: 'Czech Republic', code: 'CZ', flag: '🇨🇿', aliases: ['Czechia', 'Prague'] },
+  { name: 'Democratic Republic of the Congo', code: 'CD', flag: '🇨🇩', aliases: ['DRC', 'Kinshasa'] },
+  { name: 'Denmark', code: 'DK', flag: '🇩🇰', aliases: ['Copenhagen'] },
+  { name: 'Djibouti', code: 'DJ', flag: '🇩🇯', aliases: [] },
+  { name: 'Dominica', code: 'DM', flag: '🇩🇲', aliases: [] },
+  { name: 'Dominican Republic', code: 'DO', flag: '🇩🇴', aliases: ['Santo Domingo'] },
+  { name: 'Ecuador', code: 'EC', flag: '🇪🇨', aliases: ['Quito'] },
+  { name: 'Egypt', code: 'EG', flag: '🇪🇬', aliases: ['Cairo', 'Alexandria'] },
+  { name: 'El Salvador', code: 'SV', flag: '🇸🇻', aliases: ['San Salvador'] },
+  { name: 'Equatorial Guinea', code: 'GQ', flag: '🇬🇶', aliases: [] },
+  { name: 'Eritrea', code: 'ER', flag: '🇪🇷', aliases: ['Asmara'] },
+  { name: 'Estonia', code: 'EE', flag: '🇪🇪', aliases: ['Tallinn'] },
+  { name: 'Eswatini', code: 'SZ', flag: '🇸🇿', aliases: ['Swaziland'] },
+  { name: 'Ethiopia', code: 'ET', flag: '🇪🇹', aliases: ['Addis Ababa'] },
+  { name: 'Fiji', code: 'FJ', flag: '🇫🇯', aliases: ['Suva'] },
+  { name: 'Finland', code: 'FI', flag: '🇫🇮', aliases: ['Helsinki'] },
+  { name: 'France', code: 'FR', flag: '🇫🇷', aliases: ['FR', 'Paris', 'Lyon', 'Marseille'], popular: true },
+  { name: 'Gabon', code: 'GA', flag: '🇬🇦', aliases: ['Libreville'] },
+  { name: 'Gambia', code: 'GM', flag: '🇬🇲', aliases: ['Banjul'] },
+  { name: 'Georgia', code: 'GE', flag: '🇬🇪', aliases: ['Tbilisi'] },
+  { name: 'Germany', code: 'DE', flag: '🇩🇪', aliases: ['DE', 'Deutschland', 'Berlin', 'Munich', 'Frankfurt', 'Hamburg', 'Stuttgart'], popular: true },
+  { name: 'Ghana', code: 'GH', flag: '🇬🇭', aliases: ['Accra'] },
+  { name: 'Greece', code: 'GR', flag: '🇬🇷', aliases: ['Athens'] },
+  { name: 'Grenada', code: 'GD', flag: '🇬🇩', aliases: [] },
+  { name: 'Guatemala', code: 'GT', flag: '🇬🇹', aliases: [] },
+  { name: 'Guinea', code: 'GN', flag: '🇬🇳', aliases: ['Conakry'] },
+  { name: 'Guinea-Bissau', code: 'GW', flag: '🇬🇼', aliases: [] },
+  { name: 'Guyana', code: 'GY', flag: '🇬🇾', aliases: ['Georgetown'] },
+  { name: 'Haiti', code: 'HT', flag: '🇭🇹', aliases: ['Port-au-Prince'] },
+  { name: 'Honduras', code: 'HN', flag: '🇭🇳', aliases: ['Tegucigalpa'] },
+  { name: 'Hong Kong', code: 'HK', flag: '🇭🇰', aliases: ['HK'], popular: true },
+  { name: 'Hungary', code: 'HU', flag: '🇭🇺', aliases: ['Budapest'] },
+  { name: 'Iceland', code: 'IS', flag: '🇮🇸', aliases: ['Reykjavik'] },
+  { name: 'India', code: 'IN', flag: '🇮🇳', aliases: ['IN', 'Bharat', 'Hindustan'] },
+  { name: 'Indonesia', code: 'ID', flag: '🇮🇩', aliases: ['Jakarta', 'Bali'] },
+  { name: 'Iran', code: 'IR', flag: '🇮🇷', aliases: ['Tehran'] },
+  { name: 'Iraq', code: 'IQ', flag: '🇮🇶', aliases: ['Baghdad'] },
+  { name: 'Ireland', code: 'IE', flag: '🇮🇪', aliases: ['IE', 'Dublin', 'Cork', 'Galway', 'Limerick'], popular: true },
+  { name: 'Israel', code: 'IL', flag: '🇮🇱', aliases: ['Tel Aviv', 'Jerusalem'] },
+  { name: 'Italy', code: 'IT', flag: '🇮🇹', aliases: ['IT', 'Rome', 'Milan', 'Florence', 'Venice', 'Turin'], popular: true },
+  { name: 'Ivory Coast', code: 'CI', flag: '🇨🇮', aliases: ["Cote d'Ivoire", 'Abidjan'] },
+  { name: 'Jamaica', code: 'JM', flag: '🇯🇲', aliases: ['Kingston'] },
+  { name: 'Japan', code: 'JP', flag: '🇯🇵', aliases: ['JP', 'Tokyo', 'Osaka', 'Kyoto', 'Yokohama'], popular: true },
+  { name: 'Jordan', code: 'JO', flag: '🇯🇴', aliases: ['Amman'] },
+  { name: 'Kazakhstan', code: 'KZ', flag: '🇰🇿', aliases: ['Astana', 'Almaty'] },
+  { name: 'Kenya', code: 'KE', flag: '🇰🇪', aliases: ['Nairobi', 'Mombasa'] },
+  { name: 'Kiribati', code: 'KI', flag: '🇰🇮', aliases: [] },
+  { name: 'Kuwait', code: 'KW', flag: '🇰🇼', aliases: ['KW', 'Kuwait City', 'Salmiya', 'Hawalli'], popular: true },
+  { name: 'Kyrgyzstan', code: 'KG', flag: '🇰🇬', aliases: ['Bishkek'] },
+  { name: 'Laos', code: 'LA', flag: '🇱🇦', aliases: ['Vientiane'] },
+  { name: 'Latvia', code: 'LV', flag: '🇱🇻', aliases: ['Riga'] },
+  { name: 'Lebanon', code: 'LB', flag: '🇱🇧', aliases: ['Beirut'] },
+  { name: 'Lesotho', code: 'LS', flag: '🇱🇸', aliases: ['Maseru'] },
+  { name: 'Liberia', code: 'LR', flag: '🇱🇷', aliases: ['Monrovia'] },
+  { name: 'Libya', code: 'LY', flag: '🇱🇾', aliases: ['Tripoli'] },
+  { name: 'Liechtenstein', code: 'LI', flag: '🇱🇮', aliases: ['Vaduz'] },
+  { name: 'Lithuania', code: 'LT', flag: '🇱🇹', aliases: ['Vilnius'] },
+  { name: 'Luxembourg', code: 'LU', flag: '🇱🇺', aliases: [] },
+  { name: 'Madagascar', code: 'MG', flag: '🇲🇬', aliases: ['Antananarivo'] },
+  { name: 'Malawi', code: 'MW', flag: '🇲🇼', aliases: ['Lilongwe'] },
+  { name: 'Malaysia', code: 'MY', flag: '🇲🇾', aliases: ['MY', 'Kuala Lumpur', 'Penang', 'Johor'], popular: true },
+  { name: 'Maldives', code: 'MV', flag: '🇲🇻', aliases: ['Male'] },
+  { name: 'Mali', code: 'ML', flag: '🇲🇱', aliases: ['Bamako'] },
+  { name: 'Malta', code: 'MT', flag: '🇲🇹', aliases: ['Valletta'] },
+  { name: 'Marshall Islands', code: 'MH', flag: '🇲🇭', aliases: ['Majuro'] },
+  { name: 'Mauritania', code: 'MR', flag: '🇲🇷', aliases: ['Nouakchott'] },
+  { name: 'Mauritius', code: 'MU', flag: '🇲🇺', aliases: ['Port Louis'], popular: true },
+  { name: 'Mexico', code: 'MX', flag: '🇲🇽', aliases: ['Mexico City', 'Guadalajara'] },
+  { name: 'Micronesia', code: 'FM', flag: '🇫🇲', aliases: ['Palikir'] },
+  { name: 'Moldova', code: 'MD', flag: '🇲🇩', aliases: ['Chisinau'] },
+  { name: 'Monaco', code: 'MC', flag: '🇲🇨', aliases: ['Monte Carlo'] },
+  { name: 'Mongolia', code: 'MN', flag: '🇲🇳', aliases: ['Ulaanbaatar'] },
+  { name: 'Montenegro', code: 'ME', flag: '🇲🇪', aliases: ['Podgorica'] },
+  { name: 'Morocco', code: 'MA', flag: '🇲🇦', aliases: ['Rabat', 'Casablanca', 'Marrakech'] },
+  { name: 'Mozambique', code: 'MZ', flag: '🇲🇿', aliases: ['Maputo'] },
+  { name: 'Myanmar', code: 'MM', flag: '🇲🇲', aliases: ['Burma', 'Yangon'] },
+  { name: 'Namibia', code: 'NA', flag: '🇳🇦', aliases: ['Windhoek'] },
+  { name: 'Nauru', code: 'NR', flag: '🇳🇷', aliases: ['Yaren'] },
+  { name: 'Nepal', code: 'NP', flag: '🇳🇵', aliases: ['Kathmandu', 'Pokhara'] },
+  { name: 'Netherlands', code: 'NL', flag: '🇳🇱', aliases: ['NL', 'Holland', 'Amsterdam', 'Rotterdam', 'The Hague', 'Utrecht', 'Eindhoven'], popular: true },
+  { name: 'New Zealand', code: 'NZ', flag: '🇳🇿', aliases: ['NZ', 'Auckland', 'Wellington', 'Christchurch', 'Hamilton'], popular: true },
+  { name: 'Nicaragua', code: 'NI', flag: '🇳🇮', aliases: ['Managua'] },
+  { name: 'Niger', code: 'NE', flag: '🇳🇪', aliases: ['Niamey'] },
+  { name: 'Nigeria', code: 'NG', flag: '🇳🇬', aliases: ['Lagos', 'Abuja'] },
+  { name: 'North Korea', code: 'KP', flag: '🇰🇵', aliases: ['Pyongyang'] },
+  { name: 'North Macedonia', code: 'MK', flag: '🇲🇰', aliases: ['Skopje', 'Macedonia'] },
+  { name: 'Norway', code: 'NO', flag: '🇳🇴', aliases: ['Oslo', 'Bergen', 'Stavanger'] },
+  { name: 'Oman', code: 'OM', flag: '🇴🇲', aliases: ['OM', 'Muscat', 'Salalah', 'Sohar'], popular: true },
+  { name: 'Pakistan', code: 'PK', flag: '🇵🇰', aliases: ['PK', 'Islamabad', 'Karachi', 'Lahore'] },
+  { name: 'Palau', code: 'PW', flag: '🇵🇼', aliases: [] },
+  { name: 'Palestine', code: 'PS', flag: '🇵🇸', aliases: ['Ramallah', 'Gaza', 'West Bank'] },
+  { name: 'Panama', code: 'PA', flag: '🇵🇦', aliases: ['Panama City'] },
+  { name: 'Papua New Guinea', code: 'PG', flag: '🇵🇬', aliases: ['Port Moresby'] },
+  { name: 'Paraguay', code: 'PY', flag: '🇵🇾', aliases: ['Asuncion'] },
+  { name: 'Peru', code: 'PE', flag: '🇵🇪', aliases: ['Lima'] },
+  { name: 'Philippines', code: 'PH', flag: '🇵🇭', aliases: ['Manila', 'Cebu'] },
+  { name: 'Poland', code: 'PL', flag: '🇵🇱', aliases: ['Warsaw', 'Krakow', 'Wroclaw'] },
+  { name: 'Portugal', code: 'PT', flag: '🇵🇹', aliases: ['Lisbon', 'Porto'] },
+  { name: 'Qatar', code: 'QA', flag: '🇶🇦', aliases: ['QA', 'Doha', 'Al Rayyan', 'Al Wakrah'], popular: true },
+  { name: 'Romania', code: 'RO', flag: '🇷🇴', aliases: ['Bucharest', 'Cluj'] },
+  { name: 'Russia', code: 'RU', flag: '🇷🇺', aliases: ['Moscow', 'Saint Petersburg'] },
+  { name: 'Rwanda', code: 'RW', flag: '🇷🇼', aliases: ['Kigali'] },
+  { name: 'Saint Kitts and Nevis', code: 'KN', flag: '🇰🇳', aliases: [] },
+  { name: 'Saint Lucia', code: 'LC', flag: '🇱🇨', aliases: [] },
+  { name: 'Saint Vincent and the Grenadines', code: 'VC', flag: '🇻🇨', aliases: [] },
+  { name: 'Samoa', code: 'WS', flag: '🇼🇸', aliases: ['Apia'] },
+  { name: 'San Marino', code: 'SM', flag: '🇸🇲', aliases: [] },
+  { name: 'Sao Tome and Principe', code: 'ST', flag: '🇸🇹', aliases: [] },
+  { name: 'Saudi Arabia', code: 'SA', flag: '🇸🇦', aliases: ['SA', 'KSA', 'Riyadh', 'Jeddah', 'Dammam', 'Khobar', 'Mecca', 'Medina'], popular: true },
+  { name: 'Senegal', code: 'SN', flag: '🇸🇳', aliases: ['Dakar'] },
+  { name: 'Serbia', code: 'RS', flag: '🇷🇸', aliases: ['Belgrade'] },
+  { name: 'Seychelles', code: 'SC', flag: '🇸🇨', aliases: ['Victoria'] },
+  { name: 'Sierra Leone', code: 'SL', flag: '🇸🇱', aliases: ['Freetown'] },
+  { name: 'Singapore', code: 'SG', flag: '🇸🇬', aliases: ['SG'], popular: true },
+  { name: 'Slovakia', code: 'SK', flag: '🇸🇰', aliases: ['Bratislava'] },
+  { name: 'Slovenia', code: 'SI', flag: '🇸🇮', aliases: ['Ljubljana'] },
+  { name: 'Solomon Islands', code: 'SB', flag: '🇸🇧', aliases: ['Honiara'] },
+  { name: 'Somalia', code: 'SO', flag: '🇸🇴', aliases: ['Mogadishu'] },
+  { name: 'South Africa', code: 'ZA', flag: '🇿🇦', aliases: ['ZA', 'Johannesburg', 'Cape Town', 'Durban', 'Pretoria'], popular: true },
+  { name: 'South Korea', code: 'KR', flag: '🇰🇷', aliases: ['KR', 'Korea', 'Seoul', 'Busan', 'Incheon'], popular: true },
+  { name: 'South Sudan', code: 'SS', flag: '🇸🇸', aliases: ['Juba'] },
+  { name: 'Spain', code: 'ES', flag: '🇪🇸', aliases: ['ES', 'Madrid', 'Barcelona', 'Valencia', 'Seville'], popular: true },
+  { name: 'Sri Lanka', code: 'LK', flag: '🇱🇰', aliases: ['Colombo', 'Kandy'] },
+  { name: 'Sudan', code: 'SD', flag: '🇸🇩', aliases: ['Khartoum'] },
+  { name: 'Suriname', code: 'SR', flag: '🇸🇷', aliases: ['Paramaribo'] },
+  { name: 'Sweden', code: 'SE', flag: '🇸🇪', aliases: ['Stockholm', 'Gothenburg', 'Malmo'], popular: true },
+  { name: 'Switzerland', code: 'CH', flag: '🇨🇭', aliases: ['CH', 'Swiss', 'Zurich', 'Geneva', 'Basel', 'Bern', 'Lausanne'], popular: true },
+  { name: 'Syria', code: 'SY', flag: '🇸🇾', aliases: ['Damascus'] },
+  { name: 'Taiwan', code: 'TW', flag: '🇹🇼', aliases: ['Taipei'] },
+  { name: 'Tajikistan', code: 'TJ', flag: '🇹🇯', aliases: ['Dushanbe'] },
+  { name: 'Tanzania', code: 'TZ', flag: '🇹🇿', aliases: ['Dodoma', 'Dar es Salaam'] },
+  { name: 'Thailand', code: 'TH', flag: '🇹🇭', aliases: ['Bangkok', 'Phuket', 'Chiang Mai'] },
+  { name: 'Timor-Leste', code: 'TL', flag: '🇹🇱', aliases: ['East Timor', 'Dili'] },
+  { name: 'Togo', code: 'TG', flag: '🇹🇬', aliases: ['Lome'] },
+  { name: 'Tonga', code: 'TO', flag: '🇹🇴', aliases: ['Nukuʻalofa'] },
+  { name: 'Trinidad and Tobago', code: 'TT', flag: '🇹🇹', aliases: ['Port of Spain'] },
+  { name: 'Tunisia', code: 'TN', flag: '🇹🇳', aliases: ['Tunis'] },
+  { name: 'Turkey', code: 'TR', flag: '🇹🇷', aliases: ['Turkiye', 'Istanbul', 'Ankara', 'Izmir'] },
+  { name: 'Turkmenistan', code: 'TM', flag: '🇹🇲', aliases: ['Ashgabat'] },
+  { name: 'Tuvalu', code: 'TV', flag: '🇹🇻', aliases: ['Funafuti'] },
+  { name: 'Uganda', code: 'UG', flag: '🇺🇬', aliases: ['Kampala'] },
+  { name: 'Ukraine', code: 'UA', flag: '🇺🇦', aliases: ['Kyiv'] },
+  { name: 'United Arab Emirates', code: 'AE', flag: '🇦🇪', aliases: ['UAE', 'Emirates', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah', 'Fujairah'], popular: true },
+  { name: 'United Kingdom', code: 'GB', flag: '🇬🇧', aliases: ['UK', 'Britain', 'England', 'London', 'Scotland', 'Wales', 'Northern Ireland', 'Manchester', 'Birmingham', 'Leeds', 'Glasgow'], popular: true },
+  { name: 'United States', code: 'US', flag: '🇺🇸', aliases: ['USA', 'US', 'America', 'United States of America', 'New York', 'California', 'Texas', 'Chicago', 'Seattle', 'Florida', 'New Jersey', 'San Jose', 'Dallas'], popular: true },
+  { name: 'Uruguay', code: 'UY', flag: '🇺🇾', aliases: ['Montevideo'] },
+  { name: 'Uzbekistan', code: 'UZ', flag: '🇺🇿', aliases: ['Tashkent'] },
+  { name: 'Vanuatu', code: 'VU', flag: '🇻🇺', aliases: ['Port Vila'] },
+  { name: 'Vatican City', code: 'VA', flag: '🇻🇦', aliases: ['Holy See', 'Rome'] },
+  { name: 'Venezuela', code: 'VE', flag: '🇻🇪', aliases: ['Caracas'] },
+  { name: 'Vietnam', code: 'VN', flag: '🇻🇳', aliases: ['Hanoi', 'Ho Chi Minh', 'Saigon'] },
+  { name: 'Yemen', code: 'YE', flag: '🇾🇪', aliases: ['Sanaa'] },
+  { name: 'Zambia', code: 'ZM', flag: '🇿🇲', aliases: ['Lusaka'] },
+  { name: 'Zimbabwe', code: 'ZW', flag: '🇿🇼', aliases: ['Harare'] }
+];
+
+// Popular NRI destinations shown first in open search
+export const POPULAR_NRI_COUNTRIES = WORLD_COUNTRIES.filter(c => c.popular && c.code !== 'IN');
+
+// Helper to look up country by name, code or alias
+export const findCountryByName = (val) => {
+  if (!val || typeof val !== 'string') return null;
+  const clean = val.trim().toLowerCase();
+  
+  // Exact name or code match
+  const direct = WORLD_COUNTRIES.find(c => 
+    c.name.toLowerCase() === clean || 
+    c.code.toLowerCase() === clean
+  );
+  if (direct) return direct;
+
+  // Normalized country check
+  const norm = normalizeCountry(val).toLowerCase();
+  const byNorm = WORLD_COUNTRIES.find(c => 
+    c.name.toLowerCase() === norm || 
+    c.code.toLowerCase() === norm ||
+    (norm === 'usa' && c.code === 'US') ||
+    (norm === 'uae' && c.code === 'AE') ||
+    (norm === 'uk' && c.code === 'GB')
+  );
+  if (byNorm) return byNorm;
+
+  // Check aliases
+  const byAlias = WORLD_COUNTRIES.find(c => 
+    c.aliases.some(a => a.toLowerCase() === clean || clean.includes(a.toLowerCase()))
+  );
+  if (byAlias) return byAlias;
+
+  // Partial name match
+  return WORLD_COUNTRIES.find(c => c.name.toLowerCase().includes(clean)) || null;
+};
+
+// Check if a profile matches a target country filter
+export const isCountryMatch = (profile, targetCountry) => {
+  if (!profile || !targetCountry) return true;
+  if (targetCountry === 'All Profiles' || targetCountry === 'All') return true;
+
+  if (targetCountry === 'India') {
+    return !isNriProfile(profile);
+  }
+
+  if (targetCountry === 'Working Abroad (NRI)' || targetCountry === 'Abroad (NRI)' || targetCountry === 'Abroad / Any NRI') {
+    return isNriProfile(profile);
+  }
+
+  // Look up country object
+  const countryObj = findCountryByName(targetCountry);
+  const targetNorm = normalizeCountry(targetCountry).toLowerCase();
+  const targetName = countryObj ? countryObj.name.toLowerCase() : targetCountry.toLowerCase();
+  const targetCode = countryObj ? countryObj.code.toLowerCase() : '';
+  const aliases = (countryObj?.aliases || []).map(a => a.toLowerCase());
+
+  // Candidate country data
+  const candCountry = (profile.country || profile.work_country || profile.workCountry || '').toLowerCase();
+  const candCity = (profile.work_city || profile.workCity || profile.city || profile.district || '').toLowerCase();
+  const candJob = (profile.jobLocation || profile.jobPlace || profile.workLocation || '').toLowerCase();
+  const candNorm = normalizeCountry(getProfileCountry(profile)).toLowerCase();
+
+  // If candidate is India and target is abroad, return false
+  if (candNorm === 'india' && !isNriProfile(profile)) {
+    return false;
+  }
+
+  // 1. Direct or normalized match
+  if (candNorm === targetNorm || candNorm === targetName) return true;
+
+  // 2. Candidate country field includes target name or vice versa
+  if (candCountry && (candCountry.includes(targetName) || targetName.includes(candCountry))) return true;
+
+  // 3. Code match
+  if (targetCode && (candCountry === targetCode || candNorm === targetCode)) return true;
+
+  // 4. Aliases
+  for (const alias of aliases) {
+    if (candCountry.includes(alias) || candJob.includes(alias) || candCity.includes(alias) || candNorm.includes(alias)) {
+      return true;
+    }
+  }
+
+  // 5. Job location or raw string search
+  if (candJob.includes(targetName) || candJob.includes(targetNorm)) return true;
+
+  return false;
+};
+
+// Helper to filter countries based on user search query
+export const searchWorldCountries = (query = '', { excludeIndia = true } = {}) => {
+  const q = query.trim().toLowerCase();
+  let list = WORLD_COUNTRIES;
+  if (excludeIndia) {
+    list = list.filter(c => c.code !== 'IN');
+  }
+
+  if (!q) {
+    // Return popular countries first, then remainder alphabetically
+    const popular = list.filter(c => c.popular);
+    const others = list.filter(c => !c.popular);
+    return [...popular, ...others];
+  }
+
+  return list.filter(c => {
+    if (c.name.toLowerCase().includes(q)) return true;
+    if (c.code.toLowerCase() === q) return true;
+    return c.aliases.some(a => a.toLowerCase().includes(q));
+  }).sort((a, b) => {
+    // Prioritize startsWith over contains
+    const aStarts = a.name.toLowerCase().startsWith(q);
+    const bStarts = b.name.toLowerCase().startsWith(q);
+    if (aStarts && !bStarts) return -1;
+    if (!aStarts && bStarts) return 1;
+    if (a.popular && !b.popular) return -1;
+    if (!a.popular && b.popular) return 1;
+    return a.name.localeCompare(b.name);
+  });
+};
