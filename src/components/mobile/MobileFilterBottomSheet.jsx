@@ -420,7 +420,7 @@ export default function MobileFilterBottomSheet({
 
 
           {/* 2. COUNTRY & NRI LOCATION FILTERS */}
-          <div className="space-y-2.5 pt-1">
+          <div className="space-y-2.5 pt-1 overflow-visible relative z-30">
             <div className="flex items-center justify-between text-slate-700">
               <div className="flex items-center space-x-1.5">
                 <Globe className="w-3.5 h-3.5 text-[#8C6D1F]" />

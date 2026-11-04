@@ -241,7 +241,7 @@ export default function MobileSearchScreen({
 
 
         {/* Country / NRI Filter */}
-        <div className="space-y-1.5 pt-1.5 border-t border-slate-100">
+        <div className="space-y-1.5 pt-1.5 border-t border-slate-100 overflow-visible relative z-30">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
             <span className="flex items-center gap-1">
               <Globe className="w-3.5 h-3.5 text-[#8C6D1F]" />

@@ -10,13 +10,16 @@ import {
  * WorldCountrySearchSelect
  * 
  * Searchable & Scrollable Top 100 World Countries Dropdown Combobox.
+ * Used in Profile Edit (Current Country Abroad & Partner Preferences) and Registration.
  * Prioritizes Top NRI destinations first, then major global hubs.
  * Supports:
  * - Clean placeholder "Search or select country..."
  * - Instant typing filter + mouse & keyboard navigation (ArrowUp, ArrowDown, Enter, Escape)
  * - "🌍 All Abroad (NRI) Countries" top quick reset option
  * - Smoothly scrollable with max-h-60 overflow-y-auto
- * - Fixed floating coordinates to prevent modal overflow-hidden clipping
+ * - onMouseDown preventDefault prevents laptop input onBlur closing
+ * - onWheel stopPropagation ensures smooth mouse-wheel scrolling on laptops
+ * - Floating z-[9999] positioning
  */
 export default function WorldCountrySearchSelect({
   label,
@@ -33,7 +36,6 @@ export default function WorldCountrySearchSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightIndex, setHighlightIndex] = useState(0);
-  const [dropdownCoords, setDropdownCoords] = useState(null);
 
   const containerRef = useRef(null);
   const inputRef = useRef(null);
@@ -79,41 +81,6 @@ export default function WorldCountrySearchSelect({
     setHighlightIndex(0);
   }, [searchQuery, isOpen]);
 
-  // Calculate dropdown positioning using fixed coordinates so it never gets clipped
-  useEffect(() => {
-    if (isOpen && containerRef.current) {
-      const updatePosition = () => {
-        if (!containerRef.current) return;
-        const rect = containerRef.current.getBoundingClientRect();
-        const popoverWidth = Math.min(rect.width, Math.min(340, window.innerWidth - 24));
-        let left = rect.left;
-        if (left + popoverWidth > window.innerWidth - 12) {
-          left = window.innerWidth - popoverWidth - 12;
-        }
-        if (left < 12) left = 12;
-
-        const spaceBelow = window.innerHeight - rect.bottom - 12;
-        const showAbove = spaceBelow < 220 && rect.top > spaceBelow;
-
-        setDropdownCoords({
-          top: showAbove ? undefined : rect.bottom + 4,
-          bottom: showAbove ? window.innerHeight - rect.top + 4 : undefined,
-          left,
-          width: Math.max(rect.width, 280),
-          maxHeight: Math.min(260, showAbove ? rect.top - 24 : spaceBelow)
-        });
-      };
-
-      updatePosition();
-      window.addEventListener('resize', updatePosition);
-      window.addEventListener('scroll', updatePosition, true);
-      return () => {
-        window.removeEventListener('resize', updatePosition);
-        window.removeEventListener('scroll', updatePosition, true);
-      };
-    }
-  }, [isOpen]);
-
   // Scroll highlighted item into view during keyboard navigation
   useEffect(() => {
     if (isOpen && listRef.current) {
@@ -124,12 +91,12 @@ export default function WorldCountrySearchSelect({
     }
   }, [highlightIndex, isOpen]);
 
-  // Outside click listener
+  // Outside click listener: only closes when clicking outside containerRef
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (
-        containerRef.current && !containerRef.current.contains(e.target) &&
-        dropdownRef.current && !dropdownRef.current.contains(e.target)
+        containerRef.current && 
+        !containerRef.current.contains(e.target)
       ) {
         setIsOpen(false);
       }
@@ -193,7 +160,7 @@ export default function WorldCountrySearchSelect({
   };
 
   return (
-    <div className={`relative ${className}`} ref={containerRef}>
+    <div className={`relative overflow-visible z-20 ${className}`} ref={containerRef}>
       {label && (
         <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
           <span className="flex items-center gap-1">
@@ -247,6 +214,10 @@ export default function WorldCountrySearchSelect({
           {displayLabel && (
             <button
               type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleClear(e);
+              }}
               onClick={handleClear}
               className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
               title="Clear country"
@@ -263,19 +234,11 @@ export default function WorldCountrySearchSelect({
       )}
 
       {/* Floating Scrollable Top 100 World Countries Dropdown */}
-      {isOpen && dropdownCoords && (
+      {isOpen && (
         <div
           ref={dropdownRef}
-          style={{
-            position: 'fixed',
-            top: dropdownCoords.top,
-            bottom: dropdownCoords.bottom,
-            left: dropdownCoords.left,
-            width: dropdownCoords.width,
-            maxHeight: dropdownCoords.maxHeight || 260,
-            zIndex: 9999
-          }}
-          className="bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
+          className="absolute top-full left-0 right-0 mt-1.5 w-full min-w-[280px] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col z-[9999] animate-in fade-in zoom-in-95 duration-150"
+          style={{ zIndex: 9999 }}
         >
           {/* Quick Header */}
           <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-500 select-none">
@@ -285,16 +248,21 @@ export default function WorldCountrySearchSelect({
             </span>
           </div>
 
-          {/* Smoothly Scrollable Country List */}
+          {/* Smoothly Scrollable Country List with mouse wheel propagation stop */}
           <div 
             ref={listRef}
-            className="max-h-60 overflow-y-auto p-1.5 space-y-0.5 divide-y divide-slate-50 scrollbar-thin scrollbar-thumb-slate-300"
+            onWheel={(e) => e.stopPropagation()}
+            className="max-h-60 overflow-y-auto p-1.5 space-y-0.5 divide-y divide-slate-50 scrollbar-thin scrollbar-thumb-slate-300 overscroll-contain"
           >
             {/* Top Option: 🌍 All Abroad (NRI) Countries */}
             {shouldShowTopOption && (
               <button
                 type="button"
                 data-index="0"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelect(allowAny ? 'Any' : 'Working Abroad (NRI)');
+                }}
                 onClick={() => handleSelect(allowAny ? 'Any' : 'Working Abroad (NRI)')}
                 onMouseEnter={() => setHighlightIndex(0)}
                 className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
@@ -333,6 +301,10 @@ export default function WorldCountrySearchSelect({
                     key={c.code + '-' + c.name}
                     type="button"
                     data-index={navIndex}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelect(c.name);
+                    }}
                     onClick={() => handleSelect(c.name)}
                     onMouseEnter={() => setHighlightIndex(navIndex)}
                     className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${

@@ -529,7 +529,7 @@ export default function MobileMatchFeed({
         )}
 
         {/* Discover Country / NRI Filter Bar */}
-        <div className="px-1 py-1">
+        <div className="px-1 py-1 overflow-visible relative z-30">
           <CountryNriFilterBar
             selectedCountry={selectedCountryFilter || 'All Profiles'}
             onSelectCountry={(countryId) => setSelectedCountryFilter && setSelectedCountryFilter(countryId)}
