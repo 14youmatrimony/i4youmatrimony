@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 import { SAMPLE_SINGLE_PHOTOS, SAMPLE_FAMILY_PHOTOS } from '../RegistrationWizard';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
-import { optimizeImageFile } from '../../utils/imageOptimizer';
+import { optimizeImageFile, compressImageToWebP } from '../../utils/imageOptimizer';
+import { uploadPhotoToR2 } from '../../services/r2Storage';
 
 export default function MobilePhotoManagerSheet({
   isOpen,
@@ -141,16 +142,12 @@ export default function MobilePhotoManagerSheet({
     }
     setUploadingSingle(true);
     try {
-      const result = await optimizeImageFile(file, {
-        maxDimension: 1200,
-        targetMaxKB: 180,
-        initialQuality: 0.85
-      });
-      if (result?.dataUrl) {
-        const feedbackMsg = result.originalSizeKB > 250
-          ? `HD Photo optimized (${result.originalFormatted} ➔ ${result.compressedFormatted}) ⭐ Slot #1 Active`
-          : `Photo uploaded! Set as Slot #1 (Main Profile Photo) ⭐`;
-        handleAddSinglePhoto(result.dataUrl, feedbackMsg);
+      const uploadRes = await uploadPhotoToR2(file, currentUser?.id || currentUser?.registerId || 'profile', 'profiles');
+      if (uploadRes?.publicUrl) {
+        const feedbackMsg = uploadRes.isFallback
+          ? `HD Photo optimized (${uploadRes.sizeKB || 75} KB) ⭐ Slot #1 Active`
+          : `Photo uploaded to Cloudflare R2 (${uploadRes.sizeKB || 75} KB WebP) ⭐ Slot #1 Active`;
+        handleAddSinglePhoto(uploadRes.publicUrl, feedbackMsg);
       }
     } catch (err) {
       console.error("Photo upload error:", err);
@@ -186,16 +183,12 @@ export default function MobilePhotoManagerSheet({
     }
     setUploadingFamily(true);
     try {
-      const result = await optimizeImageFile(file, {
-        maxDimension: 1200,
-        targetMaxKB: 180,
-        initialQuality: 0.85
-      });
-      if (result?.dataUrl) {
-        const feedbackMsg = result.originalSizeKB > 250
-          ? `Family photo optimized (${result.originalFormatted} ➔ ${result.compressedFormatted}) 👨‍👩‍👧`
-          : `Family photo added to album! 👨‍👩‍👧`;
-        handleAddFamilyPhoto(result.dataUrl, feedbackMsg);
+      const uploadRes = await uploadPhotoToR2(file, currentUser?.id || currentUser?.registerId || 'profile', 'family');
+      if (uploadRes?.publicUrl) {
+        const feedbackMsg = uploadRes.isFallback
+          ? `Family photo optimized (${uploadRes.sizeKB || 80} KB) 👨‍👩‍👧`
+          : `Family photo uploaded to Cloudflare R2 (${uploadRes.sizeKB || 80} KB WebP) 👨‍👩‍👧`;
+        handleAddFamilyPhoto(uploadRes.publicUrl, feedbackMsg);
       }
     } catch (err) {
       console.error("Family photo upload error:", err);

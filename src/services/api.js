@@ -8,6 +8,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { uploadProfilePhoto } from './storageService';
 import { optimizeBase64String } from '../utils/imageOptimizer';
 import { addCacheBuster } from '../utils/cacheBuster';
+import { uploadPhotoToR2, isR2Configured, compressImageToWebP } from './r2Storage';
 
 /**
  * Cross-tab & Multi-window BroadcastChannel for instant profile data synchronization
@@ -60,15 +61,15 @@ export async function syncProfileToSupabase(userData) {
   }
   userData.id = profileId;
   try {
-    let photo = await compressBase64Image(userData.photo, 800, 0.8);
-    if (photo && (photo.startsWith('data:') || photo.startsWith('blob:'))) {
+    let photo = userData.photo;
+    if (photo && (photo.startsWith('data:') || photo.startsWith('blob:') || photo instanceof File)) {
       try {
-        const uploadRes = await uploadProfilePhoto(photo, profileId, 'avatars');
-        if (uploadRes.success && uploadRes.publicUrl) {
+        const uploadRes = await uploadPhotoToR2(photo, profileId, 'profiles');
+        if (uploadRes && uploadRes.success && uploadRes.publicUrl) {
           photo = uploadRes.publicUrl;
         }
       } catch (uploadErr) {
-        console.warn('[api] Supabase storage upload fallback:', uploadErr);
+        console.warn('[registerLiveProfile] R2/Storage photo upload fallback:', uploadErr);
       }
     }
 
@@ -76,13 +77,50 @@ export async function syncProfileToSupabase(userData) {
     const aadhaarBack = await compressBase64Image(userData.aadhaar_back_image || userData.backDocumentPreview, 1200, 0.85);
 
     let singlePhotos = userData.singlePhotos;
+    let finalSinglePhotos = [];
     if (Array.isArray(singlePhotos)) {
-      const compressedSingles = await Promise.all(
-        singlePhotos.map(p => compressBase64Image(p, 1080, 0.8))
+      const uploadedSingles = await Promise.all(
+        singlePhotos.map(async (p) => {
+          if (!p) return null;
+          if (typeof p === 'string' && p.startsWith('http')) return p;
+          try {
+            const r = await uploadPhotoToR2(p, profileId, 'profiles');
+            return r?.publicUrl || p;
+          } catch (e) {
+            return p;
+          }
+        })
       );
-      singlePhotos = JSON.stringify(compressedSingles);
+      finalSinglePhotos = uploadedSingles.filter(Boolean);
+      if (photo && finalSinglePhotos.length > 0 && finalSinglePhotos[0] !== photo) {
+        finalSinglePhotos[0] = photo;
+      } else if (photo && finalSinglePhotos.length === 0) {
+        finalSinglePhotos = [photo];
+      }
+      singlePhotos = JSON.stringify(finalSinglePhotos);
     } else if (typeof singlePhotos === 'string') {
       singlePhotos = userData.single_photos || singlePhotos;
+    }
+
+    let familyPhotos = userData.familyPhotos;
+    let finalFamilyPhotos = [];
+    if (Array.isArray(familyPhotos)) {
+      const uploadedFamily = await Promise.all(
+        familyPhotos.map(async (f) => {
+          if (!f) return null;
+          if (typeof f === 'string' && f.startsWith('http')) return f;
+          try {
+            const r = await uploadPhotoToR2(f, profileId, 'family');
+            return r?.publicUrl || f;
+          } catch (e) {
+            return f;
+          }
+        })
+      );
+      finalFamilyPhotos = uploadedFamily.filter(Boolean);
+      familyPhotos = JSON.stringify(finalFamilyPhotos);
+    } else if (typeof familyPhotos === 'string') {
+      familyPhotos = userData.family_photos || familyPhotos;
     }
 
     const payload = {
@@ -123,7 +161,7 @@ export async function syncProfileToSupabase(userData) {
       aadhaar_front_image: aadhaarFront || null,
       aadhaar_back_image: aadhaarBack || null,
       single_photos: singlePhotos || null,
-      family_photos: Array.isArray(userData.familyPhotos) ? JSON.stringify(userData.familyPhotos) : (userData.family_photos || null),
+      family_photos: familyPhotos || null,
       match_score: userData.matchScore || 85,
       status: userData.status || 'active',
       about: userData.about || userData.aboutBio || null,
@@ -566,6 +604,7 @@ export function mapSupabaseRowToProfile(r) {
     avatar_url: resolvedPhoto,
     coverPhoto: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200',
     singlePhotos,
+    photos: singlePhotos,
     familyPhotos,
     verified: isSentBack ? false : Boolean(r.verified || r.aadhaar_verified || r.govt_id_verified),
     governmentIdVerified: isSentBack ? false : Boolean(r.govt_id_verified),
@@ -1134,45 +1173,69 @@ export async function updateLivePhotos(photoData) {
   const targetId = profileId || photoData.phone || photoData.mobile;
   const cleanId = targetId ? String(targetId).trim() : null;
 
-  let photo = await compressBase64Image(photoData.photo, 800, 0.82);
+  let photo = photoData.photo;
 
-  // Attempt to upload avatar to Supabase Storage for permanent public URL
-  if (photo && (photo.startsWith('data:') || photo.startsWith('blob:'))) {
+  // 1. Upload primary portrait to Cloudflare R2 (with WebP compression & smart fallback)
+  if (photo && (photo.startsWith('data:') || photo.startsWith('blob:') || photo instanceof File)) {
     try {
-      const uploadRes = await uploadProfilePhoto(photo, cleanId || 'user', 'avatars');
+      const uploadRes = await uploadPhotoToR2(photo, cleanId || 'user', 'profiles');
       if (uploadRes && uploadRes.success && uploadRes.publicUrl) {
         photo = uploadRes.publicUrl;
       }
     } catch (uploadErr) {
-      console.warn('[updateLivePhotos] Supabase storage upload fallback:', uploadErr);
+      console.warn('[updateLivePhotos] R2 primary photo upload fallback:', uploadErr);
     }
   }
 
-  // Apply cache-busting timestamp (Cloudflare R2 / Supabase Storage / CDN)
-  if (photo) {
+  // Apply cache-busting timestamp
+  if (photo && photo.startsWith('http')) {
     photo = addCacheBuster(photo, Date.now());
   }
 
+  // 2. Upload up to 5 Single Portrait Gallery photos to Cloudflare R2 in parallel
   let singlePhotos = photoData.singlePhotos;
   let finalSinglePhotos = Array.isArray(singlePhotos) ? [...singlePhotos] : [];
   if (Array.isArray(singlePhotos)) {
-    const compressed = await Promise.all(
-      singlePhotos.map(p => (typeof p === 'string' && p.startsWith('data:image')) ? compressBase64Image(p, 1080, 0.8) : p)
+    const uploadedSingles = await Promise.all(
+      singlePhotos.map(async (p) => {
+        if (!p) return null;
+        if (typeof p === 'string' && p.startsWith('http')) return p;
+        try {
+          const res = await uploadPhotoToR2(p, cleanId || 'user', 'profiles');
+          return res?.publicUrl || p;
+        } catch (e) {
+          return p;
+        }
+      })
     );
-    // Ensure index 0 matches primary photo if primary photo became a storage publicUrl
-    if (photo && compressed.length > 0 && compressed[0] !== photo) {
-      compressed[0] = photo;
+    let filteredSingles = uploadedSingles.filter(Boolean);
+    if (photo && filteredSingles.length > 0 && filteredSingles[0] !== photo) {
+      filteredSingles[0] = photo;
+    } else if (photo && filteredSingles.length === 0) {
+      filteredSingles = [photo];
     }
-    finalSinglePhotos = compressed.map(p => addCacheBuster(p, Date.now()));
+    finalSinglePhotos = filteredSingles.map(p => (typeof p === 'string' && p.startsWith('http')) ? addCacheBuster(p, Date.now()) : p);
     singlePhotos = JSON.stringify(finalSinglePhotos);
   }
 
+  // 3. Upload Family Photos to Cloudflare R2 in parallel
   let familyPhotos = photoData.familyPhotos;
+  let finalFamilyPhotos = Array.isArray(familyPhotos) ? [...familyPhotos] : [];
   if (Array.isArray(familyPhotos)) {
-    const compressedFamily = await Promise.all(
-      familyPhotos.map(p => (typeof p === 'string' && p.startsWith('data:image')) ? compressBase64Image(p, 1080, 0.8) : p)
+    const uploadedFamily = await Promise.all(
+      familyPhotos.map(async (f) => {
+        if (!f) return null;
+        if (typeof f === 'string' && f.startsWith('http')) return f;
+        try {
+          const res = await uploadPhotoToR2(f, cleanId || 'user', 'family');
+          return res?.publicUrl || f;
+        } catch (e) {
+          return f;
+        }
+      })
     );
-    familyPhotos = JSON.stringify(compressedFamily.map(p => addCacheBuster(p, Date.now())));
+    finalFamilyPhotos = uploadedFamily.filter(Boolean).map(f => (typeof f === 'string' && f.startsWith('http')) ? addCacheBuster(f, Date.now()) : f);
+    familyPhotos = JSON.stringify(finalFamilyPhotos);
   }
 
   const payload = {
@@ -1195,13 +1258,30 @@ export async function updateLivePhotos(photoData) {
   if (isSupabaseConfigured() && cleanId) {
     try {
       const isRegId = cleanId.toUpperCase().startsWith('I4Y');
-      let query = supabase.from('profiles').update(payload);
+      const enhancedPayload = {
+        ...payload,
+        ...(photo ? { avatar_url: photo } : {}),
+        ...(singlePhotos ? { photos: singlePhotos } : {})
+      };
+      let query = supabase.from('profiles').update(enhancedPayload);
       if (isRegId) {
         query = query.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
       } else {
         query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
       }
-      const { error } = await query.select();
+      let { error } = await query.select();
+
+      // If error indicates avatar_url or photos column does not exist, retry with standard payload
+      if (error && (error.message?.includes('avatar_url') || error.message?.includes('photos'))) {
+        let retryQuery = supabase.from('profiles').update(payload);
+        if (isRegId) {
+          retryQuery = retryQuery.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
+        } else {
+          retryQuery = retryQuery.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
+        }
+        const retryRes = await retryQuery.select();
+        error = retryRes.error;
+      }
 
       if (error) {
         console.warn('[Supabase Photo Sync Warning]:', error.message);
@@ -1222,8 +1302,10 @@ export async function updateLivePhotos(photoData) {
       phone: photoData.phone || photoData.mobile,
       photo: photo || photoData.photo,
       photo_url: photo || photoData.photo,
+      avatar_url: photo || photoData.photo,
       singlePhotos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos,
-      familyPhotos: photoData.familyPhotos,
+      photos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos,
+      familyPhotos: finalFamilyPhotos.length > 0 ? finalFamilyPhotos : photoData.familyPhotos,
       hidePhotos: photoData.hidePhotos,
       photoVisibility: photoData.photoVisibility
     };
@@ -1260,8 +1342,10 @@ export async function updateLivePhotos(photoData) {
     success: true, 
     photo, 
     photo_url: photo, 
+    avatar_url: photo,
+    photos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos,
     singlePhotos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos, 
-    familyPhotos: photoData.familyPhotos 
+    familyPhotos: finalFamilyPhotos.length > 0 ? finalFamilyPhotos : photoData.familyPhotos 
   };
 
   // 4. Broadcast instant synchronization across all tabs, windows, and realtime listeners
@@ -1327,10 +1411,10 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
 
   // 1. Process and upload photo if new base64 image provided
   let photoUrl = updateData.photo || updateData.photo_url;
-  if (photoUrl && (photoUrl.startsWith('data:') || photoUrl.startsWith('blob:'))) {
+  if (photoUrl && (photoUrl.startsWith('data:') || photoUrl.startsWith('blob:') || photoUrl instanceof File)) {
     try {
-      const uploadRes = await uploadProfilePhoto(photoUrl, cleanId, 'avatars');
-      if (uploadRes.success && uploadRes.publicUrl) {
+      const uploadRes = await uploadPhotoToR2(photoUrl, cleanId, 'profiles');
+      if (uploadRes && uploadRes.success && uploadRes.publicUrl) {
         photoUrl = uploadRes.publicUrl;
       }
     } catch (photoErr) {
@@ -1396,13 +1480,45 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
   }
 
   if (updateData.singlePhotos !== undefined) {
-    payload.single_photos = Array.isArray(updateData.singlePhotos) 
-      ? JSON.stringify(updateData.singlePhotos) 
+    let singles = updateData.singlePhotos;
+    if (Array.isArray(singles)) {
+      const uploadedSingles = await Promise.all(
+        singles.map(async (p) => {
+          if (!p) return null;
+          if (typeof p === 'string' && p.startsWith('http')) return p;
+          try {
+            const r = await uploadPhotoToR2(p, cleanId, 'profiles');
+            return r?.publicUrl || p;
+          } catch (e) {
+            return p;
+          }
+        })
+      );
+      singles = uploadedSingles.filter(Boolean);
+    }
+    payload.single_photos = Array.isArray(singles) 
+      ? JSON.stringify(singles) 
       : updateData.singlePhotos;
   }
   if (updateData.familyPhotos !== undefined) {
-    payload.family_photos = Array.isArray(updateData.familyPhotos) 
-      ? JSON.stringify(updateData.familyPhotos) 
+    let families = updateData.familyPhotos;
+    if (Array.isArray(families)) {
+      const uploadedFamilies = await Promise.all(
+        families.map(async (f) => {
+          if (!f) return null;
+          if (typeof f === 'string' && f.startsWith('http')) return f;
+          try {
+            const r = await uploadPhotoToR2(f, cleanId, 'family');
+            return r?.publicUrl || f;
+          } catch (e) {
+            return f;
+          }
+        })
+      );
+      families = uploadedFamilies.filter(Boolean);
+    }
+    payload.family_photos = Array.isArray(families) 
+      ? JSON.stringify(families) 
       : updateData.familyPhotos;
   }
 

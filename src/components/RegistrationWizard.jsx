@@ -35,7 +35,8 @@ import SearchableSelect from './common/SearchableSelect';
 import WorldCountrySearchSelect from './common/WorldCountrySearchSelect';
 import DualRangeSlider from './common/DualRangeSlider';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '../utils/security';
-import { optimizeImageFile } from '../utils/imageOptimizer';
+import { optimizeImageFile, compressImageToWebP } from '../utils/imageOptimizer';
+import { uploadPhotoToR2 } from '../services/r2Storage';
 import { registerWithRegisterId } from '../services/authService';
 import SelfieVerificationSection from './SelfieVerificationSection';
 import { STATES_AND_CITIES, NRI_COUNTRIES, RESIDENCY_STATUS_OPTIONS, PREFERRED_COUNTRY_OPTIONS } from '../data/locationData';
@@ -797,13 +798,9 @@ export default function RegistrationWizard({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const result = await optimizeImageFile(file, {
-        maxDimension: 1200,
-        targetMaxKB: 180,
-        initialQuality: 0.85
-      });
-      if (result?.dataUrl) {
-        const uploadedUrl = result.dataUrl;
+      const uploadRes = await uploadPhotoToR2(file, formData.phone || formData.registerId || 'reg_user', 'profiles');
+      if (uploadRes?.publicUrl) {
+        const uploadedUrl = uploadRes.publicUrl;
         // Prioritize the user's real uploaded photo as primary photo
         const filtered = (formData.singlePhotos || []).filter(p => !p.includes('images.unsplash.com'));
         const updated = [uploadedUrl, ...filtered].slice(0, 5);
@@ -857,13 +854,9 @@ export default function RegistrationWizard({
       return;
     }
     try {
-      const result = await optimizeImageFile(file, {
-        maxDimension: 1200,
-        targetMaxKB: 180,
-        initialQuality: 0.85
-      });
-      if (result?.dataUrl) {
-        handleAddFamilyPhoto(result.dataUrl);
+      const uploadRes = await uploadPhotoToR2(file, formData.phone || formData.registerId || 'reg_user', 'family');
+      if (uploadRes?.publicUrl) {
+        handleAddFamilyPhoto(uploadRes.publicUrl);
       }
     } catch (err) {
       console.error("Registration family photo upload error:", err);

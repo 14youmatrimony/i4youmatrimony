@@ -7,6 +7,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { addCacheBuster } from '../utils/cacheBuster';
 import { profileSyncService } from './profileSyncService';
+import { uploadPhotoToR2, isR2Configured } from './r2Storage';
 
 /**
  * Helper to convert base64 Data URL to Blob for reliable storage uploads
@@ -43,17 +44,71 @@ export function dataURLtoBlob(dataurl) {
  * @returns {Promise<{success: boolean, publicUrl?: string, error?: string}>}
  */
 export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'avatars') {
-  if (!isSupabaseConfigured()) {
-    return { success: false, error: 'Supabase is not configured' };
-  }
-
   if (!fileOrDataUrl) {
     return { success: false, error: 'No image provided' };
   }
 
-  // If it's already a live public URL (e.g. Unsplash or already hosted on Supabase), return as is
+  // If it's already a live public URL (e.g. Unsplash, Cloudflare R2, or Supabase), return as is
   if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('http')) {
     return { success: true, publicUrl: fileOrDataUrl };
+  }
+
+  // 1. Primary Cloud Storage: Cloudflare R2 with WebP Compression
+  if (isR2Configured()) {
+    try {
+      const r2Res = await uploadPhotoToR2(fileOrDataUrl, userId, bucketName === 'avatars' ? 'profiles' : bucketName);
+      if (r2Res && r2Res.success && r2Res.publicUrl && !r2Res.isFallback) {
+        const publicUrl = r2Res.publicUrl;
+
+        // Persist to Supabase profiles table if userId provided AND this is an avatar upload
+        if (userId && bucketName === 'avatars' && isSupabaseConfigured()) {
+          try {
+            const uid = String(userId).trim();
+            const isRegId = uid.toUpperCase().startsWith('I4Y');
+            let query = supabase
+              .from('profiles')
+              .update({
+                photo: publicUrl,
+                photo_url: publicUrl,
+                updated_at: new Date().toISOString()
+              });
+
+            if (isRegId) {
+              query = query.or(`register_id.ilike.${uid},id.eq.${uid}`);
+            } else {
+              query = query.or(`id.eq.${uid},register_id.eq.${uid},phone.eq.${uid}`);
+            }
+            await query;
+
+            profileSyncService.broadcastProfileUpdate({
+              userId: uid,
+              newProfilePicUrl: publicUrl,
+              updatedData: { photo: publicUrl, photo_url: publicUrl },
+              lastUpdated: Date.now()
+            }).catch(syncErr => {
+              console.warn('[storageService] Failed to broadcast R2 profile photo update:', syncErr);
+            });
+          } catch (dbErr) {
+            console.warn('[storageService] Failed to update profiles table with R2 photo_url:', dbErr);
+          }
+        }
+
+        return {
+          success: true,
+          publicUrl,
+          rawPublicUrl: r2Res.rawPublicUrl,
+          filePath: r2Res.objectKey,
+          storage: 'cloudflare_r2'
+        };
+      }
+    } catch (r2Err) {
+      console.warn('[storageService] Cloudflare R2 attempt notice, proceeding to Supabase bucket:', r2Err.message);
+    }
+  }
+
+  // 2. Fallback Storage: Supabase Storage 'avatars' bucket
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: 'Supabase storage is not configured' };
   }
 
   try {

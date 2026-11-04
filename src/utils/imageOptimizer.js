@@ -270,3 +270,264 @@ export async function optimizeBase64String(dataUrl, options = {}) {
     }
   });
 }
+
+/**
+ * Helper to convert base64 Data URL to Blob
+ */
+export function dataURLtoBlob(dataurl) {
+  if (!dataurl || typeof dataurl !== 'string') return null;
+  if (!dataurl.startsWith('data:')) return null;
+  try {
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/webp';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  } catch (e) {
+    console.warn('[imageOptimizer] dataURLtoBlob conversion error:', e);
+    return null;
+  }
+}
+
+/**
+ * Loads an image from a File, Blob, or URL string into an HTMLImageElement
+ */
+function loadImageElement(source) {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return reject(new Error('Window or Document not available'));
+    }
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    let objectUrl = null;
+
+    img.onload = () => {
+      if (objectUrl) {
+        try {
+          URL.revokeObjectURL(objectUrl);
+        } catch (e) {}
+      }
+      resolve(img);
+    };
+
+    img.onerror = (err) => {
+      if (objectUrl) {
+        try {
+          URL.revokeObjectURL(objectUrl);
+        } catch (e) {}
+      }
+      reject(new Error('Failed to decode image'));
+    };
+
+    if (source instanceof Blob || source instanceof File) {
+      try {
+        objectUrl = URL.createObjectURL(source);
+        img.src = objectUrl;
+      } catch (e) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          img.src = ev.target?.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(source);
+      }
+    } else if (typeof source === 'string') {
+      img.src = source;
+    } else {
+      reject(new Error('Invalid image source type'));
+    }
+  });
+}
+
+/**
+ * Automatically compresses and resizes any image into a crystal-clear WebP file.
+ * 
+ * - Max dimension: 1080px (maintains proportional aspect ratio)
+ * - Format: image/webp
+ * - Quality: 0.75 (resulting in ~60 KB - 100 KB per photo; 5 photos <= 500 KB total)
+ * 
+ * @param {File|Blob|string} fileOrDataUrl - Raw File, Blob, or base64 data URL
+ * @param {Object} options - Custom options override
+ * @param {number} options.maxDimension - Max width or height (default: 1080)
+ * @param {number} options.quality - WebP compression quality (default: 0.75)
+ * @param {boolean} options.fillBackground - Fill white behind transparent images
+ * @returns {Promise<{
+ *   blob: Blob,
+ *   dataUrl: string,
+ *   file: File,
+ *   mimeType: string,
+ *   width: number,
+ *   height: number,
+ *   sizeKB: number,
+ *   originalSizeKB: number,
+ *   savedPercent: number
+ * }>}
+ */
+export async function compressImageToWebP(fileOrDataUrl, options = {}) {
+  const {
+    maxDimension = 1080,
+    quality = 0.75,
+    fillBackground = false
+  } = options;
+
+  if (!fileOrDataUrl) {
+    throw new Error('No image file or data provided for WebP compression');
+  }
+
+  // If already a remote public URL (e.g. Unsplash or Cloudflare R2), return as is
+  if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('http')) {
+    return {
+      blob: null,
+      dataUrl: fileOrDataUrl,
+      publicUrl: fileOrDataUrl,
+      mimeType: 'image/webp',
+      width: 0,
+      height: 0,
+      sizeKB: 0,
+      originalSizeKB: 0,
+      savedPercent: 0
+    };
+  }
+
+  // Calculate approximate original size
+  let originalSizeKB = 0;
+  if (fileOrDataUrl instanceof File || fileOrDataUrl instanceof Blob) {
+    originalSizeKB = Math.round(fileOrDataUrl.size / 1024);
+  } else if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
+    originalSizeKB = Math.round((fileOrDataUrl.length * 0.75) / 1024);
+  }
+
+  const img = await loadImageElement(fileOrDataUrl);
+  const origWidth = img.naturalWidth || img.width || 1080;
+  const origHeight = img.naturalHeight || img.height || 1080;
+
+  // 1. Proportional aspect-ratio scaling with 1080px ceiling
+  let targetWidth = origWidth;
+  let targetHeight = origHeight;
+
+  if (targetWidth > maxDimension || targetHeight > maxDimension) {
+    if (targetWidth > targetHeight) {
+      targetHeight = Math.round((targetHeight * maxDimension) / targetWidth);
+      targetWidth = maxDimension;
+    } else {
+      targetWidth = Math.round((targetWidth * maxDimension) / targetHeight);
+      targetHeight = maxDimension;
+    }
+  }
+
+  // 2. High-definition Canvas rendering
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    throw new Error('Unable to create 2D canvas context for WebP compression');
+  }
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  if (fillBackground) {
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+  }
+
+  ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+  // 3. Export to WebP Blob and Data URL
+  return new Promise((resolve) => {
+    // Attempt standard toBlob with image/webp
+    if (typeof canvas.toBlob === 'function') {
+      canvas.toBlob(
+        (blob) => {
+          // If browser doesn't support image/webp toBlob, fallback to dataURL conversion
+          if (!blob || blob.type !== 'image/webp') {
+            const dataUrl = canvas.toDataURL('image/webp', quality);
+            const isWebP = dataUrl.startsWith('data:image/webp');
+            const fallbackMime = isWebP ? 'image/webp' : 'image/jpeg';
+            const finalDataUrl = isWebP ? dataUrl : canvas.toDataURL('image/jpeg', quality);
+            const finalBlob = dataURLtoBlob(finalDataUrl) || new Blob([], { type: fallbackMime });
+            const sizeKB = Math.round(finalBlob.size / 1024);
+            const savedPercent = originalSizeKB > sizeKB
+              ? Math.round(((originalSizeKB - sizeKB) / originalSizeKB) * 100)
+              : 0;
+
+            const filename = `photo_${Date.now()}.webp`;
+            const file = new File([finalBlob], filename, { type: fallbackMime });
+
+            return resolve({
+              blob: finalBlob,
+              dataUrl: finalDataUrl,
+              file,
+              mimeType: fallbackMime,
+              width: targetWidth,
+              height: targetHeight,
+              sizeKB,
+              originalSizeKB,
+              savedPercent
+            });
+          }
+
+          const sizeKB = Math.round(blob.size / 1024);
+          const savedPercent = originalSizeKB > sizeKB
+            ? Math.round(((originalSizeKB - sizeKB) / originalSizeKB) * 100)
+            : 0;
+
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const dataUrl = reader.result;
+            const filename = `photo_${Date.now()}.webp`;
+            const file = new File([blob], filename, { type: 'image/webp' });
+
+            resolve({
+              blob,
+              dataUrl,
+              file,
+              mimeType: 'image/webp',
+              width: targetWidth,
+              height: targetHeight,
+              sizeKB,
+              originalSizeKB,
+              savedPercent
+            });
+          };
+          reader.readAsDataURL(blob);
+        },
+        'image/webp',
+        quality
+      );
+    } else {
+      const dataUrl = canvas.toDataURL('image/webp', quality);
+      const isWebP = dataUrl.startsWith('data:image/webp');
+      const fallbackMime = isWebP ? 'image/webp' : 'image/jpeg';
+      const finalDataUrl = isWebP ? dataUrl : canvas.toDataURL('image/jpeg', quality);
+      const blob = dataURLtoBlob(finalDataUrl);
+      const sizeKB = Math.round((blob?.size || (finalDataUrl.length * 0.75)) / 1024);
+      const savedPercent = originalSizeKB > sizeKB
+        ? Math.round(((originalSizeKB - sizeKB) / originalSizeKB) * 100)
+        : 0;
+      const filename = `photo_${Date.now()}.webp`;
+      const file = blob ? new File([blob], filename, { type: fallbackMime }) : null;
+
+      resolve({
+        blob,
+        dataUrl: finalDataUrl,
+        file,
+        mimeType: fallbackMime,
+        width: targetWidth,
+        height: targetHeight,
+        sizeKB,
+        originalSizeKB,
+        savedPercent
+      });
+    }
+  });
+}
