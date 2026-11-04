@@ -2110,7 +2110,7 @@ export default function RegistrationWizard({
                               jobLocation: `${prev.work_city ? prev.work_city + ', ' : ''}${val}` 
                             }));
                           }}
-                          placeholder="🔍 Search any country..."
+                          placeholder="Search or select country..."
                           buttonClassName="h-10"
                         />
                       </div>
@@ -2995,7 +2995,7 @@ export default function RegistrationWizard({
                     value={formData.preferred_countries || 'Any'}
                     onChange={(val) => setFormData(prev => ({ ...prev, preferred_countries: val, preferredCountries: val }))}
                     allowAny
-                    placeholder="🔍 Search any country (e.g. United States, UAE)..."
+                    placeholder="Search or select country..."
                     buttonClassName="h-10 font-bold"
                   />
                 </div>

@@ -812,7 +812,7 @@ export default function EditProfileModal({
                               onChange={(val) => {
                                 setFormData(prev => ({ ...prev, work_country: val, country: val }));
                               }}
-                              placeholder="🔍 Search any country..."
+                              placeholder="Search or select country..."
                             />
                           </div>
 
@@ -980,7 +980,7 @@ export default function EditProfileModal({
                           preferredCountries: val 
                         }));
                       }}
-                      placeholder="🔍 Search any country (e.g. United States, UAE)..."
+                      placeholder="Search or select country..."
                     />
                     <p className="text-[11px] text-slate-600 leading-relaxed">
                       Select which countries you are open to for your partner (e.g. Any Country, India Only, specific countries like United States, United Arab Emirates, Canada, Australia).

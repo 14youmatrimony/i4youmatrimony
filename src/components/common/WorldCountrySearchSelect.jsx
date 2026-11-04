@@ -1,22 +1,28 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, Check, Globe, ChevronDown } from 'lucide-react';
 import { 
-  WORLD_COUNTRIES, 
-  POPULAR_NRI_COUNTRIES, 
+  TOP_100_WORLD_COUNTRIES,
   findCountryByName, 
   searchWorldCountries 
-} from '../../data/worldCountries';
+} from '../../data/worldCountries.js';
 
 /**
  * WorldCountrySearchSelect
- * Universal searchable country selector with all ~195 world countries and flags.
- * Used in Profile Edit (Current Country Abroad & Partner Preferences) and Registration.
+ * 
+ * Searchable & Scrollable Top 100 World Countries Dropdown Combobox.
+ * Prioritizes Top NRI destinations first, then major global hubs.
+ * Supports:
+ * - Clean placeholder "Search or select country..."
+ * - Instant typing filter + mouse & keyboard navigation (ArrowUp, ArrowDown, Enter, Escape)
+ * - "🌍 All Abroad (NRI) Countries" top quick reset option
+ * - Smoothly scrollable with max-h-60 overflow-y-auto
+ * - Fixed floating coordinates to prevent modal overflow-hidden clipping
  */
 export default function WorldCountrySearchSelect({
   label,
   value,
   onChange,
-  placeholder = '🔍 Search any country...',
+  placeholder = 'Search or select country...',
   excludeIndia = false,
   allowAny = false,
   required = false,
@@ -26,15 +32,17 @@ export default function WorldCountrySearchSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [highlightIndex, setHighlightIndex] = useState(0);
   const [dropdownCoords, setDropdownCoords] = useState(null);
 
   const containerRef = useRef(null);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
+  const listRef = useRef(null);
 
   // Identify current selected country object
   const selectedCountryObj = useMemo(() => {
-    if (!value || value === 'Any' || value === 'All' || value === 'Abroad / Any NRI' || value === 'India') {
+    if (!value || value === 'Any' || value === 'All' || value === 'Abroad / Any NRI' || value === 'India' || value === 'Working Abroad (NRI)') {
       return null;
     }
     return findCountryByName(value);
@@ -45,17 +53,31 @@ export default function WorldCountrySearchSelect({
     if (!value) return '';
     if (value === 'Any') return '🌎 Any Country';
     if (value === 'India') return '🇮🇳 India';
-    if (value === 'Abroad / Any NRI' || value === 'Abroad (NRI)') return '✈️ Abroad / Any NRI';
+    if (value === 'Abroad / Any NRI' || value === 'Abroad (NRI)' || value === 'Working Abroad (NRI)') return '🌍 All Abroad (NRI) Countries';
     if (selectedCountryObj) {
       return `${selectedCountryObj.flag} ${selectedCountryObj.name}`;
     }
     return value;
   }, [value, selectedCountryObj]);
 
-  // Filtered country list
+  // Filtered country list (Top 100 countries)
   const filteredCountries = useMemo(() => {
     return searchWorldCountries(searchQuery, { excludeIndia });
   }, [searchQuery, excludeIndia]);
+
+  // Top quick options
+  const showTopAbroadOption = allowAny || excludeIndia;
+  const shouldShowTopOption = showTopAbroadOption && (!searchQuery || 
+    'all abroad nri countries'.includes(searchQuery.toLowerCase()) || 
+    'abroad'.includes(searchQuery.toLowerCase()) || 
+    'nri'.includes(searchQuery.toLowerCase()));
+
+  const totalNavItems = (shouldShowTopOption ? 1 : 0) + filteredCountries.length;
+
+  // Reset highlight index when query or open state changes
+  useEffect(() => {
+    setHighlightIndex(0);
+  }, [searchQuery, isOpen]);
 
   // Calculate dropdown positioning using fixed coordinates so it never gets clipped
   useEffect(() => {
@@ -71,14 +93,14 @@ export default function WorldCountrySearchSelect({
         if (left < 12) left = 12;
 
         const spaceBelow = window.innerHeight - rect.bottom - 12;
-        const showAbove = spaceBelow < 200 && rect.top > spaceBelow;
+        const showAbove = spaceBelow < 220 && rect.top > spaceBelow;
 
         setDropdownCoords({
           top: showAbove ? undefined : rect.bottom + 4,
           bottom: showAbove ? window.innerHeight - rect.top + 4 : undefined,
           left,
           width: Math.max(rect.width, 280),
-          maxHeight: Math.min(280, showAbove ? rect.top - 24 : spaceBelow)
+          maxHeight: Math.min(260, showAbove ? rect.top - 24 : spaceBelow)
         });
       };
 
@@ -91,6 +113,16 @@ export default function WorldCountrySearchSelect({
       };
     }
   }, [isOpen]);
+
+  // Scroll highlighted item into view during keyboard navigation
+  useEffect(() => {
+    if (isOpen && listRef.current) {
+      const activeEl = listRef.current.querySelector(`[data-index="${highlightIndex}"]`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [highlightIndex, isOpen]);
 
   // Outside click listener
   useEffect(() => {
@@ -111,6 +143,38 @@ export default function WorldCountrySearchSelect({
       document.removeEventListener('touchstart', handleOutsideClick);
     };
   }, [isOpen]);
+
+  // Keyboard navigation handler
+  const handleKeyDown = (e) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
+        e.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIndex((prev) => (prev + 1 >= totalNavItems ? 0 : prev + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIndex((prev) => (prev - 1 < 0 ? Math.max(0, totalNavItems - 1) : prev - 1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (shouldShowTopOption && highlightIndex === 0) {
+        handleSelect(allowAny ? 'Any' : 'Working Abroad (NRI)');
+      } else {
+        const countryIndex = shouldShowTopOption ? highlightIndex - 1 : highlightIndex;
+        if (filteredCountries[countryIndex]) {
+          handleSelect(filteredCountries[countryIndex].name);
+        }
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+    }
+  };
 
   const handleSelect = (countryName) => {
     if (onChange) {
@@ -148,8 +212,8 @@ export default function WorldCountrySearchSelect({
       {/* Main Trigger / Display Input */}
       <div 
         onClick={() => {
-          setIsOpen(true);
-          setTimeout(() => inputRef.current?.focus(), 50);
+          setIsOpen((prev) => !prev);
+          setTimeout(() => inputRef.current?.focus(), 60);
         }}
         className={`w-full min-h-[38px] px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 bg-white ${
           isOpen 
@@ -167,6 +231,7 @@ export default function WorldCountrySearchSelect({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder={displayLabel || placeholder}
               className="w-full bg-transparent border-none p-0 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-0"
               onClick={(e) => e.stopPropagation()}
@@ -189,7 +254,7 @@ export default function WorldCountrySearchSelect({
               <X className="w-3.5 h-3.5" />
             </button>
           )}
-          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180 text-[#8C6D1F]' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#8C6D1F]' : ''}`} />
         </div>
       </div>
 
@@ -197,7 +262,7 @@ export default function WorldCountrySearchSelect({
         <p className="text-[11px] text-rose-500 mt-1 font-medium">{error}</p>
       )}
 
-      {/* Floating Dropdown List */}
+      {/* Floating Scrollable Top 100 World Countries Dropdown */}
       {isOpen && dropdownCoords && (
         <div
           ref={dropdownRef}
@@ -207,75 +272,74 @@ export default function WorldCountrySearchSelect({
             bottom: dropdownCoords.bottom,
             left: dropdownCoords.left,
             width: dropdownCoords.width,
-            maxHeight: dropdownCoords.maxHeight || 280,
+            maxHeight: dropdownCoords.maxHeight || 260,
             zIndex: 9999
           }}
-          className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
+          className="bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
         >
-          {/* Top Search Filter inside Dropdown (for quick typing on mobile) */}
-          <div className="p-2 border-b border-slate-100 bg-slate-50/80 flex items-center gap-2">
-            <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Type to filter 195+ countries..."
-              className="w-full bg-transparent border-none text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none"
-              autoFocus
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="text-slate-400 hover:text-slate-600 p-0.5"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
+          {/* Quick Header */}
+          <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-500 select-none">
+            <span>Top 100 World Countries</span>
+            <span className="text-[#8C6D1F]">
+              {filteredCountries.length} countries
+            </span>
           </div>
 
-          {/* Special Quick Options (if allowAny is enabled) */}
-          {allowAny && !searchQuery && (
-            <div className="p-1.5 border-b border-slate-100 bg-amber-50/40 space-y-0.5">
-              {[
-                { id: 'Any', label: '🌎 Any Country (Open to all locations)' },
-                { id: 'India', label: '🇮🇳 India Only' },
-                { id: 'Abroad / Any NRI', label: '✈️ Abroad / Any NRI Country' }
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => handleSelect(opt.id)}
-                  className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                    value === opt.id 
-                      ? 'bg-[#0B192C] text-[#DFB76C]' 
-                      : 'hover:bg-amber-100/60 text-slate-800'
-                  }`}
-                >
-                  <span>{opt.label}</span>
-                  {value === opt.id && <Check className="w-3.5 h-3.5 text-[#DFB76C]" />}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Smoothly Scrollable Country List */}
+          <div 
+            ref={listRef}
+            className="max-h-60 overflow-y-auto p-1.5 space-y-0.5 divide-y divide-slate-50 scrollbar-thin scrollbar-thumb-slate-300"
+          >
+            {/* Top Option: 🌍 All Abroad (NRI) Countries */}
+            {shouldShowTopOption && (
+              <button
+                type="button"
+                data-index="0"
+                onClick={() => handleSelect(allowAny ? 'Any' : 'Working Abroad (NRI)')}
+                onMouseEnter={() => setHighlightIndex(0)}
+                className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                  highlightIndex === 0
+                    ? 'bg-amber-100/80 text-[#8C6D1F]'
+                    : value === 'Any' || value === 'Working Abroad (NRI)'
+                    ? 'bg-[#0B192C] text-[#DFB76C]'
+                    : 'hover:bg-slate-100 text-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base leading-none shrink-0">🌍</span>
+                  <span className="truncate">
+                    {allowAny ? 'All Abroad (NRI) / Any Country' : 'All Abroad (NRI) Countries'}
+                  </span>
+                </div>
+                {(value === 'Any' || value === 'Working Abroad (NRI)') && (
+                  <Check className="w-3.5 h-3.5 text-[#DFB76C] shrink-0 ml-2" />
+                )}
+              </button>
+            )}
 
-          {/* Country Items Scroll Container */}
-          <div className="overflow-y-auto p-1.5 space-y-0.5 max-h-56 divide-y divide-slate-50">
+            {/* List of Countries */}
             {filteredCountries.length === 0 ? (
               <div className="py-6 text-center text-xs text-slate-400">
                 No matching country found for "{searchQuery}"
               </div>
             ) : (
-              filteredCountries.map((c) => {
+              filteredCountries.map((c, idx) => {
+                const navIndex = shouldShowTopOption ? idx + 1 : idx;
+                const isHighlighted = highlightIndex === navIndex;
                 const isSelected = value === c.name || value === c.code;
+
                 return (
                   <button
-                    key={c.code}
+                    key={c.code + '-' + c.name}
                     type="button"
+                    data-index={navIndex}
                     onClick={() => handleSelect(c.name)}
-                    className={`w-full px-2.5 py-1.5 rounded-xl text-left text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${
+                    onMouseEnter={() => setHighlightIndex(navIndex)}
+                    className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${
                       isSelected
                         ? 'bg-[#0B192C] text-[#DFB76C] font-bold shadow-2xs'
+                        : isHighlighted
+                        ? 'bg-amber-50 text-[#8C6D1F]'
                         : 'hover:bg-slate-100 text-slate-800'
                     }`}
                   >
@@ -284,7 +348,7 @@ export default function WorldCountrySearchSelect({
                       <span className="truncate">{c.name}</span>
                       {c.popular && (
                         <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
-                          Popular
+                          NRI Top
                         </span>
                       )}
                     </div>
