@@ -705,6 +705,121 @@ export const getTownsForDistrict = (stateName, districtName) => {
   return Array.from(new Set(filtered.map(c => c.name))).sort();
 };
 
+// Major NRI destinations and residence options
+export const NRI_COUNTRIES = [
+  'India',
+  'USA',
+  'UAE (Dubai/Abu Dhabi)',
+  'UK',
+  'Canada',
+  'Australia',
+  'Saudi Arabia',
+  'Qatar',
+  'Kuwait',
+  'Oman',
+  'Bahrain',
+  'Germany',
+  'Ireland',
+  'New Zealand',
+  'Singapore',
+  'Malaysia',
+  'Other Abroad'
+];
+
+export const RESIDENCY_STATUS_OPTIONS = [
+  'Work Visa',
+  'Permanent Resident (PR)',
+  'Citizen',
+  'Student Visa'
+];
+
+export const PREFERRED_COUNTRY_OPTIONS = [
+  'Any',
+  'India',
+  'Abroad / Any NRI',
+  'USA',
+  'UAE (Dubai/Abu Dhabi)',
+  'UK',
+  'Canada',
+  'Australia',
+  'Saudi Arabia',
+  'Qatar',
+  'Germany',
+  'Singapore',
+  'GCC / Middle East',
+  'Europe',
+  'Other Abroad'
+];
+
+// Helper to normalize country string for accurate comparison
+export const normalizeCountry = (val) => {
+  if (!val || typeof val !== 'string') return '';
+  const clean = val.trim().toLowerCase();
+  if (clean.includes('usa') || clean.includes('united states') || clean.includes('america')) return 'USA';
+  if (clean.includes('uae') || clean.includes('dubai') || clean.includes('abu dhabi') || clean.includes('emirates')) return 'UAE';
+  if (clean.includes('uk') || clean.includes('united kingdom') || clean.includes('england') || clean.includes('london')) return 'UK';
+  if (clean.includes('canada')) return 'Canada';
+  if (clean.includes('australia')) return 'Australia';
+  if (clean.includes('saudi')) return 'Saudi Arabia';
+  if (clean.includes('qatar')) return 'Qatar';
+  if (clean.includes('kuwait')) return 'Kuwait';
+  if (clean.includes('oman')) return 'Oman';
+  if (clean.includes('bahrain')) return 'Bahrain';
+  if (clean.includes('germany')) return 'Germany';
+  if (clean.includes('ireland')) return 'Ireland';
+  if (clean.includes('new zealand')) return 'New Zealand';
+  if (clean.includes('singapore')) return 'Singapore';
+  if (clean.includes('malaysia')) return 'Malaysia';
+  if (clean === 'india' || clean === 'in') return 'India';
+  return val.trim();
+};
+
+export const isNriProfile = (profile) => {
+  if (!profile) return false;
+  if (profile.isNri === true || profile.is_nri === true || profile.isNri === 'true' || profile.is_nri === 'true') return true;
+  const country = profile.work_country || profile.workCountry || profile.country || '';
+  if (country && normalizeCountry(country) !== 'India') return true;
+  const job = (profile.jobLocation || profile.jobPlace || profile.workLocation || '').toLowerCase();
+  const foreignKeywords = [
+    'dubai', 'abu dhabi', 'uae', 'usa', 'united states', 'california', 'texas', 
+    'new york', 'london', 'uk', 'canada', 'toronto', 'vancouver', 'sydney', 
+    'melbourne', 'australia', 'doha', 'qatar', 'singapore', 'germany', 
+    'berlin', 'munich', 'riyadh', 'kuwait', 'muscat', 'oman', 'bahrain', 
+    'ireland', 'dublin', 'auckland', 'new zealand'
+  ];
+  return foreignKeywords.some(kw => job.includes(kw));
+};
+
+export const getProfileCountry = (profile) => {
+  if (!profile) return 'India';
+  const c = profile.work_country || profile.workCountry || profile.country;
+  if (c && normalizeCountry(c) !== 'India') {
+    return c;
+  }
+  if (isNriProfile(profile)) {
+    const job = (profile.jobLocation || profile.jobPlace || profile.workLocation || '');
+    if (job) {
+      const norm = normalizeCountry(job);
+      if (norm && norm !== 'India') return norm;
+    }
+    return 'Abroad (NRI)';
+  }
+  return 'India';
+};
+
+export const getProfileCity = (profile) => {
+  if (!profile) return '';
+  return profile.work_city || profile.workCity || profile.city || profile.district || '';
+};
+
+export const isSameAbroadCountry = (userA, userB) => {
+  if (!userA || !userB) return false;
+  const cA = normalizeCountry(getProfileCountry(userA));
+  const cB = normalizeCountry(getProfileCountry(userB));
+  if (!cA || !cB || cA === 'India' || cB === 'India' || cA === 'Abroad (NRI)' || cB === 'Abroad (NRI)') return false;
+  return cA.toLowerCase() === cB.toLowerCase();
+};
+
 // Location Matching Engine: Calculates proximity compatibility between user & candidate
 export const calculateLocationMatch = (userLoc, candidateLoc) => {
   if (!candidateLoc) {
@@ -718,8 +833,51 @@ export const calculateLocationMatch = (userLoc, candidateLoc) => {
       dotClass: 'bg-slate-400',
       isSameDistrict: false,
       isSameState: false,
+      isSameCountry: false,
       distanceApprox: 'National',
       description: 'Open to Pan-India matrimony matches'
+    };
+  }
+
+  // 1. Same Country Abroad (Highest priority for NRI members)
+  if (isSameAbroadCountry(userLoc, candidateLoc)) {
+    const countryName = getProfileCountry(candidateLoc);
+    const shortCountry = normalizeCountry(countryName);
+    const city = getProfileCity(candidateLoc);
+    return {
+      matchPercent: 98,
+      type: 'same_abroad_country',
+      label: `Same Country (${shortCountry})`,
+      shortLabel: `Both in ${shortCountry}`,
+      badge: `🌎 Both in ${shortCountry}`,
+      badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold',
+      dotClass: 'bg-emerald-500',
+      isSameDistrict: false,
+      isSameState: false,
+      isSameCountry: true,
+      distanceApprox: city ? `${city}, ${shortCountry}` : shortCountry,
+      description: `Both working in ${shortCountry} • Outstanding mutual NRI location compatibility.`
+    };
+  }
+
+  // 2. Candidate working Abroad (NRI badge)
+  if (isNriProfile(candidateLoc)) {
+    const countryName = getProfileCountry(candidateLoc);
+    const shortCountry = normalizeCountry(countryName);
+    const city = getProfileCity(candidateLoc);
+    return {
+      matchPercent: 84,
+      type: 'abroad_nri',
+      label: `NRI • ${shortCountry}`,
+      shortLabel: `NRI • ${shortCountry}`,
+      badge: `✈️ NRI • ${shortCountry}`,
+      badgeClass: 'bg-indigo-50 text-indigo-800 border-indigo-300 font-bold',
+      dotClass: 'bg-indigo-500',
+      isSameDistrict: false,
+      isSameState: false,
+      isSameCountry: false,
+      distanceApprox: city ? `${city}, ${shortCountry}` : shortCountry,
+      description: `Living & working abroad in ${shortCountry}${city ? ` (${city})` : ''}.`
     };
   }
 
@@ -731,7 +889,7 @@ export const calculateLocationMatch = (userLoc, candidateLoc) => {
   const cDistName = candidateLoc?.district || candidateLoc?.city || 'Local';
   const cStateName = candidateLoc?.state || 'State';
 
-  // Same District Match (Highest compatibility)
+  // Same District Match (Highest domestic compatibility)
   if (uDist && cDist && uDist === cDist) {
     return {
       matchPercent: 100,
@@ -743,6 +901,7 @@ export const calculateLocationMatch = (userLoc, candidateLoc) => {
       dotClass: 'bg-emerald-500',
       isSameDistrict: true,
       isSameState: true,
+      isSameCountry: true,
       distanceApprox: '0 - 45 km',
       description: `Both based in ${cDistName} • Ideal for local family meetings & traditional ceremonies.`
     };
@@ -760,6 +919,7 @@ export const calculateLocationMatch = (userLoc, candidateLoc) => {
       dotClass: 'bg-blue-500',
       isSameDistrict: false,
       isSameState: true,
+      isSameCountry: true,
       distanceApprox: 'Inter-district (Within State)',
       description: `Both from ${cStateName} (${cDistName}) • Shared regional culture & traditions.`
     };
@@ -776,6 +936,7 @@ export const calculateLocationMatch = (userLoc, candidateLoc) => {
     dotClass: 'bg-[#D4AF37]',
     isSameDistrict: false,
     isSameState: false,
+    isSameCountry: true,
     distanceApprox: 'Interstate',
     description: `Pan-India connection in ${cDistName}, ${cStateName}.`
   };

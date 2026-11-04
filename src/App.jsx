@@ -49,6 +49,7 @@ import { fcmNotificationService } from './services/fcmNotificationService';
 import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePromptModal';
 import { getAppMode, setAppMode } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
+import { isNriProfile, getProfileCountry, isSameAbroadCountry, normalizeCountry } from './data/locationData';
 
 import { 
   INITIAL_PROFILES, 
@@ -1518,6 +1519,7 @@ export default function App() {
 
   // Mobile Filter Sheet State
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [selectedCountryFilter, setSelectedCountryFilter] = useState('All Profiles');
   const [selectedState, setSelectedState] = useState('All States');
   const [selectedDistrict, setSelectedDistrict] = useState('All Districts');
   const [selectedReligion, setSelectedReligion] = useState('All Religions');
@@ -3588,6 +3590,7 @@ export default function App() {
 
   // Reset filters
   const handleResetFilters = () => {
+    setSelectedCountryFilter('All Profiles');
     setSelectedState('All States');
     setSelectedDistrict('All Districts');
     setSelectedReligion('All Religions');
@@ -3938,10 +3941,12 @@ export default function App() {
     if (selectedDrinking !== 'All') count++;
     if (selectedSmoking !== 'All') count++;
     if (membershipFilter && membershipFilter !== 'All') count++;
+    if (selectedCountryFilter && selectedCountryFilter !== 'All Profiles') count++;
     if (phoneOnly) count++;
     if (mobileSearchNumber && mobileSearchNumber.trim() !== '') count++;
     return count;
   }, [
+    selectedCountryFilter,
     selectedState,
     selectedDistrict,
     selectedReligion,
@@ -4181,12 +4186,52 @@ export default function App() {
         }
       }
 
+      // 22. Country / Working Abroad (NRI) Filter
+      if (selectedCountryFilter && selectedCountryFilter !== 'All Profiles') {
+        const candidateIsNri = isNriProfile(p);
+        const candidateCountry = getProfileCountry(p);
+        const normCandCountry = normalizeCountry(candidateCountry);
+
+        if (selectedCountryFilter === 'Working Abroad (NRI)') {
+          if (!candidateIsNri) return false;
+        } else if (selectedCountryFilter === 'Same Country as Me') {
+          if (isNriProfile(currentUser)) {
+            if (!isSameAbroadCountry(currentUser, p)) return false;
+          } else {
+            if (candidateIsNri) return false;
+          }
+        } else if (selectedCountryFilter === 'India') {
+          if (candidateIsNri) return false;
+        } else if (selectedCountryFilter === 'GCC / Middle East') {
+          const gccKeywords = ['uae', 'saudi arabia', 'qatar', 'kuwait', 'oman', 'bahrain', 'dubai'];
+          const isGcc = gccKeywords.some(k => candidateCountry.toLowerCase().includes(k));
+          if (!isGcc) return false;
+        } else if (selectedCountryFilter === 'Europe') {
+          const europeKeywords = ['uk', 'germany', 'ireland', 'london', 'berlin', 'dublin'];
+          const isEur = europeKeywords.some(k => candidateCountry.toLowerCase().includes(k));
+          if (!isEur) return false;
+        } else {
+          const normFilter = normalizeCountry(selectedCountryFilter);
+          if (normCandCountry !== normFilter) return false;
+        }
+      }
+
       return true;
+    }).sort((a, b) => {
+      // Prioritize showing same-country matches at the top of Discover/Search results
+      if (isNriProfile(currentUser)) {
+        const aSame = isSameAbroadCountry(currentUser, a);
+        const bSame = isSameAbroadCountry(currentUser, b);
+        if (aSame && !bSame) return -1;
+        if (!aSame && bSame) return 1;
+      }
+      return (b.matchScore || 85) - (a.matchScore || 85);
     });
   }, [
     profiles,
     currentUser,
     guestLookingFor,
+    selectedCountryFilter,
     selectedState,
     selectedDistrict,
     selectedReligion,
@@ -4641,6 +4686,8 @@ export default function App() {
               setIsFilterSheetOpen={setIsFilterSheetOpen}
               activeFiltersCount={activeFiltersCount}
               onResetFilters={handleResetFilters}
+              selectedCountryFilter={selectedCountryFilter}
+              setSelectedCountryFilter={setSelectedCountryFilter}
               selectedState={selectedState}
               setSelectedState={setSelectedState}
               selectedDistrict={selectedDistrict}
@@ -4949,6 +4996,8 @@ export default function App() {
               <MobileFilterBottomSheet 
                 isOpen={isFilterSheetOpen}
                 onClose={() => setIsFilterSheetOpen(false)}
+                selectedCountryFilter={selectedCountryFilter}
+                setSelectedCountryFilter={setSelectedCountryFilter}
                 selectedState={selectedState}
                 setSelectedState={setSelectedState}
                 selectedDistrict={selectedDistrict}
@@ -5111,6 +5160,8 @@ export default function App() {
           {activeTab === 'feed' && (
             <MobileMatchFeed 
               profiles={filteredProfiles}
+              selectedCountryFilter={selectedCountryFilter}
+              setSelectedCountryFilter={setSelectedCountryFilter}
               activeFiltersCount={activeFiltersCount}
               onResetFilters={handleResetFilters}
               currentUser={currentUser}
@@ -5146,6 +5197,8 @@ export default function App() {
           {activeTab === 'search' && (
             <MobileSearchScreen 
               profiles={filteredProfiles}
+              selectedCountryFilter={selectedCountryFilter}
+              setSelectedCountryFilter={setSelectedCountryFilter}
               currentUser={currentUser}
               interestsSent={interestsSent}
               onToggleInterest={handleToggleInterest}

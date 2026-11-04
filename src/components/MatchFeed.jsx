@@ -8,28 +8,31 @@ import {
   Check, 
   ShieldCheck, 
   Sparkles, 
-  SlidersHorizontal,
-  ChevronRight,
-  Eye,
-  MessageCircle,
-  CheckCheck
+  SlidersHorizontal, 
+  ChevronRight, 
+  Eye, 
+  MessageCircle, 
+  CheckCheck 
 } from 'lucide-react';
+import { isNriProfile, getProfileCountry, isSameAbroadCountry } from '../data/locationData';
 
 export default function MatchFeed({ 
   profiles, 
+  currentUser,
   interestsSent, 
-  acceptedInterests = [],
+  acceptedInterests = [], 
   onToggleInterest, 
   shortlisted, 
   onToggleShortlist, 
   onSelectProfile, 
-  onStartChat,
+  onStartChat, 
   setCurrentScreen 
 }) {
   const [activeCategory, setActiveCategory] = useState('all');
 
   // Filter profiles by category chips
   const filteredProfiles = profiles.filter(p => {
+    if (activeCategory === 'nri') return isNriProfile(p);
     if (activeCategory === 'high_match') return p.matchScore >= 93;
     if (activeCategory === 'medical') return p.educationCategory.includes('Medical');
     if (activeCategory === 'tech') return p.educationCategory.includes('Engineering') || p.profession.includes('Engineer');
@@ -39,6 +42,7 @@ export default function MatchFeed({
 
   const categories = [
     { id: 'all', label: `All Matches (${profiles.length})` },
+    { id: 'nri', label: '✈️ Abroad (NRI)' },
     { id: 'high_match', label: 'High Gunas Match (93%+)' },
     { id: 'tech', label: 'Tech & Engineers' },
     { id: 'medical', label: 'Doctors & Medical' },
@@ -131,6 +135,10 @@ export default function MatchFeed({
             (profile.register_id && shortlisted.includes(profile.register_id))
           );
 
+          const isNri = isNriProfile(profile);
+          const candidateCountry = getProfileCountry(profile);
+          const sameAbroad = isSameAbroadCountry(currentUser, profile);
+
           return (
             <div 
               key={profile.id}
@@ -147,12 +155,21 @@ export default function MatchFeed({
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent"></div>
 
-                {/* Match Score Badge */}
-                <div className="absolute top-3 left-3">
+                {/* Match Score & NRI Badges */}
+                <div className="absolute top-3 left-3 flex flex-col gap-1 items-start">
                   <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#D4AF37] text-[#0B192C] shadow-md flex items-center space-x-1">
                     <Sparkles className="w-3 h-3 text-[#0B192C]" />
                     <span>{profile.matchScore}% Match</span>
                   </span>
+                  {sameAbroad ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white shadow-md flex items-center gap-1">
+                      🌎 Both in {candidateCountry}
+                    </span>
+                  ) : isNri ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 text-white shadow-md flex items-center gap-1">
+                      ✈️ NRI • {candidateCountry}
+                    </span>
+                  ) : null}
                 </div>
 
                 {/* Shortlist Heart Button */}
@@ -194,11 +211,22 @@ export default function MatchFeed({
                   <div className="flex items-center justify-between text-slate-600">
                     <div className="flex items-center space-x-1 truncate">
                       <MapPin className="w-3.5 h-3.5 text-[#8C6D1F] shrink-0" />
-                      <span className="font-medium truncate">{profile.city}, {profile.state}</span>
+                      <span className="font-medium truncate">
+                        {isNri 
+                          ? `${profile.work_city || profile.workCity || profile.city ? `${profile.work_city || profile.workCity || profile.city}, ` : ''}${candidateCountry}`
+                          : `${profile.city}, ${profile.state}`
+                        }
+                      </span>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 bg-amber-50 text-[#8C6D1F] border border-amber-200">
-                      {profile.district} Dist.
-                    </span>
+                    {isNri ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        {profile.residency_status || profile.residencyStatus || 'Abroad'}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 bg-amber-50 text-[#8C6D1F] border border-amber-200">
+                        {profile.district} Dist.
+                      </span>
+                    )}
                   </div>
 
                   {/* Profession & Company */}

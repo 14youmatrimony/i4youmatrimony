@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { isKundaliApplicableReligion } from '../data/religionData';
 import { useInterestStatus, interestService } from '../services/interestService';
+import { isNriProfile, getProfileCountry, isSameAbroadCountry } from '../data/locationData';
 
 export default function ProfileModal({ 
   profile, 
@@ -117,6 +118,10 @@ export default function ProfileModal({
   };
 
   if (!profile) return null;
+
+  const candidateCountry = getProfileCountry(profile);
+  const isNri = isNriProfile(profile);
+  const sameAbroadCountry = isSameAbroadCountry(currentUser, profile) ? getProfileCountry(profile) : null;
 
   const hasPaidPlan = Boolean(currentUser?.membership && currentUser.membership !== 'free');
   const isContactUnlocked = Boolean(currentUser?.unlockedContacts && currentUser.unlockedContacts.includes(profile.id));
@@ -227,20 +232,36 @@ export default function ProfileModal({
             </div>
             
             <div className="mb-8 text-white">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                 <h3 className="text-xl sm:text-2xl font-serif font-bold tracking-tight">
                   {profile.name}
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   ID Verified
                 </span>
+                {sameAbroadCountry ? (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-bold flex items-center gap-1 shadow-sm">
+                    🌎 Both in {sameAbroadCountry}
+                  </span>
+                ) : isNri ? (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500 text-white font-bold flex items-center gap-1 shadow-sm">
+                    ✈️ NRI • {candidateCountry}
+                  </span>
+                ) : null}
               </div>
-              <p className="text-xs text-slate-200 mt-0.5 flex items-center gap-1">
+              <p className="text-xs text-slate-200 mt-0.5 flex items-center gap-1 flex-wrap">
                 <span>{profile.age} yrs, {profile.height}</span>
                 {profile.bodyType && <span>• {profile.bodyType}</span>}
                 <span>•</span>
                 <MapPin className="w-3 h-3 text-[#DFB76C]" />
-                <span>{profile.district || profile.city}{profile.state ? `, ${profile.state}` : ''}</span>
+                {isNri ? (
+                  <span>
+                    {profile.work_city || profile.workCity || profile.city ? `${profile.work_city || profile.workCity || profile.city}, ` : ''}{candidateCountry}
+                    <span className="opacity-80 text-[11px] ml-1">({profile.district || profile.state || 'India'} Native)</span>
+                  </span>
+                ) : (
+                  <span>{profile.district || profile.city}{profile.state ? `, ${profile.state}` : ''}</span>
+                )}
               </p>
             </div>
           </div>
@@ -275,6 +296,26 @@ export default function ProfileModal({
         {/* Modal Scrollable Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6 text-slate-800 text-sm">
           
+          {/* Same Country Abroad Banner */}
+          {sameAbroadCountry && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 shadow-xs flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🌎</span>
+                <div>
+                  <h5 className="font-bold text-emerald-950 text-xs sm:text-sm">
+                    Both currently living in {sameAbroadCountry}!
+                  </h5>
+                  <p className="text-[11px] text-emerald-800">
+                    You both share the same international destination. Great opportunity to connect locally.
+                  </p>
+                </div>
+              </div>
+              <span className="hidden sm:inline-block px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-600 text-white shadow-xs">
+                Same Country Match
+              </span>
+            </div>
+          )}
+
           {/* Tab 1: About */}
           {activeTab === 'about' && (
             <div className="space-y-4">
@@ -396,6 +437,23 @@ export default function ProfileModal({
                         </span>
                       )}
                     </div>
+
+                    {isNri && (
+                      <div className="mt-3 flex items-center gap-2.5 text-xs text-indigo-900 bg-indigo-50/90 p-3 rounded-xl border border-indigo-200">
+                        <span className="text-lg">✈️</span>
+                        <div className="flex-1">
+                          <div className="font-bold text-indigo-950">
+                            Working Abroad in {candidateCountry}
+                          </div>
+                          <div className="text-[11px] text-indigo-700">
+                            {profile.work_city || profile.workCity ? `City: ${profile.work_city || profile.workCity} • ` : ''}Residency: {profile.residency_status || profile.residencyStatus || 'Work Visa'}
+                          </div>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-900 font-bold shrink-0">
+                          NRI Member
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -628,6 +686,12 @@ export default function ProfileModal({
                   <div className="flex justify-between py-1 border-b border-slate-100">
                     <span className="text-slate-400">Dietary Habit:</span>
                     <span className="font-bold text-slate-800">{profile.diet?.includes('Vegetarian') ? 'Vegetarian Preferred' : 'Flexible'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Preferred Country:</span>
+                    <span className="font-bold text-slate-800">
+                      {profile.preferred_countries || profile.preferredCountries || (isNri ? 'Open to NRI & India' : 'India / Open')}
+                    </span>
                   </div>
                 </div>
               </div>

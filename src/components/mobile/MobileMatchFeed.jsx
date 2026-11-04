@@ -24,10 +24,19 @@ import {
   LayoutGrid, 
   Square,
   CheckCheck,
-  Phone
+  Phone,
+  Globe,
+  Plane
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
-import { calculateLocationMatch } from '../../data/locationData';
+import { 
+  calculateLocationMatch, 
+  isNriProfile, 
+  getProfileCountry, 
+  isSameAbroadCountry, 
+  normalizeCountry, 
+  NRI_COUNTRIES 
+} from '../../data/locationData';
 import { useTheme } from '../../context/ThemeContext';
 import { 
   getTargetCandidateGender, 
@@ -40,6 +49,8 @@ import { interestService } from '../../services/interestService';
 
 export default function MobileMatchFeed({
   profiles,
+  selectedCountryFilter = 'All Profiles',
+  setSelectedCountryFilter,
   currentUser,
   interestsSent,
   acceptedInterests = [],
@@ -516,6 +527,39 @@ export default function MobileMatchFeed({
           </div>
         )}
 
+        {/* Discover Country / NRI Filter Chips Bar */}
+        <div className="px-1 py-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              { id: 'All Profiles', label: 'All Profiles' },
+              { id: 'Working Abroad (NRI)', label: '✈️ Abroad (NRI)' },
+              ...(isNriProfile(currentUser) ? [{ id: 'Same Country as Me', label: `🌎 Same Country (${normalizeCountry(getProfileCountry(currentUser))})` }] : []),
+              { id: 'India', label: '🇮🇳 India' },
+              { id: 'USA', label: '🇺🇸 USA' },
+              { id: 'UAE', label: '🇦🇪 UAE' },
+              { id: 'UK', label: '🇬🇧 UK' },
+              { id: 'Canada', label: '🇨🇦 Canada' },
+              { id: 'Australia', label: '🇦🇺 Australia' }
+            ].map((chip) => {
+              const isActive = (selectedCountryFilter || 'All Profiles') === chip.id;
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setSelectedCountryFilter && setSelectedCountryFilter(chip.id)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-[#0B192C] text-[#DFB76C] shadow-xs'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Quick Feed Layout Switcher Bar */}
         {filteredProfiles.length > 0 && (
           <div className="flex items-center justify-between px-1 py-1">
@@ -667,6 +711,21 @@ export default function MobileMatchFeed({
                       </div>
                     )}
 
+                    {/* Same Country Abroad / NRI Highlight Badge (Below match score) */}
+                    {isSameAbroadCountry(currentUser, profile) ? (
+                      <div className="absolute top-7 left-1.5 z-10 px-1.5 py-0.5 rounded-md bg-emerald-600/90 text-white border border-emerald-300 shadow-xs flex items-center space-x-1">
+                        <span className="font-black text-[8px] text-white">
+                          🌎 Both in {normalizeCountry(getProfileCountry(profile))}
+                        </span>
+                      </div>
+                    ) : isNriProfile(profile) ? (
+                      <div className="absolute top-7 left-1.5 z-10 px-1.5 py-0.5 rounded-md bg-indigo-600/90 text-white border border-indigo-300 shadow-xs flex items-center space-x-1">
+                        <span className="font-bold text-[8px] text-white">
+                          ✈️ NRI • {normalizeCountry(getProfileCountry(profile))}
+                        </span>
+                      </div>
+                    ) : null}
+
                     {/* Top Verification Shield & Paid Crown (Right) */}
                     <div className="absolute top-1.5 right-1.5 z-10 flex items-center space-x-1">
                       {Boolean(profile.isPaid || (profile.membership && profile.membership !== 'free')) && (
@@ -712,7 +771,13 @@ export default function MobileMatchFeed({
                       {/* Location */}
                       <div className="flex items-center space-x-1 text-[10px] text-slate-600 truncate">
                         <MapPin className="w-2.5 h-2.5 text-[#DFB76C] shrink-0" />
-                        <span className="truncate font-semibold">{profile.district || profile.city}</span>
+                        {isNriProfile(profile) ? (
+                          <span className="truncate font-semibold text-indigo-900">
+                            {profile.work_city ? `${profile.work_city}, ` : ''}{getProfileCountry(profile)}
+                          </span>
+                        ) : (
+                          <span className="truncate font-semibold">{profile.district || profile.city}</span>
+                        )}
                       </div>
 
                       {/* Profession */}
@@ -920,6 +985,15 @@ export default function MobileMatchFeed({
                               <span>Paid Member</span>
                             </span>
                           )}
+                          {isSameAbroadCountry(currentUser, profile) ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[9.5px] font-black flex items-center gap-1 shadow-sm shrink-0 border border-emerald-300">
+                              <span>🌎 Both in {normalizeCountry(getProfileCountry(profile))}</span>
+                            </span>
+                          ) : isNriProfile(profile) ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-[9.5px] font-extrabold flex items-center gap-1 shadow-sm shrink-0 border border-indigo-300">
+                              <span>✈️ NRI • {normalizeCountry(getProfileCountry(profile))}</span>
+                            </span>
+                          ) : null}
                         </div>
 
                         <p className="text-xs text-slate-200 mt-0.5">
@@ -928,7 +1002,19 @@ export default function MobileMatchFeed({
 
                         <div className="flex items-center space-x-1 text-xs text-slate-200 mt-1">
                           <MapPin className="w-3.5 h-3.5 text-[#DFB76C] shrink-0" />
-                          <span className="truncate"><strong className="text-white font-semibold">{profile.district || profile.city}</strong>{profile.state ? `, ${profile.state}` : ''}</span>
+                          {isNriProfile(profile) ? (
+                            <span className="truncate">
+                              <strong className="text-white font-semibold">
+                                {profile.work_city ? `${profile.work_city}, ` : ''}{getProfileCountry(profile)}
+                              </strong>
+                              {profile.state ? ` (Roots: ${profile.state})` : ''}
+                            </span>
+                          ) : (
+                            <span className="truncate">
+                              <strong className="text-white font-semibold">{profile.district || profile.city}</strong>
+                              {profile.state ? `, ${profile.state}` : ''}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -957,9 +1043,11 @@ export default function MobileMatchFeed({
                         <p className="font-bold text-slate-900 truncate">{profile.profession}</p>
                         <p className="text-[11px] text-slate-500 truncate">
                           {profile.company}
-                          {(profile.jobLocation || profile.jobPlace) && (
+                          {isNriProfile(profile) ? (
+                            <span className="text-indigo-700 font-semibold"> • ✈️ {profile.work_city ? `${profile.work_city}, ` : ''}{getProfileCountry(profile)}{profile.residency_status ? ` (${profile.residency_status})` : ''}</span>
+                          ) : (profile.jobLocation || profile.jobPlace) ? (
                             <span className="text-slate-500 font-normal"> • 📍 {profile.jobLocation || profile.jobPlace}</span>
-                          )}
+                          ) : null}
                         </p>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold rounded border border-emerald-200">

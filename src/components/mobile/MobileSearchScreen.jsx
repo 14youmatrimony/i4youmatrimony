@@ -9,9 +9,20 @@ import {
   MessageCircle,
   CheckCircle2,
   SlidersHorizontal,
-  Crown
+  Crown,
+  Globe,
+  Plane
 } from 'lucide-react';
-import { STATES_AND_CITIES, getDistrictsForState, calculateLocationMatch } from '../../data/locationData';
+import { 
+  STATES_AND_CITIES, 
+  getDistrictsForState, 
+  calculateLocationMatch,
+  isNriProfile,
+  getProfileCountry,
+  isSameAbroadCountry,
+  normalizeCountry,
+  NRI_COUNTRIES
+} from '../../data/locationData';
 import { RELIGIONS } from '../RegistrationWizard';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import SearchableSelect from '../common/SearchableSelect';
@@ -33,6 +44,7 @@ export default function MobileSearchScreen({
 }) {
   const { triggerScreenshotBlock, screenshotRestricted } = usePhotoPrivacy();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState('All Profiles');
   const [selectedState, setSelectedState] = useState('All States');
   const [selectedDistrict, setSelectedDistrict] = useState('All Districts');
   const [selectedReligion, setSelectedReligion] = useState('All Religions');
@@ -58,34 +70,79 @@ export default function MobileSearchScreen({
       .filter(p => {
         // 0. Exclude own profile
         if (currentUser?.id && p.id === currentUser.id) return false;
-      if (currentUser?.mobile && (p.mobile === currentUser.mobile || p.phone === currentUser.mobile)) return false;
+        if (currentUser?.mobile && (p.mobile === currentUser.mobile || p.phone === currentUser.mobile)) return false;
 
-      // 0.1 Strict Opposite Gender Matchmaking Rule
-      if (!isCandidateMatchingTarget(p.gender, targetCandidateGender)) return false;
+        // 0.1 Strict Opposite Gender Matchmaking Rule
+        if (!isCandidateMatchingTarget(p.gender, targetCandidateGender)) return false;
 
-      if (cleanSearch) {
-        const q = cleanSearch.toLowerCase();
-        const cleanQuery = q.replace(/[\s\+\-]/g, '');
-        const phoneMatch = p.phone && p.phone.replace(/[\s\+\-]/g, '').includes(cleanQuery);
-        const mobileMatch = p.mobile && p.mobile.replace(/[\s\+\-]/g, '').includes(cleanQuery);
-        const hit = p.name.toLowerCase().includes(q) || 
-                    p.city.toLowerCase().includes(q) || 
-                    (p.district && p.district.toLowerCase().includes(q)) ||
-                    p.profession.toLowerCase().includes(q) || 
-                    phoneMatch ||
-                    mobileMatch;
-        if (!hit) return false;
-      }
-      if (selectedState !== 'All States' && p.state !== selectedState) return false;
-      if (selectedDistrict !== 'All Districts' && p.district !== selectedDistrict) return false;
-      if (selectedReligion !== 'All Religions' && p.religion !== selectedReligion) return false;
+        if (cleanSearch) {
+          const q = cleanSearch.toLowerCase();
+          const cleanQuery = q.replace(/[\s\+\-]/g, '');
+          const phoneMatch = p.phone && p.phone.replace(/[\s\+\-]/g, '').includes(cleanQuery);
+          const mobileMatch = p.mobile && p.mobile.replace(/[\s\+\-]/g, '').includes(cleanQuery);
+          const countryMatch = (p.country || '').toLowerCase().includes(q) || (p.work_country || '').toLowerCase().includes(q) || (p.workCountry || '').toLowerCase().includes(q);
+          const hit = p.name.toLowerCase().includes(q) || 
+                      (p.city && p.city.toLowerCase().includes(q)) || 
+                      (p.work_city && p.work_city.toLowerCase().includes(q)) ||
+                      (p.district && p.district.toLowerCase().includes(q)) ||
+                      (p.profession && p.profession.toLowerCase().includes(q)) || 
+                      countryMatch ||
+                      phoneMatch ||
+                      mobileMatch;
+          if (!hit) return false;
+        }
 
-      return true;
-    });
-  }, [profiles, currentUser, searchTerm, selectedState, selectedDistrict, selectedReligion]);
+        // Country / NRI Filter
+        if (selectedCountry !== 'All Profiles') {
+          const candidateIsNri = isNriProfile(p);
+          const candidateCountry = getProfileCountry(p);
+          const normCandCountry = normalizeCountry(candidateCountry);
+
+          if (selectedCountry === 'Working Abroad (NRI)') {
+            if (!candidateIsNri) return false;
+          } else if (selectedCountry === 'Same Country as Me') {
+            if (isNriProfile(currentUser)) {
+              if (!isSameAbroadCountry(currentUser, p)) return false;
+            } else {
+              if (candidateIsNri) return false;
+            }
+          } else if (selectedCountry === 'India') {
+            if (candidateIsNri) return false;
+          } else if (selectedCountry === 'GCC / Middle East') {
+            const gccKeywords = ['uae', 'saudi arabia', 'qatar', 'kuwait', 'oman', 'bahrain', 'dubai'];
+            const isGcc = gccKeywords.some(k => candidateCountry.toLowerCase().includes(k));
+            if (!isGcc) return false;
+          } else if (selectedCountry === 'Europe') {
+            const europeKeywords = ['uk', 'germany', 'ireland', 'london', 'berlin', 'dublin'];
+            const isEur = europeKeywords.some(k => candidateCountry.toLowerCase().includes(k));
+            if (!isEur) return false;
+          } else {
+            const normFilter = normalizeCountry(selectedCountry);
+            if (normCandCountry !== normFilter) return false;
+          }
+        }
+
+        if (selectedState !== 'All States' && p.state !== selectedState) return false;
+        if (selectedDistrict !== 'All Districts' && p.district !== selectedDistrict) return false;
+        if (selectedReligion !== 'All Religions' && p.religion !== selectedReligion) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        // Prioritize showing same-country matches at the top of results
+        if (isNriProfile(currentUser)) {
+          const aSame = isSameAbroadCountry(currentUser, a);
+          const bSame = isSameAbroadCountry(currentUser, b);
+          if (aSame && !bSame) return -1;
+          if (!aSame && bSame) return 1;
+        }
+        return (b.matchScore || 85) - (a.matchScore || 85);
+      });
+  }, [profiles, currentUser, targetCandidateGender, searchTerm, selectedCountry, selectedState, selectedDistrict, selectedReligion]);
 
   const handleReset = () => {
     setSearchTerm('');
+    setSelectedCountry('All Profiles');
     setSelectedState('All States');
     setSelectedDistrict('All Districts');
     setSelectedReligion('All Religions');
@@ -182,6 +239,53 @@ export default function MobileSearchScreen({
         </div>
 
 
+        {/* Country / NRI Quick Filter Chips */}
+        <div className="space-y-1.5 pt-1.5 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+            <span className="flex items-center gap-1">
+              <Globe className="w-3.5 h-3.5 text-[#8C6D1F]" />
+              <span>Country / NRI Filter</span>
+            </span>
+            {selectedCountry !== 'All Profiles' && (
+              <span className="text-[10px] text-[#8C6D1F] font-bold bg-amber-50 px-2 py-0.2 rounded-full border border-amber-200">
+                {selectedCountry}
+              </span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              { id: 'All Profiles', label: 'All Profiles' },
+              { id: 'Working Abroad (NRI)', label: '✈️ Abroad (NRI)' },
+              ...(isNriProfile(currentUser) ? [{ id: 'Same Country as Me', label: `🌎 Same Country (${normalizeCountry(getProfileCountry(currentUser))})` }] : []),
+              { id: 'India', label: '🇮🇳 India' },
+              { id: 'USA', label: '🇺🇸 USA' },
+              { id: 'UAE', label: '🇦🇪 UAE' },
+              { id: 'UK', label: '🇬🇧 UK' },
+              { id: 'Canada', label: '🇨🇦 Canada' },
+              { id: 'Australia', label: '🇦🇺 Australia' },
+              { id: 'GCC / Middle East', label: 'GCC' },
+              { id: 'Europe', label: 'Europe' }
+            ].map(c => {
+              const isActive = selectedCountry === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCountry(c.id)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-[#0B192C] text-[#DFB76C] shadow-2xs font-extrabold'
+                      : 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200/70'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
 
       {/* Result Count & Location Indicator */}
@@ -190,7 +294,7 @@ export default function MobileSearchScreen({
           <span className="text-xs font-bold text-slate-800">
             Matches Found ({filteredProfiles.length})
           </span>
-          {(selectedState !== 'All States' || selectedDistrict !== 'All Districts' || selectedReligion !== 'All Religions' || searchTerm) && (
+          {(selectedCountry !== 'All Profiles' || selectedState !== 'All States' || selectedDistrict !== 'All Districts' || selectedReligion !== 'All Religions' || searchTerm) && (
             <button 
               type="button"
               onClick={handleReset}
@@ -201,11 +305,13 @@ export default function MobileSearchScreen({
           )}
         </div>
         <span className="text-[11px] text-[#8C6D1F] font-semibold">
-          {selectedDistrict !== 'All Districts'
+          {selectedCountry !== 'All Profiles'
+            ? `✈️ ${selectedCountry}`
+            : selectedDistrict !== 'All Districts'
             ? `📍 ${selectedDistrict} Dist.`
             : selectedState !== 'All States'
             ? `📍 ${selectedState} Only`
-            : 'Pan-India Database'}
+            : 'Pan-India & NRI Database'}
         </span>
       </div>
 
@@ -277,9 +383,19 @@ export default function MobileSearchScreen({
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" title="Aadhaar Verified" />
                       )}
                     </div>
-                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold border shrink-0 ${locMatch.badgeClass}`}>
-                      {locMatch.shortLabel}
-                    </span>
+                    {isSameAbroadCountry(currentUser, profile) ? (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full font-black bg-emerald-50 text-emerald-800 border border-emerald-300 shrink-0 shadow-2xs">
+                        🌎 Both in {normalizeCountry(getProfileCountry(profile))}
+                      </span>
+                    ) : isNriProfile(profile) ? (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-800 border border-indigo-300 shrink-0">
+                        ✈️ NRI • {normalizeCountry(getProfileCountry(profile))}
+                      </span>
+                    ) : (
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold border shrink-0 ${locMatch.badgeClass}`}>
+                        {locMatch.shortLabel}
+                      </span>
+                    )}
                   </div>
 
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -300,7 +416,19 @@ export default function MobileSearchScreen({
 
                 <p className="text-[11px] text-slate-600 font-medium truncate mt-0.5 flex items-center gap-1">
                   <MapPin className="w-3 h-3 text-[#DFB76C] shrink-0" />
-                  <span><strong className="text-slate-800">{profile.district || profile.city}</strong>{profile.state ? `, ${profile.state}` : ''}</span>
+                  {isNriProfile(profile) ? (
+                    <span>
+                      <strong className="text-slate-800">
+                        {profile.work_city ? `${profile.work_city}, ` : ''}{getProfileCountry(profile)}
+                      </strong>
+                      {profile.state ? ` (Roots: ${profile.state})` : ''}
+                    </span>
+                  ) : (
+                    <span>
+                      <strong className="text-slate-800">{profile.district || profile.city}</strong>
+                      {profile.state ? `, ${profile.state}` : ''}
+                    </span>
+                  )}
                 </p>
 
                 <p className="text-[11px] text-slate-700 truncate font-semibold mt-0.5">

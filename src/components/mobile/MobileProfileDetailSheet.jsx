@@ -25,7 +25,13 @@ import {
   Video,
   CheckCheck
 } from 'lucide-react';
-import { calculateLocationMatch } from '../../data/locationData';
+import { 
+  calculateLocationMatch, 
+  isNriProfile, 
+  getProfileCountry, 
+  isSameAbroadCountry, 
+  normalizeCountry 
+} from '../../data/locationData';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { isKundaliApplicableReligion } from '../../data/religionData';
 import { useInterestStatus, interestService } from '../../services/interestService';
@@ -190,7 +196,7 @@ export default function MobileProfileDetailSheet({
               ) : null}
             </div>
             <p className="text-[10px] text-slate-300 truncate">
-              {profile.age} yrs • {profile.district || profile.city}{profile.state ? `, ${profile.state}` : ''}
+              {profile.age} yrs • {isNriProfile(profile) ? `✈️ ${profile.work_city ? profile.work_city + ', ' : ''}${getProfileCountry(profile)}` : `${profile.district || profile.city}${profile.state ? `, ${profile.state}` : ''}`}
             </p>
           </div>
         </div>
@@ -449,11 +455,42 @@ export default function MobileProfileDetailSheet({
 
               <div className="flex items-center space-x-1.5 text-xs text-slate-300 mt-1">
                 <MapPin className="w-3.5 h-3.5 text-[#DFB76C] shrink-0" />
-                <span className="font-medium"><strong className="text-white font-semibold">{profile.district || profile.city}</strong>{profile.state ? `, ${profile.state}` : ''}</span>
+                {isNriProfile(profile) ? (
+                  <span className="font-medium">
+                    <strong className="text-white font-semibold">
+                      {profile.work_city ? `${profile.work_city}, ` : ''}{getProfileCountry(profile)}
+                    </strong>
+                    {profile.state ? ` (Roots: ${profile.state})` : ''}
+                  </span>
+                ) : (
+                  <span className="font-medium"><strong className="text-white font-semibold">{profile.district || profile.city}</strong>{profile.state ? `, ${profile.state}` : ''}</span>
+                )}
               </div>
             </div>
           </div>
         </div>
+
+        {/* Same Country Abroad Highlight Card */}
+        {isSameAbroadCountry(currentUser, profile) && (
+          <div className="mx-3 mt-2 p-3 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 shadow-xs flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-xs shrink-0">
+                🌎
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-emerald-950">
+                  Both in {normalizeCountry(getProfileCountry(profile))}!
+                </h4>
+                <p className="text-[11px] text-emerald-800">
+                  You and {profile.name.split(' ')[0]} are both currently working in {getProfileCountry(profile)}. Excellent NRI compatibility.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] px-2.5 py-0.5 rounded-full font-black bg-emerald-600 text-white shadow-xs shrink-0">
+              Same Country
+            </span>
+          </div>
+        )}
 
         {/* Live Active Communication Suite (Direct 1-Tap Access) */}
         <div className="mx-3 my-2 p-2.5 rounded-2xl bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C] border border-[#D4AF37]/40 shadow-sm text-white">
@@ -1115,6 +1152,23 @@ export default function MobileProfileDetailSheet({
                     <p className="text-xs text-slate-600 font-medium">{profile.company}</p>
                   </div>
 
+                  {isNriProfile(profile) && (
+                    <div className="flex items-center gap-2 text-xs text-indigo-900 bg-indigo-50/80 p-2.5 rounded-xl border border-indigo-200">
+                      <span className="text-base">✈️</span>
+                      <div>
+                        <div className="font-extrabold text-indigo-950">
+                          Working Abroad in {getProfileCountry(profile)}
+                        </div>
+                        <div className="text-[11px] text-indigo-700">
+                          {profile.work_city ? `City: ${profile.work_city} • ` : ''}Residency: {profile.residency_status || 'Work Visa'}
+                        </div>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-200/80 text-indigo-900 font-bold ml-auto shrink-0">
+                        NRI Member
+                      </span>
+                    </div>
+                  )}
+
                   {(profile.jobLocation || profile.jobPlace || profile.workLocation) && (
                     <div className="flex items-center gap-1.5 text-xs text-slate-700 bg-white p-2 rounded-lg border border-slate-200/80">
                       <MapPin className="w-3.5 h-3.5 text-[#1E3A8A] shrink-0" />
@@ -1456,7 +1510,7 @@ export default function MobileProfileDetailSheet({
                   <div className="py-2.5 flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Location Preference:</span>
                     <span className="font-semibold text-slate-900 text-right max-w-[60%]">
-                      {profile.district} District & {profile.state} (Pan-India Open)
+                      {profile.preferred_countries || profile.preferredCountries || (isNriProfile(profile) ? 'Open to NRI & India' : `${profile.district || ''} & Pan-India / Open`)}
                     </span>
                   </div>
                   <div className="py-2.5 flex justify-between items-center">

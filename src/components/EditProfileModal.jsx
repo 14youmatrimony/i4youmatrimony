@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, Check, AlertCircle, Loader2, Save, User, 
-  MapPin, Briefcase, Sparkles, Lock 
+  MapPin, Briefcase, Sparkles, Lock, Globe, Plane, HeartHandshake 
 } from 'lucide-react';
 import { fetchLiveUserProfile, updateLiveUserProfile } from '../services/api';
+import { NRI_COUNTRIES, RESIDENCY_STATUS_OPTIONS, PREFERRED_COUNTRY_OPTIONS } from '../data/locationData';
 
 /**
  * EditProfileModal
@@ -57,7 +58,21 @@ export default function EditProfileModal({
       annualIncome: source?.annualIncome || source?.annual_income || '',
       diet: source?.diet || 'Vegetarian',
       manglik: source?.manglik || 'Non-Manglik',
-      about: source?.about || source?.aboutBio || ''
+      about: source?.about || source?.aboutBio || '',
+      // NRI / Abroad Working Details
+      is_nri: Boolean(
+        source?.is_nri || 
+        source?.isNri || 
+        (source?.country && source.country !== 'India') ||
+        (source?.work_country && source.work_country !== 'India') ||
+        (source?.workCountry && source.workCountry !== 'India')
+      ),
+      country: source?.country || source?.work_country || source?.workCountry || 'India',
+      work_country: source?.work_country || source?.workCountry || (source?.country && source.country !== 'India' ? source.country : 'USA'),
+      work_city: source?.work_city || source?.workCity || (source?.city && source?.country && source.country !== 'India' ? source.city : ''),
+      residency_status: source?.residency_status || source?.residencyStatus || 'Work Visa',
+      preferred_countries: source?.preferred_countries || source?.preferredCountries || 'Any',
+      partner_expectations: source?.partner_expectations || source?.partnerExpectations || ''
     };
   };
 
@@ -286,6 +301,21 @@ export default function EditProfileModal({
       safePayload.mother_tongue = safePayload.motherTongue;
     }
 
+    // Working Abroad & Partner Location Preferences
+    safePayload.is_nri = Boolean(formData.is_nri);
+    safePayload.isNri = Boolean(formData.is_nri);
+    safePayload.country = formData.is_nri ? (formData.work_country || 'USA') : 'India';
+    safePayload.work_country = formData.is_nri ? (formData.work_country || 'USA') : 'India';
+    safePayload.workCountry = safePayload.work_country;
+    safePayload.work_city = formData.is_nri ? (formData.work_city || formData.city || '') : '';
+    safePayload.workCity = safePayload.work_city;
+    safePayload.residency_status = formData.is_nri ? (formData.residency_status || 'Work Visa') : '';
+    safePayload.residencyStatus = safePayload.residency_status;
+    safePayload.preferred_countries = formData.preferred_countries || 'Any';
+    safePayload.preferredCountries = safePayload.preferred_countries;
+    safePayload.partner_expectations = formData.partner_expectations || '';
+    safePayload.partnerExpectations = safePayload.partner_expectations;
+
     try {
       // 1. Call updateLiveUserProfile helper to sync Supabase & update localStorage
       const result = await updateLiveUserProfile(identifier, safePayload);
@@ -359,8 +389,9 @@ export default function EditProfileModal({
         <div className="flex items-center gap-1 px-4 py-2 bg-slate-100 border-b border-slate-200 overflow-x-auto shrink-0">
           {[
             { id: 'personal', label: 'Personal & Astro', icon: User },
-            { id: 'location', label: 'Location & Contact', icon: MapPin },
-            { id: 'career', label: 'Education & Career', icon: Briefcase }
+            { id: 'location', label: 'Location & NRI', icon: MapPin },
+            { id: 'career', label: 'Education & Career', icon: Briefcase },
+            { id: 'preferences', label: 'Partner Preferences', icon: HeartHandshake }
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -685,9 +716,9 @@ export default function EditProfileModal({
                 </div>
               )}
 
-              {/* TAB 2: Location & Contact */}
+              {/* TAB 2: Location & Contact / Working Abroad */}
               {activeTab === 'location' && (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Mobile Phone *</label>
@@ -714,42 +745,170 @@ export default function EditProfileModal({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">State *</label>
-                      <input
-                        type="text"
-                        name="state"
-                        required
-                        value={formData.state}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
-                        placeholder="e.g. Kerala / Maharashtra"
-                      />
+                  {/* Living / Working In: India vs Abroad (NRI) Toggle */}
+                  <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-[#D4AF37]/40 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 block flex items-center gap-1.5">
+                          <Globe className="w-3.5 h-3.5 text-[#8C6D1F]" />
+                          <span>Current Working & Living Country</span>
+                        </span>
+                        <p className="text-[11px] text-slate-600">
+                          Are you currently based in India or working abroad as an NRI?
+                        </p>
+                      </div>
+
+                      {/* Toggle Buttons */}
+                      <div className="flex items-center p-1 bg-white rounded-xl border border-slate-200 shadow-2xs self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ 
+                            ...prev, 
+                            is_nri: false, 
+                            isNri: false, 
+                            country: 'India', 
+                            work_country: 'India' 
+                          }))}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                            !formData.is_nri 
+                              ? 'bg-[#0B192C] text-[#DFB76C] shadow-xs' 
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          🇮🇳 India
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ 
+                            ...prev, 
+                            is_nri: true, 
+                            isNri: true, 
+                            work_country: (prev.work_country && prev.work_country !== 'India') ? prev.work_country : 'USA',
+                            country: (prev.work_country && prev.work_country !== 'India') ? prev.work_country : 'USA'
+                          }))}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                            formData.is_nri 
+                              ? 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] shadow-xs font-extrabold' 
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Plane className="w-3.5 h-3.5" />
+                          <span>Abroad (NRI)</span>
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">City *</label>
-                      <input
-                        type="text"
-                        name="city"
-                        required
-                        value={formData.city}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
-                        placeholder="e.g. Kochi / Mumbai"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">District</label>
-                      <input
-                        type="text"
-                        name="district"
-                        value={formData.district}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
-                        placeholder="e.g. Ernakulam / Nashik"
-                      />
-                    </div>
+
+                    {/* NRI Working Abroad Details */}
+                    {formData.is_nri ? (
+                      <div className="space-y-3 pt-2.5 border-t border-amber-200/70 animate-in fade-in duration-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center gap-1">
+                              <span>Current Country Abroad *</span>
+                              <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded font-semibold">NRI</span>
+                            </label>
+                            <select
+                              name="work_country"
+                              value={formData.work_country || 'USA'}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFormData(prev => ({ ...prev, work_country: val, country: val }));
+                              }}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800 font-bold"
+                            >
+                              {NRI_COUNTRIES.filter(c => c !== 'India').map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-800 mb-1">
+                              Current City / State Abroad *
+                            </label>
+                            <input
+                              type="text"
+                              name="work_city"
+                              value={formData.work_city}
+                              onChange={handleChange}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                              placeholder="e.g. New York, Texas, London, Dubai, Toronto"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-800 mb-1">
+                              Visa / Residency Status
+                            </label>
+                            <select
+                              name="residency_status"
+                              value={formData.residency_status || 'Work Visa'}
+                              onChange={handleChange}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                            >
+                              {RESIDENCY_STATUS_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-800 mb-1">
+                              Native State in India (Family Origins)
+                            </label>
+                            <input
+                              type="text"
+                              name="state"
+                              value={formData.state}
+                              onChange={handleChange}
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                              placeholder="e.g. Kerala / Maharashtra / Punjab"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Domestic India Details */
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2.5 border-t border-amber-200/70">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">State *</label>
+                          <input
+                            type="text"
+                            name="state"
+                            required
+                            value={formData.state}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                            placeholder="e.g. Kerala / Maharashtra"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">City *</label>
+                          <input
+                            type="text"
+                            name="city"
+                            required
+                            value={formData.city}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                            placeholder="e.g. Kochi / Mumbai"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">District</label>
+                          <input
+                            type="text"
+                            name="district"
+                            value={formData.district}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                            placeholder="e.g. Ernakulam / Nashik"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -804,9 +963,48 @@ export default function EditProfileModal({
                         value={formData.annualIncome}
                         onChange={handleChange}
                         className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
-                        placeholder="e.g. ₹ 15 - 25 LPA"
+                        placeholder="e.g. ₹ 15 - 25 LPA or $140,000"
                       />
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: Partner Preferences */}
+              {activeTab === 'preferences' && (
+                <div className="space-y-3.5">
+                  <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-[#D4AF37]/40 space-y-2">
+                    <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-[#8C6D1F]" />
+                      <span>Preferred Country / Location *</span>
+                    </label>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Select which countries you are open to for your partner (e.g. India Only, specific NRI countries like USA, UAE, Canada, or Any).
+                    </p>
+                    <select
+                      name="preferred_countries"
+                      value={formData.preferred_countries || 'Any'}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800 font-bold"
+                    >
+                      {PREFERRED_COUNTRY_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Partner Expectations & Qualities
+                    </label>
+                    <textarea
+                      name="partner_expectations"
+                      rows={4}
+                      value={formData.partner_expectations || ''}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white text-slate-800"
+                      placeholder="Describe what you are looking for in your life partner (values, lifestyle, education, mindset, openness to settle abroad)..."
+                    />
                   </div>
                 </div>
               )}

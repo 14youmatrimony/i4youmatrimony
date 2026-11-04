@@ -14,9 +14,11 @@ import {
   Wine,
   Cigarette,
   Crown,
-  Phone
+  Phone,
+  Globe,
+  Plane
 } from 'lucide-react';
-import { STATES_AND_CITIES, getDistrictsForState } from '../../data/locationData';
+import { STATES_AND_CITIES, getDistrictsForState, NRI_COUNTRIES, isNriProfile, getProfileCountry, normalizeCountry } from '../../data/locationData';
 import { RELIGIONS, EDUCATION_CATEGORIES } from '../RegistrationWizard';
 import SearchableSelect from '../common/SearchableSelect';
 import DualRangeSlider from '../common/DualRangeSlider';
@@ -114,6 +116,8 @@ export const MARITAL_STATUS_OPTIONS = [
 export default function MobileFilterBottomSheet({
   isOpen,
   onClose,
+  selectedCountryFilter = 'All Profiles',
+  setSelectedCountryFilter,
   selectedState,
   setSelectedState,
   selectedDistrict,
@@ -414,42 +418,85 @@ export default function MobileFilterBottomSheet({
           </div>
 
 
-          {/* 2. LOCATION & DISTRICT FILTERS */}
+          {/* 2. COUNTRY & NRI LOCATION FILTERS */}
           <div className="space-y-2.5 pt-1">
-            <div className="flex items-center space-x-1.5 text-slate-700">
-              <MapPin className="w-3.5 h-3.5 text-[#8C6D1F]" />
-              <label className="uppercase text-[9px] font-bold tracking-wider text-slate-600">
-                Location & District
-              </label>
+            <div className="flex items-center justify-between text-slate-700">
+              <div className="flex items-center space-x-1.5">
+                <Globe className="w-3.5 h-3.5 text-[#8C6D1F]" />
+                <label className="uppercase text-[9px] font-bold tracking-wider text-slate-700">
+                  Country & NRI Location Filter
+                </label>
+              </div>
+              {selectedCountryFilter && selectedCountryFilter !== 'All Profiles' && (
+                <span className="text-[10px] text-[#8C6D1F] font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  {selectedCountryFilter}
+                </span>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {/* State / UT */}
-              <div>
-                <SearchableSelect
-                  label="State / Territory"
-                  title="Select State / Territory"
-                  value={selectedState}
-                  onChange={(val) => handleStateChange(val)}
-                  options={['All States', ...STATES_AND_CITIES.map(s => s.state)]}
-                  searchPlaceholder="Search state..."
-                  buttonClassName="px-2.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium"
-                />
-              </div>
-
-              {/* District (Dynamic) */}
-              <div>
-                <SearchableSelect
-                  label="District"
-                  title="Select District"
-                  value={selectedDistrict || 'All Districts'}
-                  onChange={(val) => setSelectedDistrict && setSelectedDistrict(val)}
-                  options={['All Districts', ...districts]}
-                  searchPlaceholder="Search district..."
-                  buttonClassName="px-2.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium"
-                />
-              </div>
+            {/* Quick Filter Chips */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { id: 'All Profiles', label: 'All Profiles' },
+                { id: 'Working Abroad (NRI)', label: '✈️ Abroad (NRI)' },
+                ...(isNriProfile(currentUser) ? [{ id: 'Same Country as Me', label: `🌎 Same Country (${normalizeCountry(getProfileCountry(currentUser))})` }] : []),
+                { id: 'India', label: '🇮🇳 India' },
+                { id: 'USA', label: '🇺🇸 USA' },
+                { id: 'UAE', label: '🇦🇪 UAE' },
+                { id: 'UK', label: '🇬🇧 UK' },
+                { id: 'Canada', label: '🇨🇦 Canada' },
+                { id: 'Australia', label: '🇦🇺 Australia' },
+                { id: 'GCC / Middle East', label: 'GCC / Middle East' },
+                { id: 'Europe', label: 'Europe' }
+              ].map((chip) => {
+                const isActive = (selectedCountryFilter || 'All Profiles') === chip.id;
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => setSelectedCountryFilter && setSelectedCountryFilter(chip.id)}
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#0B192C] text-[#DFB76C] shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* If India or All Profiles, display State & District selector */}
+            {(!selectedCountryFilter || selectedCountryFilter === 'All Profiles' || selectedCountryFilter === 'India') && (
+              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60">
+                {/* State / UT */}
+                <div>
+                  <SearchableSelect
+                    label="State / Territory"
+                    title="Select State / Territory"
+                    value={selectedState}
+                    onChange={(val) => handleStateChange(val)}
+                    options={['All States', ...STATES_AND_CITIES.map(s => s.state)]}
+                    searchPlaceholder="Search state..."
+                    buttonClassName="px-2.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium"
+                  />
+                </div>
+
+                {/* District (Dynamic) */}
+                <div>
+                  <SearchableSelect
+                    label="District"
+                    title="Select District"
+                    value={selectedDistrict || 'All Districts'}
+                    onChange={(val) => setSelectedDistrict && setSelectedDistrict(val)}
+                    options={['All Districts', ...districts]}
+                    searchPlaceholder="Search district..."
+                    buttonClassName="px-2.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 3. AGE, HEIGHT & MARITAL STATUS */}

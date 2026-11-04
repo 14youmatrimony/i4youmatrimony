@@ -90,6 +90,8 @@ export default function MobileAppModal({
   setIsFilterSheetOpen,
   activeFiltersCount,
   onResetFilters,
+  selectedCountryFilter,
+  setSelectedCountryFilter,
   selectedState,
   setSelectedState,
   selectedDistrict,
@@ -487,6 +489,8 @@ export default function MobileAppModal({
                       <MobileFilterBottomSheet 
                         isOpen={isFilterSheetOpen}
                         onClose={() => setIsFilterSheetOpen(false)}
+                        selectedCountryFilter={selectedCountryFilter}
+                        setSelectedCountryFilter={setSelectedCountryFilter}
                         selectedState={selectedState}
                         setSelectedState={setSelectedState}
                         selectedDistrict={selectedDistrict}
@@ -663,6 +667,8 @@ export default function MobileAppModal({
                   {activeTab === 'feed' && (
                     <MobileMatchFeed 
                       profiles={filteredProfiles}
+                      selectedCountryFilter={selectedCountryFilter}
+                      setSelectedCountryFilter={setSelectedCountryFilter}
                       activeFiltersCount={activeFiltersCount}
                       onResetFilters={onResetFilters}
                       currentUser={currentUser}

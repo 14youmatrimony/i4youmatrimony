@@ -130,6 +130,12 @@ export async function syncProfileToSupabase(userData) {
       marital_status: userData.maritalStatus || userData.marital_status || 'Never Married',
       partner_expectations: userData.partnerExpectations || userData.partner_expectations || null,
       body_type: userData.bodyType || userData.body_type || null,
+      country: userData.country || (userData.isNri || userData.is_nri ? (userData.workCountry || userData.work_country || 'Abroad') : 'India'),
+      work_country: userData.workCountry || userData.work_country || userData.country || 'India',
+      work_city: userData.workCity || userData.work_city || null,
+      is_nri: Boolean(userData.isNri || userData.is_nri || (userData.country && userData.country !== 'India')),
+      residency_status: userData.residencyStatus || userData.residency_status || null,
+      preferred_countries: userData.preferredCountries || userData.preferred_countries || 'Any',
       updated_at: new Date().toISOString()
     };
 
@@ -141,6 +147,12 @@ export async function syncProfileToSupabase(userData) {
       delete payload.selfie_verified;
       delete payload.selfie_photo;
       delete payload.selfie_match_score;
+      delete payload.country;
+      delete payload.work_country;
+      delete payload.work_city;
+      delete payload.is_nri;
+      delete payload.residency_status;
+      delete payload.preferred_countries;
       const retryResult = await supabase.from('profiles').upsert([payload]);
       data = retryResult.data;
       error = retryResult.error;
@@ -596,7 +608,18 @@ export function mapSupabaseRowToProfile(r) {
     maritalStatus: r.marital_status || 'Never Married',
     marital_status: r.marital_status || 'Never Married',
     bodyType: r.body_type || 'Slim',
-    partnerExpectations: r.partner_expectations || ''
+    partnerExpectations: r.partner_expectations || '',
+    country: r.country || (r.is_nri ? (r.work_country || 'Abroad') : 'India'),
+    workCountry: r.work_country || r.country || 'India',
+    work_country: r.work_country || r.country || 'India',
+    workCity: r.work_city || '',
+    work_city: r.work_city || '',
+    isNri: Boolean(r.is_nri || (r.country && r.country !== 'India') || (r.work_country && r.work_country !== 'India')),
+    is_nri: Boolean(r.is_nri || (r.country && r.country !== 'India') || (r.work_country && r.work_country !== 'India')),
+    residencyStatus: r.residency_status || '',
+    residency_status: r.residency_status || '',
+    preferredCountries: r.preferred_countries || 'Any',
+    preferred_countries: r.preferred_countries || 'Any'
   };
 }
 
@@ -1355,6 +1378,17 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
   if (updateData.body_type !== undefined) payload.body_type = updateData.body_type;
   if (updateData.partnerExpectations !== undefined) payload.partner_expectations = updateData.partnerExpectations;
   if (updateData.partner_expectations !== undefined) payload.partner_expectations = updateData.partner_expectations;
+  if (updateData.country !== undefined) payload.country = updateData.country;
+  if (updateData.workCountry !== undefined) payload.work_country = updateData.workCountry;
+  if (updateData.work_country !== undefined) payload.work_country = updateData.work_country;
+  if (updateData.workCity !== undefined) payload.work_city = updateData.workCity;
+  if (updateData.work_city !== undefined) payload.work_city = updateData.work_city;
+  if (updateData.isNri !== undefined) payload.is_nri = Boolean(updateData.isNri);
+  if (updateData.is_nri !== undefined) payload.is_nri = Boolean(updateData.is_nri);
+  if (updateData.residencyStatus !== undefined) payload.residency_status = updateData.residencyStatus;
+  if (updateData.residency_status !== undefined) payload.residency_status = updateData.residency_status;
+  if (updateData.preferredCountries !== undefined) payload.preferred_countries = updateData.preferredCountries;
+  if (updateData.preferred_countries !== undefined) payload.preferred_countries = updateData.preferred_countries;
 
   if (photoUrl) {
     payload.photo = photoUrl;
@@ -1467,7 +1501,28 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
         query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
       }
 
-      const { data, error } = await query.select();
+      let { data, error } = await query.select();
+
+      if (error && (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist'))) {
+        console.warn('[updateLiveUserProfile] Custom NRI column not yet in Supabase schema, retrying standard fields:', error.message);
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.country;
+        delete fallbackPayload.work_country;
+        delete fallbackPayload.work_city;
+        delete fallbackPayload.is_nri;
+        delete fallbackPayload.residency_status;
+        delete fallbackPayload.preferred_countries;
+
+        let retryQuery = supabase.from('profiles').update(fallbackPayload);
+        if (isRegId) {
+          retryQuery = retryQuery.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
+        } else {
+          retryQuery = retryQuery.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
+        }
+        const retryRes = await retryQuery.select();
+        data = retryRes.data;
+        error = retryRes.error;
+      }
 
       if (error) {
         console.error('[updateLiveUserProfile] Supabase update error:', error.message);

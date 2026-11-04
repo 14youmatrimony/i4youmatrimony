@@ -27,7 +27,9 @@ import {
   Copy,
   CheckCircle2,
   Mail,
-  AlertCircle
+  AlertCircle,
+  Globe,
+  Plane
 } from 'lucide-react';
 import SearchableSelect from './common/SearchableSelect';
 import DualRangeSlider from './common/DualRangeSlider';
@@ -35,7 +37,7 @@ import { sanitizeInput, sanitizePhone, sanitizeEmail } from '../utils/security';
 import { optimizeImageFile } from '../utils/imageOptimizer';
 import { registerWithRegisterId } from '../services/authService';
 import SelfieVerificationSection from './SelfieVerificationSection';
-import { STATES_AND_CITIES } from '../data/locationData';
+import { STATES_AND_CITIES, NRI_COUNTRIES, RESIDENCY_STATUS_OPTIONS, PREFERRED_COUNTRY_OPTIONS } from '../data/locationData';
 import { 
   ALL_INDIA_RELIGIONS, 
   RELIGION_COMMUNITIES, 
@@ -504,6 +506,17 @@ export default function RegistrationWizard({
     jobPlace: initialData?.jobLocation || initialData?.jobPlace || initialData?.workLocation || '',
     workLocationType: initialData?.workLocationType || 'On-site',
     annualIncome: initialData?.annualIncome || '',
+    is_nri: Boolean(initialData?.is_nri || initialData?.isNri || (initialData?.country && initialData.country !== 'India')),
+    isNri: Boolean(initialData?.is_nri || initialData?.isNri || (initialData?.country && initialData.country !== 'India')),
+    country: initialData?.country || 'India',
+    work_country: initialData?.work_country || initialData?.workCountry || (initialData?.is_nri ? 'USA' : 'India'),
+    workCountry: initialData?.work_country || initialData?.workCountry || (initialData?.is_nri ? 'USA' : 'India'),
+    work_city: initialData?.work_city || initialData?.workCity || '',
+    workCity: initialData?.work_city || initialData?.workCity || '',
+    residency_status: initialData?.residency_status || initialData?.residencyStatus || 'Work Visa',
+    residencyStatus: initialData?.residency_status || initialData?.residencyStatus || 'Work Visa',
+    preferred_countries: initialData?.preferred_countries || initialData?.preferredCountries || 'Any',
+    preferredCountries: initialData?.preferred_countries || initialData?.preferredCountries || 'Any',
 
     // Step 3: Location, Family & Vedic Astrology
     state: initialData?.state || 'Kerala',
@@ -874,6 +887,17 @@ export default function RegistrationWizard({
       nativeAddress: sanitizeInput(data.nativeAddress, { maxLength: 250 }),
       aboutMe: sanitizeInput(data.aboutMe, { allowMultiline: true, maxLength: 1000 }),
       partnerExpectations: sanitizeInput(data.partnerExpectations, { allowMultiline: true, maxLength: 1000 }),
+      country: data.is_nri ? (data.work_country || 'USA') : 'India',
+      work_country: data.is_nri ? (data.work_country || 'USA') : 'India',
+      workCountry: data.is_nri ? (data.work_country || 'USA') : 'India',
+      work_city: sanitizeInput(data.work_city || data.workCity || '', { maxLength: 100 }),
+      workCity: sanitizeInput(data.work_city || data.workCity || '', { maxLength: 100 }),
+      is_nri: Boolean(data.is_nri),
+      isNri: Boolean(data.is_nri),
+      residency_status: data.is_nri ? (data.residency_status || 'Work Visa') : '',
+      residencyStatus: data.is_nri ? (data.residency_status || 'Work Visa') : '',
+      preferred_countries: data.preferred_countries || 'Any',
+      preferredCountries: data.preferred_countries || 'Any',
     };
   };
 
@@ -2017,6 +2041,121 @@ export default function RegistrationWizard({
                   </div>
                 </div>
 
+                {/* Working Location: India vs Abroad (NRI) */}
+                <div className="p-3 rounded-2xl bg-amber-50/70 border border-[#D4AF37]/40 space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-[#8C6D1F]" />
+                        <span>Working Location (India or Abroad)</span>
+                      </span>
+                      <p className="text-[10.5px] text-slate-600">
+                        Are you currently working in India or abroad as an NRI?
+                      </p>
+                    </div>
+
+                    <div className="flex items-center p-1 bg-white rounded-xl border border-slate-200 shadow-2xs self-start sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ 
+                          ...prev, 
+                          is_nri: false, 
+                          isNri: false, 
+                          country: 'India',
+                          work_country: 'India'
+                        }))}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                          !formData.is_nri 
+                            ? 'bg-[#0B192C] text-[#DFB76C] shadow-xs' 
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        🇮🇳 India
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ 
+                          ...prev, 
+                          is_nri: true, 
+                          isNri: true, 
+                          work_country: (prev.work_country && prev.work_country !== 'India') ? prev.work_country : 'USA',
+                          country: (prev.work_country && prev.work_country !== 'India') ? prev.work_country : 'USA'
+                        }))}
+                        className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                          formData.is_nri 
+                            ? 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] shadow-xs' 
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Plane className="w-3 h-3" />
+                        <span>Abroad (NRI)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {formData.is_nri && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-amber-200/70 animate-in fade-in duration-200">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Country Abroad *
+                        </label>
+                        <select
+                          value={formData.work_country || 'USA'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              work_country: val, 
+                              country: val, 
+                              jobLocation: `${prev.work_city ? prev.work_city + ', ' : ''}${val}` 
+                            }));
+                          }}
+                          className="w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800 focus:ring-2 focus:ring-[#D4AF37] focus:outline-none"
+                        >
+                          {NRI_COUNTRIES.filter(c => c !== 'India').map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          City / State Abroad
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. New York, Dubai, London…"
+                          value={formData.work_city || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              work_city: val, 
+                              jobLocation: `${val ? val + ', ' : ''}${prev.work_country || 'USA'}` 
+                            }));
+                          }}
+                          className="w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-xs font-medium text-slate-800 focus:ring-2 focus:ring-[#D4AF37] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Visa / Residency Status
+                        </label>
+                        <select
+                          value={formData.residency_status || 'Work Visa'}
+                          onChange={(e) => setFormData(prev => ({ ...prev, residency_status: e.target.value }))}
+                          className="w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-xs text-slate-800 focus:ring-2 focus:ring-[#D4AF37] focus:outline-none"
+                        >
+                          {RESIDENCY_STATUS_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline" />
@@ -2850,6 +2989,18 @@ export default function RegistrationWizard({
                     placeholder="Select Work Location"
                     searchPlaceholder="Search Work Location..."
                     buttonClassName="h-10"
+                  />
+                </div>
+
+                <div>
+                  <SearchableSelect 
+                    label="Preferred Country / NRI Preference"
+                    value={formData.preferred_countries || 'Any'}
+                    onChange={(val) => setFormData(prev => ({ ...prev, preferred_countries: val, preferredCountries: val }))}
+                    options={PREFERRED_COUNTRY_OPTIONS}
+                    placeholder="Select Preferred Country"
+                    searchPlaceholder="Search Country (India, USA, UAE...)..."
+                    buttonClassName="h-10 font-bold"
                   />
                 </div>
               </div>
