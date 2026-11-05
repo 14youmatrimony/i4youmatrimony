@@ -91,6 +91,24 @@ export default function WorldCountrySearchSelect({
     }
   }, [highlightIndex, isOpen]);
 
+  // Ensure dropdown stays completely inside screen bounds without cutting off
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      // If right edge crosses screen boundary (with 8px safety padding)
+      if (rect.right > viewportWidth - 8) {
+        const excess = Math.ceil(rect.right - (viewportWidth - 8));
+        dropdownRef.current.style.transform = `translateX(-${excess}px)`;
+      } else if (rect.left < 8) {
+        const excess = Math.ceil(8 - rect.left);
+        dropdownRef.current.style.transform = `translateX(${excess}px)`;
+      } else {
+        dropdownRef.current.style.transform = 'none';
+      }
+    }
+  }, [isOpen, searchQuery]);
+
   // Outside click listener: only closes when clicking outside containerRef
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -237,7 +255,7 @@ export default function WorldCountrySearchSelect({
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-1.5 w-full min-w-[280px] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col z-[9999] animate-in fade-in zoom-in-95 duration-150"
+          className="absolute top-full right-0 left-0 sm:left-0 sm:right-auto mt-1.5 w-full sm:w-[280px] max-w-[calc(100vw-32px)] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col z-[9999] animate-in fade-in zoom-in-95 duration-150"
           style={{ zIndex: 9999 }}
         >
           {/* Quick Header */}

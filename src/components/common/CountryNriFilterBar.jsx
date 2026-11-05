@@ -80,6 +80,24 @@ export default function CountryNriFilterBar({
     }
   }, [highlightIndex, isDropdownOpen]);
 
+  // Ensure dropdown stays completely inside screen bounds without cutting off
+  useEffect(() => {
+    if (isDropdownOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      // If right edge crosses screen boundary (with 8px safety padding)
+      if (rect.right > viewportWidth - 8) {
+        const excess = Math.ceil(rect.right - (viewportWidth - 8));
+        dropdownRef.current.style.transform = `translateX(-${excess}px)`;
+      } else if (rect.left < 8) {
+        const excess = Math.ceil(8 - rect.left);
+        dropdownRef.current.style.transform = `translateX(${excess}px)`;
+      } else {
+        dropdownRef.current.style.transform = 'none';
+      }
+    }
+  }, [isDropdownOpen, searchQuery]);
+
   // Clean document outside click listener: closes dropdown only when clicking outside the entire search box
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -183,8 +201,8 @@ export default function CountryNriFilterBar({
 
   return (
     <div className={`relative overflow-visible z-30 ${className}`}>
-      {/* Main Single-Row Flex Container: overflow-visible ensures no clipping on laptops/desktops */}
-      <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 pb-1 select-none overflow-visible relative">
+      {/* Main Single-Row Flex Container: flex-wrap ensures clean wrapping without horizontal overflow */}
+      <div className="flex flex-wrap items-center gap-1.5 pb-1 select-none overflow-visible relative">
         
         {/* 1. All Profiles Toggle */}
         <button
@@ -217,7 +235,7 @@ export default function CountryNriFilterBar({
         {isAbroadActive && (
           <div 
             ref={searchBoxRef}
-            className="relative shrink-0 flex items-center min-w-[170px] sm:min-w-[210px] max-w-[270px] z-50 animate-in fade-in duration-150"
+            className="relative flex-1 w-full sm:w-auto min-w-[150px] max-w-full sm:max-w-[270px] z-50 animate-in fade-in duration-150"
           >
             {/* If a specific country is chosen and not currently editing query: Display country with '×' and Chevron */}
             {selectedCountryObj && !isEditingSelected ? (
@@ -329,7 +347,7 @@ export default function CountryNriFilterBar({
             {isDropdownOpen && (
               <div
                 ref={dropdownRef}
-                className="absolute top-full right-0 mt-1.5 w-[280px] max-w-[calc(100vw-24px)] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col z-[9999] animate-in fade-in zoom-in-95 duration-150"
+                className="absolute top-full right-0 mt-1.5 w-[270px] sm:w-[280px] max-w-[calc(100vw-32px)] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col z-[9999] animate-in fade-in zoom-in-95 duration-150"
                 style={{ zIndex: 9999 }}
               >
                 {/* Header Indicator */}
