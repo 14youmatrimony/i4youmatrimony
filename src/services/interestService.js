@@ -308,6 +308,168 @@ class InterestService {
   }
 
   /**
+   * Efficiently batch-fetches all interest records involving the user from Supabase 'interests' table.
+   * Categorizes relationships into sent, received, and accepted sets.
+   * Populates statusCache and local storage for instant zero-lag lookups across all feeds.
+   * Returns: Promise<{ sentInterestIds: string[], receivedInterestIds: string[], acceptedPartnerIds: string[], rejectedPartnerIds: string[], allRecords: any[] }>
+   */
+  async fetchUserInterestsSummary(userOrId) {
+    if (!userOrId) {
+      return { sentInterestIds: [], receivedInterestIds: [], acceptedPartnerIds: [], rejectedPartnerIds: [], allRecords: [] };
+    }
+
+    const userIds = this.getUserIds(userOrId);
+    if (!userIds.length) {
+      return { sentInterestIds: [], receivedInterestIds: [], acceptedPartnerIds: [], rejectedPartnerIds: [], allRecords: [] };
+    }
+
+    const primaryId = userIds[0];
+    const sentSet = new Set();
+    const receivedSet = new Set();
+    const acceptedSet = new Set();
+    const rejectedSet = new Set();
+    let combinedRows = [];
+
+    // 1. Batch query Supabase 'interests' table in parallel (as sender and as receiver)
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const [asSenderRes, asReceiverRes] = await Promise.all([
+          supabase
+            .from('interests')
+            .select('id, sender_id, receiver_id, status, created_at, updated_at')
+            .in('sender_id', userIds)
+            .order('updated_at', { ascending: false }),
+          supabase
+            .from('interests')
+            .select('id, sender_id, receiver_id, status, created_at, updated_at')
+            .in('receiver_id', userIds)
+            .order('updated_at', { ascending: false })
+        ]);
+
+        const rawRows = [
+          ...(Array.isArray(asSenderRes?.data) ? asSenderRes.data : []),
+          ...(Array.isArray(asReceiverRes?.data) ? asReceiverRes.data : [])
+        ];
+
+        // Deduplicate rows by id
+        const seenIds = new Set();
+        rawRows.forEach((row) => {
+          if (row && row.id && !seenIds.has(row.id)) {
+            seenIds.add(row.id);
+            combinedRows.push(row);
+          } else if (row && !row.id) {
+            combinedRows.push(row);
+          }
+        });
+      } catch (err) {
+        console.warn('[InterestService] fetchUserInterestsSummary query error:', err);
+      }
+    }
+
+    // 2. Also merge local records
+    try {
+      const localRecords = this.getLocalRecords();
+      localRecords.forEach((lr) => {
+        if (!lr) return;
+        const sId = String(lr.senderId || '');
+        const rId = String(lr.receiverId || '');
+        if (userIds.includes(sId) || userIds.includes(rId)) {
+          const exists = combinedRows.some((cr) => {
+            const cs = String(cr.sender_id || '');
+            const crId = String(cr.receiver_id || '');
+            return (cs === sId && crId === rId) || (cs === rId && crId === sId);
+          });
+          if (!exists) {
+            combinedRows.push({
+              id: lr.id || `loc_${sId}_${rId}`,
+              sender_id: sId,
+              receiver_id: rId,
+              status: lr.status || 'pending',
+              created_at: lr.createdAt,
+              updated_at: lr.updatedAt
+            });
+          }
+        }
+      });
+    } catch (e) {}
+
+    // 3. Process every record to resolve relationship state and populate cache
+    combinedRows.forEach((row) => {
+      if (!row) return;
+      const sId = String(row.sender_id || '');
+      const rId = String(row.receiver_id || '');
+      const status = row.status || 'pending';
+
+      const isSender = userIds.includes(sId);
+      const isReceiver = userIds.includes(rId);
+
+      const partnerId = isSender ? rId : sId;
+      if (!partnerId || partnerId === 'undefined') return;
+
+      const allKeys = this.getAllPairKeys(userOrId, partnerId);
+      allKeys.forEach((key) => {
+        // If already accepted, keep accepted
+        if (this.statusCache.get(key) !== 'accepted') {
+          this.statusCache.set(key, status);
+        }
+      });
+
+      if (status === 'accepted') {
+        acceptedSet.add(partnerId);
+        this.markPairAcceptedLocally(userOrId, partnerId);
+      } else if (status === 'pending') {
+        if (isSender) {
+          sentSet.add(partnerId);
+        }
+        if (isReceiver && !isSender) {
+          receivedSet.add(partnerId);
+        }
+      } else if (status === 'rejected') {
+        rejectedSet.add(partnerId);
+      }
+    });
+
+    // Also include any accepted pairs in localStorage
+    try {
+      const pairsRaw = localStorage.getItem('i4u_accepted_pairs');
+      if (pairsRaw) {
+        const pairs = JSON.parse(pairsRaw);
+        if (Array.isArray(pairs)) {
+          pairs.forEach((pk) => {
+            const parts = String(pk).split(':::');
+            if (parts.length === 2) {
+              if (userIds.includes(parts[0]) && !userIds.includes(parts[1])) acceptedSet.add(parts[1]);
+              if (userIds.includes(parts[1]) && !userIds.includes(parts[0])) acceptedSet.add(parts[0]);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    const sentInterestIds = Array.from(sentSet);
+    const receivedInterestIds = Array.from(receivedSet);
+    const acceptedPartnerIds = Array.from(acceptedSet);
+    const rejectedPartnerIds = Array.from(rejectedSet);
+
+    // Save user-scoped cache to localStorage for instant startup on next render
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`i4u_interests_sent_${primaryId}`, JSON.stringify(sentInterestIds));
+        localStorage.setItem(`i4u_received_interests_${primaryId}`, JSON.stringify(receivedInterestIds));
+        localStorage.setItem(`i4u_accepted_interests_${primaryId}`, JSON.stringify(acceptedPartnerIds));
+      } catch (e) {}
+    }
+
+    return {
+      sentInterestIds,
+      receivedInterestIds,
+      acceptedPartnerIds,
+      rejectedPartnerIds,
+      allRecords: combinedRows
+    };
+  }
+
+  /**
    * Fetches all accepted connections for a user from Supabase 'interests' table
    * Ensures calling features are immediately unlocked for both participants.
    * Returns: Promise<string[]> (array of partner identifiers)
@@ -782,6 +944,89 @@ class InterestService {
       isOutgoing: currentStatus === 'pending',
       isRejected: currentStatus === 'rejected',
       isNone: currentStatus === 'none'
+    };
+  }
+
+  /**
+   * Synchronously resolves connection state for any candidate profile against current user.
+   * Returns: { status: 'accepted'|'pending_sent'|'pending_received'|'rejected'|'none', isAccepted, isSent, isIncoming, isPending, isNone }
+   */
+  getConnectionStatusSync(currentUser, targetProfile) {
+    if (!currentUser || !targetProfile) {
+      return {
+        status: 'none',
+        isAccepted: false,
+        isSent: false,
+        isIncoming: false,
+        isPending: false,
+        isNone: true
+      };
+    }
+
+    const currentStatus = this.getRelationshipStatusSync(currentUser, targetProfile);
+    if (currentStatus === 'accepted') {
+      return {
+        status: 'accepted',
+        isAccepted: true,
+        isSent: false,
+        isIncoming: false,
+        isPending: false,
+        isNone: false
+      };
+    }
+
+    const details = this.getRelationshipDetailsSync(currentUser, targetProfile);
+    if (details.isAccepted) {
+      return {
+        status: 'accepted',
+        isAccepted: true,
+        isSent: false,
+        isIncoming: false,
+        isPending: false,
+        isNone: false
+      };
+    }
+
+    if (details.isIncoming) {
+      return {
+        status: 'pending_received',
+        isAccepted: false,
+        isSent: false,
+        isIncoming: true,
+        isPending: true,
+        isNone: false
+      };
+    }
+
+    if (details.isOutgoing || details.isPending || currentStatus === 'pending') {
+      return {
+        status: 'pending_sent',
+        isAccepted: false,
+        isSent: true,
+        isIncoming: false,
+        isPending: true,
+        isNone: false
+      };
+    }
+
+    if (details.isRejected || currentStatus === 'rejected') {
+      return {
+        status: 'rejected',
+        isAccepted: false,
+        isSent: false,
+        isIncoming: false,
+        isPending: false,
+        isNone: false
+      };
+    }
+
+    return {
+      status: 'none',
+      isAccepted: false,
+      isSent: false,
+      isIncoming: false,
+      isPending: false,
+      isNone: true
     };
   }
 

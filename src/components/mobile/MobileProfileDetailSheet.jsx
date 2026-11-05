@@ -1624,50 +1624,57 @@ export default function MobileProfileDetailSheet({
         </button>
 
         {/* Connect / Live Instant Message Button */}
-        <button
-          onClick={() => {
-            if (isCallingUnlocked) {
-              onStartChat?.(profile);
-            } else if (isIncoming && onAcceptInterest) {
-              onAcceptInterest(profile.id);
-            } else if (onRequestSendInterest) {
-              onRequestSendInterest(profile);
-            } else {
-              onToggleInterest(profile.id);
-            }
-          }}
-          className={`flex-1 py-3 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 ${
-            isCallingUnlocked
-              ? 'bg-emerald-600 text-white shadow-emerald-600/20'
-              : isIncoming
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
-                : isInterested 
-                  ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
-                  : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] shadow-[#D4AF37]/30'
-          }`}
-        >
-          {isCallingUnlocked ? (
-            <>
-              <CheckCheck className="w-4 h-4 text-emerald-100" />
-              <span className="truncate">Connected ✨</span>
-            </>
-          ) : isIncoming ? (
-            <>
-              <Check className="w-4 h-4 stroke-[3]" />
-              <span className="truncate">Accept Interest</span>
-            </>
-          ) : isInterested ? (
-            <>
-              <Check className="w-4 h-4 stroke-[3]" />
-              <span className="truncate">Interest Sent</span>
-            </>
-          ) : (
-            <>
-              <Zap className="w-4 h-4 fill-[#0B192C]" />
-              <span className="truncate">⚡ Live Instant Message</span>
-            </>
-          )}
-        </button>
+        {isCallingUnlocked ? (
+          <button
+            type="button"
+            onClick={() => onStartChat?.(profile)}
+            className="flex-1 py-3 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+            title="Chat with candidate"
+          >
+            <MessageCircle className="w-4 h-4 text-white" />
+            <span className="truncate">Chat</span>
+          </button>
+        ) : isIncoming ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (onAcceptInterest) {
+                onAcceptInterest(profile.id);
+              } else if (onToggleInterest) {
+                onToggleInterest(profile.id);
+              }
+            }}
+            className="flex-1 py-3 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+            title="Accept incoming interest"
+          >
+            <Check className="w-4 h-4 stroke-[3]" />
+            <span className="truncate">Accept Interest</span>
+          </button>
+        ) : isInterested ? (
+          <div
+            className="flex-1 py-3 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-xs select-none cursor-default bg-slate-100 text-slate-700 border border-slate-200"
+            title="Interest Sent • Pending response"
+          >
+            <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+            <span className="truncate">Interest Sent</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              if (onRequestSendInterest) {
+                onRequestSendInterest(profile);
+              } else {
+                onToggleInterest(profile.id);
+              }
+            }}
+            className="flex-1 py-3 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] shadow-[#D4AF37]/30"
+            title="Send Interest"
+          >
+            <Send className="w-4 h-4" />
+            <span className="truncate">Send Interest</span>
+          </button>
+        )}
 
       </footer>
  

@@ -44,6 +44,7 @@ export default function MobileAppModal({
   filteredProfiles,
   interestsSent,
   acceptedInterests = [],
+  receivedInterests = [],
   onToggleInterest,
   shortlisted,
   onToggleShortlist,
@@ -674,6 +675,8 @@ export default function MobileAppModal({
                       currentUser={currentUser}
                       currentScreen={internalScreen}
                       interestsSent={interestsSent}
+                      acceptedInterests={acceptedInterests}
+                      receivedInterests={receivedInterests}
                       onToggleInterest={onToggleInterest}
                       shortlisted={shortlisted}
                       onToggleShortlist={onToggleShortlist}
@@ -701,7 +704,10 @@ export default function MobileAppModal({
                       profiles={filteredProfiles || profiles}
                       currentUser={currentUser}
                       interestsSent={interestsSent}
+                      acceptedInterests={acceptedInterests}
+                      receivedInterests={receivedInterests}
                       onToggleInterest={onToggleInterest}
+                      onRequestSendInterest={onRequestSendInterest}
                       shortlisted={shortlisted}
                       onToggleShortlist={onToggleShortlist}
                       onSelectProfile={onSelectProfile}

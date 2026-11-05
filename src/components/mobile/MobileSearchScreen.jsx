@@ -31,12 +31,16 @@ import { isCountryMatch } from '../../data/worldCountries';
 import { sanitizeSearchTerm } from '../../utils/security';
 import { getTargetCandidateGender, isCandidateMatchingTarget } from '../../utils/genderMatch';
 import { isDemoProfile, resolveProfilePhoto } from '../../services/api';
+import { interestService } from '../../services/interestService';
 
 export default function MobileSearchScreen({
   profiles,
   currentUser,
   interestsSent,
+  acceptedInterests = [],
+  receivedInterests = [],
   onToggleInterest,
+  onRequestSendInterest,
   shortlisted,
   onToggleShortlist,
   onSelectProfile,
@@ -292,11 +296,21 @@ export default function MobileSearchScreen({
       {/* Profile Mini Cards for Search */}
       <div className="space-y-3">
         {filteredProfiles.map(profile => {
-          const isInterested = Boolean(
-            interestsSent.includes(profile.id) ||
-            (profile.registerId && interestsSent.includes(profile.registerId)) ||
-            (profile.register_id && interestsSent.includes(profile.register_id))
+          const targetIds = [profile.id, profile.registerId, profile.register_id].filter(Boolean).map(String);
+          const isAccepted = Boolean(
+            (acceptedInterests && targetIds.some(id => acceptedInterests.includes(id))) ||
+            (currentUser && interestService.getRelationshipStatusSync(currentUser, profile) === 'accepted')
           );
+          const connStatus = currentUser ? interestService.getConnectionStatusSync(currentUser, profile) : { isSent: false, isIncoming: false };
+          const isSent = Boolean(
+            !isAccepted &&
+            ((interestsSent && targetIds.some(id => interestsSent.includes(id))) || connStatus.isSent)
+          );
+          const isIncoming = Boolean(
+            !isAccepted && !isSent &&
+            ((receivedInterests && targetIds.some(id => receivedInterests.includes(id))) || connStatus.isIncoming)
+          );
+          const isPending = isSent || isIncoming;
           const isShortlisted = Boolean(
             shortlisted.includes(profile.id) ||
             (profile.registerId && shortlisted.includes(profile.registerId)) ||
@@ -411,32 +425,49 @@ export default function MobileSearchScreen({
 
                 {/* Micro Actions */}
                 <div className="flex items-center space-x-2 mt-2 pt-1.5 border-t border-slate-100">
-                  <button
-                    onClick={() => onToggleInterest(profile.id)}
-                    className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center space-x-1 cursor-pointer ${
-                      isInterested 
-                        ? 'bg-emerald-600 text-white' 
-                        : 'bg-[#D4AF37] text-[#0B192C]'
-                    }`}
-                  >
-                    {isInterested ? <Check className="w-3 h-3" /> : <Send className="w-3 h-3" />}
-                    <span>{isInterested ? 'Sent' : 'Connect'}</span>
-                  </button>
+                  {isAccepted ? (
+                    <button
+                      type="button"
+                      onClick={() => onStartChat(profile)}
+                      className="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center space-x-1 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs active:scale-95 transition-all"
+                      title="Chat with candidate"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Chat</span>
+                    </button>
+                  ) : isPending ? (
+                    <div
+                      className="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center space-x-1 bg-slate-100 text-slate-700 border border-slate-200 select-none cursor-default"
+                      title={isIncoming ? "Request Pending" : "Interest Sent"}
+                    >
+                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                      <span className="truncate">{isIncoming ? 'Request Pending' : 'Interest Sent'}</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onRequestSendInterest) {
+                          onRequestSendInterest(profile);
+                        } else {
+                          onToggleInterest(profile.id);
+                        }
+                      }}
+                      className="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center space-x-1 cursor-pointer bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:brightness-105 active:scale-95 transition-all shadow-xs"
+                      title="Send Interest"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send Interest</span>
+                    </button>
+                  )}
 
                   <button
+                    type="button"
                     onClick={() => onToggleShortlist(profile.id)}
-                    className="p-1 rounded-lg border border-slate-200 text-slate-600 cursor-pointer"
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer active:scale-95 transition-all"
                     title="Shortlist"
                   >
                     <Heart className={`w-3.5 h-3.5 ${isShortlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
-                  </button>
-
-                  <button
-                    onClick={() => onStartChat(profile)}
-                    className="p-1 rounded-lg border border-slate-200 text-[#1E3A8A] cursor-pointer"
-                    title="Chat"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

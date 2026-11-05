@@ -54,6 +54,7 @@ export default function MobileMatchFeed({
   currentUser,
   interestsSent,
   acceptedInterests = [],
+  receivedInterests = [],
   onToggleInterest,
   shortlisted,
   onToggleShortlist,
@@ -601,19 +602,22 @@ export default function MobileMatchFeed({
           /* ── 4-Profile Grid View (2x2 Layout - 4 Profiles at a time) ────────── */
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {filteredProfiles.map((profile) => {
+              const targetIds = [profile.id, profile.registerId, profile.register_id].filter(Boolean).map(String);
               const isAccepted = Boolean(
-                (acceptedInterests && (
-                  acceptedInterests.includes(profile.id) ||
-                  (profile.registerId && acceptedInterests.includes(profile.registerId)) ||
-                  (profile.register_id && acceptedInterests.includes(profile.register_id))
-                )) ||
+                (acceptedInterests && targetIds.some(id => acceptedInterests.includes(id))) ||
                 (currentUser && interestService.getRelationshipStatusSync(currentUser, profile) === 'accepted')
               );
-              const isInterested = Boolean(
-                interestsSent.includes(profile.id) ||
-                (profile.registerId && interestsSent.includes(profile.registerId)) ||
-                (profile.register_id && interestsSent.includes(profile.register_id))
+              const connStatus = currentUser ? interestService.getConnectionStatusSync(currentUser, profile) : { isSent: false, isIncoming: false };
+              const isSent = Boolean(
+                !isAccepted &&
+                ((interestsSent && targetIds.some(id => interestsSent.includes(id))) || connStatus.isSent)
               );
+              const isIncoming = Boolean(
+                !isAccepted && !isSent &&
+                ((receivedInterests && targetIds.some(id => receivedInterests.includes(id))) || connStatus.isIncoming)
+              );
+              const isPending = isSent || isIncoming;
+              const isInterested = isPending;
               const isShortlisted = Boolean(
                 shortlisted.includes(profile.id) ||
                 (profile.registerId && shortlisted.includes(profile.registerId)) ||
@@ -796,46 +800,46 @@ export default function MobileMatchFeed({
                       </button>
 
                       {/* Live Instant Message / Connect */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isAccepted) {
+                      {isAccepted ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
                             onStartChat(profile);
-                          } else if (isInterested) {
-                            onToggleInterest(profile.id);
-                          } else if (onRequestSendInterest) {
-                            onRequestSendInterest(profile);
-                          } else {
-                            onToggleInterest(profile.id);
-                          }
-                        }}
-                        className={`flex-1 h-7 rounded-full text-[10px] font-bold transition-all flex items-center justify-center space-x-1 shadow-2xs truncate cursor-pointer active:scale-95 ${
-                          isAccepted
-                            ? 'bg-emerald-600 text-white shadow-emerald-600/20'
-                            : isInterested 
-                              ? 'bg-emerald-600 text-white' 
-                              : 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C]'
-                        }`}
-                        title={isAccepted ? "Connected • Calls Unlocked ✨" : isInterested ? "Interest Sent" : "Connect"}
-                      >
-                        {isAccepted ? (
-                          <>
-                            <CheckCheck className="w-3 h-3 stroke-[2.5]" />
-                            <span className="truncate">Connected</span>
-                          </>
-                        ) : isInterested ? (
-                          <>
-                            <Check className="w-3 h-3 stroke-[2.5]" />
-                            <span className="truncate">Sent</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-2.5 h-2.5" />
-                            <span className="truncate">Connect</span>
-                          </>
-                        )}
-                      </button>
+                          }}
+                          className="flex-1 h-7 rounded-full text-[10px] font-bold transition-all flex items-center justify-center space-x-1 shadow-2xs truncate cursor-pointer active:scale-95 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                          title="Chat with candidate"
+                        >
+                          <MessageCircle className="w-3 h-3 text-white" />
+                          <span className="truncate">Chat</span>
+                        </button>
+                      ) : isPending ? (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 h-7 rounded-full text-[10px] font-bold transition-all flex items-center justify-center space-x-1 shadow-2xs truncate select-none cursor-default bg-slate-100 text-slate-700 border border-slate-200"
+                          title={isIncoming ? "Request Pending" : "Interest Sent"}
+                        >
+                          <Check className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
+                          <span className="truncate">{isIncoming ? 'Request Pending' : 'Interest Sent'}</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onRequestSendInterest) {
+                              onRequestSendInterest(profile);
+                            } else {
+                              onToggleInterest(profile.id);
+                            }
+                          }}
+                          className="flex-1 h-7 rounded-full text-[10px] font-bold transition-all flex items-center justify-center space-x-1 shadow-2xs truncate cursor-pointer active:scale-95 bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:brightness-105"
+                          title="Send Interest"
+                        >
+                          <Send className="w-2.5 h-2.5" />
+                          <span className="truncate">Send Interest</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -846,19 +850,22 @@ export default function MobileMatchFeed({
           /* ── Single Full Card View (1 Profile at a time - Classic) ─────────── */
           <div className="space-y-4">
             {filteredProfiles.map((profile) => {
+              const targetIds = [profile.id, profile.registerId, profile.register_id].filter(Boolean).map(String);
               const isAccepted = Boolean(
-                (acceptedInterests && (
-                  acceptedInterests.includes(profile.id) ||
-                  (profile.registerId && acceptedInterests.includes(profile.registerId)) ||
-                  (profile.register_id && acceptedInterests.includes(profile.register_id))
-                )) ||
+                (acceptedInterests && targetIds.some(id => acceptedInterests.includes(id))) ||
                 (currentUser && interestService.getRelationshipStatusSync(currentUser, profile) === 'accepted')
               );
-              const isInterested = Boolean(
-                interestsSent.includes(profile.id) ||
-                (profile.registerId && interestsSent.includes(profile.registerId)) ||
-                (profile.register_id && interestsSent.includes(profile.register_id))
+              const connStatus = currentUser ? interestService.getConnectionStatusSync(currentUser, profile) : { isSent: false, isIncoming: false };
+              const isSent = Boolean(
+                !isAccepted &&
+                ((interestsSent && targetIds.some(id => interestsSent.includes(id))) || connStatus.isSent)
               );
+              const isIncoming = Boolean(
+                !isAccepted && !isSent &&
+                ((receivedInterests && targetIds.some(id => receivedInterests.includes(id))) || connStatus.isIncoming)
+              );
+              const isPending = isSent || isIncoming;
+              const isInterested = isPending;
               const isShortlisted = Boolean(
                 shortlisted.includes(profile.id) ||
                 (profile.registerId && shortlisted.includes(profile.registerId)) ||
@@ -1090,44 +1097,42 @@ export default function MobileMatchFeed({
                       </button>
 
                       {/* Live Instant Message / Connect */}
-                      <button
-                        onClick={() => {
-                          if (isAccepted) {
-                            onStartChat(profile);
-                          } else if (isInterested) {
-                            onToggleInterest(profile.id);
-                          } else if (onRequestSendInterest) {
-                            onRequestSendInterest(profile);
-                          } else {
-                            onToggleInterest(profile.id);
-                          }
-                        }}
-                        className={`flex-1 py-2.5 px-3 rounded-full text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 ${
-                          isAccepted
-                            ? 'bg-emerald-600 text-white shadow-emerald-600/20'
-                            : isInterested 
-                              ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
-                              : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] text-[#0B192C] shadow-[#D4AF37]/30 hover:brightness-105 btn-luxury-shimmer'
-                        }`}
-                        title={isAccepted ? "Connected • Calls Unlocked ✨" : isInterested ? "Interest Sent" : "Connect"}
-                      >
-                        {isAccepted ? (
-                          <>
-                            <CheckCheck className="w-4 h-4 text-emerald-100" />
-                            <span className="truncate">Connected ✨</span>
-                          </>
-                        ) : isInterested ? (
-                          <>
-                            <Check className="w-4 h-4 stroke-[3]" />
-                            <span className="truncate">Sent</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-3.5 h-3.5" />
-                            <span className="truncate">Connect</span>
-                          </>
-                        )}
-                      </button>
+                      {isAccepted ? (
+                        <button
+                          type="button"
+                          onClick={() => onStartChat(profile)}
+                          className="flex-1 py-2.5 px-3 rounded-full text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                          title="Chat with candidate"
+                        >
+                          <MessageCircle className="w-4 h-4 text-emerald-100" />
+                          <span className="truncate">Chat</span>
+                        </button>
+                      ) : isPending ? (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 py-2.5 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-xs select-none cursor-default bg-slate-100 text-slate-700 border border-slate-200"
+                          title={isIncoming ? "Request Pending" : "Interest Sent"}
+                        >
+                          <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+                          <span className="truncate">{isIncoming ? 'Request Pending' : 'Interest Sent'}</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onRequestSendInterest) {
+                              onRequestSendInterest(profile);
+                            } else {
+                              onToggleInterest(profile.id);
+                            }
+                          }}
+                          className="flex-1 py-2.5 px-3 rounded-full text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] text-[#0B192C] shadow-[#D4AF37]/30 hover:brightness-105 btn-luxury-shimmer"
+                          title="Send Interest"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span className="truncate">Send Interest</span>
+                        </button>
+                      )}
                     </div>
 
                   </div>

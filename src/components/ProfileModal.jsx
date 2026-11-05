@@ -1086,53 +1086,57 @@ export default function ProfileModal({
             </button>
 
             {/* Live Instant Message / Express Interest Button */}
-            <button
-              type="button"
-              onClick={() => {
-                if (isCallingUnlocked) {
-                  onStartChat?.(profile);
-                } else if (isIncoming && onAcceptInterest) {
-                  onAcceptInterest(profile.id);
-                } else if (isInterested) {
-                  onToggleInterest(profile.id);
-                } else if (onRequestSendInterest) {
-                  onRequestSendInterest(profile);
-                } else {
-                  onToggleInterest(profile.id);
-                }
-              }}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer active:scale-95 ${
-                isCallingUnlocked
-                  ? 'bg-emerald-600 text-white shadow-emerald-600/20'
-                  : isIncoming
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
-                    : isInterested 
-                      ? 'bg-emerald-600 text-white shadow-emerald-600/20' 
-                      : 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:from-[#dfb76c] hover:to-[#b89228] shadow-[#D4AF37]/25'
-              }`}
-            >
-              {isCallingUnlocked ? (
-                <>
-                  <CheckCheck className="w-4 h-4 text-emerald-100" />
-                  <span>Connected ✨</span>
-                </>
-              ) : isIncoming ? (
-                <>
-                  <Check className="w-4 h-4 stroke-[3]" />
-                  <span>Accept Interest</span>
-                </>
-              ) : isInterested ? (
-                <>
-                  <Check className="w-4 h-4 stroke-[3]" />
-                  <span>Interest Sent</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4 fill-[#0B192C]" />
-                  <span>⚡ Live Instant Message</span>
-                </>
-              )}
-            </button>
+            {isCallingUnlocked ? (
+              <button
+                type="button"
+                onClick={() => onStartChat?.(profile)}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer active:scale-95 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                title="Chat with candidate"
+              >
+                <MessageCircle className="w-4 h-4 text-white" />
+                <span>Chat</span>
+              </button>
+            ) : isIncoming ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onAcceptInterest) {
+                    onAcceptInterest(profile.id);
+                  } else if (onToggleInterest) {
+                    onToggleInterest(profile.id);
+                  }
+                }}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer active:scale-95 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                title="Accept incoming interest"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Accept Interest</span>
+              </button>
+            ) : isInterested ? (
+              <div
+                className="px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center space-x-1.5 select-none cursor-default bg-slate-100 text-slate-700 border border-slate-200"
+                title="Interest Sent • Pending response"
+              >
+                <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+                <span>Interest Sent</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onRequestSendInterest) {
+                    onRequestSendInterest(profile);
+                  } else {
+                    onToggleInterest(profile.id);
+                  }
+                }}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer active:scale-95 bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:from-[#dfb76c] hover:to-[#b89228] shadow-[#D4AF37]/25"
+                title="Send Interest"
+              >
+                <Send className="w-4 h-4" />
+                <span>Send Interest</span>
+              </button>
+            )}
           </div>
 
         </div>

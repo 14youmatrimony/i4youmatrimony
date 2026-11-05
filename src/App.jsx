@@ -1088,6 +1088,25 @@ export default function App() {
       return [];
     }
   });
+  // Real-time Incoming/Received Interests State
+  const [receivedInterests, setReceivedInterests] = useState(() => {
+    try {
+      const savedUserStr = localStorage.getItem('i4u_auth_user');
+      let userId = null;
+      if (savedUserStr) {
+        const userObj = JSON.parse(savedUserStr);
+        userId = userObj?.id || userObj?.registerId || userObj?.register_id;
+      }
+      if (userId) {
+        const raw = localStorage.getItem(`i4u_received_interests_${userId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      }
+    } catch (e) {}
+    return [];
+  });
   const [shortlisted, setShortlisted] = useState(() => {
     try {
       const savedUserStr = localStorage.getItem('i4u_auth_user');
@@ -1486,20 +1505,43 @@ export default function App() {
     };
   }, [currentUser]);
 
-  // Synchronize accepted connections directly from Supabase on mount and user session change
+  // Synchronize all active interests (sent, received, accepted) directly from Supabase on mount and user session change
   useEffect(() => {
     if (!currentUser) return;
     let isMounted = true;
-    interestService.fetchAcceptedConnections(currentUser).then((partnerIds) => {
-      if (isMounted && Array.isArray(partnerIds) && partnerIds.length > 0) {
+    interestService.fetchUserInterestsSummary(currentUser).then((summary) => {
+      if (!isMounted || !summary) return;
+      if (Array.isArray(summary.acceptedPartnerIds) && summary.acceptedPartnerIds.length > 0) {
         setAcceptedInterests((prev) => {
           const arr = Array.isArray(prev) ? prev : [];
-          return Array.from(new Set([...arr, ...partnerIds]));
+          return Array.from(new Set([...arr, ...summary.acceptedPartnerIds]));
+        });
+      }
+      if (Array.isArray(summary.sentInterestIds) && summary.sentInterestIds.length > 0) {
+        setInterestsSent((prev) => {
+          const arr = Array.isArray(prev) ? prev : [];
+          return Array.from(new Set([...arr, ...summary.sentInterestIds]));
+        });
+      }
+      if (Array.isArray(summary.receivedInterestIds) && summary.receivedInterestIds.length > 0) {
+        setReceivedInterests((prev) => {
+          const arr = Array.isArray(prev) ? prev : [];
+          return Array.from(new Set([...arr, ...summary.receivedInterestIds]));
         });
       }
     }).catch(() => {});
     return () => { isMounted = false; };
   }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
+
+  // Persist receivedInterests to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      const uid = currentUser?.id || localStorage.getItem('i4u_current_user_id');
+      if (uid && Array.isArray(receivedInterests)) {
+        localStorage.setItem(`i4u_received_interests_${uid}`, JSON.stringify(receivedInterests));
+      }
+    } catch (e) {}
+  }, [receivedInterests, currentUser?.id]);
 
   // Persist shortlisted to localStorage whenever it changes
   useEffect(() => {
@@ -1549,12 +1591,19 @@ export default function App() {
     const regId = p?.registerId || p?.register_id || profileOrId?.registerId || profileOrId?.register_id;
     const candidateId = p?.id || profileOrId?.id;
     const list = Array.isArray(interestsSent) ? interestsSent : [];
-    return Boolean(
+    if (
       (targetId && list.includes(targetId)) ||
       (candidateId && list.includes(candidateId)) ||
       (regId && list.includes(regId))
-    );
-  }, [interestsSent, profiles]);
+    ) {
+      return true;
+    }
+    if (currentUser && (p || targetId)) {
+      const conn = interestService.getConnectionStatusSync(currentUser, p || targetId);
+      if (conn.isSent) return true;
+    }
+    return false;
+  }, [interestsSent, profiles, currentUser]);
 
   // Helper to reliably check if connection is fully established (interest accepted)
   const isProfileConnected = useCallback((profileOrId) => {
@@ -1856,6 +1905,10 @@ export default function App() {
             const arr = Array.isArray(prev) ? prev : [];
             return Array.from(new Set([...arr, ...partnerIds]));
           });
+          setReceivedInterests((prev) => {
+            const arr = Array.isArray(prev) ? prev : [];
+            return arr.filter((id) => !partnerIds.includes(String(id)));
+          });
 
           // Instantly synchronize interestService cache & localStorage so calling unlocks for both users
           if (currentUser) {
@@ -1967,6 +2020,12 @@ export default function App() {
         (senderObj?.register_id ? `Member ${senderObj.register_id}` : 'Candidate');
 
       let isDuplicateInterest = false;
+      if (sId) {
+        setReceivedInterests((prev) => {
+          const arr = Array.isArray(prev) ? prev : [];
+          return Array.from(new Set([...arr, sId]));
+        });
+      }
       setNotifications((prev) => {
         const notifId = payload.notification_id || (interestId ? `notif_interest_${interestId}` : `live_int_${sId}`);
         const map = new Map();
@@ -2599,6 +2658,7 @@ export default function App() {
       const arr = Array.isArray(prev) ? prev : [];
       return Array.from(new Set([...arr, ...targetIds]));
     });
+    setReceivedInterests(prev => (Array.isArray(prev) ? prev : []).filter(id => id !== targetId && id !== targetRegId));
 
     // Record acceptance in interestService for real-time WebRTC unlock for BOTH users
     if (currentUser && (profile || targetId)) {
@@ -2663,6 +2723,7 @@ export default function App() {
       const arr = Array.isArray(prev) ? prev : [];
       return Array.from(new Set([...arr, ...targetIds]));
     });
+    setReceivedInterests(prev => (Array.isArray(prev) ? prev : []).filter(id => id !== targetId && id !== targetRegId));
 
     setNotifications(prev => prev.map(n => (n.profileId === targetId || n.profileId === profileId) ? { ...n, isRead: true, status: 'accepted' } : n));
     
@@ -3074,6 +3135,7 @@ export default function App() {
       const arr = Array.isArray(prev) ? prev : [];
       return Array.from(new Set([...arr, ...targetIds]));
     });
+    setReceivedInterests(prev => (Array.isArray(prev) ? prev : []).filter(id => id !== targetId && id !== targetRegId));
 
     if (currentUser && (profile || targetId)) {
       interestService.acceptInterest(currentUser, profile || targetId).catch(err => console.warn('[App] acceptInterest error:', err));
@@ -4398,6 +4460,8 @@ export default function App() {
               currentUser={currentUser}
               currentScreen={currentScreen}
               interestsSent={interestsSent}
+              acceptedInterests={acceptedInterests}
+              receivedInterests={receivedInterests}
               onToggleInterest={handleToggleInterest}
               onRequestSendInterest={handleOpenSendInterest}
               shortlisted={shortlisted}
@@ -4576,11 +4640,13 @@ export default function App() {
                   setActiveTab('chat');
                 }}
                 allProfiles={profiles}
-                onSelectProfile={handleSelectProfile}
+                acceptedInterests={acceptedInterests}
+                receivedInterests={receivedInterests}
+                interestsSent={interestsSent}
                 onRequestSendInterest={handleOpenSendInterest}
+                onSelectProfile={handleSelectProfile}
                 onStartAudioCall={handleStartAudioCall}
                 onStartVideoCall={handleStartVideoCall}
-                acceptedInterests={acceptedInterests}
               />
             )}
 
@@ -4740,6 +4806,7 @@ export default function App() {
               filteredProfiles={filteredProfiles}
               interestsSent={interestsSent}
               acceptedInterests={acceptedInterests}
+              receivedInterests={receivedInterests}
               onToggleInterest={handleToggleInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}
@@ -5089,6 +5156,8 @@ export default function App() {
                   onOpenOffers={handleOpenOffers}
                   onUnlockContact={handleUnlockContact}
                   acceptedInterests={acceptedInterests}
+                  receivedInterests={receivedInterests}
+                  interestsSent={interestsSent}
                 />
               )}
 
@@ -5268,6 +5337,7 @@ export default function App() {
               currentScreen={currentScreen}
               interestsSent={interestsSent}
               acceptedInterests={acceptedInterests}
+              receivedInterests={receivedInterests}
               onToggleInterest={handleToggleInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}
@@ -5301,7 +5371,10 @@ export default function App() {
               setSelectedCountryFilter={setSelectedCountryFilter}
               currentUser={currentUser}
               interestsSent={interestsSent}
+              acceptedInterests={acceptedInterests}
+              receivedInterests={receivedInterests}
               onToggleInterest={handleToggleInterest}
+              onRequestSendInterest={handleOpenSendInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}
               onSelectProfile={handleSelectProfile}
@@ -5320,6 +5393,7 @@ export default function App() {
               onOpenLogin={() => setCurrentScreen('login')}
               interestsSent={interestsSent}
               acceptedInterests={acceptedInterests}
+              receivedInterests={receivedInterests}
               onToggleInterest={handleToggleInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}

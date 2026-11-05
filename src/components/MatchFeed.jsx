@@ -15,13 +15,16 @@ import {
   CheckCheck 
 } from 'lucide-react';
 import { isNriProfile, getProfileCountry, isSameAbroadCountry } from '../data/locationData';
+import { interestService } from '../services/interestService';
 
 export default function MatchFeed({ 
   profiles, 
   currentUser,
   interestsSent, 
   acceptedInterests = [], 
+  receivedInterests = [],
   onToggleInterest, 
+  onRequestSendInterest,
   shortlisted, 
   onToggleShortlist, 
   onSelectProfile, 
@@ -117,18 +120,22 @@ export default function MatchFeed({
       {/* Profile Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredProfiles.map((profile) => {
+          const targetIds = [profile.id, profile.registerId, profile.register_id].filter(Boolean).map(String);
           const isAccepted = Boolean(
-            acceptedInterests && (
-              acceptedInterests.includes(profile.id) ||
-              (profile.registerId && acceptedInterests.includes(profile.registerId)) ||
-              (profile.register_id && acceptedInterests.includes(profile.register_id))
-            )
+            (acceptedInterests && targetIds.some(id => acceptedInterests.includes(id))) ||
+            (currentUser && interestService.getRelationshipStatusSync(currentUser, profile) === 'accepted')
           );
-          const isInterested = Boolean(
-            interestsSent.includes(profile.id) ||
-            (profile.registerId && interestsSent.includes(profile.registerId)) ||
-            (profile.register_id && interestsSent.includes(profile.register_id))
+          const connStatus = currentUser ? interestService.getConnectionStatusSync(currentUser, profile) : { isSent: false, isIncoming: false };
+          const isSent = Boolean(
+            !isAccepted &&
+            ((interestsSent && targetIds.some(id => interestsSent.includes(id))) || connStatus.isSent)
           );
+          const isIncoming = Boolean(
+            !isAccepted && !isSent &&
+            ((receivedInterests && targetIds.some(id => receivedInterests.includes(id))) || connStatus.isIncoming)
+          );
+          const isPending = isSent || isIncoming;
+          const isInterested = isPending;
           const isShortlisted = Boolean(
             shortlisted.includes(profile.id) ||
             (profile.registerId && shortlisted.includes(profile.registerId)) ||
@@ -288,41 +295,46 @@ export default function MatchFeed({
                   </button>
 
                   {/* Connect / Send Interest Button */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isAccepted) {
+                  {isAccepted ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         onStartChat(profile);
-                      } else {
-                        onToggleInterest(profile.id);
-                      }
-                    }}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 cursor-pointer ${
-                      isAccepted
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : isInterested 
-                          ? 'bg-emerald-600 text-white shadow-sm' 
-                          : 'bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] shadow-md shadow-[#D4AF37]/25'
-                    }`}
-                  >
-                    {isAccepted ? (
-                      <>
-                        <CheckCheck className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>Connected ✨</span>
-                      </>
-                    ) : isInterested ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>Interest Sent</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Connect</span>
-                      </>
-                    )}
-                  </button>
+                      }}
+                      className="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                      title="Chat with candidate"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Chat</span>
+                    </button>
+                  ) : isPending ? (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 select-none cursor-default bg-slate-100 text-slate-700 border border-slate-200"
+                      title={isIncoming ? "Request Pending" : "Interest Sent"}
+                    >
+                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
+                      <span>{isIncoming ? 'Request Pending' : 'Interest Sent'}</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onRequestSendInterest) {
+                          onRequestSendInterest(profile);
+                        } else {
+                          onToggleInterest(profile.id);
+                        }
+                      }}
+                      className="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center space-x-1.5 cursor-pointer bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] shadow-md shadow-[#D4AF37]/25"
+                      title="Send Interest"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send Interest</span>
+                    </button>
+                  )}
                 </div>
 
               </div>
