@@ -435,6 +435,11 @@ def api_public_profiles():
             continue
         if lower_name in ('candidate', 'a candidate', 'verified candidate', 'member', 'a member', 'verified member', 'someone', 'null', 'undefined', 'test candidate', 'test user', 'demo user'):
             continue
+        r_id = str(r.get('id') or '').lower()
+        if 'demo' in lower_name or 'test' in lower_name or 'dummy' in lower_name:
+            continue
+        if 'demo' in r_id or 'test' in r_id or 'dummy' in r_id or r_id.startswith('p_') or r.get('is_demo') or r.get('is_test'):
+            continue
 
         optimize_profile_image_urls(r)
         sp = r.get('single_photos')

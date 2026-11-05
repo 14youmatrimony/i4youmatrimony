@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { isNriProfile, getProfileCountry, isSameAbroadCountry } from '../data/locationData';
 import { interestService } from '../services/interestService';
-import { isPlaceholderOrIncompleteProfile } from '../services/api';
+import { isPlaceholderOrIncompleteProfile, isDemoProfile } from '../services/api';
 
 export default function MatchFeed({ 
   profiles, 
@@ -34,9 +34,9 @@ export default function MatchFeed({
 }) {
   const [activeCategory, setActiveCategory] = useState('all');
 
-  // Filter profiles by category chips
+  // Filter profiles by category chips (strictly real candidates only)
   const filteredProfiles = profiles
-    .filter(p => !isPlaceholderOrIncompleteProfile(p))
+    .filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
     .filter(p => {
     if (activeCategory === 'nri') return isNriProfile(p);
     if (activeCategory === 'high_match') return p.matchScore >= 93;

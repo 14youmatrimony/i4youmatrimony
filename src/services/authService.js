@@ -10,35 +10,8 @@ import { sendRegistrationEmail } from './emailNotificationService';
 import { DEMO_USER_FEMALE, DEMO_USER_MALE } from '../data/mockProfiles';
 import { resolveProfilePhoto, isFakeAvatarUrl } from './api';
 
-// Built-in Demo Credentials for Instant Offline / Testing Access
-export const DEMO_CREDENTIALS = [
-  {
-    registerId: 'I4Y1001',
-    password: 'Password@123',
-    user: {
-      ...DEMO_USER_FEMALE,
-      id: 'p1',
-      registerId: 'I4Y1001',
-      name: 'Dr. Ananya Kulkarni',
-      email: 'ananya.kulkarni@example.com',
-      gender: 'Female',
-      verified: true
-    }
-  },
-  {
-    registerId: 'I4Y1002',
-    password: 'Password@123',
-    user: {
-      ...DEMO_USER_MALE,
-      id: 'p2',
-      registerId: 'I4Y1002',
-      name: 'Rohan Jayasimha',
-      email: 'rohan.jayasimha@example.com',
-      gender: 'Male',
-      verified: true
-    }
-  }
-];
+// Built-in Demo Credentials permanently disabled (strictly real verified accounts only)
+export const DEMO_CREDENTIALS = [];
 
 export const AUTH_PROFILE_COLUMNS = [
   'id', 'register_id', 'password', 'name', 'email', 'phone', 'age', 'gender',

@@ -18,25 +18,28 @@ const STORAGE_ENV_KEY = 'i4u_app_environment';
 
 /**
  * Returns true if the application is running in Production Launch Mode.
- * Reads user override from localStorage, or defaults to false (Demo Mode for dev).
+ * Strictly returns true (Production Mode: strictly real registered profiles, all demo profiles permanently removed).
  */
 export function getAppMode() {
   if (typeof window === 'undefined') return true;
-  const saved = localStorage.getItem(STORAGE_ENV_KEY);
-  if (saved === 'production') return true;
-  if (saved === 'demo') return false;
-  
-  // Default to true (Production Mode: strictly real registered profiles, all demo profiles removed)
+  try {
+    const saved = localStorage.getItem(STORAGE_ENV_KEY);
+    if (saved === 'demo') {
+      localStorage.setItem(STORAGE_ENV_KEY, 'production');
+    }
+  } catch (e) {}
   return true;
 }
 
 /**
  * Sets the application environment mode ('production' vs 'demo')
  */
-export function setAppMode(isProduction) {
+export function setAppMode(isProduction = true) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_ENV_KEY, isProduction ? 'production' : 'demo');
-  window.dispatchEvent(new CustomEvent('i4u_mode_change', { detail: { isProduction } }));
+  try {
+    localStorage.setItem(STORAGE_ENV_KEY, 'production');
+  } catch (e) {}
+  window.dispatchEvent(new CustomEvent('i4u_mode_change', { detail: { isProduction: true } }));
 }
 
 export const APP_CONFIG = {

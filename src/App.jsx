@@ -2312,45 +2312,11 @@ export default function App() {
     }, 3200);
   };
 
-  // Toggle between Production Mode (Store Ready) and Demo Mode (Test Data)
+  // Production Mode Enforcement (Demo Mode permanently disabled)
   const handleToggleProductionMode = () => {
-    const nextMode = !isProduction;
-    setAppMode(nextMode);
-    setIsProduction(nextMode);
-    if (nextMode) {
-      // Switched TO Production Mode
-      try {
-        const saved = localStorage.getItem('i4u_auth_user');
-        setCurrentUser(saved ? JSON.parse(saved) : null);
-      } catch (e) {
-        setCurrentUser(null);
-      }
-      setConversations([]);
-      setNotifications([]);
-      setInterestsSent([]);
-      setShortlisted([]);
-      setMyStatus(null);
-      showToast('🚀 Switched to Live Production Mode');
-    } else {
-      // Switched TO Demo Mode
-      const isAadhaarDone = localStorage.getItem('i4u_aadhaar_verified') === 'true';
-      setCurrentUser(isAadhaarDone ? { ...DEMO_USER, aadhaarVerified: true, verified: true } : DEMO_USER);
-      setConversations(INITIAL_CONVERSATIONS);
-      setNotifications(INITIAL_NOTIFICATIONS);
-      setInterestsSent(DEMO_USER.interestsSent || []);
-      setProfiles([]);
-      setMyStatus({
-        id: 'my-status-init',
-        type: 'photo',
-        mediaUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
-        caption: 'Traditional family celebration at ancestral home in Pune 🏛️✨',
-        timestamp: 'Just now',
-        duration: null,
-        viewsCount: 18,
-        isHidden: false
-      });
-      showToast('🧪 Switched to Demo Mode (Simulated Data & Matches)');
-    }
+    setIsProduction(true);
+    setAppMode(true);
+    showToast('🚀 Live Production Mode is active. Demo accounts are permanently disabled.');
   };
 
   // Explicit Logout Handler
@@ -4031,21 +3997,9 @@ export default function App() {
     });
   };
 
-  // 1-Click Demo Persona Switcher (Bride Priya vs Groom Rohan)
-  const handleSwitchDemoGender = (targetGender) => {
-    const isMale = (targetGender || '').toLowerCase() === 'male';
-    const persona = isMale ? DEMO_USER_MALE : DEMO_USER_FEMALE;
-    setCurrentUser(persona);
-    setInterestsSent(persona.interestsSent || []);
-    setShortlisted(persona.shortlisted || []);
-    setConversations(getConversationsForUser(persona));
-    setNotifications([]);
-    setActiveChatProfileId(null);
-    try {
-      localStorage.removeItem('i4u_logged_out');
-      localStorage.setItem('i4u_auth_user', JSON.stringify(persona));
-    } catch (e) {}
-    showToast(`Switched to ${persona.name} (${persona.gender} - viewing ${isMale ? 'Women' : 'Gents'} only) ✨`);
+  // 1-Click Demo Persona Switcher permanently blocked
+  const handleSwitchDemoGender = () => {
+    showToast('Demo accounts are permanently disabled. Please log in with your verified profile.');
   };
 
   // Handler when user deletes their personal account

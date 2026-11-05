@@ -57,7 +57,8 @@ export async function syncProfileToSupabase(userData) {
   }
 
   if (!profileId) {
-    profileId = `p_${Date.now()}`;
+    const regId = userData.register_id || userData.registerId;
+    profileId = regId ? `${String(regId).toLowerCase()}_${Date.now()}` : `usr_${Date.now()}`;
   }
   userData.id = profileId;
   try {
@@ -755,48 +756,87 @@ export function mapSupabaseRowToProfile(r) {
 }
 
 /**
- * Validates whether a profile is a mock/demo candidate profile
+ * Validates whether a profile is a mock, demo, or dummy test candidate profile.
+ * Strictly excludes any test accounts, demo personas, and dummy records.
  */
 export function isDemoProfile(p) {
-  if (!p) return true;
+  if (!p || typeof p !== 'object') return true;
   const id = String(p.id || '').toLowerCase().trim();
-  const name = String(p.name || '').toLowerCase().trim();
+  const name = String(p.name || p.fullName || p.full_name || '').toLowerCase().trim();
+  const email = String(p.email || '').toLowerCase().trim();
+  const username = String(p.username || '').toLowerCase().trim();
+  const regId = String(p.register_id || p.registerId || '').toLowerCase().trim();
 
-  if (p.isDemo === true || p.is_demo === true || p.isDemo === 'true' || p.is_demo === 'true') return true;
-
-  // Real registered candidate IDs must never be flagged as demo
-  if (id.startsWith('usr_') || id.startsWith('i4y')) {
-    return false;
+  // Flag if marked as demo or test in attributes
+  if (
+    p.isDemo === true || p.is_demo === true || p.isDemo === 'true' || p.is_demo === 'true' ||
+    p.isTest === true || p.is_test === true || p.isTest === 'true' || p.is_test === 'true'
+  ) {
+    return true;
   }
 
-  // Match demo IDs
+  // Any demo, test, or dummy substring in name (case-insensitive)
   if (
+    name.includes('demo') ||
+    name.includes('test') ||
+    name.includes('dummy') ||
+    name.includes('sample') ||
+    name.includes('fake') ||
+    name.includes('probe') ||
+    name.includes('mock')
+  ) {
+    return true;
+  }
+
+  // Any demo, test, or dummy substring in email
+  if (
+    email.includes('demo') ||
+    email.includes('test') ||
+    email.includes('dummy') ||
+    email.includes('example.com') ||
+    email.includes('test.com')
+  ) {
+    return true;
+  }
+
+  // Any demo, test, or dummy in username
+  if (username.includes('demo') || username.includes('test') || username.includes('dummy')) {
+    return true;
+  }
+
+  // Any demo, test, or dummy in register_id
+  if (regId.includes('demo') || regId.includes('test') || regId.includes('dummy')) {
+    return true;
+  }
+
+  // Any demo, test, or dummy in ID
+  if (
+    id.includes('demo') ||
+    id.includes('test') ||
+    id.includes('dummy') ||
+    id.includes('sample') ||
+    id.includes('fake') ||
+    id.includes('probe') ||
+    id.includes('mock') ||
     /^p[0-9]+$/.test(id) ||
-    id.startsWith('demo-') ||
-    id.startsWith('demo_') ||
-    id === 'demo' ||
-    id.startsWith('test_') ||
-    id === 'p_1790420920023' ||
-    id === 'p_1790423415609' ||
-    id === 'p_1791044984217' ||
-    id === 'p_1790963054403' ||
-    id === 'p_1790182902571' ||
-    id === 'p_1790585472737' ||
-    id === 'p_1791395066352' ||
-    id === 'p_1791395066369' ||
+    id.startsWith('p_') ||
     id === 'i4y1008_1791482054640'
   ) {
     return true;
   }
 
-  // Match only explicit dummy test candidate names
+  // Match explicit dummy test candidate names
   const testDummyNames = [
     'test candidate',
     'test registration',
     'test probe',
     'supabase live test user',
     'test sdk user',
-    'demo test'
+    'demo test',
+    'demo user',
+    'dummy user',
+    'priya sharma',
+    'rohan jayasimha'
   ];
   if (testDummyNames.includes(name)) return true;
 
@@ -804,10 +844,10 @@ export function isDemoProfile(p) {
 }
 
 /**
- * Permanently deletes all legacy demo and test profiles from Supabase database in the cloud
+ * Permanently deletes all legacy demo, dummy, and test profiles from Supabase database in the cloud
  */
 export async function purgeDemoProfilesFromSupabase() {
-  if (!isSupabaseConfigured()) return;
+  if (!isSupabaseConfigured() || !supabase) return;
   try {
     const demoIds = [
       'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10',
@@ -818,10 +858,22 @@ export async function purgeDemoProfilesFromSupabase() {
       'i4y1008_1791482054640',
       'test_sdk_1791097509591', 'test_sync_1791098620388', 'test_anon_1791369041', 'test_probe_1791394020373', 'test_payload_1'
     ];
+    // Delete legacy IDs
     await supabase.from('profiles').delete().in('id', demoIds);
-    await supabase.from('profiles').delete().in('name', [
-      'Test Candidate', 'Test Registration', 'Test Probe', 'Supabase Live Test User', 'Test SDK User'
-    ]);
+
+    // Delete profiles with demo, test, or dummy in name
+    await supabase.from('profiles').delete().ilike('name', '%demo%');
+    await supabase.from('profiles').delete().ilike('name', '%test%');
+    await supabase.from('profiles').delete().ilike('name', '%dummy%');
+
+    // Delete profiles with demo or test in id
+    await supabase.from('profiles').delete().ilike('id', '%demo%');
+    await supabase.from('profiles').delete().ilike('id', '%test%');
+    await supabase.from('profiles').delete().ilike('id', 'p_%');
+
+    // Delete profiles marked with is_demo or is_test
+    await supabase.from('profiles').delete().eq('is_demo', true);
+    await supabase.from('profiles').delete().eq('is_test', true);
   } catch (err) {
     console.warn('[purgeDemoProfilesFromSupabase] Notice:', err);
   }
@@ -916,7 +968,15 @@ export async function fetchLiveProfiles(currentUserId = null) {
       let query = supabase
         .from('profiles')
         .select(CANDIDATE_FEED_COLUMNS)
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .not('is_demo', 'is', true)
+        .not('is_test', 'is', true)
+        .not('name', 'ilike', '%demo%')
+        .not('name', 'ilike', '%test%')
+        .not('name', 'ilike', '%dummy%')
+        .not('id', 'ilike', '%demo%')
+        .not('id', 'ilike', '%test%')
+        .not('id', 'ilike', '%dummy%');
 
       if (currentUserId) {
         const uidStr = String(currentUserId).trim();
@@ -1143,7 +1203,8 @@ export async function registerLiveProfile(userData) {
   }
 
   if (!profileId) {
-    profileId = `p_${Date.now()}`;
+    const regId = userData.register_id || userData.registerId;
+    profileId = regId ? `${String(regId).toLowerCase()}_${Date.now()}` : `usr_${Date.now()}`;
   }
   userData.id = profileId;
 
@@ -2004,10 +2065,10 @@ export async function fetchLiveUserProfile(userId) {
     } catch (e) {}
   }
 
-  // 3. Check INITIAL_PROFILES / mock profiles
+  // 3. Check INITIAL_PROFILES (strictly valid candidates, excluding demo/test)
   if (Array.isArray(INITIAL_PROFILES)) {
     const foundMock = INITIAL_PROFILES.find((p) => {
-      if (!p) return false;
+      if (!p || isDemoProfile(p) || isPlaceholderOrIncompleteProfile(p)) return false;
       const pId = String(p.id || '').toLowerCase();
       const pReg = String(p.register_id || p.registerId || '').toLowerCase();
       return pId === cleanIdLower || pReg === cleanIdLower || pReg === regIdToken.toLowerCase();
