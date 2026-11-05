@@ -22,6 +22,72 @@ import { resolveProfilePhoto, cleanCandidateName } from '../../services/api';
 import SafeAvatar from '../common/SafeAvatar';
 
 /**
+ * Format notification timestamp dynamically:
+ * - < 1 minute ago: 'Just now'
+ * - Within last 24 hours: formatted exact time (e.g. '10:51 PM')
+ * - Older than 24 hours: formatted date and time (e.g. 'Nov 5, 4:12 PM' or 'Nov 5, 2025, 4:12 PM')
+ */
+export function formatNotificationTime(timestampOrDate, fallbackTime = null) {
+  if (!timestampOrDate) {
+    if (fallbackTime && typeof fallbackTime === 'string' && fallbackTime.trim() !== '' && fallbackTime !== 'Just now') {
+      return fallbackTime;
+    }
+    return 'Just now';
+  }
+
+  let dateObj = null;
+  if (timestampOrDate instanceof Date) {
+    dateObj = timestampOrDate;
+  } else if (typeof timestampOrDate === 'number') {
+    dateObj = new Date(timestampOrDate);
+  } else if (typeof timestampOrDate === 'string') {
+    const trimmed = timestampOrDate.trim();
+    if (!isNaN(Number(trimmed)) && trimmed.length >= 10 && /^\d+$/.test(trimmed)) {
+      dateObj = new Date(Number(trimmed));
+    } else {
+      dateObj = new Date(trimmed);
+    }
+  }
+
+  // If dateObj is invalid, check fallbackTime
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    if (fallbackTime && typeof fallbackTime === 'string' && fallbackTime.trim() !== '' && fallbackTime !== 'Just now') {
+      return fallbackTime;
+    }
+    return 'Just now';
+  }
+
+  const now = new Date();
+  const diffMs = now.getTime() - dateObj.getTime();
+
+  // If created within the last 60 seconds (or slight clock skew into future)
+  if (diffMs < 60 * 1000) {
+    return 'Just now';
+  }
+
+  // If created within the last 24 hours: formatted exact time (e.g. '10:51 PM')
+  if (diffMs < 24 * 60 * 60 * 1000) {
+    return dateObj.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+
+  // Older than 24 hours: display actual date and time (e.g., 'Nov 5, 4:12 PM')
+  const isSameYear = dateObj.getFullYear() === now.getFullYear();
+  const dateOptions = {
+    month: 'short',
+    day: 'numeric',
+    ...(isSameYear ? {} : { year: 'numeric' }),
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  };
+  return dateObj.toLocaleString('en-US', dateOptions);
+}
+
+/**
  * NotificationCard
  * Reusable & interactive notification card for matrimonial notifications.
  * Supports standalone mode (via `item`) and rich sheet mode (via `notif` & `profile`).
@@ -51,6 +117,18 @@ export default function NotificationCard({
   const profile = isPayment ? null : (propProfile || notif.profile || notif.sender);
   const isRead = propIsRead !== undefined ? propIsRead : Boolean(notif.isRead || notif.is_read);
   const status = notif.status || 'pending';
+
+  // Dynamic timestamp formatting pulling real created_at or timestamp field
+  const rawTimestamp =
+    notif.created_at ||
+    notif.timestamp ||
+    notif.createdAt ||
+    notif.date ||
+    notif.updated_at ||
+    notif.updatedAt ||
+    (notif.time && notif.time !== 'Just now' ? notif.time : null);
+
+  const displayTime = formatNotificationTime(rawTimestamp, notif.time);
 
   // Helper to validate and clean genuine candidate names
   const cleanValidName = (name) => {
@@ -150,6 +228,9 @@ export default function NotificationCard({
     if (notif.type === 'shortlist' || notif.type === 'profile_shortlisted') {
       return `⭐ ${candidateName} shortlisted your profile!`;
     }
+    if (notif.type === 'interest_accepted') {
+      return `🎉 ${candidateName} accepted your interest!`;
+    }
     if (notif.type === 'contact' || notif.type === 'contact_viewed') {
       return `👁️ Contact Details Viewed by ${candidateName}`;
     }
@@ -191,6 +272,12 @@ export default function NotificationCard({
         return (
           <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-2xs border border-rose-200">
             <Heart className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-rose-500" />
+          </div>
+        );
+      case 'interest_accepted':
+        return (
+          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs border border-emerald-200">
+            <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600" />
           </div>
         );
       case 'shortlist':
@@ -251,6 +338,12 @@ export default function NotificationCard({
         return (
           <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-0.5">
             <Heart className="w-2 h-2 sm:w-2.5 sm:h-2.5 fill-rose-600" /> Interest Received
+          </span>
+        );
+      case 'interest_accepted':
+        return (
+          <span className="text-[8.5px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-0.5">
+            <CheckCircle2 className="w-2.5 h-2.5 sm:w-2.5 sm:h-2.5 text-emerald-600" /> Interest Accepted
           </span>
         );
       case 'shortlist':
@@ -339,7 +432,7 @@ export default function NotificationCard({
         </div>
         <span className="text-[8px] sm:text-[9px] font-medium text-slate-400 flex items-center gap-0.5 shrink-0">
           <Clock className="w-2.5 h-2.5" />
-          {notif.time || 'Just now'}
+          {displayTime}
         </span>
       </div>
 

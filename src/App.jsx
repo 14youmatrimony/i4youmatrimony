@@ -2457,6 +2457,8 @@ export default function App() {
         message: `Your payment of ₹${invoice.totalAmount} was authorized successfully. ${plan.contactCredits === 999 ? 'Unlimited' : plan.contactCredits} contact unlocks credited!`,
         quote: `GST Tax Invoice #${invoice.invoiceNumber} generated. Full invoice available in Profile.`,
         time: 'Just now',
+        created_at: new Date().toISOString(),
+        timestamp: Date.now(),
         isRead: false,
         status: 'completed',
         badge: plan.name,
