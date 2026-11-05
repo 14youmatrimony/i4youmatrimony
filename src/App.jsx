@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { profileSyncService } from './services/profileSyncService';
@@ -499,13 +499,13 @@ export default function App() {
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const valid = parsed.filter(p => !isDemoProfile(p)).map(sanitizeProfilePhotos);
+          const valid = parsed.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)).map(sanitizeProfilePhotos);
           if (valid.length > 0) return valid;
         }
       }
     } catch (e) {}
     return Array.isArray(INITIAL_PROFILES) && INITIAL_PROFILES.length > 0 
-      ? INITIAL_PROFILES.filter(p => !isDemoProfile(p)).map(sanitizeProfilePhotos) 
+      ? INITIAL_PROFILES.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)).map(sanitizeProfilePhotos) 
       : [];
   });
 
@@ -524,9 +524,10 @@ export default function App() {
       const currentAuthId = currentUser?.id || currentUser?.user_id || currentUserRef.current?.id || currentUserRef.current?.user_id;
       const liveList = await fetchLiveProfiles(currentAuthId);
       if (Array.isArray(liveList) && liveList.length > 0) {
-        setProfiles(liveList);
+        const cleanList = liveList.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p));
+        setProfiles(cleanList);
         try {
-          localStorage.setItem('i4u_cached_profiles', JSON.stringify(liveList));
+          localStorage.setItem('i4u_cached_profiles', JSON.stringify(cleanList));
         } catch (e) {}
       }
     } catch (e) {
@@ -4163,7 +4164,7 @@ export default function App() {
     const seenKeys = new Set();
 
     return profiles
-      .filter(p => !isDemoProfile(p))
+      .filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
       .filter(p => {
         if (!p || !p.id) return false;
 
@@ -4446,14 +4447,15 @@ export default function App() {
   // - If user is logged in with gender, strictly filter by opposite gender
   // - If guest / unauthenticated, provide ALL candidates (both Gents and Women) to WebsiteView
   const websiteProfiles = useMemo(() => {
+    const validProfiles = profiles.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p));
     if (currentUser?.gender) {
       const targetGender = getTargetCandidateGender(currentUser);
-      return profiles.filter(p => {
+      return validProfiles.filter(p => {
         if (isSelfProfile(p, currentUser)) return false;
         return isCandidateMatchingTarget(p, targetGender);
       });
     }
-    return profiles;
+    return validProfiles;
   }, [profiles, currentUser]);
 
   const totalUnreadChatCount = useMemo(() => {

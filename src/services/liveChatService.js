@@ -11,7 +11,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { isSelfProfile } from '../utils/genderMatch.js';
-import { sendBackendMessage, fetchLiveUserProfile, mapSupabaseRowToProfile } from './api.js';
+import { sendBackendMessage, fetchLiveUserProfile, mapSupabaseRowToProfile, isPlaceholderOrIncompleteProfile } from './api.js';
 import { fcmNotificationService } from './fcmNotificationService.js';
 
 class LiveChatService {
@@ -1041,26 +1041,11 @@ class LiveChatService {
       }
     }
 
-    // Assign fallback profile details to any remaining unresolved partner
+    // Strictly discard any unresolved or placeholder partner profiles
     allPartnerIds.forEach((pid) => {
       const conv = convMap.get(pid);
-      if (!conv.partnerUser || isGenericName(conv.partnerUser.name || conv.partnerUser.full_name || conv.partnerUser.fullName)) {
-        const displayName = pid.toUpperCase().startsWith('I4Y') ? `Member ${pid.toUpperCase()}` : `Member ${pid.slice(0, 8)}`;
-        const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0B192C&color=DFB76C&bold=true`;
-        conv.partnerUser = {
-          id: pid,
-          name: displayName,
-          fullName: displayName,
-          photo: avatar,
-          photo_url: avatar,
-          avatar_url: avatar,
-          verified: false,
-          city: '',
-          district: '',
-          state: '',
-          occupation: '',
-          profession: ''
-        };
+      if (!conv.partnerUser || isGenericName(conv.partnerUser.name || conv.partnerUser.full_name || conv.partnerUser.fullName) || isPlaceholderOrIncompleteProfile(conv.partnerUser)) {
+        conv.partnerUser = null;
       }
     });
 
@@ -1074,6 +1059,8 @@ class LiveChatService {
 
       const partnerObj = conv.partnerUser;
       if (!partnerObj || isSelfProfile(partnerObj, userOrId)) continue;
+      // Strictly exclude incomplete or placeholder profiles (e.g. "Member usr_...", "User...", missing valid names)
+      if (isPlaceholderOrIncompleteProfile(partnerObj)) continue;
 
       const actualUnread = cleanMsgs.filter((m) =>
         (m.sender === 'them' || (m.sender_id && !userIds.includes(String(m.sender_id)))) &&

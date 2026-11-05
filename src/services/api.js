@@ -512,11 +512,103 @@ export function cleanCandidateName(rawName, fallback = 'Candidate') {
     lower.startsWith('member usr_') ||
     lower.includes('usr_') ||
     lower.startsWith('sim-') ||
-    lower.startsWith('auth_')
+    lower.startsWith('auth_') ||
+    /^member\s*usr/i.test(lower) ||
+    /^user\s*[_0-9]/i.test(lower) ||
+    /^user\b/i.test(lower) ||
+    /^[0-9+_\s\-().]+$/.test(lower)
   ) {
     return fallback;
   }
   return clean;
+}
+
+/**
+ * Strictly identifies incomplete, placeholder, or invalid candidate profiles.
+ * Excludes generic patterns (e.g. "Member usr_...", "User...", "usr_...", or empty/null/undefined)
+ * and profiles lacking proper names or having placeholder usernames.
+ */
+export function isPlaceholderOrIncompleteProfile(profile, options = {}) {
+  if (!profile || typeof profile !== 'object') return true;
+
+  // Real registered ID vs Demo check
+  if (isDemoProfile(profile)) return true;
+
+  const rawName = profile.name || profile.fullName || profile.full_name || '';
+  if (!rawName || typeof rawName !== 'string') return true;
+
+  const cleanName = rawName.trim();
+  if (cleanName.length < 2) return true;
+
+  const lowerName = cleanName.toLowerCase();
+
+  // 1. Generic placeholder name patterns (e.g. "Member usr_9496", "User_...", "User 123", "usr_...")
+  if (
+    /^member\s*usr/i.test(cleanName) ||
+    /^user\s*[_0-9]/i.test(cleanName) ||
+    /^user\b/i.test(cleanName) ||
+    /^usr_/i.test(cleanName) ||
+    /^sim-/i.test(cleanName) ||
+    /^auth_/i.test(cleanName) ||
+    /usr_[a-z0-9_]+/i.test(cleanName) ||
+    /^[0-9+_\s\-().]+$/.test(cleanName)
+  ) {
+    return true;
+  }
+
+  // 2. Generic placeholder matrimonial labels
+  const genericPlaceholders = [
+    'candidate',
+    'a candidate',
+    'verified candidate',
+    'a verified candidate',
+    'member',
+    'a member',
+    'verified member',
+    'a verified member',
+    'someone',
+    'null',
+    'undefined',
+    'test candidate',
+    'test user',
+    'test registration',
+    'test probe',
+    'demo user',
+    'dummy user'
+  ];
+  if (genericPlaceholders.includes(lowerName)) {
+    return true;
+  }
+
+  // 3. Name is just "Member <id>" or raw ID
+  const pid = String(profile.id || profile.register_id || profile.registerId || '').trim().toLowerCase();
+  if (pid) {
+    if (lowerName === `member ${pid}` || lowerName === pid) return true;
+    if (pid.startsWith('usr_') && lowerName.includes(pid.slice(0, 8))) return true;
+  }
+
+  // 4. Placeholder username or lacks proper full name
+  const username = String(profile.username || '').trim().toLowerCase();
+  if (username) {
+    if (/^usr_/i.test(username) || /^user\s*[_0-9]/i.test(username) || /^member\s*usr/i.test(username)) {
+      if (lowerName === username || lowerName === `member ${username}`) return true;
+    }
+  }
+
+  // 5. Check photo validity if options.requirePhoto is enabled
+  if (options.requirePhoto) {
+    const photo = resolveProfilePhoto(profile);
+    if (!photo || isFakeAvatarUrl(photo)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Validates whether candidate profile is authentic, complete, and renderable
+ */
+export function isValidPartnerProfile(profile, options = {}) {
+  return !isPlaceholderOrIncompleteProfile(profile, options);
 }
 
 /**
@@ -847,7 +939,7 @@ export async function fetchLiveProfiles(currentUserId = null) {
         const rawList = data
           .map(mapSupabaseRowToProfile)
           .filter(p => {
-            if (isDemoProfile(p)) return false;
+            if (!p || isDemoProfile(p) || isPlaceholderOrIncompleteProfile(p)) return false;
             if (currentUserId) {
               const uidStr = String(currentUserId).trim();
               if (String(p.id) === uidStr || (p.user_id && String(p.user_id) === uidStr)) return false;
@@ -875,7 +967,7 @@ export async function fetchLiveProfiles(currentUserId = null) {
     if (data && data.success && Array.isArray(data.profiles) && data.profiles.length > 0) {
       const rawList = data.profiles
         .filter(p => {
-          if (isDemoProfile(p)) return false;
+          if (!p || isDemoProfile(p) || isPlaceholderOrIncompleteProfile(p)) return false;
           if (currentUserId) {
             const uidStr = String(currentUserId).trim();
             if (String(p.id) === uidStr || (p.user_id && String(p.user_id) === uidStr)) return false;
@@ -911,7 +1003,7 @@ export async function fetchLiveProfiles(currentUserId = null) {
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const validCached = deduplicateProfiles(parsed.filter(p => !isDemoProfile(p)));
+        const validCached = deduplicateProfiles(parsed.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)));
         if (validCached.length > 0) return validCached;
       }
     }
@@ -919,7 +1011,7 @@ export async function fetchLiveProfiles(currentUserId = null) {
 
   // 4. Default authentic fallback profiles
   if (Array.isArray(INITIAL_PROFILES) && INITIAL_PROFILES.length > 0) {
-    return deduplicateProfiles(INITIAL_PROFILES.filter(p => !isDemoProfile(p)));
+    return deduplicateProfiles(INITIAL_PROFILES.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)));
   }
 
   return [];

@@ -16,7 +16,8 @@ import {
   fetchBackendReceivedInterests,
   fetchBackendSentInterests,
   resolveProfilePhoto,
-  cleanCandidateName
+  cleanCandidateName,
+  isPlaceholderOrIncompleteProfile
 } from './api.js';
 
 const generateUUID = () => {
@@ -1332,11 +1333,14 @@ class InterestService {
       deduplicatedEnriched.push(item);
     }
 
-    // Final sanity check: Strictly ensure receiver is current user and sender is NOT current user
+    // Final sanity check: Strictly ensure receiver is current user and sender is NOT current user,
+    // and exclude any placeholder/incomplete sender profiles (e.g. "Member usr_...", "User...")
     const finalReceived = deduplicatedEnriched.filter(item => {
       const sId = String(item.sender_id || item.senderId || '');
       const rId = String(item.receiver_id || item.receiverId || '');
-      return !receiverIds.includes(sId) && (receiverIds.includes(rId) || !rId);
+      if (receiverIds.includes(sId) || (!receiverIds.includes(rId) && rId)) return false;
+      if (isPlaceholderOrIncompleteProfile(item.sender) || isPlaceholderOrIncompleteProfile({ name: item.sender_name, id: sId })) return false;
+      return true;
     });
 
     console.log(`Found [${finalReceived.length}] records for receiver`);
@@ -1490,6 +1494,8 @@ class InterestService {
       const receiverProfile = profilesMap.get(recId) || (Array.isArray(allProfiles) ? allProfiles.find(p => p && (
         String(p.id) === recId || String(p.register_id) === recId || String(p.registerId) === recId
       )) : null);
+
+      if (receiverProfile && isPlaceholderOrIncompleteProfile(receiverProfile)) return;
 
       result.push({
         ...rec,

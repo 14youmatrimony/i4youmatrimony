@@ -27,7 +27,7 @@ import {
   isCandidateMatchingTarget, 
   isSelfProfile 
 } from '../../utils/genderMatch';
-import { isDemoProfile } from '../../services/api';
+import { isDemoProfile, isPlaceholderOrIncompleteProfile } from '../../services/api';
 
 export function parseHeightInches(hStr) {
   if (!hStr) return null;
@@ -155,7 +155,7 @@ export default function WebsiteMatchShowcase({
     const targetGender = isUserLoggedIn ? getTargetCandidateGender(currentUser) : null;
 
     return profiles
-      .filter((p) => !isDemoProfile(p))
+      .filter((p) => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
       .filter((p) => {
         // 0. Exclude own profile (by ID, Name, and Phone)
         if (isSelfProfile(p, currentUser)) return false;
@@ -639,6 +639,7 @@ export default function WebsiteMatchShowcase({
         {filteredProfiles.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 min-[1800px]:grid-cols-5 gap-6">
             {filteredProfiles.map((profile) => {
+              if (!profile || isPlaceholderOrIncompleteProfile(profile)) return null;
               const isInterested = interestsSent.includes(profile.id);
               const isShortlisted = shortlisted.includes(profile.id);
 

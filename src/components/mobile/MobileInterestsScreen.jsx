@@ -16,7 +16,7 @@ import { getTargetCandidateGender, isCandidateMatchingTarget, normalizeGender } 
 import { getAppMode } from '../../config/appConfig';
 import { interestService } from '../../services/interestService';
 import SafeAvatar from '../common/SafeAvatar';
-import { resolveProfilePhoto } from '../../services/api';
+import { resolveProfilePhoto, isPlaceholderOrIncompleteProfile } from '../../services/api';
 import { supabase, isSupabaseConfigured } from '../../services/supabase';
 
 export default function MobileInterestsScreen({
@@ -209,7 +209,18 @@ export default function MobileInterestsScreen({
       clean === 'candidate' || 
       clean === 'a candidate' ||
       clean === 'verified candidate' ||
-      clean === 'someone';
+      clean === 'someone' ||
+      clean === 'null' ||
+      clean === 'undefined' ||
+      clean.startsWith('usr_') ||
+      clean.startsWith('member usr_') ||
+      clean.includes('usr_') ||
+      clean.startsWith('sim-') ||
+      clean.startsWith('auth_') ||
+      /^member\s*usr/i.test(clean) ||
+      /^user\s*[_0-9]/i.test(clean) ||
+      /^user\b/i.test(clean) ||
+      /^[0-9+_\s\-().]+$/.test(clean);
   };
 
   const targetCandidateGender = getTargetCandidateGender(currentUser);
@@ -233,6 +244,7 @@ export default function MobileInterestsScreen({
 
   const oppositeGenderProfiles = profiles.filter(p => {
     if (isSelfProfile(p)) return false;
+    if (isPlaceholderOrIncompleteProfile(p)) return false;
     return isCandidateMatchingTarget(p.gender, targetCandidateGender);
   });
 
@@ -284,7 +296,7 @@ export default function MobileInterestsScreen({
       if (seen.has(rId)) return;
 
       const profileObj = rec.receiver || rec.profile;
-      if (profileObj && profileObj.name) {
+      if (profileObj && profileObj.name && !isPlaceholderOrIncompleteProfile(profileObj)) {
         const pid = String(profileObj.id || rId);
         const regId = String(profileObj.register_id || profileObj.registerId || '');
         if (localWithdrawnIds.has(pid) || (regId && localWithdrawnIds.has(regId))) return;
@@ -423,7 +435,7 @@ export default function MobileInterestsScreen({
     const list = [];
     const seen = new Set();
     (oppositeGenderProfiles || []).forEach(p => {
-      if (!p || !isProfileInList(p, shortlisted)) return;
+      if (!p || isPlaceholderOrIncompleteProfile(p) || !isProfileInList(p, shortlisted)) return;
       const pid = String(p.id || '');
       const regId = String(p.registerId || p.register_id || '');
       if (pid && seen.has(pid)) return;
@@ -492,8 +504,11 @@ export default function MobileInterestsScreen({
                               (!isGenericPlaceholder(rec?.senderName) ? rec.senderName : null) ||
                               (matching?.register_id ? `Member ${matching.register_id}` : null) ||
                               (senderData?.register_id ? `Member ${senderData.register_id}` : null) ||
-                              (senderData?.registerId ? `Member ${senderData.registerId}` : null) ||
-                              (sid ? `Member ${sid}` : 'Verified Member');
+                              (senderData?.registerId ? `Member ${senderData.registerId}` : null);
+
+        if (!candidateName || isGenericPlaceholder(candidateName) || isPlaceholderOrIncompleteProfile({ name: candidateName, id: sid })) {
+          return;
+        }
 
         const rawSenderPhoto = resolveProfilePhoto(matching) || resolveProfilePhoto(senderData) || resolveProfilePhoto(rec) || null;
 
@@ -617,8 +632,11 @@ export default function MobileInterestsScreen({
                             (!isGenericPlaceholder(item?.senderName) ? item.senderName : null) ||
                             (matching?.register_id ? `Member ${matching.register_id}` : null) ||
                             (senderData?.register_id ? `Member ${senderData.register_id}` : null) ||
-                            (senderData?.registerId ? `Member ${senderData.registerId}` : null) ||
-                            (sid ? `Member ${sid}` : 'Verified Member');
+                            (senderData?.registerId ? `Member ${senderData.registerId}` : null);
+
+      if (!candidateName || isGenericPlaceholder(candidateName) || isPlaceholderOrIncompleteProfile({ name: candidateName, id: sid })) {
+        return;
+      }
 
       const rawSenderPhoto = resolveProfilePhoto(matching) || resolveProfilePhoto(senderData) || resolveProfilePhoto(item) || null;
 
@@ -658,7 +676,7 @@ export default function MobileInterestsScreen({
       list.push(cardItem);
     });
 
-    return list;
+    return list.filter(item => !isPlaceholderOrIncompleteProfile(item));
   }, [liveReceivedInterests, notifications, profiles, effectiveDeclinedIds, interestsSent, isMaleUser, currentUser]);
 
   const declinedProfiles = oppositeGenderProfiles.filter(p => effectiveDeclinedIds.includes(p.id));
@@ -762,6 +780,7 @@ export default function MobileInterestsScreen({
               </div>
             ) : (
               sentProfiles.map(p => {
+                if (!p || isPlaceholderOrIncompleteProfile(p)) return null;
                 const isAccepted = Boolean(
                   isProfileInList(p, acceptedInterests) ||
                   p.interestStatus === 'accepted' ||
@@ -897,6 +916,7 @@ export default function MobileInterestsScreen({
               </div>
             ) : (
               receivedProfiles.map(p => {
+                if (!p || isPlaceholderOrIncompleteProfile(p)) return null;
                 const isAccepted = Boolean(
                   p.interestStatus === 'accepted' ||
                   isProfileInList(p, acceptedInterests) ||
@@ -1037,7 +1057,9 @@ export default function MobileInterestsScreen({
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {declinedProfiles.map(dp => (
+                  {declinedProfiles.map(dp => {
+                    if (!dp || isPlaceholderOrIncompleteProfile(dp)) return null;
+                    return (
                     <div key={dp.id} className="bg-slate-50 rounded-2xl p-3 flex items-center justify-between border border-slate-200">
                       <div className="flex items-center space-x-3 min-w-0 cursor-pointer" onClick={() => onSelectProfile(dp)}>
                         <SafeAvatar 
@@ -1062,7 +1084,8 @@ export default function MobileInterestsScreen({
                         Reconsider
                       </button>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               </div>
             )}
@@ -1076,7 +1099,9 @@ export default function MobileInterestsScreen({
                 Your shortlist is empty. Tap the heart icon on any card to save profiles here!
               </div>
             ) : (
-              shortlistedProfiles.map(p => (
+              shortlistedProfiles.map(p => {
+                if (!p || isPlaceholderOrIncompleteProfile(p)) return null;
+                return (
                 <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-3.5 flex items-center justify-between gap-3 shadow-sm">
                   <div className="flex items-center space-x-3 min-w-0" onClick={() => onSelectProfile(p)}>
                     <SafeAvatar
@@ -1107,7 +1132,8 @@ export default function MobileInterestsScreen({
                     </button>
                   </div>
                 </div>
-              ))
+              );
+              })
             )}
           </>
         )}

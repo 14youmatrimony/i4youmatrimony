@@ -22,7 +22,7 @@ import { liveChatService, deduplicateMessageList } from '../../services/liveChat
 import { useInterestStatus, interestService } from '../../services/interestService';
 import { getActiveConversations } from '../../utils/conversationUtils';
 import { fcmNotificationService } from '../../services/fcmNotificationService';
-import { fetchLiveUserProfile } from '../../services/api';
+import { fetchLiveUserProfile, isPlaceholderOrIncompleteProfile } from '../../services/api';
 import { supabase, isSupabaseConfigured } from '../../services/supabase';
 
 const POPULAR_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '😊', '🌺', '🌟', '💫', '🕊️', '❤️', '🌹'];
@@ -151,7 +151,7 @@ export default function MobileChatScreen({
   const filteredChatConversations = useMemo(() => {
     return activeConversationsList.filter(conv => {
       const partner = conv.partnerUser;
-      if (!partner || isSelfProfile(partner, currentUser)) return false;
+      if (!partner || isSelfProfile(partner, currentUser) || isPlaceholderOrIncompleteProfile(partner)) return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
       const nameMatch = partner.name?.toLowerCase().includes(q);
@@ -1230,7 +1230,7 @@ export default function MobileChatScreen({
         }`}>
           {filteredChatConversations.map(conv => {
             const profile = conv.partnerUser;
-            if (!profile || isSelfProfile(profile, currentUser)) return null;
+            if (!profile || isSelfProfile(profile, currentUser) || isPlaceholderOrIncompleteProfile(profile)) return null;
 
             const lastMsg = conv?.messages?.[conv.messages.length - 1];
             const isLastMsgFromMe = lastMsg && (lastMsg.sender === 'me' || String(lastMsg.sender_id) === String(currentUser?.id));

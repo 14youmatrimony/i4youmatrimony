@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import json
 import csv
 import io
@@ -426,6 +427,15 @@ def api_public_profiles():
 
     profiles = []
     for r in rows:
+        r_name = str(r.get('name') or '').strip()
+        lower_name = r_name.lower()
+        if not r_name or len(r_name) < 2:
+            continue
+        if re.search(r'^member\s*usr', lower_name, re.I) or re.search(r'^user\s*[_0-9]', lower_name, re.I) or re.search(r'^usr_', lower_name, re.I) or re.search(r'^user\b', lower_name, re.I) or 'usr_' in lower_name:
+            continue
+        if lower_name in ('candidate', 'a candidate', 'verified candidate', 'member', 'a member', 'verified member', 'someone', 'null', 'undefined', 'test candidate', 'test user', 'demo user'):
+            continue
+
         optimize_profile_image_urls(r)
         sp = r.get('single_photos')
         if not sp or not isinstance(sp, list):

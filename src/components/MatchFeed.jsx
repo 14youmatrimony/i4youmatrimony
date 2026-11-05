@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { isNriProfile, getProfileCountry, isSameAbroadCountry } from '../data/locationData';
 import { interestService } from '../services/interestService';
+import { isPlaceholderOrIncompleteProfile } from '../services/api';
 
 export default function MatchFeed({ 
   profiles, 
@@ -34,7 +35,9 @@ export default function MatchFeed({
   const [activeCategory, setActiveCategory] = useState('all');
 
   // Filter profiles by category chips
-  const filteredProfiles = profiles.filter(p => {
+  const filteredProfiles = profiles
+    .filter(p => !isPlaceholderOrIncompleteProfile(p))
+    .filter(p => {
     if (activeCategory === 'nri') return isNriProfile(p);
     if (activeCategory === 'high_match') return p.matchScore >= 93;
     if (activeCategory === 'medical') return p.educationCategory.includes('Medical');
@@ -120,6 +123,7 @@ export default function MatchFeed({
       {/* Profile Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredProfiles.map((profile) => {
+          if (!profile || isPlaceholderOrIncompleteProfile(profile)) return null;
           const targetIds = [profile.id, profile.registerId, profile.register_id].filter(Boolean).map(String);
           const isAccepted = Boolean(
             (acceptedInterests && targetIds.some(id => acceptedInterests.includes(id))) ||

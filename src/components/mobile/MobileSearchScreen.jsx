@@ -30,7 +30,7 @@ import CountryNriFilterBar from '../common/CountryNriFilterBar';
 import { isCountryMatch } from '../../data/worldCountries';
 import { sanitizeSearchTerm } from '../../utils/security';
 import { getTargetCandidateGender, isCandidateMatchingTarget } from '../../utils/genderMatch';
-import { isDemoProfile, resolveProfilePhoto } from '../../services/api';
+import { isDemoProfile, resolveProfilePhoto, isPlaceholderOrIncompleteProfile } from '../../services/api';
 import { interestService } from '../../services/interestService';
 
 export default function MobileSearchScreen({
@@ -72,7 +72,7 @@ export default function MobileSearchScreen({
   const filteredProfiles = useMemo(() => {
     const cleanSearch = sanitizeSearchTerm(searchTerm);
     return (profiles || [])
-      .filter(p => !isDemoProfile(p))
+      .filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
       .filter(p => {
         // 0. Exclude own profile
         if (currentUser?.id && p.id === currentUser.id) return false;
@@ -296,6 +296,7 @@ export default function MobileSearchScreen({
       {/* Profile Mini Cards for Search */}
       <div className="space-y-3">
         {filteredProfiles.map(profile => {
+          if (!profile || isPlaceholderOrIncompleteProfile(profile)) return null;
           const targetIds = [profile.id, profile.registerId, profile.register_id].filter(Boolean).map(String);
           const isAccepted = Boolean(
             (acceptedInterests && targetIds.some(id => acceptedInterests.includes(id))) ||

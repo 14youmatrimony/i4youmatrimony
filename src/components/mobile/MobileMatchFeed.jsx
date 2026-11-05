@@ -44,7 +44,7 @@ import {
   getTargetGenderLabel, 
   isSelfProfile 
 } from '../../utils/genderMatch';
-import { isDemoProfile, resolveProfilePhoto } from '../../services/api';
+import { isDemoProfile, resolveProfilePhoto, isPlaceholderOrIncompleteProfile } from '../../services/api';
 import { interestService } from '../../services/interestService';
 
 export default function MobileMatchFeed({
@@ -97,6 +97,7 @@ export default function MobileMatchFeed({
 
     return (profiles || []).filter(p => {
       if (!p || !p.id) return false;
+      if (isDemoProfile(p) || isPlaceholderOrIncompleteProfile(p)) return false;
       if (seenIds.has(p.id)) return false;
       seenIds.add(p.id);
 
@@ -206,7 +207,7 @@ export default function MobileMatchFeed({
   // Filtered list of candidate stories (Strict opposite gender, prioritize those with active statuses, show up to 20)
   const storyProfiles = useMemo(() => {
     const valid = (profiles || [])
-      .filter(p => !isDemoProfile(p))
+      .filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
       .filter(p => {
         if (hiddenStatusIds.has(p.id) || deletedStatusIds.has(p.id)) return false;
         if (isSelfProfile(p, currentUser)) return false;
@@ -602,6 +603,7 @@ export default function MobileMatchFeed({
           /* ── 4-Profile Grid View (2x2 Layout - 4 Profiles at a time) ────────── */
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {filteredProfiles.map((profile) => {
+              if (!profile || isPlaceholderOrIncompleteProfile(profile)) return null;
               const targetIds = [profile.id, profile.registerId, profile.register_id].filter(Boolean).map(String);
               const isAccepted = Boolean(
                 (acceptedInterests && targetIds.some(id => acceptedInterests.includes(id))) ||
@@ -850,6 +852,7 @@ export default function MobileMatchFeed({
           /* ── Single Full Card View (1 Profile at a time - Classic) ─────────── */
           <div className="space-y-4">
             {filteredProfiles.map((profile) => {
+              if (!profile || isPlaceholderOrIncompleteProfile(profile)) return null;
               const targetIds = [profile.id, profile.registerId, profile.register_id].filter(Boolean).map(String);
               const isAccepted = Boolean(
                 (acceptedInterests && targetIds.some(id => acceptedInterests.includes(id))) ||
