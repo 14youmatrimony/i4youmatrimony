@@ -442,34 +442,13 @@ export default function EditProfileModal({
               {/* TAB 1: Personal & Astro */}
               {activeTab === 'personal' && (
                 <div className="space-y-3.5">
-                  {/* Security Notice on Core Identity Fields */}
-                  <div className="p-3 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-amber-900 text-xs flex items-start gap-2.5 shadow-xs">
-                    <div className="p-1 rounded-lg bg-amber-100 text-amber-700 shrink-0 mt-0.5">
-                      <Lock className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <span className="font-bold block text-amber-950">Protected Core Identity Fields</span>
-                      <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
-                        For matrimonial authenticity and member security, your Full Name, Age, Gender, Height, Religion, and Mother Tongue are permanently locked once saved and cannot be edited.
-                      </p>
-                    </div>
-                  </div>
-
                   {/* 1. Full Name & 2. Age */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                          <span>Full Name *</span>
-                          {isNameLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
-                        </label>
-                        {isNameLocked && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                            <Lock className="w-2.5 h-2.5 text-slate-500" />
-                            Verified Permanent
-                          </span>
-                        )}
-                      </div>
+                      <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                        <span>Full Name *</span>
+                        {isNameLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" aria-label="Permanently locked" />}
+                      </label>
                       <input
                         type="text"
                         name="name"
@@ -480,30 +459,17 @@ export default function EditProfileModal({
                         readOnly={isNameLocked}
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isNameLocked
-                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
                             : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
                         }`}
                         placeholder="Candidate Name"
                       />
-                      {isNameLocked && (
-                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                          <span>🔒 Core identity field &bull; Cannot be changed</span>
-                        </p>
-                      )}
                     </div>
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                          <span>Age *</span>
-                          {isAgeLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
-                        </label>
-                        {isAgeLocked && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                            <Lock className="w-2.5 h-2.5 text-slate-500" />
-                            Verified Permanent
-                          </span>
-                        )}
-                      </div>
+                      <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                        <span>Age *</span>
+                        {isAgeLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" aria-label="Permanently locked" />}
+                      </label>
                       <input
                         type="number"
                         name="age"
@@ -516,43 +482,29 @@ export default function EditProfileModal({
                         readOnly={isAgeLocked}
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isAgeLocked
-                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
                             : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
                         }`}
                         placeholder="e.g. 26"
                       />
-                      {isAgeLocked && (
-                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                          <span>🔒 Age is permanent and cannot be modified</span>
-                        </p>
-                      )}
                     </div>
                   </div>
 
                   {/* 3. Gender & 4. Height */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                          <span>Gender *</span>
-                          {isGenderLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
-                        </label>
-                        {isGenderLocked && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                            <Lock className="w-2.5 h-2.5 text-slate-500" />
-                            Verified Permanent
-                          </span>
-                        )}
-                      </div>
+                      <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                        <span>Gender *</span>
+                        {isGenderLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" aria-label="Permanently locked" />}
+                      </label>
                       <select
                         name="gender"
                         value={formData.gender}
                         onChange={handleChange}
                         disabled={isGenderLocked}
-                        readOnly={isGenderLocked}
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isGenderLocked
-                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
                             : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
                         }`}
                       >
@@ -560,25 +512,12 @@ export default function EditProfileModal({
                         <option value="Female">Female (Bride)</option>
                         <option value="Male">Male (Groom)</option>
                       </select>
-                      {isGenderLocked && (
-                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                          <span>🔒 Profile gender is permanent and cannot be modified</span>
-                        </p>
-                      )}
                     </div>
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                          <span>Height</span>
-                          {isHeightLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
-                        </label>
-                        {isHeightLocked && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                            <Lock className="w-2.5 h-2.5 text-slate-500" />
-                            Verified Permanent
-                          </span>
-                        )}
-                      </div>
+                      <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                        <span>Height</span>
+                        {isHeightLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" aria-label="Permanently locked" />}
+                      </label>
                       <input
                         type="text"
                         name="height"
@@ -588,34 +527,21 @@ export default function EditProfileModal({
                         readOnly={isHeightLocked}
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isHeightLocked
-                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
                             : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
                         }`}
                         placeholder="e.g. 5'6'' (168 cm)"
                       />
-                      {isHeightLocked && (
-                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                          <span>🔒 Height is permanent once saved</span>
-                        </p>
-                      )}
                     </div>
                   </div>
 
                   {/* 5. Religion & 6. Mother Tongue */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                          <span>Religion</span>
-                          {isReligionLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
-                        </label>
-                        {isReligionLocked && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                            <Lock className="w-2.5 h-2.5 text-slate-500" />
-                            Verified Permanent
-                          </span>
-                        )}
-                      </div>
+                      <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                        <span>Religion</span>
+                        {isReligionLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" aria-label="Permanently locked" />}
+                      </label>
                       <input
                         type="text"
                         name="religion"
@@ -625,30 +551,17 @@ export default function EditProfileModal({
                         readOnly={isReligionLocked}
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isReligionLocked
-                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
                             : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
                         }`}
                         placeholder="Hindu / Christian / Muslim"
                       />
-                      {isReligionLocked && (
-                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                          <span>🔒 Religion is permanent once saved</span>
-                        </p>
-                      )}
                     </div>
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                          <span>Mother Tongue</span>
-                          {isMotherTongueLocked && <Lock className="w-3 h-3 text-slate-400" aria-label="Permanently locked" />}
-                        </label>
-                        {isMotherTongueLocked && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                            <Lock className="w-2.5 h-2.5 text-slate-500" />
-                            Verified Permanent
-                          </span>
-                        )}
-                      </div>
+                      <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                        <span>Mother Tongue</span>
+                        {isMotherTongueLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" aria-label="Permanently locked" />}
+                      </label>
                       <input
                         type="text"
                         name="motherTongue"
@@ -658,16 +571,11 @@ export default function EditProfileModal({
                         readOnly={isMotherTongueLocked}
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isMotherTongueLocked
-                            ? 'bg-gray-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none opacity-75'
+                            ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
                             : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]'
                         }`}
                         placeholder="Malayalam / Marathi / Hindi"
                       />
-                      {isMotherTongueLocked && (
-                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                          <span>🔒 Mother tongue is permanent once saved</span>
-                        </p>
-                      )}
                     </div>
                   </div>
 
