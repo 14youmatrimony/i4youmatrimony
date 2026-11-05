@@ -285,6 +285,14 @@ DROP POLICY IF EXISTS "Allow public all access on notifications" ON public.notif
 CREATE POLICY "Allow public all access on notifications" ON public.notifications FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
 -- 13. Enable Realtime Replication Publication
+ALTER TABLE public.profiles REPLICA IDENTITY FULL;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
 DO $$
 BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.interests;

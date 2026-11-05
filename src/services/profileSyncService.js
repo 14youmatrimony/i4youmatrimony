@@ -15,6 +15,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { addCacheBuster } from '../utils/cacheBuster.js';
+import { mapSupabaseRowToProfile } from './api.js';
 
 class ProfileSyncService {
   constructor() {
@@ -87,6 +88,30 @@ class ProfileSyncService {
           if (!payload) return;
           this.notifyListeners(payload, 'supabase_remote');
         })
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${userId}`
+          },
+          (payload) => {
+            const rawRow = payload?.new;
+            if (!rawRow) return;
+            const updatedProfile = mapSupabaseRowToProfile(rawRow);
+            if (!updatedProfile) return;
+            const ts = rawRow.updated_at || rawRow.created_at || Date.now();
+            const photo = updatedProfile.photo || updatedProfile.photo_url;
+            this.notifyListeners({
+              userId,
+              newProfilePicUrl: photo,
+              updatedData: updatedProfile,
+              lastUpdated: ts,
+              timestamp: ts
+            }, 'supabase_postgres_changes');
+          }
+        )
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
             console.log(`[ProfileSyncService] Subscribed to real-time sync channel: ${channelName}`);

@@ -1311,6 +1311,106 @@ export default function App() {
     };
   }, [currentUser]);
 
+  // Live Profile Subscription via Supabase Realtime postgres_changes (Cross-Device Sync across Web, Android, iOS)
+  useEffect(() => {
+    if (!currentUser?.id || !isSupabaseConfigured() || !supabase) return;
+
+    const currentUserId = String(currentUser.id).trim();
+    const myIds = [
+      currentUserId,
+      String(currentUser.registerId || ''),
+      String(currentUser.register_id || ''),
+      String(currentUser.phone || currentUser.mobile || '')
+    ].filter(Boolean);
+
+    // Dedicated channel for this user's profile database changes (id=eq.${currentUser.id})
+    const channelName = `realtime-profile-${currentUserId}`;
+    const profileChannel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${currentUserId}`
+        },
+        (payload) => {
+          console.log('[Realtime Cross-Device Sync] Received postgres_changes on profiles for user:', currentUserId, payload?.eventType);
+          const rawRow = payload?.new;
+          if (!rawRow) return;
+
+          const updatedProfile = mapSupabaseRowToProfile(rawRow);
+          if (!updatedProfile) return;
+
+          const profileTimestamp = rawRow.updated_at || rawRow.created_at || Date.now();
+          const cacheBustedPhoto = updatedProfile.photo
+            ? addCacheBuster(updatedProfile.photo, profileTimestamp)
+            : (updatedProfile.photo_url ? addCacheBuster(updatedProfile.photo_url, profileTimestamp) : undefined);
+
+          const finalUpdated = {
+            ...updatedProfile,
+            ...(cacheBustedPhoto ? { photo: cacheBustedPhoto, photo_url: cacheBustedPhoto } : {})
+          };
+
+          // 1. Immediately update local React state / Auth context
+          setCurrentUser(prev => {
+            if (!prev) return prev;
+            const merged = {
+              ...prev,
+              ...finalUpdated
+            };
+            // 2. Immediately update localStorage for session persistence
+            try {
+              persistUserSession(merged);
+            } catch (e) {
+              try {
+                localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
+              } catch (err) {}
+            }
+            return merged;
+          });
+
+          // 3. Immediately update in candidate feed and match profiles
+          setProfiles(prevProfiles => {
+            if (!Array.isArray(prevProfiles)) return prevProfiles;
+            return prevProfiles.map(p => {
+              if (p && myIds.some(id => String(p.id) === id || (p.registerId && String(p.registerId) === id) || (p.phone && String(p.phone) === id))) {
+                return {
+                  ...p,
+                  ...finalUpdated
+                };
+              }
+              return p;
+            });
+          });
+
+          // 4. Synchronize across local browser tabs/windows
+          profileSyncService.broadcastProfileUpdate({
+            userId: currentUserId,
+            newProfilePicUrl: cacheBustedPhoto,
+            updatedData: finalUpdated,
+            lastUpdated: Date.now()
+          });
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[Realtime Cross-Device Sync] Subscribed to profiles postgres_changes (id=eq.${currentUserId})`);
+        } else if (err) {
+          console.warn(`[Realtime Cross-Device Sync] Subscription warning for ${currentUserId}:`, err);
+        }
+      });
+
+    return () => {
+      try {
+        supabase.removeChannel(profileChannel);
+      } catch (err) {
+        console.warn('[Realtime Cross-Device Sync] Cleanup warning:', err);
+      }
+    };
+  }, [currentUser?.id]);
+
   // Persist interestsSent to localStorage whenever it changes
   useEffect(() => {
     try {
