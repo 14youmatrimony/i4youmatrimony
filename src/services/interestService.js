@@ -2308,6 +2308,101 @@ class InterestService {
     }
     this.notifyListeners(updatePayload.payload);
   }
+
+  /**
+   * Withdraws matrimonial interest sent by sender to receiver
+   */
+  async withdrawInterest(sender, receiver, interestId = null) {
+    const senderId = typeof sender === 'string' ? sender : (sender?.id || sender?.registerId || sender?.register_id);
+    const receiverId = typeof receiver === 'string' ? receiver : (receiver?.id || receiver?.registerId || receiver?.register_id);
+    if (!senderId || !receiverId) return;
+
+    const senderIds = this.getUserIds(sender);
+    const receiverIds = this.getUserIds(receiver);
+
+    // 1. Clear cached status for all pair keys
+    const allKeys = this.getAllPairKeys(sender, receiver);
+    allKeys.forEach((key) => {
+      this.statusCache.set(key, 'none');
+      this.statusCache.delete(key);
+    });
+
+    // 2. Remove matching records from local storage records
+    const records = this.getLocalRecords().filter((r) => {
+      const s = String(r.senderId || r.sender_id || '');
+      const rec = String(r.receiverId || r.receiver_id || '');
+      const match1 = senderIds.includes(s) && receiverIds.includes(rec);
+      const match2 = senderIds.includes(rec) && receiverIds.includes(s);
+      const matchId = interestId && (String(r.id) === String(interestId) || String(r.interest_id) === String(interestId));
+      return !match1 && !match2 && !matchId;
+    });
+    this.saveLocalRecords(records);
+
+    // 3. Remove receiver from localStorage sent interests
+    try {
+      senderIds.forEach((uid) => {
+        const key = `i4u_interests_sent_${uid}`;
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const list = JSON.parse(stored);
+          if (Array.isArray(list)) {
+            const filtered = list.filter(id => !receiverIds.includes(String(id)));
+            localStorage.setItem(key, JSON.stringify(filtered));
+          }
+        }
+      });
+      const globalSent = localStorage.getItem('i4u_interests_sent');
+      if (globalSent) {
+        const list = JSON.parse(globalSent);
+        if (Array.isArray(list)) {
+          const filtered = list.filter(id => !receiverIds.includes(String(id)));
+          localStorage.setItem('i4u_interests_sent', JSON.stringify(filtered));
+        }
+      }
+    } catch (e) {}
+
+    // 4. Delete from Supabase 'interests' table
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const isValidDbId = interestId && !String(interestId).startsWith('loc_');
+        if (isValidDbId) {
+          await supabase.from('interests').delete().eq('id', interestId);
+        }
+        if (senderIds.length > 0 && receiverIds.length > 0) {
+          await supabase
+            .from('interests')
+            .delete()
+            .in('sender_id', senderIds)
+            .in('receiver_id', receiverIds);
+        }
+      } catch (err) {
+        console.warn('[InterestService] Supabase delete interest notice:', err);
+      }
+    }
+
+    // 5. Broadcast real-time update
+    const updatePayload = {
+      type: 'interest_status_change',
+      payload: {
+        event: 'interest-withdrawn',
+        userAId: String(senderId),
+        userBId: String(receiverId),
+        senderId: String(senderId),
+        receiverId: String(receiverId),
+        status: 'none',
+        timestamp: Date.now()
+      }
+    };
+    if (this.crossTabChannel) {
+      try { this.crossTabChannel.postMessage(updatePayload); } catch (e) {}
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new CustomEvent('i4u_interest_status_change', { detail: updatePayload.payload }));
+      } catch (e) {}
+    }
+    this.notifyListeners(updatePayload.payload);
+  }
 }
 
 export const interestService = new InterestService();

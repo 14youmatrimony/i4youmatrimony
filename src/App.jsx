@@ -2789,6 +2789,29 @@ export default function App() {
     setSelectedProfile(resolved || profile);
   };
 
+  // Withdraw Matrimonial Interest
+  const handleWithdrawInterest = async (profileOrId, interestId = null) => {
+    if (!currentUser) return;
+    const profile = typeof profileOrId === 'object'
+      ? profileOrId
+      : profiles.find(p => p.id === profileOrId || p.registerId === profileOrId || p.register_id === profileOrId);
+    const targetId = profile?.id || profileOrId;
+    const targetRegId = profile?.registerId || profile?.register_id;
+    const receiverIds = [targetId, targetRegId].filter(Boolean).map(String);
+
+    // Instantly remove from interestsSent state in App.jsx
+    setInterestsSent(prev => (Array.isArray(prev) ? prev : []).filter(id => !receiverIds.includes(String(id))));
+
+    // Delegate to interestService to clear cache, local records, and broadcast realtime update
+    if (interestService && typeof interestService.withdrawInterest === 'function') {
+      await interestService.withdrawInterest(currentUser, profile || { id: targetId, register_id: targetRegId }, interestId).catch(err => {
+        console.warn('[App] withdrawInterest error:', err);
+      });
+    }
+
+    showToast('Interest withdrawn');
+  };
+
   // Toggle Interest (Connect)
   const handleToggleInterest = (profileId) => {
     if (!currentUser) {
@@ -2807,8 +2830,7 @@ export default function App() {
     );
 
     if (isAlready) {
-      setInterestsSent(prev => (Array.isArray(prev) ? prev : []).filter(id => id !== targetId && id !== targetRegId));
-      showToast(`Interest withdrawn`);
+      handleWithdrawInterest(profile || targetId);
     } else {
       setInterestsSent(prev => {
         const arr = Array.isArray(prev) ? prev : [];
@@ -4808,6 +4830,7 @@ export default function App() {
               acceptedInterests={acceptedInterests}
               receivedInterests={receivedInterests}
               onToggleInterest={handleToggleInterest}
+              onWithdrawInterest={handleWithdrawInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}
               selectedProfile={selectedProfile}
@@ -5339,6 +5362,7 @@ export default function App() {
               acceptedInterests={acceptedInterests}
               receivedInterests={receivedInterests}
               onToggleInterest={handleToggleInterest}
+              onWithdrawInterest={handleWithdrawInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}
               onSelectProfile={handleSelectProfile}
@@ -5395,6 +5419,7 @@ export default function App() {
               acceptedInterests={acceptedInterests}
               receivedInterests={receivedInterests}
               onToggleInterest={handleToggleInterest}
+              onWithdrawInterest={handleWithdrawInterest}
               shortlisted={shortlisted}
               onToggleShortlist={handleToggleShortlist}
               onSelectProfile={handleSelectProfile}

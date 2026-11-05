@@ -17,6 +17,7 @@ import { getAppMode } from '../../config/appConfig';
 import { interestService } from '../../services/interestService';
 import SafeAvatar from '../common/SafeAvatar';
 import { resolveProfilePhoto } from '../../services/api';
+import { supabase, isSupabaseConfigured } from '../../services/supabase';
 
 export default function MobileInterestsScreen({
   profiles = [],
@@ -25,6 +26,7 @@ export default function MobileInterestsScreen({
   interestsSent = [],
   acceptedInterests = [],
   onToggleInterest,
+  onWithdrawInterest,
   shortlisted = [],
   onToggleShortlist,
   onSelectProfile,
@@ -46,6 +48,8 @@ export default function MobileInterestsScreen({
   const [liveSentInterests, setLiveSentInterests] = useState([]);
   const [isLoadingReceived, setIsLoadingReceived] = useState(false);
   const [isLoadingSent, setIsLoadingSent] = useState(false);
+  const [withdrawingKeys, setWithdrawingKeys] = useState({});
+  const [localWithdrawnIds, setLocalWithdrawnIds] = useState(new Set());
 
   // Keep latest profiles available to async callbacks without triggering re-subscriptions
   const profilesRef = useRef(profiles);
@@ -100,6 +104,16 @@ export default function MobileInterestsScreen({
       // STRICT TAB FILTERING:
       // If the incoming event was sent by currentUser, refresh Sent and DO NOT add to Received!
       if (incomingSenderId && currentIds.includes(incomingSenderId)) {
+        if (payload.event === 'interest-withdrawn' || payload.status === 'none' || payload.status === 'withdrawn') {
+          if (incomingReceiverId) {
+            setLocalWithdrawnIds((prev) => new Set([...prev, incomingReceiverId]));
+            setLiveSentInterests((prev) => (Array.isArray(prev) ? prev : []).filter(r => {
+              const rId = String(r.receiver_id || r.receiverId || '');
+              return rId !== incomingReceiverId;
+            }));
+          }
+          return;
+        }
         interestService.getSentInterests(currentUser, profilesRef.current)
           .then((records) => {
             if (isMounted && Array.isArray(records)) setLiveSentInterests(records);
@@ -248,6 +262,10 @@ export default function MobileInterestsScreen({
       if (!p) return;
       const pid = String(p.id || '');
       const regId = String(p.registerId || p.register_id || '');
+
+      // Instantly exclude profiles that were withdrawn locally
+      if (localWithdrawnIds.has(pid) || (regId && localWithdrawnIds.has(regId))) return;
+
       const isSent = (pid && sentCandidateIds.has(pid)) || (regId && sentCandidateIds.has(regId));
       if (!isSent) return;
 
@@ -257,8 +275,149 @@ export default function MobileInterestsScreen({
       if (regId) seen.add(regId);
       list.push(p);
     });
+
+    // Also include any profiles from liveSentInterests that might not be in oppositeGenderProfiles
+    (liveSentInterests || []).forEach((rec) => {
+      const rId = String(rec.receiver_id || rec.receiverId || '');
+      if (!rId || currentIds.includes(rId)) return;
+      if (localWithdrawnIds.has(rId)) return;
+      if (seen.has(rId)) return;
+
+      const profileObj = rec.receiver || rec.profile;
+      if (profileObj && profileObj.name) {
+        const pid = String(profileObj.id || rId);
+        const regId = String(profileObj.register_id || profileObj.registerId || '');
+        if (localWithdrawnIds.has(pid) || (regId && localWithdrawnIds.has(regId))) return;
+        if (seen.has(pid)) return;
+        if (regId && seen.has(regId)) return;
+        if (pid) seen.add(pid);
+        if (regId) seen.add(regId);
+        list.push(profileObj);
+      }
+    });
+
     return list;
-  }, [oppositeGenderProfiles, interestsSent, liveSentInterests, currentUser]);
+  }, [oppositeGenderProfiles, interestsSent, liveSentInterests, currentUser, localWithdrawnIds]);
+
+  /**
+   * Withdraw interest action with safe try/catch, loading indicator, Supabase delete,
+   * instant local state filtering and real-time cross-tab/view synchronization.
+   */
+  const handleWithdrawInterest = async (e, profile) => {
+    if (e && typeof e.stopPropagation === 'function') {
+      e.stopPropagation();
+    }
+    if (!currentUser || !profile) return;
+
+    const candidateIds = [profile.id, profile.registerId, profile.register_id].filter(Boolean).map(String);
+    const targetKey = String(profile.id || profile.registerId || profile.register_id || '');
+    if (!targetKey || withdrawingKeys[targetKey]) return;
+
+    // 1. Enter loading state
+    setWithdrawingKeys(prev => ({ ...prev, [targetKey]: true }));
+
+    try {
+      const senderIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+
+      // Locate corresponding record in liveSentInterests to extract interest row ID
+      const matchingInterest = (liveSentInterests || []).find((rec) => {
+        const rId = String(rec.receiver_id || rec.receiverId || '');
+        return candidateIds.includes(rId);
+      });
+      const rawInterestId = matchingInterest?.id || matchingInterest?.interest_id || matchingInterest?.interestId || profile.interestId || profile.interest_id;
+      const isValidDbId = rawInterestId && !String(rawInterestId).startsWith('loc_');
+
+      // 2. Execute deletion query on Supabase 'interests' table
+      if (isSupabaseConfigured() && supabase) {
+        if (isValidDbId) {
+          const { error: delByIdError } = await supabase
+            .from('interests')
+            .delete()
+            .eq('id', rawInterestId);
+
+          if (delByIdError) {
+            console.warn('[MobileInterestsScreen] Supabase delete interest by id notice:', delByIdError.message);
+          }
+        }
+
+        if (senderIds.length > 0 && candidateIds.length > 0) {
+          const { error: delByPairError } = await supabase
+            .from('interests')
+            .delete()
+            .in('sender_id', senderIds)
+            .in('receiver_id', candidateIds);
+
+          if (delByPairError) {
+            console.warn('[MobileInterestsScreen] Supabase delete interest by pair notice:', delByPairError.message);
+          }
+        }
+      }
+
+      // 3. Clear relationship status across memory cache & local records in interestService
+      if (interestService && typeof interestService.withdrawInterest === 'function') {
+        await interestService.withdrawInterest(currentUser, profile, rawInterestId).catch(err => {
+          console.warn('[MobileInterestsScreen] interestService.withdrawInterest notice:', err);
+        });
+      } else if (interestService) {
+        const allKeys = interestService.getAllPairKeys(currentUser, profile);
+        allKeys.forEach(k => {
+          interestService.statusCache.set(k, 'none');
+          interestService.statusCache.delete(k);
+        });
+        const localRecs = interestService.getLocalRecords().filter(r => {
+          const s = String(r.senderId || r.sender_id || '');
+          const rec = String(r.receiverId || r.receiver_id || '');
+          return !(senderIds.includes(s) && candidateIds.includes(rec));
+        });
+        interestService.saveLocalRecords(localRecs);
+      }
+
+      // 4. Instantly filter out from local React state without requiring page reload
+      setLocalWithdrawnIds(prev => new Set([...prev, ...candidateIds]));
+      setLiveSentInterests(prev => {
+        const arr = Array.isArray(prev) ? prev : [];
+        return arr.filter(rec => {
+          const recId = String(rec.id || rec.interest_id || rec.interestId || '');
+          const rId = String(rec.receiver_id || rec.receiverId || '');
+          if (isValidDbId && recId === String(rawInterestId)) return false;
+          if (candidateIds.includes(rId)) return false;
+          return true;
+        });
+      });
+
+      // 5. Notify parent App orchestrator to update interestsSent across all views
+      if (typeof onWithdrawInterest === 'function') {
+        onWithdrawInterest(profile, rawInterestId);
+      } else if (typeof onToggleInterest === 'function') {
+        onToggleInterest(profile.id || profile.register_id);
+      }
+
+      // 6. Broadcast real-time event to reset profile cards in Discover/Search views
+      if (typeof window !== 'undefined') {
+        try {
+          window.dispatchEvent(new CustomEvent('i4u_interest_status_change', {
+            detail: {
+              event: 'interest-withdrawn',
+              userAId: String(currentUser.id || currentUser.register_id),
+              userBId: String(profile.id || profile.register_id),
+              senderId: String(currentUser.id || currentUser.register_id),
+              receiverId: String(profile.id || profile.register_id),
+              status: 'none',
+              timestamp: Date.now()
+            }
+          }));
+        } catch (e) {}
+      }
+    } catch (error) {
+      console.error('[MobileInterestsScreen] Error withdrawing interest:', error);
+    } finally {
+      setWithdrawingKeys(prev => {
+        const next = { ...prev };
+        delete next[targetKey];
+        return next;
+      });
+    }
+  };
 
   const shortlistedProfiles = useMemo(() => {
     const list = [];
@@ -685,13 +844,15 @@ export default function MobileInterestsScreen({
                           </button>
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onToggleInterest(p.id);
-                            }}
-                            className="px-2.5 py-1.5 rounded-xl border border-rose-200 text-rose-600 text-[10px] font-bold"
+                            disabled={Boolean(withdrawingKeys[String(p.id || p.registerId || p.register_id)])}
+                            onClick={(e) => handleWithdrawInterest(e, p)}
+                            className={`px-2.5 py-1.5 rounded-xl border border-rose-200 text-rose-600 text-[10px] font-bold transition-all ${
+                              withdrawingKeys[String(p.id || p.registerId || p.register_id)]
+                                ? 'opacity-70 cursor-not-allowed bg-rose-50/50'
+                                : 'hover:bg-rose-50 cursor-pointer active:scale-95'
+                            }`}
                           >
-                            Withdraw
+                            {withdrawingKeys[String(p.id || p.registerId || p.register_id)] ? 'Withdrawing...' : 'Withdraw'}
                           </button>
                         </>
                       )}
