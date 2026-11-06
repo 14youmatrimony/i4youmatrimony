@@ -193,10 +193,28 @@ export default function MobileInterestsScreen({
     }
   };
 
-  const effectiveDeclinedIds = Array.from(new Set([
-    ...(Array.isArray(declinedReceivedIds) ? declinedReceivedIds : []),
-    ...localDeclinedIds
-  ]));
+  const dbDeclinedIds = useMemo(() => {
+    const ids = [];
+    (liveReceivedInterests || []).forEach(r => {
+      if (r && (r.status === 'declined' || r.status === 'rejected')) {
+        const sid = r.senderId || r.sender_id || r.profileId;
+        if (sid) ids.push(String(sid));
+      }
+    });
+    (notifications || []).forEach(n => {
+      if (n && (n.status === 'declined' || n.status === 'rejected')) {
+        const sid = n.senderId || n.sender_id || n.profileId;
+        if (sid) ids.push(String(sid));
+      }
+    });
+    return ids;
+  }, [liveReceivedInterests, notifications]);
+
+  const effectiveDeclinedIds = useMemo(() => Array.from(new Set([
+    ...(Array.isArray(declinedReceivedIds) ? declinedReceivedIds.map(String) : []),
+    ...localDeclinedIds.map(String),
+    ...dbDeclinedIds
+  ])), [declinedReceivedIds, localDeclinedIds, dbDeclinedIds]);
 
   const isGenericPlaceholder = (name) => {
     if (!name || typeof name !== 'string') return true;
@@ -461,7 +479,7 @@ export default function MobileInterestsScreen({
         const sid = String(rec.senderId || rec.sender_id || '');
         const rid = String(rec.receiverId || rec.receiver_id || '');
         const interestId = String(rec.interest_id || rec.interestId || rec.id || '');
-        if (!sid || rec.status === 'rejected') return;
+        if (!sid || rec.status === 'rejected' || rec.status === 'declined') return;
 
         // STRICT FILTER: Current user MUST NOT be the sender of a received interest!
         if (currentIds.includes(sid)) return;
@@ -567,8 +585,8 @@ export default function MobileInterestsScreen({
       if (currentIds.includes(nSenderId) || (metaSenderId && currentIds.includes(metaSenderId))) return false;
       // B) If recipient is specified, the logged-in user MUST be the recipient!
       if (nRecipientId && !currentIds.includes(nRecipientId)) return false;
-      // C) Never include if candidate is in effectiveDeclinedIds
-      if (effectiveDeclinedIds.some(id => String(id) === nSenderId)) return false;
+      // C) Never include if candidate is in effectiveDeclinedIds or status is declined
+      if (effectiveDeclinedIds.some(id => String(id) === nSenderId) || n.status === 'declined' || n.status === 'rejected') return false;
 
       return true;
     });
@@ -605,7 +623,7 @@ export default function MobileInterestsScreen({
     additionalItems.forEach(item => {
       if (!item) return;
       const sid = String(item.senderId || item.sender_id || '');
-      if (!sid || currentIds.includes(sid) || isSelfProfile({ id: sid })) return;
+      if (!sid || currentIds.includes(sid) || isSelfProfile({ id: sid }) || item.status === 'declined' || item.status === 'rejected') return;
       if (Array.isArray(effectiveDeclinedIds) && effectiveDeclinedIds.some(id => String(id) === sid)) return;
       if (seenCandidateIds.has(sid)) return;
 
@@ -679,18 +697,79 @@ export default function MobileInterestsScreen({
     return list.filter(item => !isPlaceholderOrIncompleteProfile(item));
   }, [liveReceivedInterests, notifications, profiles, effectiveDeclinedIds, interestsSent, isMaleUser, currentUser]);
 
-  const declinedProfiles = oppositeGenderProfiles.filter(p => effectiveDeclinedIds.includes(p.id));
+  const declinedProfiles = oppositeGenderProfiles.filter(p => 
+    effectiveDeclinedIds.includes(String(p.id)) || 
+    (p.register_id && effectiveDeclinedIds.includes(String(p.register_id))) ||
+    (p.registerId && effectiveDeclinedIds.includes(String(p.registerId)))
+  );
 
-  const handleDecline = (profileId, profileName) => {
+  const handleDecline = async (profileId, profileName, explicitInterestId = null) => {
+    // 1. Immediately update local React state
     setLocalDeclinedIds(prev => (prev.includes(profileId) ? prev : [...prev, profileId]));
     setLiveReceivedInterests(prev => prev.filter(r => String(r.senderId || r.sender_id) !== String(profileId)));
+
+    // 2. Resolve the real interest UUID
+    let interestId = explicitInterestId;
+    if (!interestId) {
+      const matchedRec = (liveReceivedInterests || []).find(r => 
+        String(r.senderId || r.sender_id) === String(profileId) ||
+        String(r.profileId) === String(profileId)
+      );
+      interestId = matchedRec?.interest_id || matchedRec?.interestId || matchedRec?.id;
+    }
+    if (typeof interestId === 'string' && interestId.startsWith('interest_')) {
+      const cleanCandidate = interestId.replace('interest_', '');
+      if (cleanCandidate.includes('-')) {
+        interestId = cleanCandidate;
+      }
+    }
+
+    // 3. Execute secure Supabase update to change the interest status:
+    // await supabase.from('interests').update({ status: 'declined' }).eq('id', interestId);
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        if (interestId && typeof interestId === 'string' && interestId.includes('-')) {
+          const { error } = await supabase
+            .from('interests')
+            .update({ status: 'declined', updated_at: new Date().toISOString() })
+            .eq('id', interestId);
+          if (error) {
+            console.warn('[MobileInterestsScreen] Supabase update declined notice:', error.message);
+          }
+        }
+        if (currentUser && profileId) {
+          const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+          await supabase
+            .from('interests')
+            .update({ status: 'declined', updated_at: new Date().toISOString() })
+            .in('receiver_id', currentIds)
+            .eq('sender_id', String(profileId));
+        }
+      } catch (err) {
+        console.error('[MobileInterestsScreen] Failed to update interest to declined in Supabase:', err);
+      }
+    }
+
+    // 4. Notify parent handler
     if (onDeclineReceivedInterest) {
-      onDeclineReceivedInterest(profileId);
+      onDeclineReceivedInterest(profileId, interestId);
     }
   };
 
-  const handleUndoDecline = (profileId) => {
+  const handleUndoDecline = async (profileId) => {
     setLocalDeclinedIds(prev => prev.filter(id => id !== profileId));
+    if (isSupabaseConfigured() && supabase && currentUser && profileId) {
+      try {
+        const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+        await supabase
+          .from('interests')
+          .update({ status: 'pending', updated_at: new Date().toISOString() })
+          .in('receiver_id', currentIds)
+          .eq('sender_id', String(profileId));
+      } catch (err) {
+        console.error('[MobileInterestsScreen] Failed to reconsider interest in Supabase:', err);
+      }
+    }
     if (onUndoDeclineReceivedInterest) {
       onUndoDeclineReceivedInterest(profileId);
     }
@@ -1034,7 +1113,7 @@ export default function MobileInterestsScreen({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDecline(p.id, p.name)}
+                          onClick={() => handleDecline(p.id, p.name, p.interestId || p.interest_id)}
                           className="px-4 py-2 rounded-xl border-2 border-rose-500 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 font-bold text-xs flex items-center justify-center space-x-1.5 transition-all cursor-pointer shadow-xs"
                           title="Decline Interest"
                         >

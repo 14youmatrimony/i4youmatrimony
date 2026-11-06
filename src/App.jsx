@@ -1530,6 +1530,12 @@ export default function App() {
           return Array.from(new Set([...arr, ...summary.receivedInterestIds]));
         });
       }
+      if (Array.isArray(summary.rejectedPartnerIds) && summary.rejectedPartnerIds.length > 0) {
+        setDeclinedReceivedIds((prev) => {
+          const arr = Array.isArray(prev) ? prev : [];
+          return Array.from(new Set([...arr, ...summary.rejectedPartnerIds]));
+        });
+      }
     }).catch(() => {});
     return () => { isMounted = false; };
   }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
@@ -2647,35 +2653,130 @@ export default function App() {
     showToast(`🎉 Connection established with ${profile?.name || 'candidate'}! Audio & Video calls unlocked ✨`);
   };
 
-  const handleDeclineInterestNotification = (notifId) => {
-    const notif = notifications.find(n => n.id === notifId);
-    const targetSenderId = notif?.senderId || notif?.profileId;
+  const handleDeclineInterestNotification = async (notifId, explicitInterestId = null, notifObj = null) => {
+    const notif = notifObj || notifications.find(n => n.id === notifId || n.notification_id === notifId);
+    const targetSenderId = notif?.senderId || notif?.sender_id || notif?.profileId;
+    
+    // 1. Immediately update notifications state in React
+    setNotifications(prev => prev.map(n => 
+      (n.id === notifId || n.notification_id === notifId || (targetSenderId && (String(n.senderId || n.sender_id || n.profileId) === String(targetSenderId)))) 
+        ? { ...n, isRead: true, status: 'declined' } 
+        : n
+    ));
+
     if (targetSenderId) {
       setDeclinedReceivedIds(prev => (prev.includes(targetSenderId) ? prev : [...prev, targetSenderId]));
-      if (currentUser) {
-        interestService.rejectInterest(currentUser, targetSenderId).catch(err => console.warn('[App] rejectInterest error:', err));
+    }
+
+    // 2. Resolve interest record ID
+    let interestId = explicitInterestId || notif?.interest_id || notif?.interestId || notif?.metadata?.interest_id || notifId;
+    if (typeof interestId === 'string' && interestId.startsWith('interest_')) {
+      const cleanCandidate = interestId.replace('interest_', '');
+      if (cleanCandidate.includes('-')) {
+        interestId = cleanCandidate;
       }
     }
-    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true, status: 'declined' } : n));
+
+    // 3. Execute secure Supabase update to change the interest status:
+    // await supabase.from('interests').update({ status: 'declined' }).eq('id', interestId);
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        if (interestId && typeof interestId === 'string' && interestId.includes('-')) {
+          const { error } = await supabase
+            .from('interests')
+            .update({ status: 'declined', updated_at: new Date().toISOString() })
+            .eq('id', interestId);
+          if (error) {
+            console.warn('[App] Supabase update interest declined notice:', error.message);
+          }
+        }
+        if (currentUser && targetSenderId) {
+          const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+          await supabase
+            .from('interests')
+            .update({ status: 'declined', updated_at: new Date().toISOString() })
+            .in('receiver_id', currentIds)
+            .eq('sender_id', String(targetSenderId));
+        }
+      } catch (err) {
+        console.error('[App] Failed to persist declined interest to Supabase:', err);
+      }
+    }
+
+    if (currentUser && targetSenderId) {
+      interestService.rejectInterest(currentUser, targetSenderId, interestId).catch(err => console.warn('[App] rejectInterest error:', err));
+    }
     showToast('Interest politely declined');
   };
 
-  const handleDeclineReceivedInterest = (profileId) => {
+  const handleDeclineReceivedInterest = async (profileId, explicitInterestId = null) => {
     const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId);
     const targetId = profile?.id || profileId;
     setDeclinedReceivedIds(prev => (prev.includes(targetId) ? prev : [...prev, targetId]));
-    setNotifications(prev => prev.map(n => (n.profileId === targetId || n.profileId === profileId) ? { ...n, isRead: true, status: 'declined' } : n));
+    setNotifications(prev => prev.map(n => 
+      (n.profileId === targetId || n.profileId === profileId || n.senderId === targetId || n.senderId === profileId) 
+        ? { ...n, isRead: true, status: 'declined' } 
+        : n
+    ));
+
+    let interestId = explicitInterestId;
+    if (typeof interestId === 'string' && interestId.startsWith('interest_')) {
+      const cleanCandidate = interestId.replace('interest_', '');
+      if (cleanCandidate.includes('-')) {
+        interestId = cleanCandidate;
+      }
+    }
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        if (interestId && typeof interestId === 'string' && interestId.includes('-')) {
+          const { error } = await supabase
+            .from('interests')
+            .update({ status: 'declined', updated_at: new Date().toISOString() })
+            .eq('id', interestId);
+          if (error) {
+            console.warn('[App] Supabase update declined notice:', error.message);
+          }
+        }
+        if (currentUser && (profile || targetId)) {
+          const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+          const targetIds = [targetId, profileId, profile?.id, profile?.register_id, profile?.registerId].filter(Boolean).map(String);
+          await supabase
+            .from('interests')
+            .update({ status: 'declined', updated_at: new Date().toISOString() })
+            .in('receiver_id', currentIds)
+            .in('sender_id', targetIds);
+        }
+      } catch (err) {
+        console.error('[App] Failed to persist declined received interest to Supabase:', err);
+      }
+    }
+
     if (currentUser && (profile || targetId)) {
-      interestService.rejectInterest(currentUser, profile || targetId).catch(err => console.warn('[App] rejectInterest error:', err));
+      interestService.rejectInterest(currentUser, profile || targetId, interestId).catch(err => console.warn('[App] rejectInterest error:', err));
     }
     showToast(`Politely declined interest from ${profile?.name || 'candidate'}`);
   };
 
-  const handleUndoDeclineReceivedInterest = (profileId) => {
+  const handleUndoDeclineReceivedInterest = async (profileId) => {
     const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId);
     const targetId = profile?.id || profileId;
     setDeclinedReceivedIds(prev => prev.filter(id => id !== targetId && id !== profileId));
     setNotifications(prev => prev.map(n => (n.profileId === targetId || n.profileId === profileId) ? { ...n, status: 'pending' } : n));
+
+    if (isSupabaseConfigured() && supabase && currentUser && (profile || targetId)) {
+      try {
+        const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+        const targetIds = [targetId, profileId, profile?.id, profile?.register_id, profile?.registerId].filter(Boolean).map(String);
+        await supabase
+          .from('interests')
+          .update({ status: 'pending', updated_at: new Date().toISOString() })
+          .in('receiver_id', currentIds)
+          .in('sender_id', targetIds);
+      } catch (err) {
+        console.error('[App] Failed to undo decline interest in Supabase:', err);
+      }
+    }
     showToast(`Reconsidered interest from ${profile?.name || 'candidate'} ✨`);
   };
 

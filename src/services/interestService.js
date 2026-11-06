@@ -425,7 +425,7 @@ class InterestService {
         if (isReceiver && !isSender) {
           receivedSet.add(partnerId);
         }
-      } else if (status === 'rejected') {
+      } else if (status === 'rejected' || status === 'declined') {
         rejectedSet.add(partnerId);
       }
     });
@@ -2228,7 +2228,7 @@ class InterestService {
   /**
    * Records interest rejected (status: 'rejected')
    */
-  async rejectInterest(receiver, sender) {
+  async rejectInterest(receiver, sender, explicitInterestId = null) {
     const receiverId = typeof receiver === 'string' ? receiver : (receiver?.id || receiver?.registerId || receiver?.register_id);
     const senderId = typeof sender === 'string' ? sender : (sender?.id || sender?.registerId || sender?.register_id);
     if (!receiverId || !senderId) return;
@@ -2247,7 +2247,7 @@ class InterestService {
       id: `int_${Date.now()}`,
       senderId: String(senderId),
       receiverId: String(receiverId),
-      status: 'rejected',
+      status: 'declined',
       updatedAt: new Date().toISOString()
     });
     this.saveLocalRecords(records);
@@ -2255,6 +2255,20 @@ class InterestService {
     // Update Supabase
     if (isSupabaseConfigured() && supabase) {
       try {
+        let cleanIntId = explicitInterestId;
+        if (typeof cleanIntId === 'string' && cleanIntId.startsWith('interest_')) {
+          cleanIntId = cleanIntId.replace('interest_', '');
+        }
+        if (cleanIntId && cleanIntId.includes('-')) {
+          await supabase
+            .from('interests')
+            .update({
+              status: 'declined',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', cleanIntId);
+        }
+
         const cleanSenderId = String(senderId).replace(/["']/g, '');
         const cleanReceiverId = String(receiverId).replace(/["']/g, '');
         const { data: existingRows } = await supabase
@@ -2267,11 +2281,11 @@ class InterestService {
           await supabase
             .from('interests')
             .update({
-              status: 'rejected',
+              status: 'declined',
               updated_at: new Date().toISOString()
             })
             .eq('id', existingRows[0].id);
-        } else {
+        } else if (!cleanIntId || !cleanIntId.includes('-')) {
           await supabase
             .from('interests')
             .insert([
@@ -2279,7 +2293,7 @@ class InterestService {
                 id: generateUUID(),
                 sender_id: String(senderId),
                 receiver_id: String(receiverId),
-                status: 'rejected',
+                status: 'declined',
                 updated_at: new Date().toISOString()
               }
             ]);

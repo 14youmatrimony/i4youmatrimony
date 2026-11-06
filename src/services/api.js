@@ -2636,6 +2636,8 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         combined.push({
           notification_id: intId,
           id: intId,
+          interest_id: row.id,
+          interestId: row.id,
           profileId: sId,
           senderId: sId,
           sender_id: sId,

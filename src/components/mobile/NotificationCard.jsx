@@ -20,6 +20,7 @@ import {
 import { addCacheBuster } from '../../utils/cacheBuster';
 import { resolveProfilePhoto, cleanCandidateName } from '../../services/api';
 import SafeAvatar from '../common/SafeAvatar';
+import { supabase, isSupabaseConfigured } from '../../services/supabase';
 
 /**
  * Format notification timestamp dynamically:
@@ -116,7 +117,15 @@ export default function NotificationCard({
   const isPayment = notif.type === 'payment_success' || notif.type === 'payment' || notif.type === 'payment_failed' || notif.type === 'payment_received';
   const profile = isPayment ? null : (propProfile || notif.profile || notif.sender);
   const isRead = propIsRead !== undefined ? propIsRead : Boolean(notif.isRead || notif.is_read);
-  const status = notif.status || 'pending';
+  const [localStatus, setLocalStatus] = React.useState(notif.status || 'pending');
+
+  React.useEffect(() => {
+    if (notif.status) {
+      setLocalStatus(notif.status);
+    }
+  }, [notif.status]);
+
+  const status = localStatus || notif.status || 'pending';
 
   // Dynamic timestamp formatting pulling real created_at or timestamp field
   const rawTimestamp =
@@ -625,7 +634,7 @@ export default function NotificationCard({
                     </button>
                   )}
                 </div>
-              ) : status === 'declined' ? (
+              ) : (status === 'declined' || status === 'rejected') ? (
                 <span className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
                   <X className="w-2.5 h-2.5 stroke-[2.5]" /> Declined
                 </span>
@@ -643,9 +652,41 @@ export default function NotificationCard({
                   </button>
                   <button
                     type="button"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      if (onDeclineInterest) onDeclineInterest(notif.id);
+                      // Immediately update local UI state to show static Declined badge
+                      setLocalStatus('declined');
+
+                      // Resolve actual interest record ID
+                      const rawInterestId = notif.interest_id || notif.interestId || notif.id;
+                      let interestId = rawInterestId;
+                      if (typeof interestId === 'string' && interestId.startsWith('interest_')) {
+                        const cleanCandidate = interestId.replace('interest_', '');
+                        if (cleanCandidate.includes('-')) {
+                          interestId = cleanCandidate;
+                        }
+                      }
+
+                      // Secure Supabase update in proper try/catch block
+                      if (isSupabaseConfigured() && supabase) {
+                        try {
+                          if (interestId && typeof interestId === 'string' && interestId.includes('-')) {
+                            const { error } = await supabase
+                              .from('interests')
+                              .update({ status: 'declined', updated_at: new Date().toISOString() })
+                              .eq('id', interestId);
+                            if (error) {
+                              console.warn('[NotificationCard] Supabase update declined notice:', error.message);
+                            }
+                          }
+                        } catch (err) {
+                          console.error('[NotificationCard] Error declining interest in Supabase:', err);
+                        }
+                      }
+
+                      if (onDeclineInterest) {
+                        onDeclineInterest(notif.id, interestId, notif);
+                      }
                     }}
                     className="px-2 sm:px-2.5 py-1 rounded-lg border border-rose-300 bg-rose-50 text-rose-600 hover:text-rose-700 hover:bg-rose-100 text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer flex items-center gap-0.5 active:scale-95 shadow-2xs"
                     title="Decline Interest"
