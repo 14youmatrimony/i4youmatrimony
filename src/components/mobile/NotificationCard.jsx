@@ -120,7 +120,7 @@ export default function NotificationCard({
   const [localStatus, setLocalStatus] = React.useState(notif.status || 'pending');
 
   React.useEffect(() => {
-    if (notif.status) {
+    if (notif.status && notif.status !== 'pending') {
       setLocalStatus(notif.status);
     }
   }, [notif.status]);
@@ -670,17 +670,18 @@ export default function NotificationCard({
                       // Secure Supabase update in proper try/catch block
                       if (isSupabaseConfigured() && supabase) {
                         try {
-                          if (interestId && typeof interestId === 'string' && interestId.includes('-')) {
+                          const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
+                          if (interestId && isUuid(interestId)) {
                             const { error } = await supabase
                               .from('interests')
                               .update({ status: 'declined', updated_at: new Date().toISOString() })
                               .eq('id', interestId);
                             if (error) {
-                              console.warn('[NotificationCard] Supabase update declined notice:', error.message);
+                              console.error("SUPABASE DECLINE ERROR:", error);
                             }
                           }
                         } catch (err) {
-                          console.error('[NotificationCard] Error declining interest in Supabase:', err);
+                          console.error("SUPABASE DECLINE ERROR:", err);
                         }
                       }
 

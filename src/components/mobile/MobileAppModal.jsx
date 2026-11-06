@@ -739,6 +739,7 @@ export default function MobileAppModal({
                       onDeclineReceivedInterest={handleDeclineReceivedInterest}
                       onUndoDeclineReceivedInterest={handleUndoDeclineReceivedInterest}
                       onAcceptReceivedInterest={handleAcceptReceivedInterest}
+                      showToast={showToast}
                     />
                   )}
 

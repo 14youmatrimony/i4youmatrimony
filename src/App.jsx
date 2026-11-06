@@ -2657,54 +2657,84 @@ export default function App() {
     const notif = notifObj || notifications.find(n => n.id === notifId || n.notification_id === notifId);
     const targetSenderId = notif?.senderId || notif?.sender_id || notif?.profileId;
     
-    // 1. Immediately update notifications state in React
-    setNotifications(prev => prev.map(n => 
-      (n.id === notifId || n.notification_id === notifId || (targetSenderId && (String(n.senderId || n.sender_id || n.profileId) === String(targetSenderId)))) 
-        ? { ...n, isRead: true, status: 'declined' } 
-        : n
-    ));
+    // 0. Snapshot previous local state for reliable rollback on failure
+    const prevNotifications = [...notifications];
+    const prevDeclined = [...declinedReceivedIds];
+
+    // 1. OPTIMISTIC UI UPDATE: IMMEDIATELY remove that notification from local React state array BEFORE making Supabase call
+    setNotifications(prev => prev.filter(n => {
+      if (n.id === notifId || n.notification_id === notifId) return false;
+      if (targetSenderId && (String(n.senderId || n.sender_id || n.profileId) === String(targetSenderId))) return false;
+      return true;
+    }));
 
     if (targetSenderId) {
       setDeclinedReceivedIds(prev => (prev.includes(targetSenderId) ? prev : [...prev, targetSenderId]));
     }
 
-    // 2. Resolve interest record ID
+    // 2. Resolve interest primary key ID
     let interestId = explicitInterestId || notif?.interest_id || notif?.interestId || notif?.metadata?.interest_id || notifId;
     if (typeof interestId === 'string' && interestId.startsWith('interest_')) {
-      const cleanCandidate = interestId.replace('interest_', '');
-      if (cleanCandidate.includes('-')) {
-        interestId = cleanCandidate;
-      }
+      interestId = interestId.replace('interest_', '');
     }
 
-    // 3. Execute secure Supabase update to change the interest status:
-    // await supabase.from('interests').update({ status: 'declined' }).eq('id', interestId);
+    let updateSucceeded = false;
+    let lastError = null;
+
+    // 3. Execute secure Supabase update with loud error logging and RLS fallback
     if (isSupabaseConfigured() && supabase) {
       try {
-        if (interestId && typeof interestId === 'string' && interestId.includes('-')) {
-          const { error } = await supabase
+        const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
+
+        if (interestId && isUuid(interestId)) {
+          const { data, error } = await supabase
             .from('interests')
             .update({ status: 'declined', updated_at: new Date().toISOString() })
-            .eq('id', interestId);
+            .eq('id', interestId)
+            .select();
+
           if (error) {
-            console.warn('[App] Supabase update interest declined notice:', error.message);
+            console.error("SUPABASE DECLINE ERROR:", error);
+            lastError = error;
+          } else if (data && data.length > 0) {
+            updateSucceeded = true;
           }
         }
-        if (currentUser && targetSenderId) {
+
+        if (!updateSucceeded && currentUser && targetSenderId) {
           const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
-          await supabase
+          const { data, error } = await supabase
             .from('interests')
             .update({ status: 'declined', updated_at: new Date().toISOString() })
             .in('receiver_id', currentIds)
-            .eq('sender_id', String(targetSenderId));
+            .eq('sender_id', String(targetSenderId))
+            .select();
+
+          if (error) {
+            console.error("SUPABASE DECLINE ERROR:", error);
+            lastError = error;
+          } else if (data && data.length > 0) {
+            updateSucceeded = true;
+          }
         }
       } catch (err) {
-        console.error('[App] Failed to persist declined interest to Supabase:', err);
+        console.error("SUPABASE DECLINE ERROR:", err);
+        lastError = err;
       }
+    } else {
+      updateSucceeded = true;
+    }
+
+    // 4. Handle failure: Revert optimistic UI update and show toast error
+    if (lastError && !updateSucceeded) {
+      setNotifications(prevNotifications);
+      setDeclinedReceivedIds(prevDeclined);
+      showToast('Failed to decline interest. Please try again.');
+      return;
     }
 
     if (currentUser && targetSenderId) {
-      interestService.rejectInterest(currentUser, targetSenderId, interestId).catch(err => console.warn('[App] rejectInterest error:', err));
+      interestService.rejectInterest(currentUser, targetSenderId, interestId).catch(err => console.warn('[App] rejectInterest notice:', err));
     }
     showToast('Interest politely declined');
   };
@@ -2712,48 +2742,85 @@ export default function App() {
   const handleDeclineReceivedInterest = async (profileId, explicitInterestId = null) => {
     const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId);
     const targetId = profile?.id || profileId;
+    const targetRegId = profile?.registerId || profile?.register_id;
+
+    // 0. Snapshot previous local state for reliable rollback on failure
+    const prevDeclined = [...declinedReceivedIds];
+    const prevNotifications = [...notifications];
+
+    // 1. OPTIMISTIC UI UPDATE: IMMEDIATELY remove that profile/notification from local state BEFORE making Supabase call
     setDeclinedReceivedIds(prev => (prev.includes(targetId) ? prev : [...prev, targetId]));
-    setNotifications(prev => prev.map(n => 
-      (n.profileId === targetId || n.profileId === profileId || n.senderId === targetId || n.senderId === profileId) 
-        ? { ...n, isRead: true, status: 'declined' } 
-        : n
-    ));
+    setNotifications(prev => prev.filter(n => {
+      const nPid = String(n.profileId || n.senderId || n.sender_id || '');
+      if (nPid === String(targetId) || nPid === String(profileId) || (targetRegId && nPid === String(targetRegId))) {
+        return false;
+      }
+      return true;
+    }));
 
     let interestId = explicitInterestId;
     if (typeof interestId === 'string' && interestId.startsWith('interest_')) {
-      const cleanCandidate = interestId.replace('interest_', '');
-      if (cleanCandidate.includes('-')) {
-        interestId = cleanCandidate;
-      }
+      interestId = interestId.replace('interest_', '');
     }
+
+    let updateSucceeded = false;
+    let lastError = null;
 
     if (isSupabaseConfigured() && supabase) {
       try {
-        if (interestId && typeof interestId === 'string' && interestId.includes('-')) {
-          const { error } = await supabase
+        const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
+
+        if (interestId && isUuid(interestId)) {
+          const { data, error } = await supabase
             .from('interests')
             .update({ status: 'declined', updated_at: new Date().toISOString() })
-            .eq('id', interestId);
+            .eq('id', interestId)
+            .select();
+
           if (error) {
-            console.warn('[App] Supabase update declined notice:', error.message);
+            console.error("SUPABASE DECLINE ERROR:", error);
+            lastError = error;
+          } else if (data && data.length > 0) {
+            updateSucceeded = true;
           }
         }
-        if (currentUser && (profile || targetId)) {
+
+        if (!updateSucceeded && currentUser && (profile || targetId)) {
           const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
           const targetIds = [targetId, profileId, profile?.id, profile?.register_id, profile?.registerId].filter(Boolean).map(String);
-          await supabase
+
+          const { data, error } = await supabase
             .from('interests')
             .update({ status: 'declined', updated_at: new Date().toISOString() })
             .in('receiver_id', currentIds)
-            .in('sender_id', targetIds);
+            .in('sender_id', targetIds)
+            .select();
+
+          if (error) {
+            console.error("SUPABASE DECLINE ERROR:", error);
+            lastError = error;
+          } else if (data && data.length > 0) {
+            updateSucceeded = true;
+          }
         }
       } catch (err) {
-        console.error('[App] Failed to persist declined received interest to Supabase:', err);
+        console.error("SUPABASE DECLINE ERROR:", err);
+        lastError = err;
       }
+    } else {
+      updateSucceeded = true;
+    }
+
+    // 4. Handle failure: Revert optimistic UI update and show toast error
+    if (lastError && !updateSucceeded) {
+      setDeclinedReceivedIds(prevDeclined);
+      setNotifications(prevNotifications);
+      showToast('Failed to decline interest. Please try again.');
+      return;
     }
 
     if (currentUser && (profile || targetId)) {
-      interestService.rejectInterest(currentUser, profile || targetId, interestId).catch(err => console.warn('[App] rejectInterest error:', err));
+      interestService.rejectInterest(currentUser, profile || targetId, interestId).catch(err => console.warn('[App] rejectInterest notice:', err));
     }
     showToast(`Politely declined interest from ${profile?.name || 'candidate'}`);
   };
@@ -5491,6 +5558,7 @@ export default function App() {
               onDeclineReceivedInterest={handleDeclineReceivedInterest}
               onUndoDeclineReceivedInterest={handleUndoDeclineReceivedInterest}
               onAcceptReceivedInterest={handleAcceptReceivedInterest}
+              showToast={showToast}
             />
           )}
 

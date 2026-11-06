@@ -39,7 +39,8 @@ export default function MobileInterestsScreen({
   onDeclineReceivedInterest,
   onUndoDeclineReceivedInterest,
   onAcceptReceivedInterest,
-  notifications = []
+  notifications = [],
+  showToast
 }) {
   const { triggerScreenshotBlock, screenshotRestricted } = usePhotoPrivacy();
   const [internalSegment, setInternalSegment] = useState('sent'); // 'sent' | 'received' | 'shortlist'
@@ -704,53 +705,99 @@ export default function MobileInterestsScreen({
   );
 
   const handleDecline = async (profileId, profileName, explicitInterestId = null) => {
-    // 1. Immediately update local React state
-    setLocalDeclinedIds(prev => (prev.includes(profileId) ? prev : [...prev, profileId]));
-    setLiveReceivedInterests(prev => prev.filter(r => String(r.senderId || r.sender_id) !== String(profileId)));
+    // 0. Snapshot previous local state for reliable rollback on failure
+    const prevLiveReceived = [...liveReceivedInterests];
+    const prevLocalDeclined = [...localDeclinedIds];
 
-    // 2. Resolve the real interest UUID
+    const candidateId = String(profileId);
+    const matchedProfile = (profiles || []).find(p => p && (String(p.id) === candidateId || String(p.register_id) === candidateId || String(p.registerId) === candidateId));
+    const regId = matchedProfile?.register_id || matchedProfile?.registerId ? String(matchedProfile.register_id || matchedProfile.registerId) : '';
+
+    // 1. OPTIMISTIC UI UPDATE: IMMEDIATELY remove that profile from the local React state array BEFORE making the Supabase call
+    setLocalDeclinedIds(prev => (prev.includes(candidateId) ? prev : [...prev, candidateId]));
+    setLiveReceivedInterests(prev => prev.filter(r => {
+      const rSid = String(r.senderId || r.sender_id || r.profileId || '');
+      const rIntId = String(r.interest_id || r.interestId || r.id || '');
+      if (rSid === candidateId || (regId && rSid === regId)) return false;
+      if (explicitInterestId && rIntId === String(explicitInterestId)) return false;
+      return true;
+    }));
+
+    // 2. Resolve the real interest primary key ID
     let interestId = explicitInterestId;
     if (!interestId) {
-      const matchedRec = (liveReceivedInterests || []).find(r => 
-        String(r.senderId || r.sender_id) === String(profileId) ||
-        String(r.profileId) === String(profileId)
-      );
+      const matchedRec = prevLiveReceived.find(r => {
+        const rSid = String(r.senderId || r.sender_id || r.profileId || '');
+        return rSid === candidateId || (regId && rSid === regId);
+      });
       interestId = matchedRec?.interest_id || matchedRec?.interestId || matchedRec?.id;
     }
     if (typeof interestId === 'string' && interestId.startsWith('interest_')) {
-      const cleanCandidate = interestId.replace('interest_', '');
-      if (cleanCandidate.includes('-')) {
-        interestId = cleanCandidate;
-      }
+      interestId = interestId.replace('interest_', '');
     }
 
-    // 3. Execute secure Supabase update to change the interest status:
-    // await supabase.from('interests').update({ status: 'declined' }).eq('id', interestId);
+    let updateSucceeded = false;
+    let lastError = null;
+
+    // 3. Secure Supabase call with aggressive error logging & RLS fallback
     if (isSupabaseConfigured() && supabase) {
       try {
-        if (interestId && typeof interestId === 'string' && interestId.includes('-')) {
-          const { error } = await supabase
+        const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
+
+        // Primary strategy: Match exact primary key id if valid UUID
+        if (interestId && isUuid(interestId)) {
+          const { data, error } = await supabase
             .from('interests')
             .update({ status: 'declined', updated_at: new Date().toISOString() })
-            .eq('id', interestId);
+            .eq('id', interestId)
+            .select();
+
           if (error) {
-            console.warn('[MobileInterestsScreen] Supabase update declined notice:', error.message);
+            console.error("SUPABASE DECLINE ERROR:", error);
+            lastError = error;
+          } else if (data && data.length > 0) {
+            updateSucceeded = true;
           }
         }
-        if (currentUser && profileId) {
+
+        // RLS Fallback Strategy: Match by sender_id and receiver_id
+        if (!updateSucceeded && currentUser) {
           const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
-          await supabase
+          const targetIds = [candidateId, regId].filter(Boolean);
+
+          const { data, error } = await supabase
             .from('interests')
             .update({ status: 'declined', updated_at: new Date().toISOString() })
             .in('receiver_id', currentIds)
-            .eq('sender_id', String(profileId));
+            .in('sender_id', targetIds)
+            .select();
+
+          if (error) {
+            console.error("SUPABASE DECLINE ERROR:", error);
+            lastError = error;
+          } else if (data && data.length > 0) {
+            updateSucceeded = true;
+          }
         }
       } catch (err) {
-        console.error('[MobileInterestsScreen] Failed to update interest to declined in Supabase:', err);
+        console.error("SUPABASE DECLINE ERROR:", err);
+        lastError = err;
       }
+    } else {
+      updateSucceeded = true;
     }
 
-    // 4. Notify parent handler
+    // 4. Handle failure: Revert the optimistic UI update and show toast error
+    if (lastError && !updateSucceeded) {
+      setLiveReceivedInterests(prevLiveReceived);
+      setLocalDeclinedIds(prevLocalDeclined);
+      if (showToast) {
+        showToast('Failed to decline interest. Please try again.');
+      }
+      return;
+    }
+
+    // 5. Notify parent callback
     if (onDeclineReceivedInterest) {
       onDeclineReceivedInterest(profileId, interestId);
     }
