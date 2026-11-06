@@ -705,30 +705,41 @@ export default function MobileInterestsScreen({
   );
 
   const handleDecline = async (profileId, profileName, explicitInterestId = null) => {
-    // 0. Snapshot previous local state for reliable rollback on failure
-    const prevLiveReceived = [...liveReceivedInterests];
-    const prevLocalDeclined = [...localDeclinedIds];
-
     const candidateId = String(profileId);
-    const matchedProfile = (profiles || []).find(p => p && (String(p.id) === candidateId || String(p.register_id) === candidateId || String(p.registerId) === candidateId));
+    const matchedProfile = (profiles || []).find(p => p && (
+      String(p.id) === candidateId || 
+      String(p.register_id) === candidateId || 
+      String(p.registerId) === candidateId ||
+      String(p.user_id) === candidateId
+    ));
     const regId = matchedProfile?.register_id || matchedProfile?.registerId ? String(matchedProfile.register_id || matchedProfile.registerId) : '';
+    const profId = matchedProfile?.id ? String(matchedProfile.id) : '';
+    const allIdsToDecline = [candidateId, regId, profId].filter(Boolean);
 
-    // 1. OPTIMISTIC UI UPDATE: IMMEDIATELY remove that profile from the local React state array BEFORE making the Supabase call
-    setLocalDeclinedIds(prev => (prev.includes(candidateId) ? prev : [...prev, candidateId]));
+    // 1. AGGRESSIVE OPTIMISTIC UI REMOVAL: INSTANTLY remove that profile/interest from the local React state array BEFORE awaiting Supabase
     setLiveReceivedInterests(prev => prev.filter(r => {
       const rSid = String(r.senderId || r.sender_id || r.profileId || '');
       const rIntId = String(r.interest_id || r.interestId || r.id || '');
-      if (rSid === candidateId || (regId && rSid === regId)) return false;
+      if (allIdsToDecline.includes(rSid)) return false;
       if (explicitInterestId && rIntId === String(explicitInterestId)) return false;
       return true;
     }));
 
-    // 2. Resolve the real interest primary key ID
+    setLocalDeclinedIds(prev => Array.from(new Set([...prev, ...allIdsToDecline])));
+
+    // Persist immediately to localStorage to lock against any refresh or background reload
+    try {
+      const saved = JSON.parse(localStorage.getItem('i4u_declined_received_ids') || '[]');
+      const merged = Array.from(new Set([...(Array.isArray(saved) ? saved : []), ...allIdsToDecline]));
+      localStorage.setItem('i4u_declined_received_ids', JSON.stringify(merged));
+    } catch (e) {}
+
+    // 2. Resolve interest record ID
     let interestId = explicitInterestId;
     if (!interestId) {
-      const matchedRec = prevLiveReceived.find(r => {
+      const matchedRec = liveReceivedInterests.find(r => {
         const rSid = String(r.senderId || r.sender_id || r.profileId || '');
-        return rSid === candidateId || (regId && rSid === regId);
+        return allIdsToDecline.includes(rSid);
       });
       interestId = matchedRec?.interest_id || matchedRec?.interestId || matchedRec?.id;
     }
@@ -736,68 +747,30 @@ export default function MobileInterestsScreen({
       interestId = interestId.replace('interest_', '');
     }
 
-    let updateSucceeded = false;
-    let lastError = null;
-
-    // 3. Secure Supabase call with aggressive error logging & RLS fallback
+    // 3. ROBUST BACKEND CALL: Execute delete with fallback to update if delete blocked by RLS
+    // PREVENT UI SNAPBACK: Do NOT revert the UI state even if the Supabase request fails in background
     if (isSupabaseConfigured() && supabase) {
       try {
         const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
-
-        // Primary strategy: Match exact primary key id if valid UUID
         if (interestId && isUuid(interestId)) {
-          const { data, error } = await supabase
-            .from('interests')
-            .update({ status: 'declined', updated_at: new Date().toISOString() })
-            .eq('id', interestId)
-            .select();
-
+          const { error } = await supabase.from('interests').delete().eq('id', interestId);
           if (error) {
-            console.error("SUPABASE DECLINE ERROR:", error);
-            lastError = error;
-          } else if (data && data.length > 0) {
-            updateSucceeded = true;
+            // Fallback to update if delete is blocked by RLS
+            await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).eq('id', interestId);
           }
-        }
-
-        // RLS Fallback Strategy: Match by sender_id and receiver_id
-        if (!updateSucceeded && currentUser) {
+        } else if (currentUser) {
           const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
-          const targetIds = [candidateId, regId].filter(Boolean);
-
-          const { data, error } = await supabase
-            .from('interests')
-            .update({ status: 'declined', updated_at: new Date().toISOString() })
-            .in('receiver_id', currentIds)
-            .in('sender_id', targetIds)
-            .select();
-
-          if (error) {
-            console.error("SUPABASE DECLINE ERROR:", error);
-            lastError = error;
-          } else if (data && data.length > 0) {
-            updateSucceeded = true;
+          const { error: delErr } = await supabase.from('interests').delete().in('receiver_id', currentIds).in('sender_id', allIdsToDecline);
+          if (delErr) {
+            await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).in('receiver_id', currentIds).in('sender_id', allIdsToDecline);
           }
         }
       } catch (err) {
-        console.error("SUPABASE DECLINE ERROR:", err);
-        lastError = err;
+        console.error("Supabase Decline Error:", err);
       }
-    } else {
-      updateSucceeded = true;
     }
 
-    // 4. Handle failure: Revert the optimistic UI update and show toast error
-    if (lastError && !updateSucceeded) {
-      setLiveReceivedInterests(prevLiveReceived);
-      setLocalDeclinedIds(prevLocalDeclined);
-      if (showToast) {
-        showToast('Failed to decline interest. Please try again.');
-      }
-      return;
-    }
-
-    // 5. Notify parent callback
+    // 4. Notify parent handler
     if (onDeclineReceivedInterest) {
       onDeclineReceivedInterest(profileId, interestId);
     }

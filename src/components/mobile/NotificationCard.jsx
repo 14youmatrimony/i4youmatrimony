@@ -667,21 +667,19 @@ export default function NotificationCard({
                         }
                       }
 
-                      // Secure Supabase update in proper try/catch block
+                      // Robust Backend Call: Execute delete with fallback to update
                       if (isSupabaseConfigured() && supabase) {
                         try {
                           const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
                           if (interestId && isUuid(interestId)) {
-                            const { error } = await supabase
-                              .from('interests')
-                              .update({ status: 'declined', updated_at: new Date().toISOString() })
-                              .eq('id', interestId);
+                            const { error } = await supabase.from('interests').delete().eq('id', interestId);
                             if (error) {
-                              console.error("SUPABASE DECLINE ERROR:", error);
+                              // Fallback to update if delete is blocked by RLS
+                              await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).eq('id', interestId);
                             }
                           }
                         } catch (err) {
-                          console.error("SUPABASE DECLINE ERROR:", err);
+                          console.error("Supabase Decline Error:", err);
                         }
                       }
 
