@@ -45,6 +45,7 @@ export default function MobileInterestsScreen({
   const { triggerScreenshotBlock, screenshotRestricted } = usePhotoPrivacy();
   const [internalSegment, setInternalSegment] = useState('sent'); // 'sent' | 'received' | 'shortlist'
   const [localDeclinedIds, setLocalDeclinedIds] = useState([]);
+  const [hiddenInterestIds, setHiddenInterestIds] = useState([]);
   const [liveReceivedInterests, setLiveReceivedInterests] = useState([]);
   const [liveSentInterests, setLiveSentInterests] = useState([]);
   const [isLoadingReceived, setIsLoadingReceived] = useState(false);
@@ -698,81 +699,100 @@ export default function MobileInterestsScreen({
     return list.filter(item => !isPlaceholderOrIncompleteProfile(item));
   }, [liveReceivedInterests, notifications, profiles, effectiveDeclinedIds, interestsSent, isMaleUser, currentUser]);
 
+  // FOOLPROOF Local Hide State for Received Interests
+  const receivedInterests = receivedProfiles;
+  const visibleInterests = receivedInterests.filter(req => {
+    if (!req) return false;
+    const reqId = String(req.id || '');
+    const intId = String(req.interestId || req.interest_id || '');
+    return !hiddenInterestIds.includes(req.id) &&
+           !hiddenInterestIds.includes(reqId) &&
+           !hiddenInterestIds.includes(req.interestId) &&
+           !hiddenInterestIds.includes(req.interest_id) &&
+           !hiddenInterestIds.includes(intId);
+  });
+
   const declinedProfiles = oppositeGenderProfiles.filter(p => 
     effectiveDeclinedIds.includes(String(p.id)) || 
     (p.register_id && effectiveDeclinedIds.includes(String(p.register_id))) ||
     (p.registerId && effectiveDeclinedIds.includes(String(p.registerId)))
   );
 
-  const handleDecline = async (profileId, profileName, explicitInterestId = null) => {
-    const candidateId = String(profileId);
-    const matchedProfile = (profiles || []).find(p => p && (
-      String(p.id) === candidateId || 
-      String(p.register_id) === candidateId || 
-      String(p.registerId) === candidateId ||
-      String(p.user_id) === candidateId
-    ));
-    const regId = matchedProfile?.register_id || matchedProfile?.registerId ? String(matchedProfile.register_id || matchedProfile.registerId) : '';
-    const profId = matchedProfile?.id ? String(matchedProfile.id) : '';
-    const allIdsToDecline = [candidateId, regId, profId].filter(Boolean);
+  const handleDecline = async (interestId, profileName = null, explicitInterestId = null) => {
+    // Safety check: Validate interestId
+    if (!interestId) {
+      console.error("DECLINE FAILED: ID is missing!");
+      return;
+    }
 
-    // 1. AGGRESSIVE OPTIMISTIC UI REMOVAL: INSTANTLY remove that profile/interest from the local React state array BEFORE awaiting Supabase
-    setLiveReceivedInterests(prev => prev.filter(r => {
-      const rSid = String(r.senderId || r.sender_id || r.profileId || '');
+    const idStr = String(interestId);
+
+    // 1. Force UI Hiding via Dedicated State instantly:
+    setHiddenInterestIds(prev => [...prev, interestId, idStr]);
+
+    // Resolve associated candidate / profile / interest records
+    const targetItem = receivedInterests.find(req =>
+      String(req.interestId) === idStr ||
+      String(req.interest_id) === idStr ||
+      String(req.id) === idStr
+    );
+
+    const actualInterestId = String(targetItem?.interestId || targetItem?.interest_id || explicitInterestId || interestId);
+    const candidateId = String(targetItem?.id || (targetItem ? '' : interestId));
+
+    // Also forcefully hide candidate ID and actual interest ID so refetches cannot restore the card
+    setHiddenInterestIds(prev => {
+      const set = new Set(prev.map(String));
+      set.add(idStr);
+      if (actualInterestId) set.add(actualInterestId);
+      if (candidateId) set.add(candidateId);
+      return Array.from(set);
+    });
+
+    // Instantly remove from liveReceivedInterests
+    setLiveReceivedInterests(prev => (Array.isArray(prev) ? prev : []).filter(r => {
       const rIntId = String(r.interest_id || r.interestId || r.id || '');
-      if (allIdsToDecline.includes(rSid)) return false;
-      if (explicitInterestId && rIntId === String(explicitInterestId)) return false;
+      const rSid = String(r.senderId || r.sender_id || r.profileId || '');
+      if (rIntId === idStr || rIntId === actualInterestId) return false;
+      if (candidateId && rSid === candidateId) return false;
       return true;
     }));
 
-    setLocalDeclinedIds(prev => Array.from(new Set([...prev, ...allIdsToDecline])));
+    const allToDecline = [candidateId, actualInterestId, idStr].filter(Boolean);
+    setLocalDeclinedIds(prev => Array.from(new Set([...prev, ...allToDecline])));
 
-    // Persist immediately to localStorage to lock against any refresh or background reload
     try {
       const saved = JSON.parse(localStorage.getItem('i4u_declined_received_ids') || '[]');
-      const merged = Array.from(new Set([...(Array.isArray(saved) ? saved : []), ...allIdsToDecline]));
+      const merged = Array.from(new Set([...(Array.isArray(saved) ? saved : []), ...allToDecline]));
       localStorage.setItem('i4u_declined_received_ids', JSON.stringify(merged));
     } catch (e) {}
 
-    // 2. Resolve interest record ID
-    let interestId = explicitInterestId;
-    if (!interestId) {
-      const matchedRec = liveReceivedInterests.find(r => {
-        const rSid = String(r.senderId || r.sender_id || r.profileId || '');
-        return allIdsToDecline.includes(rSid);
-      });
-      interestId = matchedRec?.interest_id || matchedRec?.interestId || matchedRec?.id;
-    }
-    if (typeof interestId === 'string' && interestId.startsWith('interest_')) {
-      interestId = interestId.replace('interest_', '');
-    }
-
-    // 3. ROBUST BACKEND CALL: Execute delete with fallback to update if delete blocked by RLS
-    // PREVENT UI SNAPBACK: Do NOT revert the UI state even if the Supabase request fails in background
+    // 2. Fire the Supabase request silently in the background:
     if (isSupabaseConfigured() && supabase) {
       try {
         const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
-        if (interestId && isUuid(interestId)) {
-          const { error } = await supabase.from('interests').delete().eq('id', interestId);
+        const idToDelete = isUuid(actualInterestId) ? actualInterestId : (isUuid(idStr) ? idStr : null);
+        if (idToDelete) {
+          const { error } = await supabase.from('interests').delete().eq('id', idToDelete);
           if (error) {
             // Fallback to update if delete is blocked by RLS
-            await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).eq('id', interestId);
+            await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).eq('id', idToDelete);
           }
-        } else if (currentUser) {
+        } else if (currentUser && candidateId) {
           const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
-          const { error: delErr } = await supabase.from('interests').delete().in('receiver_id', currentIds).in('sender_id', allIdsToDecline);
+          const { error: delErr } = await supabase.from('interests').delete().in('receiver_id', currentIds).eq('sender_id', candidateId);
           if (delErr) {
-            await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).in('receiver_id', currentIds).in('sender_id', allIdsToDecline);
+            await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).in('receiver_id', currentIds).eq('sender_id', candidateId);
           }
         }
       } catch (err) {
-        console.error("Supabase Decline Error:", err);
+        console.error("Supabase error silently caught:", err);
       }
     }
 
-    // 4. Notify parent handler
+    // 3. Notify parent handler
     if (onDeclineReceivedInterest) {
-      onDeclineReceivedInterest(profileId, interestId);
+      onDeclineReceivedInterest(candidateId || interestId, actualInterestId);
     }
   };
 
@@ -855,7 +875,7 @@ export default function MobileInterestsScreen({
               : 'text-slate-600'
           }`}
         >
-          Received ({receivedProfiles.length})
+          Received ({visibleInterests.length})
         </button>
         <button
           onClick={() => setActiveSegment('shortlist')}
@@ -984,7 +1004,7 @@ export default function MobileInterestsScreen({
 
         {activeSegment === 'received' && (
           <>
-            {isLoadingReceived && receivedProfiles.length === 0 ? (
+            {isLoadingReceived && visibleInterests.length === 0 ? (
               <div className="space-y-3">
                 {[1, 2].map((k) => (
                   <div key={k} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 animate-pulse">
@@ -1003,7 +1023,7 @@ export default function MobileInterestsScreen({
                   </div>
                 ))}
               </div>
-            ) : receivedProfiles.length === 0 ? (
+            ) : visibleInterests.length === 0 ? (
               <div className="py-14 px-6 text-center bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
                 <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 text-[#DFB76C] mx-auto flex items-center justify-center">
                   <Heart className="w-7 h-7 stroke-[2]" />
@@ -1014,7 +1034,7 @@ export default function MobileInterestsScreen({
                 </p>
               </div>
             ) : (
-              receivedProfiles.map(p => {
+              visibleInterests.map(p => {
                 if (!p || isPlaceholderOrIncompleteProfile(p)) return null;
                 const isAccepted = Boolean(
                   p.interestStatus === 'accepted' ||
@@ -1133,7 +1153,7 @@ export default function MobileInterestsScreen({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDecline(p.id, p.name, p.interestId || p.interest_id)}
+                          onClick={() => handleDecline(p.interestId || p.interest_id || p.id)}
                           className="px-4 py-2 rounded-xl border-2 border-rose-500 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 font-bold text-xs flex items-center justify-center space-x-1.5 transition-all cursor-pointer shadow-xs"
                           title="Decline Interest"
                         >

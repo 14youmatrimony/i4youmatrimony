@@ -654,8 +654,6 @@ export default function NotificationCard({
                     type="button"
                     onClick={async (e) => {
                       e.stopPropagation();
-                      // Immediately update local UI state to show static Declined badge
-                      setLocalStatus('declined');
 
                       // Resolve actual interest record ID
                       const rawInterestId = notif.interest_id || notif.interestId || notif.id;
@@ -666,6 +664,14 @@ export default function NotificationCard({
                           interestId = cleanCandidate;
                         }
                       }
+
+                      if (!interestId) {
+                        console.error("DECLINE FAILED: ID is missing!");
+                        return;
+                      }
+
+                      // Immediately update local UI state to show static Declined badge
+                      setLocalStatus('declined');
 
                       // Robust Backend Call: Execute delete with fallback to update
                       if (isSupabaseConfigured() && supabase) {

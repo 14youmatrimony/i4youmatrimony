@@ -89,6 +89,7 @@ export default function MobileNotificationsSheet({
   onSimulateNotification
 }) {
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'interest' | 'shortlist' | 'visitor' | 'contact_view' | 'message'
+  const [hiddenInterestIds, setHiddenInterestIds] = useState([]);
   const { triggerScreenshotBlock } = usePhotoPrivacy();
 
   // Side Scroll state & refs for Filter Pills Bar
@@ -640,16 +641,26 @@ export default function MobileNotificationsSheet({
       return timeB - timeA;
     });
 
+    const visibleGrouped = allGrouped.filter(notif => {
+      if (!notif) return false;
+      const nId = String(notif.id || notif.notification_id || '');
+      const intId = String(notif.interestId || notif.interest_id || '');
+      const sId = String(notif.senderId || notif.sender_id || notif.profileId || '');
+      return !hiddenInterestIds.includes(nId) &&
+             !hiddenInterestIds.includes(intId) &&
+             !hiddenInterestIds.includes(sId);
+    });
+
     const computedCounts = {
-      all: allGrouped.length,
-      interest: allGrouped.filter(n => n?.type === 'interest_received' || n?.type === 'interest').length,
-      message: allGrouped.filter(n => n?.type === 'message_received' || n?.type === 'chat_message' || n?.type === 'message').length,
-      shortlist: allGrouped.filter(n => n?.type === 'profile_shortlisted' || n?.type === 'shortlist').length,
-      visitor: allGrouped.filter(n => n?.type === 'profile_visitor' || n?.type === 'visitor').length,
-      contact_view: allGrouped.filter(n => n?.type === 'contact_viewed' || n?.type === 'contact').length,
+      all: visibleGrouped.length,
+      interest: visibleGrouped.filter(n => n?.type === 'interest_received' || n?.type === 'interest').length,
+      message: visibleGrouped.filter(n => n?.type === 'message_received' || n?.type === 'chat_message' || n?.type === 'message').length,
+      shortlist: visibleGrouped.filter(n => n?.type === 'profile_shortlisted' || n?.type === 'shortlist').length,
+      visitor: visibleGrouped.filter(n => n?.type === 'profile_visitor' || n?.type === 'visitor').length,
+      contact_view: visibleGrouped.filter(n => n?.type === 'contact_viewed' || n?.type === 'contact').length,
     };
 
-    const filtered = allGrouped.filter(notif => {
+    const filtered = visibleGrouped.filter(notif => {
       if (activeFilter === 'all') return true;
       if (activeFilter === 'interest') return notif?.type === 'interest_received' || notif?.type === 'interest';
       if (activeFilter === 'message') return notif?.type === 'message_received' || notif?.type === 'chat_message' || notif?.type === 'message';
@@ -661,6 +672,37 @@ export default function MobileNotificationsSheet({
 
     return { groupedNotifications: filtered, counts: computedCounts };
   })();
+
+  const handleDeclineNotification = async (notifId, interestId, notif) => {
+    const idToHide = interestId || notifId;
+    if (!idToHide) {
+      console.error("DECLINE FAILED: ID is missing!");
+      return;
+    }
+
+    setHiddenInterestIds(prev => [
+      ...prev,
+      String(idToHide),
+      String(notifId),
+      String(notif?.id),
+      String(notif?.notification_id),
+      String(notif?.senderId),
+      String(notif?.sender_id),
+      String(notif?.profileId)
+    ].filter(Boolean));
+
+    if (isSupabaseConfigured() && supabase && interestId) {
+      try {
+        await supabase.from('interests').delete().eq('id', interestId);
+      } catch (e) {
+        console.error("Supabase error silently caught:", e);
+      }
+    }
+
+    if (onDeclineInterest) {
+      onDeclineInterest(notifId, interestId, notif);
+    }
+  };
 
   const unreadCount = (groupedNotifications || []).filter(n => n && !n.isRead).length;
 
@@ -894,7 +936,7 @@ export default function MobileNotificationsSheet({
                 isRead={notif.isRead || notif.is_read}
                 onCardClick={() => handleNotificationCardClick(notif, profile)}
                 onAcceptInterest={onAcceptInterest}
-                onDeclineInterest={onDeclineInterest}
+                onDeclineInterest={handleDeclineNotification}
                 onSendInterest={onSendInterest}
                 onOpenChat={onOpenChat}
                 onOpenProfile={onOpenProfile}
