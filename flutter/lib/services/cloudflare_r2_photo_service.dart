@@ -8,11 +8,23 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Pure Cross-Platform Cloudflare R2 & Supabase Photo Upload Service
 ///
 /// Operates seamlessly across Flutter Web, Android, and iOS:
-/// - Uses [XFile.readAsBytes] ([Uint8List]) instead of dart:io File or native compression.
+/// - Zero dart:io File usage and zero external compression libraries (eliminates web crashes).
+/// - Accepts Uint8List bytes extracted via await image.readAsBytes().
 /// - Signs requests using AWS Signature Version 4 (HMAC-SHA256) in pure Dart.
-/// - Uploads bytes directly to Cloudflare R2 via HTTP PUT with unique timestamped filenames.
-/// - Verifies row persistence via Supabase `.update(...).eq(...).select()`.
+/// - Uploads bytes directly to Cloudflare R2 via HTTP PUT with unique timestamped filenames:
+///     - profile/${userId}_$timestamp.jpg
+///     - family/${userId}_$timestamp.jpg
+/// - Immediately upserts or updates Supabase profiles table (`profile_photo_url` & `family_photo_url`).
 class CloudflareR2PhotoService {
+  static const String defaultEndpoint =
+      'https://60ba75772b194956aea9a7080138d7e0.r2.cloudflarestorage.com';
+  static const String defaultAccessKeyId = '962068b554d3ca1ea4dd357be61b8a8f';
+  static const String defaultSecretAccessKey =
+      'dd38384133faf467c2e121879bf8e4216756f49f56b4ff66661804a75a956fbd';
+  static const String defaultBucketName = 'i4youmatrimony';
+  static const String defaultPublicUrlBase =
+      'https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev';
+
   final String endpoint;
   final String accessKeyId;
   final String secretAccessKey;
@@ -21,15 +33,19 @@ class CloudflareR2PhotoService {
   final String region;
 
   CloudflareR2PhotoService({
-    required this.endpoint,
-    required this.accessKeyId,
-    required this.secretAccessKey,
-    required this.bucketName,
-    required this.publicUrlBase,
+    String? endpoint,
+    String? accessKeyId,
+    String? secretAccessKey,
+    String? bucketName,
+    String? publicUrlBase,
     this.region = 'auto',
-  });
+  })  : endpoint = (endpoint ?? defaultEndpoint).replaceAll(RegExp(r'/+$'), ''),
+        accessKeyId = accessKeyId ?? defaultAccessKeyId,
+        secretAccessKey = secretAccessKey ?? defaultSecretAccessKey,
+        bucketName = bucketName ?? defaultBucketName,
+        publicUrlBase = (publicUrlBase ?? defaultPublicUrlBase).replaceAll(RegExp(r'/+$'), '');
 
-  /// Factory constructor to initialize from environment variables or constants
+  /// Factory constructor to initialize from environment variables with safe defaults
   factory CloudflareR2PhotoService.fromEnv({
     String? endpoint,
     String? accessKeyId,
@@ -37,28 +53,46 @@ class CloudflareR2PhotoService {
     String? bucketName,
     String? publicUrlBase,
   }) {
+    const envEndpoint = String.fromEnvironment('R2_ENDPOINT');
+    const envAccessKey = String.fromEnvironment('R2_ACCESS_KEY_ID');
+    const envSecretKey = String.fromEnvironment('R2_SECRET_ACCESS_KEY');
+    const envBucket = String.fromEnvironment('R2_BUCKET_NAME');
+    const envPublicUrl = String.fromEnvironment('R2_PUBLIC_URL');
+
     return CloudflareR2PhotoService(
-      endpoint: (endpoint ?? const String.fromEnvironment('R2_ENDPOINT')).replaceAll(RegExp(r'/+$'), ''),
-      accessKeyId: accessKeyId ?? const String.fromEnvironment('R2_ACCESS_KEY_ID'),
-      secretAccessKey: secretAccessKey ?? const String.fromEnvironment('R2_SECRET_ACCESS_KEY'),
-      bucketName: bucketName ?? const String.fromEnvironment('R2_BUCKET_NAME'),
-      publicUrlBase: (publicUrlBase ?? const String.fromEnvironment('R2_PUBLIC_URL')).replaceAll(RegExp(r'/+$'), ''),
+      endpoint: (endpoint?.isNotEmpty == true
+              ? endpoint!
+              : (envEndpoint.isNotEmpty ? envEndpoint : defaultEndpoint))
+          .replaceAll(RegExp(r'/+$'), ''),
+      accessKeyId: accessKeyId?.isNotEmpty == true
+          ? accessKeyId!
+          : (envAccessKey.isNotEmpty ? envAccessKey : defaultAccessKeyId),
+      secretAccessKey: secretAccessKey?.isNotEmpty == true
+          ? secretAccessKey!
+          : (envSecretKey.isNotEmpty ? envSecretKey : defaultSecretAccessKey),
+      bucketName: bucketName?.isNotEmpty == true
+          ? bucketName!
+          : (envBucket.isNotEmpty ? envBucket : defaultBucketName),
+      publicUrlBase: (publicUrlBase?.isNotEmpty == true
+              ? publicUrlBase!
+              : (envPublicUrl.isNotEmpty ? envPublicUrl : defaultPublicUrlBase))
+          .replaceAll(RegExp(r'/+$'), ''),
     );
   }
 
-  /// Uploads photo from [XFile] to Cloudflare R2 and persists permanent URL to Supabase `profiles`.
+  /// Uploads Uint8List bytes directly to Cloudflare R2 and persists permanent public URL
+  /// into the Supabase `profiles` table (`profile_photo_url` or `family_photo_url`).
   ///
-  /// [xFile]: compressed image picked via ImagePicker (maxWidth: 1080, maxHeight: 1080, imageQuality: 75)
-  /// [isProfilePhoto]: true for Profile Photo (updates `profile_photo_url`), false for Family Photo (updates `family_photo_url`)
-  /// [customUserId]: optional override; defaults to current Supabase auth user ID
-  Future<String> uploadAndPersistPhoto({
-    required XFile xFile,
+  /// Unique Filename Format:
+  /// - Profile Photo: profile/${userId}_$timestamp.jpg
+  /// - Family Photo: family/${userId}_$timestamp.jpg
+  Future<String> uploadBytesAndPersist({
+    required Uint8List bytes,
     required bool isProfilePhoto,
     String? customUserId,
   }) async {
-    // 1. Cross-Platform Byte Extraction (Pure Uint8List - Zero dart:io or native compression)
-    final Uint8List fileBytes = await xFile.readAsBytes();
-    if (fileBytes.isEmpty) {
+    // 1. Validate image bytes
+    if (bytes.isEmpty) {
       throw Exception('Selected image is empty.');
     }
 
@@ -69,38 +103,32 @@ class CloudflareR2PhotoService {
       throw Exception('User is not authenticated. Please log in before uploading.');
     }
 
-    final cleanUserId = currentUserId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    final folder = isProfilePhoto ? 'profiles' : 'family';
-    final prefix = isProfilePhoto ? 'profile' : 'family';
+    // 3. Construct unique timestamped filename
+    // Exactly: profile/${userId}_$timestamp.jpg or family/${userId}_$timestamp.jpg
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final fileExtension = _resolveExtension(xFile.name, xFile.mimeType);
+    final folder = isProfilePhoto ? 'profile' : 'family';
+    final filePath = '$folder/${currentUserId}_$timestamp.jpg';
+    const contentType = 'image/jpeg';
 
-    // Unique Filename: e.g., profile_${userId}_$timestamp.jpg or family_${userId}_$timestamp.jpg
-    final fileName = '${prefix}_${cleanUserId}_$timestamp.$fileExtension';
-    final filePath = '$folder/$cleanUserId/$fileName';
-    final contentType = _resolveContentType(fileExtension);
-
-    // 3. Upload directly to Cloudflare R2 via AWS Signature V4 PUT
+    // 4. Upload Uint8List bytes directly to Cloudflare R2 via AWS Signature V4 PUT
     await _uploadBytesToR2(
-      bytes: fileBytes,
+      bytes: bytes,
       filePath: filePath,
       contentType: contentType,
     );
 
-    // 4. Construct Permanent R2 Public URL with Cache Busting (?v=$timestamp)
+    // 5. Construct Permanent R2 Public URL with Cache Busting (?v=$timestamp)
     final base = publicUrlBase.isNotEmpty ? publicUrlBase : '$endpoint/$bucketName';
-    final permanentUrl = '$base/$filePath';
-    final permanentUrlWithCacheBust = '$permanentUrl?v=$timestamp';
+    final permanentUrlWithCacheBust = '$base/$filePath?v=$timestamp';
 
-    // 5. Verify Supabase Database Persistence:
-    // Update Supabase and verify row was genuinely updated via .select()
+    // 6. Immediately upsert or update Supabase profiles table for currentUser.id
     final targetColumn = isProfilePhoto ? 'profile_photo_url' : 'family_photo_url';
     final Map<String, dynamic> updatePayload = {
       targetColumn: permanentUrlWithCacheBust,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
 
-    // Mirror to standard photo and photo_url columns for backwards compatibility
+    // Keep standard and avatar columns synchronized for backwards compatibility
     if (isProfilePhoto) {
       updatePayload['photo'] = permanentUrlWithCacheBust;
       updatePayload['photo_url'] = permanentUrlWithCacheBust;
@@ -117,19 +145,14 @@ class CloudflareR2PhotoService {
           .select();
 
       if (updatedRows.isEmpty) {
-        // Fallback: match by register_id or phone if auth id differs from primary key
-        final List<dynamic> retryRows = await supabase
-            .from('profiles')
-            .update(updatePayload)
-            .or('id.eq.$currentUserId,register_id.eq.$currentUserId,phone.eq.$currentUserId')
-            .select();
-
-        if (retryRows.isEmpty) {
-          throw Exception('Supabase update verification failed: No matching profile record found for user $currentUserId.');
-        }
+        // Upsert if profile row with id does not exist yet
+        await supabase.from('profiles').upsert({
+          'id': currentUserId,
+          ...updatePayload,
+        }).select();
       }
     } catch (e) {
-      // Fallback: if custom column is missing in older database schema, retry with standard photo columns
+      // Fallback: if custom column is missing in older database migrations, retry with standard photo columns
       if (e.toString().contains('column') || e.toString().contains('42703')) {
         final safePayload = Map<String, dynamic>.from(updatePayload);
         safePayload.remove(targetColumn);
@@ -140,11 +163,10 @@ class CloudflareR2PhotoService {
             .select();
 
         if (safeRows.isEmpty) {
-          await supabase
-              .from('profiles')
-              .update(safePayload)
-              .or('id.eq.$currentUserId,register_id.eq.$currentUserId,phone.eq.$currentUserId')
-              .select();
+          await supabase.from('profiles').upsert({
+            'id': currentUserId,
+            ...safePayload,
+          }).select();
         }
       } else {
         rethrow;
@@ -152,6 +174,20 @@ class CloudflareR2PhotoService {
     }
 
     return permanentUrlWithCacheBust;
+  }
+
+  /// Convenience wrapper accepting [XFile] picked via ImagePicker
+  Future<String> uploadAndPersistPhoto({
+    required XFile xFile,
+    required bool isProfilePhoto,
+    String? customUserId,
+  }) async {
+    final Uint8List fileBytes = await xFile.readAsBytes();
+    return uploadBytesAndPersist(
+      bytes: fileBytes,
+      isProfilePhoto: isProfilePhoto,
+      customUserId: customUserId,
+    );
   }
 
   /// AWS Signature Version 4 PUT Upload (Pure Dart, Zero dart:io)
@@ -240,25 +276,5 @@ class CloudflareR2PhotoService {
     final min = dt.minute.toString().padLeft(2, '0');
     final s = dt.second.toString().padLeft(2, '0');
     return '$y$m${d}T$h$min${s}Z';
-  }
-
-  String _resolveExtension(String fileName, String? mimeType) {
-    final lowerName = fileName.toLowerCase();
-    if (lowerName.endsWith('.webp') || (mimeType?.contains('webp') ?? false)) return 'webp';
-    if (lowerName.endsWith('.png') || (mimeType?.contains('png') ?? false)) return 'png';
-    return 'jpg';
-  }
-
-  String _resolveContentType(String extension) {
-    switch (extension) {
-      case 'webp':
-        return 'image/webp';
-      case 'png':
-        return 'image/png';
-      case 'jpg':
-      case 'jpeg':
-      default:
-        return 'image/jpeg';
-    }
   }
 }

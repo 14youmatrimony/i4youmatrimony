@@ -205,13 +205,13 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
 
   const { endpoint, accessKeyId, secretAccessKey, bucketName, publicUrl: basePublicUrl, region } = getR2Config();
 
-  // 3. Format path: profiles/${userId || 'user'}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp
+  // 3. Format path: profile/${userId}_$timestamp.jpg or family/${userId}_$timestamp.jpg
   const cleanUserId = String(userId || 'user').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-  const cleanFolder = String(folder || 'profiles').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-  const prefix = cleanFolder === 'family' ? 'family' : 'profile';
+  const cleanFolder = String(folder || 'profile').trim().toLowerCase();
+  const isFamily = cleanFolder.includes('family');
+  const targetFolder = isFamily ? 'family' : 'profile';
   const timestamp = Date.now();
-  const fileName = `${prefix}_${cleanUserId}_${timestamp}.webp`;
-  const filePath = `${cleanFolder}/${cleanUserId}/${fileName}`;
+  const filePath = `${targetFolder}/${cleanUserId}_${timestamp}.jpg`;
 
   try {
     // 4. Extract ArrayBuffer from WebP Blob
@@ -236,7 +236,7 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
     const dateStamp = amzDate.substring(0, 8);
-    const contentType = 'image/webp';
+    const contentType = compressed.blob?.type || 'image/jpeg';
 
     const urlObj = new URL(endpoint);
     const host = urlObj.host;

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -5,21 +6,24 @@ import '../services/cloudflare_r2_photo_service.dart';
 
 /// State-Preserving Photo Manager for Profile Photo and Family Photo
 ///
-/// Features:
-/// 1. Runs identically across Flutter Web, Android, and iOS with zero native-only compression dependencies.
-/// 2. Handles compression using ImagePicker(maxWidth: 1080, maxHeight: 1080, imageQuality: 75).
-/// 3. Reads pure Uint8List bytes via await pickedFile.readAsBytes() (Zero dart:io File).
-/// 4. Generates unique timestamped R2 filenames and appends ?v=$timestamp for foolproof cache busting.
-/// 5. Verifies Supabase row updates via .select() and fetches directly on [initState] without fallback to old state.
-/// 6. Locks UI cache using ValueKey(photoUrl) and clears PaintingBinding imageCache on upload.
+/// Workflow:
+/// 1. Built-in cross-platform compression via [ImagePicker.pickImage](maxWidth: 1000, maxHeight: 1000, imageQuality: 75).
+/// 2. Reads pure [Uint8List] bytes via `await image.readAsBytes()` (Zero dart:io File usage; safe for Web, Android, iOS).
+/// 3. Does NOT update UI state with local temporary file paths before upload completion.
+/// 4. Direct upload of Uint8List bytes to Cloudflare R2:
+///     - profile/${userId}_$timestamp.jpg
+///     - family/${userId}_$timestamp.jpg
+/// 5. Immediately upserts/updates `profile_photo_url` and `family_photo_url` in Supabase profiles table for currentUser.id.
+/// 6. Only after Supabase database update succeeds, updates UI state with the permanent R2 public URL.
+/// 7. Always loads `profile_photo_url` and `family_photo_url` from Supabase on [initState] to ensure persistence across page refreshes.
 class MatrimonyPhotoManager extends StatefulWidget {
-  final CloudflareR2PhotoService r2Service;
+  final CloudflareR2PhotoService? r2Service;
   final String? customUserId;
   final VoidCallback? onPhotosUpdated;
 
   const MatrimonyPhotoManager({
     super.key,
-    required this.r2Service,
+    this.r2Service,
     this.customUserId,
     this.onPhotosUpdated,
   });
@@ -30,6 +34,7 @@ class MatrimonyPhotoManager extends StatefulWidget {
 
 class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
   final ImagePicker _picker = ImagePicker();
+  late final CloudflareR2PhotoService _r2Service;
 
   String? _profilePhotoUrl;
   String? _familyPhotoUrl;
@@ -42,13 +47,14 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
   @override
   void initState() {
     super.initState();
-    // 1. Initial State Hydration: Always read directly from Supabase on initState
-    _fetchPhotosFromSupabase();
+    _r2Service = widget.r2Service ?? CloudflareR2PhotoService();
+    // Hydrate photo URLs directly from Supabase profiles table on initState
+    _loadPhotosFromSupabase();
   }
 
-  /// Fetches `profile_photo_url` and `family_photo_url` directly from Supabase `profiles`
-  /// Never falls back to default/old state variables on refresh
-  Future<void> _fetchPhotosFromSupabase() async {
+  /// Always loads `profile_photo_url` and `family_photo_url` from Supabase on initState
+  /// Ensures refreshing the page never loses the photos
+  Future<void> _loadPhotosFromSupabase() async {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
@@ -63,7 +69,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'No logged-in user detected.';
+            _errorMessage = 'No authenticated user session found.';
           });
         }
         return;
@@ -73,12 +79,11 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
       final response = await supabase
           .from('profiles')
           .select('profile_photo_url, family_photo_url, photo_url, photo')
-          .or('id.eq.$userId,register_id.eq.$userId,phone.eq.$userId')
+          .eq('id', userId)
           .maybeSingle();
 
       if (response != null && mounted) {
         setState(() {
-          // Strictly map authentic columns from the database
           _profilePhotoUrl = response['profile_photo_url'] ??
               response['photo_url'] ??
               response['photo'];
@@ -86,10 +91,10 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         });
       }
     } catch (e) {
-      debugPrint('[MatrimonyPhotoManager] Error fetching photos from Supabase: $e');
+      debugPrint('[MatrimonyPhotoManager] Error loading photos from Supabase: $e');
       if (mounted) {
         setState(() {
-          _errorMessage = 'Failed to load photos. Please refresh to try again.';
+          _errorMessage = 'Failed to load photos. Pull down or tap reload to retry.';
         });
       }
     } finally {
@@ -99,19 +104,32 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     }
   }
 
-  /// Picks and compresses photo cross-platform (Web, Android, iOS) without native-only packages
+  /// Cross-platform photo picker and uploader:
+  /// - Uses ImagePicker(maxWidth: 1000, maxHeight: 1000, imageQuality: 75)
+  /// - Extracts Uint8List bytes without dart:io File
+  /// - Does NOT update UI with local temporary file paths
+  /// - Uploads directly to Cloudflare R2 and persists into Supabase
+  /// - Only updates UI state with permanent URL after database update succeeds
   Future<void> _pickAndUploadPhoto({required bool isProfilePhoto}) async {
     try {
-      // 1. Compression via ImagePicker (Pure cross-platform - works on Web, Android, iOS)
-      final XFile? pickedFile = await _picker.pickImage(
+      // 1. Image selection with built-in compression across Web, Android, and iOS
+      final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1080,
-        maxHeight: 1080,
+        maxWidth: 1000,
+        maxHeight: 1000,
         imageQuality: 75,
       );
 
-      if (pickedFile == null) return;
+      if (image == null) return;
 
+      // 2. Read pure Uint8List bytes (Pure cross-platform, zero dart:io File usage)
+      final Uint8List bytes = await image.readAsBytes();
+      if (bytes.isEmpty) {
+        throw Exception('Selected image file is empty.');
+      }
+
+      // 3. Do NOT update UI state with local temporary path before upload completes.
+      // Activate loading indicator only.
       if (mounted) {
         setState(() {
           if (isProfilePhoto) {
@@ -123,23 +141,24 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         });
       }
 
-      // 2. Upload to Cloudflare R2 & verify Supabase persistence
-      final permanentUrl = await widget.r2Service.uploadAndPersistPhoto(
-        xFile: pickedFile,
+      // 4. Upload Uint8List bytes directly to Cloudflare R2 and update Supabase profiles table
+      final String permanentR2Url = await _r2Service.uploadBytesAndPersist(
+        bytes: bytes,
         isProfilePhoto: isProfilePhoto,
         customUserId: widget.customUserId,
       );
 
-      // 3. UI Cache Lock: Invalidate in-memory Flutter image cache
+      // Invalidate image cache so refreshed image displays immediately
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
 
+      // 5. Only after Supabase database update succeeds, update UI state with permanent R2 public URL
       if (mounted) {
         setState(() {
           if (isProfilePhoto) {
-            _profilePhotoUrl = permanentUrl;
+            _profilePhotoUrl = permanentR2Url;
           } else {
-            _familyPhotoUrl = permanentUrl;
+            _familyPhotoUrl = permanentR2Url;
           }
         });
 
@@ -147,8 +166,8 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
           SnackBar(
             content: Text(
               isProfilePhoto
-                  ? 'Profile photo uploaded and verified in Supabase!'
-                  : 'Family photo uploaded and verified in Supabase!',
+                  ? 'Profile photo updated and saved to Supabase!'
+                  : 'Family photo updated and saved to Supabase!',
             ),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
@@ -158,7 +177,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         widget.onPhotosUpdated?.call();
       }
     } catch (e) {
-      debugPrint('[MatrimonyPhotoManager] Upload failed: $e');
+      debugPrint('[MatrimonyPhotoManager] Photo upload failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -184,7 +203,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: _fetchPhotosFromSupabase,
+      onRefresh: _loadPhotosFromSupabase,
       color: const Color(0xFFDFB76C),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -213,7 +232,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.refresh, size: 18),
-                      onPressed: _fetchPhotosFromSupabase,
+                      onPressed: _loadPhotosFromSupabase,
                       tooltip: 'Retry',
                     ),
                   ],
@@ -373,11 +392,11 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     );
   }
 
-  /// Network image renderer with ValueKey UI cache lock, persistent headers, and error retry
+  /// Network image renderer with ValueKey UI cache lock and persistent headers
   Widget _buildNetworkImage(String url) {
     return Image.network(
       url,
-      key: ValueKey(url), // UI Cache Lock: forces clean widget rebuild whenever URL changes
+      key: ValueKey(url), // UI Cache Lock: forces widget rebuild whenever URL changes
       fit: BoxFit.cover,
       headers: const {
         'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
@@ -411,7 +430,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: _fetchPhotosFromSupabase,
+                  onPressed: _loadPhotosFromSupabase,
                   icon: const Icon(Icons.refresh, size: 16),
                   label: const Text('Reload Photo', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
