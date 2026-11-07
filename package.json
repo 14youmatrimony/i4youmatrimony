@@ -29,7 +29,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.2",
-    "oxlint": "^1.81.0"
+    "oxlint": "^1.81.0",
+    "pg": "^8.23.1"
   },
   "engines": {
     "node": ">=20.0.0"
