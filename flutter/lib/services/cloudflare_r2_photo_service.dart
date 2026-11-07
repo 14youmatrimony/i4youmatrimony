@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,7 +15,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// - Uploads bytes directly to Cloudflare R2 via HTTP PUT with unique timestamped filenames:
 ///     - profile/${userId}_$timestamp.jpg
 ///     - family/${userId}_$timestamp.jpg
-/// - Immediately upserts or updates Supabase profiles table (`profile_photo_url` & `family_photo_url`).
+/// - Immediately updates/upserts exact columns in the Supabase `profiles` table:
+///     - Profile Photo: `profile_photo_url`, `photo_url`, `photo`, `avatar_url`
+///     - Family Photo: `family_photo_url`, `family_photos`
 class CloudflareR2PhotoService {
   static const String defaultEndpoint =
       'https://60ba75772b194956aea9a7080138d7e0.r2.cloudflarestorage.com';
@@ -80,100 +83,169 @@ class CloudflareR2PhotoService {
     );
   }
 
-  /// Uploads Uint8List bytes directly to Cloudflare R2 and persists permanent public URL
-  /// into the Supabase `profiles` table (`profile_photo_url` or `family_photo_url`).
-  ///
-  /// Unique Filename Format:
-  /// - Profile Photo: profile/${userId}_$timestamp.jpg
-  /// - Family Photo: family/${userId}_$timestamp.jpg
-  Future<String> uploadBytesAndPersist({
+  /// Uploads Uint8List bytes directly to Cloudflare R2 using AWS SigV4 PUT.
+  /// Includes smart fallback to Supabase Storage if browser CORS blocks direct R2 PUT.
+  Future<String> uploadBytesToR2({
     required Uint8List bytes,
-    required bool isProfilePhoto,
-    String? customUserId,
+    required String filePath,
+    String contentType = 'image/jpeg',
   }) async {
-    // 1. Validate image bytes
     if (bytes.isEmpty) {
-      throw Exception('Selected image is empty.');
+      throw Exception('Image bytes cannot be empty.');
     }
 
-    // 2. Resolve Authenticated User ID
-    final supabase = Supabase.instance.client;
-    final currentUserId = customUserId ?? supabase.auth.currentUser?.id;
-    if (currentUserId == null || currentUserId.isEmpty) {
-      throw Exception('User is not authenticated. Please log in before uploading.');
-    }
-
-    // 3. Construct unique timestamped filename
-    // Exactly: profile/${userId}_$timestamp.jpg or family/${userId}_$timestamp.jpg
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final folder = isProfilePhoto ? 'profile' : 'family';
-    final filePath = '$folder/${currentUserId}_$timestamp.jpg';
-    const contentType = 'image/jpeg';
 
-    // 4. Upload Uint8List bytes directly to Cloudflare R2 via AWS Signature V4 PUT
-    await _uploadBytesToR2(
-      bytes: bytes,
-      filePath: filePath,
-      contentType: contentType,
-    );
+    try {
+      await _putBytesToR2(
+        bytes: bytes,
+        filePath: filePath,
+        contentType: contentType,
+      );
 
-    // 5. Construct Permanent R2 Public URL with Cache Busting (?v=$timestamp)
-    final base = publicUrlBase.isNotEmpty ? publicUrlBase : '$endpoint/$bucketName';
-    final permanentUrlWithCacheBust = '$base/$filePath?v=$timestamp';
+      final base = publicUrlBase.isNotEmpty ? publicUrlBase : '$endpoint/$bucketName';
+      return '$base/$filePath?v=$timestamp';
+    } catch (r2Error) {
+      debugPrint('[CloudflareR2PhotoService] Direct R2 PUT noticed issue: $r2Error. Attempting Supabase Storage fallback...');
 
-    // 6. Immediately upsert or update Supabase profiles table for currentUser.id
+      // Smart fallback: If R2 fails (e.g. CORS preflight block on Web), upload to Supabase avatars bucket
+      try {
+        final supabase = Supabase.instance.client;
+        await supabase.storage.from('avatars').uploadBinary(
+          filePath,
+          bytes,
+          fileOptions: FileOptions(
+            contentType: contentType,
+            upsert: true,
+          ),
+        );
+
+        final publicUrl = supabase.storage.from('avatars').getPublicUrl(filePath);
+        if (publicUrl.isNotEmpty) {
+          debugPrint('[CloudflareR2PhotoService] Supabase Storage fallback succeeded: $publicUrl');
+          return '$publicUrl?v=$timestamp';
+        }
+      } catch (fallbackError) {
+        debugPrint('[CloudflareR2PhotoService] Supabase Storage fallback failed as well: $fallbackError');
+      }
+
+      // If both fail, rethrow original R2 error so caller receives actionable feedback
+      rethrow;
+    }
+  }
+
+  /// Persists the returned photo URL into Supabase `profiles` table.
+  /// Updates all matching photo columns to guarantee universal display across screens:
+  /// - Profile: `profile_photo_url`, `photo_url`, `photo`, `avatar_url`
+  /// - Family: `family_photo_url`, `family_photos`
+  Future<void> persistPhotoUrlToSupabase({
+    required String url,
+    required bool isProfilePhoto,
+    required String userId,
+  }) async {
+    final supabase = Supabase.instance.client;
+
     final targetColumn = isProfilePhoto ? 'profile_photo_url' : 'family_photo_url';
     final Map<String, dynamic> updatePayload = {
-      targetColumn: permanentUrlWithCacheBust,
+      targetColumn: url,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
 
-    // Keep standard and avatar columns synchronized for backwards compatibility
+    // Mirror to standard photo columns across all screens
     if (isProfilePhoto) {
-      updatePayload['photo'] = permanentUrlWithCacheBust;
-      updatePayload['photo_url'] = permanentUrlWithCacheBust;
-      updatePayload['avatar_url'] = permanentUrlWithCacheBust;
+      updatePayload['photo'] = url;
+      updatePayload['photo_url'] = url;
+      updatePayload['avatar_url'] = url;
     } else {
-      updatePayload['family_photos'] = jsonEncode([permanentUrlWithCacheBust]);
+      updatePayload['family_photos'] = jsonEncode([url]);
     }
 
     try {
       final List<dynamic> updatedRows = await supabase
           .from('profiles')
           .update(updatePayload)
-          .eq('id', currentUserId)
+          .eq('id', userId)
           .select();
 
       if (updatedRows.isEmpty) {
-        // Upsert if profile row with id does not exist yet
-        await supabase.from('profiles').upsert({
-          'id': currentUserId,
-          ...updatePayload,
-        }).select();
+        // Fallback: match by register_id or phone if id didn't match primary key
+        final List<dynamic> altRows = await supabase
+            .from('profiles')
+            .update(updatePayload)
+            .or('register_id.eq.$userId,phone.eq.$userId')
+            .select();
+
+        if (altRows.isEmpty) {
+          // Upsert if no existing profile row exists yet
+          await supabase.from('profiles').upsert({
+            'id': userId,
+            ...updatePayload,
+          }).select();
+        }
       }
     } catch (e) {
-      // Fallback: if custom column is missing in older database migrations, retry with standard photo columns
+      // If error indicates column does not exist (PostgreSQL code 42703), retry with standard columns
       if (e.toString().contains('column') || e.toString().contains('42703')) {
         final safePayload = Map<String, dynamic>.from(updatePayload);
         safePayload.remove(targetColumn);
+
         final List<dynamic> safeRows = await supabase
             .from('profiles')
             .update(safePayload)
-            .eq('id', currentUserId)
+            .eq('id', userId)
             .select();
 
         if (safeRows.isEmpty) {
-          await supabase.from('profiles').upsert({
-            'id': currentUserId,
-            ...safePayload,
-          }).select();
+          final List<dynamic> altSafeRows = await supabase
+              .from('profiles')
+              .update(safePayload)
+              .or('register_id.eq.$userId,phone.eq.$userId')
+              .select();
+
+          if (altSafeRows.isEmpty) {
+            await supabase.from('profiles').upsert({
+              'id': userId,
+              ...safePayload,
+            }).select();
+          }
         }
       } else {
         rethrow;
       }
     }
+  }
 
-    return permanentUrlWithCacheBust;
+  /// Combined upload and persistence method
+  Future<String> uploadBytesAndPersist({
+    required Uint8List bytes,
+    required bool isProfilePhoto,
+    String? customUserId,
+  }) async {
+    final supabase = Supabase.instance.client;
+    final currentUserId = customUserId ?? supabase.auth.currentUser?.id;
+    if (currentUserId == null || currentUserId.isEmpty) {
+      throw Exception('User is not authenticated. Please log in before uploading.');
+    }
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final folder = isProfilePhoto ? 'profile' : 'family';
+    final filePath = '$folder/${currentUserId}_$timestamp.jpg';
+
+    // 1. Upload to Cloudflare R2
+    final permanentUrl = await uploadBytesToR2(
+      bytes: bytes,
+      filePath: filePath,
+      contentType: 'image/jpeg',
+    );
+
+    // 2. Persist in Supabase profiles table
+    await persistPhotoUrlToSupabase(
+      url: permanentUrl,
+      isProfilePhoto: isProfilePhoto,
+      userId: currentUserId,
+    );
+
+    return permanentUrl;
   }
 
   /// Convenience wrapper accepting [XFile] picked via ImagePicker
@@ -191,7 +263,7 @@ class CloudflareR2PhotoService {
   }
 
   /// AWS Signature Version 4 PUT Upload (Pure Dart, Zero dart:io)
-  Future<void> _uploadBytesToR2({
+  Future<void> _putBytesToR2({
     required Uint8List bytes,
     required String filePath,
     required String contentType,
@@ -204,7 +276,7 @@ class CloudflareR2PhotoService {
     final host = uri.host;
     final payloadHash = sha256.convert(bytes).toString();
 
-    final canonicalUri = '/$bucketName/${filePath.split('/').map(Uri.encodeComponent).join('/')}';
+    final canonicalUri = '/${Uri.encodeComponent(bucketName)}/${filePath.split('/').map(Uri.encodeComponent).join('/')}';
     const canonicalQuery = '';
 
     final canonicalHeaders = 'content-type:$contentType\n'

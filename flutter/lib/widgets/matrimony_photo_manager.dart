@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,9 +15,12 @@ import '../services/cloudflare_r2_photo_service.dart';
 /// 4. Direct upload of Uint8List bytes to Cloudflare R2:
 ///     - profile/${userId}_$timestamp.jpg
 ///     - family/${userId}_$timestamp.jpg
-/// 5. Immediately upserts/updates `profile_photo_url` and `family_photo_url` in Supabase profiles table for currentUser.id.
-/// 6. Only after Supabase database update succeeds, updates UI state with the permanent R2 public URL.
-/// 7. Always loads `profile_photo_url` and `family_photo_url` from Supabase on [initState] to ensure persistence across page refreshes.
+/// 5. Immediate update/upsert of exact columns in the Supabase `profiles` table:
+///     - Profile: `profile_photo_url`, `photo_url`, `photo`, `avatar_url`
+///     - Family: `family_photo_url`, `family_photos`
+/// 6. Visible error logging: Displays red SnackBar if R2 upload or Supabase update fails.
+/// 7. Only after Supabase database update succeeds, updates UI state with the permanent R2 public URL.
+/// 8. State Persistence: Waits for `supabase.auth.currentUser` to initialize on page refresh before querying `profiles`.
 class MatrimonyPhotoManager extends StatefulWidget {
   final CloudflareR2PhotoService? r2Service;
   final String? customUserId;
@@ -35,6 +40,7 @@ class MatrimonyPhotoManager extends StatefulWidget {
 class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
   final ImagePicker _picker = ImagePicker();
   late final CloudflareR2PhotoService _r2Service;
+  StreamSubscription<AuthState>? _authSubscription;
 
   String? _profilePhotoUrl;
   String? _familyPhotoUrl;
@@ -48,8 +54,64 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
   void initState() {
     super.initState();
     _r2Service = widget.r2Service ?? CloudflareR2PhotoService();
+
+    // Listen for auth state changes (session restoration on refresh or user login)
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.session?.user != null && (_profilePhotoUrl == null && _familyPhotoUrl == null)) {
+        _loadPhotosFromSupabase();
+      }
+    });
+
     // Hydrate photo URLs directly from Supabase profiles table on initState
     _loadPhotosFromSupabase();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Resolves the authenticated user ID, waiting for session initialization on page refresh
+  Future<String?> _resolveUserId() async {
+    // 1. Explicit user ID passed via widget
+    if (widget.customUserId != null && widget.customUserId!.trim().isNotEmpty) {
+      return widget.customUserId!.trim();
+    }
+
+    final supabase = Supabase.instance.client;
+
+    // 2. Check if currentUser or currentSession is already available
+    if (supabase.auth.currentUser?.id != null && supabase.auth.currentUser!.id.isNotEmpty) {
+      return supabase.auth.currentUser!.id;
+    }
+    if (supabase.auth.currentSession?.user.id != null && supabase.auth.currentSession!.user.id.isNotEmpty) {
+      return supabase.auth.currentSession!.user.id;
+    }
+
+    // 3. On page refresh, session restoration is asynchronous. Wait up to 3 seconds for currentUser to be restored
+    for (int i = 0; i < 30; i++) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (supabase.auth.currentUser?.id != null && supabase.auth.currentUser!.id.isNotEmpty) {
+        return supabase.auth.currentUser!.id;
+      }
+      if (supabase.auth.currentSession?.user.id != null && supabase.auth.currentSession!.user.id.isNotEmpty) {
+        return supabase.auth.currentSession!.user.id;
+      }
+    }
+
+    // 4. Fallback: check onAuthStateChange stream for initialSession or signedIn
+    try {
+      final authState = await supabase.auth.onAuthStateChange
+          .firstWhere((data) =>
+              data.session?.user != null ||
+              data.event == AuthChangeEvent.signedIn ||
+              data.event == AuthChangeEvent.initialSession)
+          .timeout(const Duration(milliseconds: 1500));
+      return authState.session?.user.id ?? supabase.auth.currentUser?.id;
+    } catch (_) {
+      return supabase.auth.currentUser?.id ?? supabase.auth.currentSession?.user.id;
+    }
   }
 
   /// Always loads `profile_photo_url` and `family_photo_url` from Supabase on initState
@@ -62,39 +124,74 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     });
 
     try {
-      final supabase = Supabase.instance.client;
-      final userId = widget.customUserId ?? supabase.auth.currentUser?.id;
+      final userId = await _resolveUserId();
 
       if (userId == null || userId.isEmpty) {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'No authenticated user session found.';
+            _errorMessage = 'No authenticated user session found. Please log in.';
           });
         }
         return;
       }
 
-      // Query profiles table directly for live photo URLs
-      final response = await supabase
+      // Query profiles table for all recognized photo columns to guarantee display
+      final supabase = Supabase.instance.client;
+      var response = await supabase
           .from('profiles')
-          .select('profile_photo_url, family_photo_url, photo_url, photo')
+          .select('profile_photo_url, photo_url, photo, avatar_url, family_photo_url, family_photos')
           .eq('id', userId)
           .maybeSingle();
 
+      if (response == null) {
+        // Fallback by register_id or phone if id didn't match primary key
+        response = await supabase
+            .from('profiles')
+            .select('profile_photo_url, photo_url, photo, avatar_url, family_photo_url, family_photos')
+            .or('register_id.eq.$userId,phone.eq.$userId')
+            .maybeSingle();
+      }
+
       if (response != null && mounted) {
+        // 1. Resolve Profile Photo (prioritizes profile_photo_url, then photo_url, photo, avatar_url)
+        final profilePhoto = response['profile_photo_url'] ??
+            response['photo_url'] ??
+            response['photo'] ??
+            response['avatar_url'];
+
+        // 2. Resolve Family Photo (prioritizes family_photo_url, then family_photos array or string)
+        String? familyPhoto = response['family_photo_url']?.toString();
+        if (familyPhoto == null || familyPhoto.trim().isEmpty) {
+          final rawFamily = response['family_photos'];
+          if (rawFamily != null) {
+            if (rawFamily is List && rawFamily.isNotEmpty) {
+              familyPhoto = rawFamily[0]?.toString();
+            } else if (rawFamily is String && rawFamily.trim().isNotEmpty) {
+              try {
+                final decoded = jsonDecode(rawFamily);
+                if (decoded is List && decoded.isNotEmpty) {
+                  familyPhoto = decoded[0]?.toString();
+                } else {
+                  familyPhoto = rawFamily;
+                }
+              } catch (_) {
+                familyPhoto = rawFamily;
+              }
+            }
+          }
+        }
+
         setState(() {
-          _profilePhotoUrl = response['profile_photo_url'] ??
-              response['photo_url'] ??
-              response['photo'];
-          _familyPhotoUrl = response['family_photo_url'];
+          _profilePhotoUrl = profilePhoto?.toString();
+          _familyPhotoUrl = familyPhoto?.toString();
         });
       }
     } catch (e) {
       debugPrint('[MatrimonyPhotoManager] Error loading photos from Supabase: $e');
       if (mounted) {
         setState(() {
-          _errorMessage = 'Failed to load photos. Pull down or tap reload to retry.';
+          _errorMessage = 'Failed to load photos: ${e.toString()}';
         });
       }
     } finally {
@@ -104,12 +201,13 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     }
   }
 
-  /// Cross-platform photo picker and uploader:
+  /// Cross-platform photo picker and uploader with visible error logging:
   /// - Uses ImagePicker(maxWidth: 1000, maxHeight: 1000, imageQuality: 75)
   /// - Extracts Uint8List bytes without dart:io File
   /// - Does NOT update UI with local temporary file paths
-  /// - Uploads directly to Cloudflare R2 and persists into Supabase
-  /// - Only updates UI state with permanent URL after database update succeeds
+  /// - Displays red SnackBar on R2 upload failure
+  /// - Displays red SnackBar on Supabase update failure
+  /// - Updates UI state only after database update succeeds
   Future<void> _pickAndUploadPhoto({required bool isProfilePhoto}) async {
     try {
       // 1. Image selection with built-in compression across Web, Android, and iOS
@@ -128,7 +226,22 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         throw Exception('Selected image file is empty.');
       }
 
-      // 3. Do NOT update UI state with local temporary path before upload completes.
+      // 3. Resolve user ID before upload
+      final userId = await _resolveUserId();
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('[Authentication Error]: No logged-in user detected. Please log in first.'),
+              backgroundColor: Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      // 4. Do NOT update UI state with local temporary path before upload completes.
       // Activate loading indicator only.
       if (mounted) {
         setState(() {
@@ -141,18 +254,59 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         });
       }
 
-      // 4. Upload Uint8List bytes directly to Cloudflare R2 and update Supabase profiles table
-      final String permanentR2Url = await _r2Service.uploadBytesAndPersist(
-        bytes: bytes,
-        isProfilePhoto: isProfilePhoto,
-        customUserId: widget.customUserId,
-      );
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final folder = isProfilePhoto ? 'profile' : 'family';
+      final filePath = '$folder/${userId}_$timestamp.jpg';
 
-      // Invalidate image cache so refreshed image displays immediately
+      // 5. Step 1: Upload Uint8List bytes to Cloudflare R2
+      String permanentR2Url;
+      try {
+        permanentR2Url = await _r2Service.uploadBytesToR2(
+          bytes: bytes,
+          filePath: filePath,
+          contentType: 'image/jpeg',
+        );
+      } catch (r2Error) {
+        debugPrint('[MatrimonyPhotoManager] R2 Upload failed: $r2Error');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('[R2 Upload Failed]: ${r2Error.toString()}'),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 8),
+            ),
+          );
+        }
+        return; // Abort: do not update UI or database
+      }
+
+      // 6. Step 2: Immediately update/upsert Supabase profiles table
+      try {
+        await _r2Service.persistPhotoUrlToSupabase(
+          url: permanentR2Url,
+          isProfilePhoto: isProfilePhoto,
+          userId: userId,
+        );
+      } catch (dbError) {
+        debugPrint('[MatrimonyPhotoManager] Supabase update failed: $dbError');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('[Supabase Database Failed]: ${dbError.toString()}'),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 8),
+            ),
+          );
+        }
+        return; // Abort: do not update UI state
+      }
+
+      // 7. Step 3: Only after Supabase database update succeeds, update UI state with permanent URL
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
 
-      // 5. Only after Supabase database update succeeds, update UI state with permanent R2 public URL
       if (mounted) {
         setState(() {
           if (isProfilePhoto) {
@@ -171,17 +325,18 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
             ),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
           ),
         );
 
         widget.onPhotosUpdated?.call();
       }
     } catch (e) {
-      debugPrint('[MatrimonyPhotoManager] Photo upload failed: $e');
+      debugPrint('[MatrimonyPhotoManager] Photo operation failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Upload failed: ${e.toString()}'),
+            content: Text('Operation failed: ${e.toString()}'),
             backgroundColor: const Color(0xFFEF4444),
             behavior: SnackBarBehavior.floating,
           ),
