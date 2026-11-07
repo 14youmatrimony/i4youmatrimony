@@ -137,6 +137,7 @@ export async function syncProfileToSupabase(userData) {
       skin_colour: userData.skinColour || userData.skin_colour || null,
       photo: photo || null,
       photo_url: photo || null,
+      profile_photo_url: photo || null,
       religion: userData.religion || 'Hindu',
       caste: userData.caste || null,
       mother_tongue: userData.motherTongue || userData.mother_tongue || null,
@@ -163,6 +164,7 @@ export async function syncProfileToSupabase(userData) {
       aadhaar_back_image: aadhaarBack || null,
       single_photos: singlePhotos || null,
       family_photos: familyPhotos || null,
+      family_photo_url: (finalFamilyPhotos && finalFamilyPhotos.length > 0) ? finalFamilyPhotos[0] : (userData.family_photo_url || userData.familyPhotoUrl || null),
       match_score: userData.matchScore || 85,
       status: userData.status || 'active',
       about: userData.about || userData.aboutBio || null,
@@ -179,7 +181,7 @@ export async function syncProfileToSupabase(userData) {
     };
 
     let { data, error } = await supabase.from('profiles').upsert([payload]);
-    if (error && (error.code === '42703' || error.message?.includes('register_id') || error.message?.includes('password') || error.message?.includes('selfie'))) {
+    if (error && (error.code === '42703' || error.message?.includes('register_id') || error.message?.includes('password') || error.message?.includes('selfie') || error.message?.includes('profile_photo_url') || error.message?.includes('family_photo_url'))) {
       console.warn('[Supabase Upsert] Custom column not yet in schema, retrying with standard columns:', error.message);
       delete payload.register_id;
       delete payload.password;
@@ -192,6 +194,8 @@ export async function syncProfileToSupabase(userData) {
       delete payload.is_nri;
       delete payload.residency_status;
       delete payload.preferred_countries;
+      delete payload.profile_photo_url;
+      delete payload.family_photo_url;
       const retryResult = await supabase.from('profiles').upsert([payload]);
       data = retryResult.data;
       error = retryResult.error;
@@ -664,7 +668,7 @@ export function mapSupabaseRowToProfile(r) {
   const isSentBack = r.aadhaar_status === 'sent_back';
   const isApproved = r.aadhaar_status === 'approved' || (Boolean(r.aadhaar_verified) && !isSentBack);
 
-  const cleanPhoto = sanitizeUrl(r.photo);
+  const cleanPhoto = sanitizeUrl(r.profile_photo_url || r.photo);
   const cleanPhotoUrl = sanitizeUrl(r.photo_url || r.avatar_url || r.profile_photo || r.profilePic);
 
   // Strictly resolve genuine uploaded photo; NEVER assign fake AI face fallback
@@ -680,6 +684,14 @@ export function mapSupabaseRowToProfile(r) {
       singlePhotos = [resolvedPhoto, ...singlePhotos.filter(p => p !== resolvedPhoto)].slice(0, 5);
     }
   }
+
+  if (r.family_photo_url) {
+    const cleanFam = sanitizeUrl(r.family_photo_url);
+    if (cleanFam && !familyPhotos.includes(cleanFam)) {
+      familyPhotos.push(cleanFam);
+    }
+  }
+  const resolvedFamilyPhotoUrl = familyPhotos[0] || sanitizeUrl(r.family_photo_url) || null;
 
   const rawName = r.name || r.full_name || r.fullName || r.displayName || r.userName || '';
   const fallbackMemberName = r.register_id ? `Member ${r.register_id}` : 'Candidate';
@@ -698,11 +710,15 @@ export function mapSupabaseRowToProfile(r) {
     skinColour: r.skin_colour || 'Fair',
     photo: resolvedPhoto,
     photo_url: resolvedPhoto,
+    profile_photo_url: resolvedPhoto,
     avatar_url: resolvedPhoto,
     coverPhoto: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200',
     singlePhotos,
     photos: singlePhotos,
     familyPhotos,
+    family_photos: familyPhotos,
+    family_photo_url: resolvedFamilyPhotoUrl,
+    familyPhotoUrl: resolvedFamilyPhotoUrl,
     verified: isSentBack ? false : Boolean(r.verified || r.aadhaar_verified || r.govt_id_verified),
     governmentIdVerified: isSentBack ? false : Boolean(r.govt_id_verified),
     aadhaarVerified: isApproved,
@@ -923,7 +939,10 @@ export const CANDIDATE_FEED_COLUMNS = [
   'skin_colour',
   'photo',
   'photo_url',
+  'profile_photo_url',
   'single_photos',
+  'family_photo_url',
+  'family_photos',
   'religion',
   'caste',
   'mother_tongue',
@@ -953,7 +972,7 @@ export const CANDIDATE_FEED_COLUMNS = [
 
 export const PROFILE_DETAIL_COLUMNS = [
   'id', 'register_id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'skin_colour',
-  'photo', 'photo_url', 'single_photos', 'family_photos', 'religion', 'caste', 'mother_tongue',
+  'photo', 'photo_url', 'profile_photo_url', 'single_photos', 'family_photo_url', 'family_photos', 'religion', 'caste', 'mother_tongue',
   'state', 'city', 'district', 'native_address', 'education', 'education_category', 'profession',
   'company', 'annual_income', 'diet', 'marital_status', 'body_type', 'smoking', 'drinking',
   'hobbies', 'about', 'partner_expectations', 'family_details', 'verified', 'govt_id_verified',
@@ -1427,9 +1446,21 @@ export async function updateLivePhotos(photoData) {
   if (photo) {
     payload.photo = photo;
     payload.photo_url = photo; // CRITICAL: BOTH photo AND photo_url MUST BE UPDATED
+    payload.profile_photo_url = photo;
   }
   if (singlePhotos) payload.single_photos = singlePhotos;
-  if (familyPhotos) payload.family_photos = familyPhotos;
+  if (familyPhotos) {
+    payload.family_photos = familyPhotos;
+    if (finalFamilyPhotos && finalFamilyPhotos.length > 0) {
+      payload.family_photo_url = finalFamilyPhotos[0];
+    }
+  }
+  if (photoData.profile_photo_url) {
+    payload.profile_photo_url = photoData.profile_photo_url;
+  }
+  if (photoData.family_photo_url) {
+    payload.family_photo_url = photoData.family_photo_url;
+  }
   if (photoData.hidePhotos !== undefined) {
     payload.hide_photos = photoData.hidePhotos ? 1 : 0;
   }
@@ -1443,8 +1474,9 @@ export async function updateLivePhotos(photoData) {
       const isRegId = cleanId.toUpperCase().startsWith('I4Y');
       const enhancedPayload = {
         ...payload,
-        ...(photo ? { avatar_url: photo } : {}),
-        ...(singlePhotos ? { photos: singlePhotos } : {})
+        ...(photo ? { avatar_url: photo, profile_photo_url: photo } : {}),
+        ...(singlePhotos ? { photos: singlePhotos } : {}),
+        ...(finalFamilyPhotos && finalFamilyPhotos.length > 0 ? { family_photo_url: finalFamilyPhotos[0] } : {})
       };
       let query = supabase.from('profiles').update(enhancedPayload);
       if (isRegId) {
@@ -1454,9 +1486,12 @@ export async function updateLivePhotos(photoData) {
       }
       let { error } = await query.select();
 
-      // If error indicates avatar_url or photos column does not exist, retry with standard payload
-      if (error && (error.message?.includes('avatar_url') || error.message?.includes('photos'))) {
-        let retryQuery = supabase.from('profiles').update(payload);
+      // If error indicates avatar_url, photos, profile_photo_url, or family_photo_url column does not exist, retry with standard payload
+      if (error && (error.message?.includes('avatar_url') || error.message?.includes('photos') || error.message?.includes('profile_photo_url') || error.message?.includes('family_photo_url'))) {
+        const safePayload = { ...payload };
+        delete safePayload.profile_photo_url;
+        delete safePayload.family_photo_url;
+        let retryQuery = supabase.from('profiles').update(safePayload);
         if (isRegId) {
           retryQuery = retryQuery.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
         } else {
@@ -1660,6 +1695,15 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
   if (photoUrl) {
     payload.photo = photoUrl;
     payload.photo_url = photoUrl;
+    payload.profile_photo_url = photoUrl;
+  }
+  if (updateData.profile_photo_url) {
+    payload.profile_photo_url = updateData.profile_photo_url;
+    payload.photo = updateData.profile_photo_url;
+    payload.photo_url = updateData.profile_photo_url;
+  }
+  if (updateData.family_photo_url) {
+    payload.family_photo_url = updateData.family_photo_url;
   }
 
   if (updateData.singlePhotos !== undefined) {
@@ -1682,6 +1726,11 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
     payload.single_photos = Array.isArray(singles) 
       ? JSON.stringify(singles) 
       : updateData.singlePhotos;
+    if (Array.isArray(singles) && singles.length > 0 && !payload.profile_photo_url) {
+      payload.profile_photo_url = singles[0];
+      payload.photo = singles[0];
+      payload.photo_url = singles[0];
+    }
   }
   if (updateData.familyPhotos !== undefined) {
     let families = updateData.familyPhotos;
@@ -1703,6 +1752,9 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
     payload.family_photos = Array.isArray(families) 
       ? JSON.stringify(families) 
       : updateData.familyPhotos;
+    if (Array.isArray(families) && families.length > 0) {
+      payload.family_photo_url = families[0];
+    }
   }
 
   // 2.5. Permanent Core Identity Fields Lock Protection:
@@ -1811,6 +1863,8 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
         delete fallbackPayload.is_nri;
         delete fallbackPayload.residency_status;
         delete fallbackPayload.preferred_countries;
+        delete fallbackPayload.profile_photo_url;
+        delete fallbackPayload.family_photo_url;
 
         let retryQuery = supabase.from('profiles').update(fallbackPayload);
         if (isRegId) {

@@ -3811,7 +3811,9 @@ export default function App() {
         ...prev,
         ...photosData,
         photo: primaryPhoto,
-        photo_url: primaryPhoto
+        photo_url: primaryPhoto,
+        profile_photo_url: primaryPhoto,
+        family_photo_url: photosData.family_photo_url || photosData.familyPhotos?.[0] || prev?.family_photo_url || null
       };
 
       try {
@@ -3841,8 +3843,10 @@ export default function App() {
             ...p,
             photo: primaryPhoto,
             photo_url: primaryPhoto,
+            profile_photo_url: primaryPhoto,
             singlePhotos: photosData.singlePhotos || p.singlePhotos,
             familyPhotos: photosData.familyPhotos || p.familyPhotos,
+            family_photo_url: photosData.family_photo_url || photosData.familyPhotos?.[0] || p.family_photo_url || null,
             hidePhotos: photosData.hidePhotos !== undefined ? photosData.hidePhotos : p.hidePhotos,
             photoVisibility: photosData.photoVisibility || p.photoVisibility,
             blurPhotosForUnconnected: photosData.blurPhotosForUnconnected !== undefined ? photosData.blurPhotosForUnconnected : p.blurPhotosForUnconnected
@@ -3870,8 +3874,11 @@ export default function App() {
         phone: currentUser?.mobile || currentUser?.phone,
         name: currentUser?.name || currentUser?.fullName,
         photo: primaryPhoto,
+        photo_url: primaryPhoto,
+        profile_photo_url: primaryPhoto,
         singlePhotos: photosData.singlePhotos,
         familyPhotos: photosData.familyPhotos,
+        family_photo_url: photosData.family_photo_url || photosData.familyPhotos?.[0],
         hidePhotos: photosData.hidePhotos,
         photoVisibility: photosData.photoVisibility,
         blurPhotosForUnconnected: photosData.blurPhotosForUnconnected
@@ -3892,7 +3899,9 @@ export default function App() {
             ...prev,
             photo: finalPhotoUrl,
             photo_url: finalPhotoUrl,
-            singlePhotos: finalSingles
+            profile_photo_url: finalPhotoUrl,
+            singlePhotos: finalSingles,
+            family_photo_url: syncResult.family_photo_url || prev.family_photo_url || null
           };
           try {
             localStorage.setItem('i4u_auth_user', JSON.stringify(refined));
@@ -3912,7 +3921,9 @@ export default function App() {
                 ...p,
                 photo: finalPhotoUrl,
                 photo_url: finalPhotoUrl,
-                singlePhotos: finalSingles
+                profile_photo_url: finalPhotoUrl,
+                singlePhotos: finalSingles,
+                family_photo_url: syncResult.family_photo_url || p.family_photo_url || null
               };
             }
             return p;

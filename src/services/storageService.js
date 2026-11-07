@@ -70,6 +70,7 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
               .update({
                 photo: publicUrl,
                 photo_url: publicUrl,
+                profile_photo_url: publicUrl,
                 updated_at: new Date().toISOString()
               });
 
@@ -83,7 +84,7 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
             profileSyncService.broadcastProfileUpdate({
               userId: uid,
               newProfilePicUrl: publicUrl,
-              updatedData: { photo: publicUrl, photo_url: publicUrl },
+              updatedData: { photo: publicUrl, photo_url: publicUrl, profile_photo_url: publicUrl },
               lastUpdated: Date.now()
             }).catch(syncErr => {
               console.warn('[storageService] Failed to broadcast R2 profile photo update:', syncErr);
@@ -181,6 +182,7 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
           .update({
             photo: publicUrl,
             photo_url: publicUrl,
+            profile_photo_url: publicUrl,
             updated_at: new Date().toISOString()
           });
 
@@ -195,7 +197,7 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
         profileSyncService.broadcastProfileUpdate({
           userId: uid,
           newProfilePicUrl: publicUrl,
-          updatedData: { photo: publicUrl, photo_url: publicUrl },
+          updatedData: { photo: publicUrl, photo_url: publicUrl, profile_photo_url: publicUrl },
           lastUpdated: Date.now()
         }).catch(syncErr => {
           console.warn('[storageService] Failed to broadcast profile photo update:', syncErr);
@@ -210,4 +212,74 @@ export async function uploadProfilePhoto(fileOrDataUrl, userId, bucketName = 'av
     console.error('[storageService] Unexpected exception during upload:', err);
     return { success: false, error: err.message };
   }
+}
+
+/**
+ * Uploads a family photo (File, Blob, or Data URL) to Cloudflare R2 / Supabase Storage
+ * and updates family_photo_url and family_photos in the Supabase profiles table.
+ *
+ * @param {File|Blob|string} fileOrDataUrl - The family photo image
+ * @param {string} userId - Unique user or profile ID
+ * @returns {Promise<{success: boolean, publicUrl?: string, error?: string}>}
+ */
+export async function uploadFamilyPhoto(fileOrDataUrl, userId) {
+  if (!fileOrDataUrl) {
+    return { success: false, error: 'No image provided for family photo' };
+  }
+
+  if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('http')) {
+    return { success: true, publicUrl: fileOrDataUrl };
+  }
+
+  // 1. Primary Cloud Storage: Cloudflare R2 with WebP Compression
+  if (isR2Configured()) {
+    try {
+      const r2Res = await uploadPhotoToR2(fileOrDataUrl, userId, 'family');
+      if (r2Res && r2Res.success && r2Res.publicUrl && !r2Res.isFallback) {
+        const publicUrl = r2Res.publicUrl;
+
+        if (userId && isSupabaseConfigured()) {
+          try {
+            const uid = String(userId).trim();
+            const isRegId = uid.toUpperCase().startsWith('I4Y');
+            let query = supabase
+              .from('profiles')
+              .update({
+                family_photo_url: publicUrl,
+                family_photos: JSON.stringify([publicUrl]),
+                updated_at: new Date().toISOString()
+              });
+
+            if (isRegId) {
+              query = query.or(`register_id.ilike.${uid},id.eq.${uid}`);
+            } else {
+              query = query.or(`id.eq.${uid},register_id.eq.${uid},phone.eq.${uid}`);
+            }
+            await query;
+
+            profileSyncService.broadcastProfileUpdate({
+              userId: uid,
+              updatedData: { family_photo_url: publicUrl, familyPhotos: [publicUrl] },
+              lastUpdated: Date.now()
+            }).catch(() => {});
+          } catch (dbErr) {
+            console.warn('[storageService] Failed to update profiles table with family_photo_url:', dbErr);
+          }
+        }
+
+        return {
+          success: true,
+          publicUrl,
+          rawPublicUrl: r2Res.rawPublicUrl,
+          filePath: r2Res.objectKey,
+          storage: 'cloudflare_r2'
+        };
+      }
+    } catch (r2Err) {
+      console.warn('[storageService] Cloudflare R2 family photo upload fallback:', r2Err.message);
+    }
+  }
+
+  // Fallback to uploadProfilePhoto avatars bucket
+  return await uploadProfilePhoto(fileOrDataUrl, userId, 'avatars');
 }

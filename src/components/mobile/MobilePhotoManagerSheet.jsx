@@ -94,6 +94,9 @@ export default function MobilePhotoManagerSheet({
       singlePhotos: nextSingle,
       familyPhotos: nextFamily,
       photo: primary,
+      photo_url: primary,
+      profile_photo_url: primary,
+      family_photo_url: nextFamily[0] || null,
       hidePhotos: extraPrivacy.hidePhotos !== undefined ? extraPrivacy.hidePhotos : hidePhotos,
       photoVisibility: extraPrivacy.photoVisibility !== undefined ? extraPrivacy.photoVisibility : photoVisibility,
       blurPhotosForUnconnected: extraPrivacy.blurPhotosForUnconnected !== undefined ? extraPrivacy.blurPhotosForUnconnected : blurPhotosForUnconnected
