@@ -8,10 +8,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Pure Cross-Platform Cloudflare R2 & Supabase Photo Upload Service
 ///
 /// Operates seamlessly across Flutter Web, Android, and iOS:
-/// - Uses [XFile.readAsBytes] ([Uint8List]) instead of dart:io File.
+/// - Uses [XFile.readAsBytes] ([Uint8List]) instead of dart:io File or native compression.
 /// - Signs requests using AWS Signature Version 4 (HMAC-SHA256) in pure Dart.
-/// - Uploads bytes directly to Cloudflare R2 via HTTP PUT.
-/// - Updates `profile_photo_url` and `family_photo_url` in the Supabase `profiles` table.
+/// - Uploads bytes directly to Cloudflare R2 via HTTP PUT with unique timestamped filenames.
+/// - Verifies row persistence via Supabase `.update(...).eq(...).select()`.
 class CloudflareR2PhotoService {
   final String endpoint;
   final String accessKeyId;
@@ -48,7 +48,7 @@ class CloudflareR2PhotoService {
 
   /// Uploads photo from [XFile] to Cloudflare R2 and persists permanent URL to Supabase `profiles`.
   ///
-  /// [xFile]: picked via image_picker
+  /// [xFile]: compressed image picked via ImagePicker (maxWidth: 1080, maxHeight: 1080, imageQuality: 75)
   /// [isProfilePhoto]: true for Profile Photo (updates `profile_photo_url`), false for Family Photo (updates `family_photo_url`)
   /// [customUserId]: optional override; defaults to current Supabase auth user ID
   Future<String> uploadAndPersistPhoto({
@@ -56,7 +56,7 @@ class CloudflareR2PhotoService {
     required bool isProfilePhoto,
     String? customUserId,
   }) async {
-    // 1. Cross-Platform Byte Extraction (Works identically on Web, Android, iOS without dart:io)
+    // 1. Cross-Platform Byte Extraction (Pure Uint8List - Zero dart:io or native compression)
     final Uint8List fileBytes = await xFile.readAsBytes();
     if (fileBytes.isEmpty) {
       throw Exception('Selected image is empty.');
@@ -71,9 +71,13 @@ class CloudflareR2PhotoService {
 
     final cleanUserId = currentUserId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
     final folder = isProfilePhoto ? 'profiles' : 'family';
+    final prefix = isProfilePhoto ? 'profile' : 'family';
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final fileExtension = _resolveExtension(xFile.name, xFile.mimeType);
-    final filePath = '$folder/$cleanUserId/$timestamp.$fileExtension';
+
+    // Unique Filename: e.g., profile_${userId}_$timestamp.jpg or family_${userId}_$timestamp.jpg
+    final fileName = '${prefix}_${cleanUserId}_$timestamp.$fileExtension';
+    final filePath = '$folder/$cleanUserId/$fileName';
     final contentType = _resolveContentType(fileExtension);
 
     // 3. Upload directly to Cloudflare R2 via AWS Signature V4 PUT
@@ -83,12 +87,13 @@ class CloudflareR2PhotoService {
       contentType: contentType,
     );
 
-    // 4. Construct Permanent R2 Public URL with Cache Buster
+    // 4. Construct Permanent R2 Public URL with Cache Busting (?v=$timestamp)
     final base = publicUrlBase.isNotEmpty ? publicUrlBase : '$endpoint/$bucketName';
     final permanentUrl = '$base/$filePath';
-    final permanentUrlWithCacheBust = '$permanentUrl?t=$timestamp';
+    final permanentUrlWithCacheBust = '$permanentUrl?v=$timestamp';
 
-    // 5. Immediately update Supabase `profiles` table for the logged-in user
+    // 5. Verify Supabase Database Persistence:
+    // Update Supabase and verify row was genuinely updated via .select()
     final targetColumn = isProfilePhoto ? 'profile_photo_url' : 'family_photo_url';
     final Map<String, dynamic> updatePayload = {
       targetColumn: permanentUrlWithCacheBust,
@@ -105,19 +110,42 @@ class CloudflareR2PhotoService {
     }
 
     try {
-      await supabase
+      final List<dynamic> updatedRows = await supabase
           .from('profiles')
           .update(updatePayload)
-          .eq('id', currentUserId);
+          .eq('id', currentUserId)
+          .select();
+
+      if (updatedRows.isEmpty) {
+        // Fallback: match by register_id or phone if auth id differs from primary key
+        final List<dynamic> retryRows = await supabase
+            .from('profiles')
+            .update(updatePayload)
+            .or('id.eq.$currentUserId,register_id.eq.$currentUserId,phone.eq.$currentUserId')
+            .select();
+
+        if (retryRows.isEmpty) {
+          throw Exception('Supabase update verification failed: No matching profile record found for user $currentUserId.');
+        }
+      }
     } catch (e) {
-      // Fallback: if custom column has not yet run in migration, retry with base columns
+      // Fallback: if custom column is missing in older database schema, retry with standard photo columns
       if (e.toString().contains('column') || e.toString().contains('42703')) {
         final safePayload = Map<String, dynamic>.from(updatePayload);
         safePayload.remove(targetColumn);
-        await supabase
+        final List<dynamic> safeRows = await supabase
             .from('profiles')
             .update(safePayload)
-            .eq('id', currentUserId);
+            .eq('id', currentUserId)
+            .select();
+
+        if (safeRows.isEmpty) {
+          await supabase
+              .from('profiles')
+              .update(safePayload)
+              .or('id.eq.$currentUserId,register_id.eq.$currentUserId,phone.eq.$currentUserId')
+              .select();
+        }
       } else {
         rethrow;
       }

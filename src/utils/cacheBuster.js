@@ -44,11 +44,12 @@ export function addCacheBuster(url, timestamp = null) {
   try {
     const [base, queryString] = trimmed.split('?');
     const params = new URLSearchParams(queryString || '');
+    params.set('v', String(tsValue));
     params.set('t', String(tsValue));
     return `${base}?${params.toString()}`;
   } catch {
     const sep = trimmed.includes('?') ? '&' : '?';
-    return `${trimmed}${sep}t=${tsValue}`;
+    return `${trimmed}${sep}v=${tsValue}&t=${tsValue}`;
   }
 }
 
@@ -64,6 +65,7 @@ export function removeCacheBuster(url) {
     const [base, queryString] = url.split('?');
     if (!queryString) return base;
     const params = new URLSearchParams(queryString);
+    params.delete('v');
     params.delete('t');
     const rest = params.toString();
     return rest ? `${base}?${rest}` : base;

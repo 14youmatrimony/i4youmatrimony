@@ -208,9 +208,9 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
   // 3. Format path: profiles/${userId || 'user'}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp
   const cleanUserId = String(userId || 'user').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
   const cleanFolder = String(folder || 'profiles').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+  const prefix = cleanFolder === 'family' ? 'family' : 'profile';
   const timestamp = Date.now();
-  const randomSuffix = Math.random().toString(36).slice(2, 7);
-  const fileName = `${timestamp}-${randomSuffix}.webp`;
+  const fileName = `${prefix}_${cleanUserId}_${timestamp}.webp`;
   const filePath = `${cleanFolder}/${cleanUserId}/${fileName}`;
 
   try {
