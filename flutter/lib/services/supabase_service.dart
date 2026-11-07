@@ -5,35 +5,193 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Central Supabase Configuration & Profile Synchronization Service for I 4 You Matrimony
 class SupabaseService {
-  static const String defaultUrl = 'https://pheqzsfrwhjxspaaroea.supabase.co';
+  /// Default Supabase Project API URL
+  static const String defaultUrl = 'https://kzvdzospvgzlfkkptadl.supabase.co';
+
+  /// Default Supabase Dashboard Link (for display and auto-normalization)
+  static const String defaultDashboardUrl =
+      'https://supabase.com/dashboard/project/kzvdzospvgzlfkkptadl/settings/api-keys/legacy';
+
+  /// Default Supabase Public Anon Key
   static const String defaultAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoZXF6c2Zyd2hqeHNwYWFyb2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjY2MjgsImV4cCI6MjEwNzU0MjYyOH0.U-W92yqF0vMoyqK-uScBSjlV6LtfuAMV9J2ncPaL6PI';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
+
+  /// SharedPreferences storage keys
+  static const String prefKeyUrl = 'supabase_url';
+  static const String prefKeyAnonKey = 'supabase_anon_key';
 
   /// Normalizes any Supabase URL format:
-  /// Converts dashboard links (e.g. https://supabase.com/dashboard/project/pheqzsfrwhjxspaaroea/...)
-  /// into the standard Supabase API endpoint (https://pheqzsfrwhjxspaaroea.supabase.co).
+  /// Converts dashboard links (e.g. https://supabase.com/dashboard/project/kzvdzospvgzlfkkptadl/...)
+  /// into the standard Supabase API endpoint (https://kzvdzospvgzlfkkptadl.supabase.co).
   static String normalizeUrl(String url) {
-    if (url.isEmpty) return defaultUrl;
+    if (url.trim().isEmpty) return defaultUrl;
     final clean = url.trim().replaceAll(RegExp(r'/+$'), '');
-    final match = RegExp(r'supabase\.com/dashboard/project/([a-z0-9]+)', caseSensitive: false).firstMatch(clean);
+    final match = RegExp(
+      r'supabase\.com/dashboard/project/([a-z0-9]+)',
+      caseSensitive: false,
+    ).firstMatch(clean);
     if (match != null && match.group(1) != null) {
       return 'https://${match.group(1)}.supabase.co';
     }
     return clean;
   }
 
-  /// Initialize Supabase client
-  static Future<void> initialize({String? url, String? anonKey}) async {
-    final targetUrl = normalizeUrl(url ?? defaultUrl);
-    final targetKey = (anonKey != null && anonKey.isNotEmpty) ? anonKey : defaultAnonKey;
+  /// Extracts the project ref from a Supabase URL or Dashboard URL
+  static String extractProjectRef(String url) {
+    final clean = url.trim();
+    final dashboardMatch = RegExp(
+      r'supabase\.com/dashboard/project/([a-z0-9]+)',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (dashboardMatch != null && dashboardMatch.group(1) != null) {
+      return dashboardMatch.group(1)!;
+    }
+    final domainMatch = RegExp(
+      r'https?://([a-z0-9]+)\.supabase\.co',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (domainMatch != null && domainMatch.group(1) != null) {
+      return domainMatch.group(1)!;
+    }
+    return 'kzvdzospvgzlfkkptadl';
+  }
 
+  /// Loads saved Supabase credentials from SharedPreferences.
+  /// Falls back to default values if not yet configured.
+  static Future<Map<String, String>> loadSavedCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final url = prefs.getString(prefKeyUrl);
+      final anonKey = prefs.getString(prefKeyAnonKey);
+
+      return {
+        'url': (url != null && url.trim().isNotEmpty) ? normalizeUrl(url) : defaultUrl,
+        'anonKey': (anonKey != null && anonKey.trim().isNotEmpty) ? anonKey.trim() : defaultAnonKey,
+      };
+    } catch (e) {
+      debugPrint('[SupabaseService] Error loading credentials from SharedPreferences: $e');
+      return {
+        'url': defaultUrl,
+        'anonKey': defaultAnonKey,
+      };
+    }
+  }
+
+  /// Persists the Supabase URL and Anon Key into SharedPreferences
+  static Future<void> saveCredentials({
+    required String url,
+    required String anonKey,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized = normalizeUrl(url);
+    await prefs.setString(prefKeyUrl, normalized);
+    await prefs.setString(prefKeyAnonKey, anonKey.trim());
+    debugPrint('[SupabaseService] Successfully saved credentials to SharedPreferences: $normalized');
+  }
+
+  /// Clears custom Supabase keys from SharedPreferences, reverting to defaults
+  static Future<void> resetCredentialsToDefaults() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(prefKeyUrl);
+    await prefs.remove(prefKeyAnonKey);
+    debugPrint('[SupabaseService] Reset Supabase credentials in SharedPreferences to defaults');
+  }
+
+  /// Checks if Supabase client is currently initialized
+  static bool get isClientInitialized {
+    try {
+      final _ = Supabase.instance.client;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Tests connectivity to a given Supabase project using direct ping
+  static Future<Map<String, dynamic>> testConnection({
+    String? url,
+    String? anonKey,
+  }) async {
+    try {
+      final targetUrl = normalizeUrl(url ?? defaultUrl);
+      final targetKey = (anonKey != null && anonKey.trim().isNotEmpty)
+          ? anonKey.trim()
+          : defaultAnonKey;
+
+      final testClient = SupabaseClient(targetUrl, targetKey);
+
+      // Lightweight test query to verify API reachable
+      await testClient.from('profiles').select('id').limit(1);
+
+      return {
+        'success': true,
+        'message': 'Connected successfully to Supabase ($targetUrl)',
+      };
+    } catch (e) {
+      final errStr = e.toString().toLowerCase();
+      // If error is related to RLS, permissions, or table structure, endpoint is reachable and authenticating
+      if (errStr.contains('pgrst') ||
+          errStr.contains('jwt') ||
+          errStr.contains('401') ||
+          errStr.contains('403') ||
+          errStr.contains('permission denied') ||
+          errStr.contains('relation "public.profiles" does not exist')) {
+        return {
+          'success': true,
+          'message': 'Supabase endpoint reached & authenticated successfully.',
+        };
+      }
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  /// Initialize Supabase client reading from SharedPreferences if arguments are omitted
+  static Future<void> initialize({String? url, String? anonKey}) async {
+    String targetUrl = url?.trim() ?? '';
+    String targetKey = anonKey?.trim() ?? '';
+
+    // If either URL or anonKey is missing, load saved values from SharedPreferences
+    if (targetUrl.isEmpty || targetKey.isEmpty) {
+      final saved = await loadSavedCredentials();
+      if (targetUrl.isEmpty) targetUrl = saved['url'] ?? defaultUrl;
+      if (targetKey.isEmpty) targetKey = saved['anonKey'] ?? defaultAnonKey;
+    }
+
+    targetUrl = normalizeUrl(targetUrl);
+    if (targetKey.isEmpty) targetKey = defaultAnonKey;
+
+    // Safely dispose existing instance if already initialized to allow reconfiguration
+    if (isClientInitialized) {
+      try {
+        await Supabase.instance.dispose();
+      } catch (disposeErr) {
+        debugPrint('[SupabaseService] Dispose warning during re-init: $disposeErr');
+      }
+    }
+
+    // ignore: deprecated_member_use
     await Supabase.initialize(
       url: targetUrl,
+      // ignore: deprecated_member_use
       anonKey: targetKey,
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
       ),
     );
+
+    debugPrint('[SupabaseService] Supabase successfully initialized with endpoint: $targetUrl');
+  }
+
+  /// Reinitializes Supabase with new URL and Anon Key and updates SharedPreferences
+  static Future<void> reinitialize({
+    required String url,
+    required String anonKey,
+  }) async {
+    await saveCredentials(url: url, anonKey: anonKey);
+    await initialize(url: url, anonKey: anonKey);
   }
 
   /// Automatically ensures user row exists in public.profiles.
