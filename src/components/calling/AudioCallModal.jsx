@@ -11,6 +11,8 @@ import {
   X
 } from 'lucide-react';
 import { webrtcCallService, AudioRoutingHelper, Helper, RTCVideoRenderer } from '../../services/webrtcCallService';
+import SafeAvatar from '../common/SafeAvatar';
+import { resolveProfilePhoto } from '../../services/api';
 
 export default function AudioCallModal({
   isOpen,
@@ -709,13 +711,11 @@ export default function AudioCallModal({
             )}
 
             <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden ring-4 ring-[#D4AF37] shadow-2xl">
-              <img
-                src={
-                  candidate.photo ||
-                  candidate.photo_url ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'
-                }
+              <SafeAvatar
+                src={resolveProfilePhoto(candidate)}
                 alt={candidate.name}
+                gender={candidate.gender}
+                size="2xl"
                 className="w-full h-full object-cover"
               />
               {candidate.verified && (

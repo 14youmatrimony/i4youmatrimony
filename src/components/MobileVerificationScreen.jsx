@@ -17,6 +17,7 @@ import {
   verifyPhoneOtp
 } from '../services/phoneAuth';
 import { isSupabaseConfigured } from '../services/supabase';
+import SafeAvatar from './common/SafeAvatar';
 
 export default function MobileVerificationScreen({
   registrationData,
@@ -590,10 +591,12 @@ export default function MobileVerificationScreen({
             {/* Profile Snapshot Summary */}
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-slate-50 to-amber-50/40 border border-slate-200 text-left text-xs space-y-2">
               <div className="flex items-center space-x-3 pb-2 border-b border-slate-200/60">
-                <img 
-                  src={registrationData?.photo || (registrationData?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300")} 
+                <SafeAvatar 
+                  src={registrationData?.photo || null} 
                   alt={registrationData?.fullName || "Candidate"}
-                  className="w-12 h-12 rounded-full object-cover ring-2 ring-[#DFB76C]" 
+                  gender={registrationData?.gender}
+                  size="md"
+                  className="w-12 h-12 rounded-full ring-2 ring-[#DFB76C]" 
                 />
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm">{registrationData?.fullName}</h3>

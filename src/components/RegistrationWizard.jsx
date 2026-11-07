@@ -350,23 +350,8 @@ export const NAKSHATRAS = [
   'Shatabhisha', 'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati', 'Don’t Know'
 ];
 
-export const SAMPLE_SINGLE_PHOTOS = [
-  { label: 'Doctor / Professional', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=800' },
-  { label: 'Traditional Portrait', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800' },
-  { label: 'Casual Friendly', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800' },
-  { label: 'Outdoor Portrait', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=800' },
-  { label: 'Festive Saree', url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=800' },
-  { label: 'Executive Male', url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800' },
-  { label: 'Traditional Kurta', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' }
-];
-
-export const SAMPLE_FAMILY_PHOTOS = [
-  { label: 'Family Portrait with Parents', url: 'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800' },
-  { label: 'Family Celebration & Gathering', url: 'https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&q=80&w=800' },
-  { label: 'Family with Elders', url: 'https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?auto=format&fit=crop&q=80&w=800' },
-  { label: 'Warm Family Moment', url: 'https://images.unsplash.com/photo-1542037104857-ffbc0b91c487?auto=format&fit=crop&q=80&w=800' }
-];
-
+export const SAMPLE_SINGLE_PHOTOS = [];
+export const SAMPLE_FAMILY_PHOTOS = [];
 export const SAMPLE_PHOTOS = SAMPLE_SINGLE_PHOTOS;
 
 export const SKIN_COLOURS = [

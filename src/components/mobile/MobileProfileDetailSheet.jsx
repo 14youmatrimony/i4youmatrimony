@@ -150,12 +150,9 @@ export default function MobileProfileDetailSheet({
     ? profile.singlePhotos.filter(p => !isFakeAvatarUrl(p))
     : (resolvedPhoto ? [resolvedPhoto] : []);
   const activePhoto = singlePhotos[currentSinglePhotoIdx] || resolvedPhoto || null;
-  const familyPhotos = profile.familyPhotos?.length 
-    ? profile.familyPhotos 
-    : [
-        'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800',
-        'https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&q=80&w=800'
-      ];
+  const familyPhotos = (Array.isArray(profile.familyPhotos) && profile.familyPhotos.length > 0)
+    ? profile.familyPhotos.filter(p => !isFakeAvatarUrl(p))
+    : [];
 
   const locMatch = calculateLocationMatch(currentUser, profile);
 

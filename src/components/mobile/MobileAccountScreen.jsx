@@ -30,13 +30,13 @@ import {
 } from 'lucide-react';
 import TermsAndConditionsModal from '../common/TermsAndConditionsModal';
 import LoginScreen from '../LoginScreen';
-import RegistrationWizard, { SAMPLE_SINGLE_PHOTOS, SAMPLE_FAMILY_PHOTOS } from '../RegistrationWizard';
+import RegistrationWizard from '../RegistrationWizard';
 import MobileVerificationScreen from '../MobileVerificationScreen';
 import AadhaarVerificationScreen from '../AadhaarVerificationScreen';
 import MobilePhotoManagerSheet from './MobilePhotoManagerSheet';
 import EditProfileModal from '../EditProfileModal';
 import SelfieVerificationSection from '../SelfieVerificationSection';
-import { updateLiveUserProfile, syncProfileToSupabase, resolveProfilePhoto } from '../../services/api';
+import { updateLiveUserProfile, syncProfileToSupabase, resolveProfilePhoto, isFakeAvatarUrl } from '../../services/api';
 import SafeAvatar from '../common/SafeAvatar';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -135,13 +135,18 @@ export default function MobileAccountScreen({
   const [isPhotoManagerOpen, setIsPhotoManagerOpen] = useState(false);
   const [photoManagerTab, setPhotoManagerTab] = useState('single'); // 'single' | 'family'
 
-  const currentSinglePhotos = currentUser?.singlePhotos?.length
-    ? currentUser.singlePhotos
-    : [currentUser?.photo || SAMPLE_SINGLE_PHOTOS[0].url];
+  const currentSinglePhotos = useMemo(() => {
+    const list = Array.isArray(currentUser?.singlePhotos) ? currentUser.singlePhotos : [];
+    const clean = list.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+    if (clean.length > 0) return clean;
+    if (currentUser?.photo && !isFakeAvatarUrl(currentUser.photo)) return [currentUser.photo];
+    return [];
+  }, [currentUser?.singlePhotos, currentUser?.photo]);
 
-  const currentFamilyPhotos = currentUser?.familyPhotos?.length
-    ? currentUser.familyPhotos
-    : [SAMPLE_FAMILY_PHOTOS[0].url, SAMPLE_FAMILY_PHOTOS[1].url];
+  const currentFamilyPhotos = useMemo(() => {
+    const list = Array.isArray(currentUser?.familyPhotos) ? currentUser.familyPhotos : [];
+    return list.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+  }, [currentUser?.familyPhotos]);
 
   const applyPhotoUpdate = (updatedSingle, updatedFamily, extraPrivacy = {}) => {
     let nextSingle = currentSinglePhotos;
@@ -598,9 +603,7 @@ export default function MobileAccountScreen({
           <div className="min-w-0 flex-1">
             <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
               <h3 className="font-serif font-bold text-lg text-white truncate">
-                {(!currentUser?.name || ['verified member', 'a verified member', 'member'].includes(currentUser.name.toLowerCase().trim())) 
-                  ? (currentUser?.gender === 'Male' ? 'Rohan Jayasimha' : 'Priya Sharma') 
-                  : currentUser.name}
+                {currentUser?.name || currentUser?.fullName || (currentUser?.registerId ? `Member ${currentUser.registerId}` : 'Member')}
               </h3>
             </div>
             <div className="flex items-center gap-1.5 mt-2 text-[10px] flex-wrap">

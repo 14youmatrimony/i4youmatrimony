@@ -21,6 +21,8 @@ import {
   CheckCheck,
   Send
 } from 'lucide-react';
+import SafeAvatar from './common/SafeAvatar';
+import { resolveProfilePhoto } from '../services/api';
 import { isKundaliApplicableReligion } from '../data/religionData';
 import { useInterestStatus, interestService } from '../services/interestService';
 import { isNriProfile, getProfileCountry, isSameAbroadCountry } from '../data/locationData';
@@ -193,37 +195,33 @@ export default function ProfileModal({
         </button>
 
         {/* Modal Top Header with Cover and Avatar */}
-        <div className="relative h-44 sm:h-52 shrink-0 bg-[#0B192C]">
-          <img 
-            src={profile.coverPhoto || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200"} 
-            alt="Cover" 
-            className="w-full h-full object-cover opacity-60"
-          />
+        <div className="relative h-44 sm:h-52 shrink-0 bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C]">
+          {profile.coverPhoto && !profile.coverPhoto.includes('unsplash.com') && (
+            <img 
+              src={profile.coverPhoto} 
+              alt="Cover" 
+              className="w-full h-full object-cover opacity-60"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-transparent to-transparent"></div>
 
           {/* Profile Quick Pill in Header */}
           <div className="absolute top-4 left-4 flex items-center space-x-2">
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#D4AF37] text-[#0B192C] shadow-md flex items-center space-x-1">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>{profile.matchScore}% Match</span>
+              <span>{profile.matchScore || 85}% Match</span>
             </span>
           </div>
 
           {/* Avatar and Basic Header Bar */}
           <div className="absolute -bottom-6 left-6 flex items-end space-x-4">
             <div className="relative">
-              <img 
-                src={profile.photo || (String(profile.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')} 
-                alt={profile.name} 
-                onError={(e) => {
-                  const fallback = String(profile.gender).toLowerCase() === 'male'
-                    ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800'
-                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
-                  if (e.currentTarget.src !== fallback) {
-                    e.currentTarget.src = fallback;
-                  }
-                }}
-                className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover ring-4 ring-white shadow-xl bg-slate-100"
+              <SafeAvatar
+                src={resolveProfilePhoto(profile)}
+                alt={profile.name || "Member"}
+                gender={profile.gender}
+                size="2xl"
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl ring-4 ring-white shadow-xl bg-slate-900"
               />
               {profile.verified && (
                 <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full ring-2 ring-white shadow-sm" title="Verified Profile">

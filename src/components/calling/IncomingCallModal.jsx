@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { Phone, PhoneOff, Video, ShieldCheck, MapPin } from 'lucide-react';
 import { webrtcCallService } from '../../services/webrtcCallService';
+import SafeAvatar from '../common/SafeAvatar';
+import { resolveProfilePhoto } from '../../services/api';
 
 export default function IncomingCallModal({
   incomingCall,
@@ -123,7 +125,7 @@ export default function IncomingCallModal({
   const { caller, callType = 'audio', callerName, callerPhoto } = incomingCall;
   const isVideo = (callType || incomingCall.call_type) === 'video';
   const displayName = caller?.name || callerName || incomingCall.caller_name || 'Candidate';
-  const displayPhoto = caller?.photo || caller?.photo_url || callerPhoto || incomingCall.caller_photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400';
+  const displayPhoto = resolveProfilePhoto(caller) || callerPhoto || incomingCall.caller_photo || null;
 
   const handleAcceptClick = async () => {
     stopAudio();
@@ -209,9 +211,11 @@ export default function IncomingCallModal({
           <div className="absolute w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-[#D4AF37]/50 animate-pulse pointer-events-none" />
           
           <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-4 ring-[#D4AF37] shadow-2xl">
-            <img 
+            <SafeAvatar 
               src={displayPhoto} 
               alt={displayName} 
+              gender={caller?.gender}
+              size="2xl"
               className="w-full h-full object-cover"
             />
             <div className="absolute bottom-1 right-1 bg-emerald-600 text-white p-1 rounded-full ring-2 ring-[#0B192C]">

@@ -10,6 +10,8 @@ import {
   Volume2
 } from 'lucide-react';
 import { webrtcCallService, AudioRoutingHelper, Helper, RTCVideoRenderer } from '../../services/webrtcCallService';
+import SafeAvatar from '../common/SafeAvatar';
+import { resolveProfilePhoto } from '../../services/api';
 
 export default function VideoCallModal({
   isOpen,
@@ -513,13 +515,27 @@ export default function VideoCallModal({
           </div>
         )}
 
-        {/* Candidate Placeholder Photo shown when remote video is connecting */}
+        {/* Candidate Placeholder shown when remote video is connecting */}
         {!hasRemoteVideo && (
-          <img
-            src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'}
-            alt={candidate.name}
-            className="absolute inset-0 w-full h-full object-cover filter brightness-90 animate-subtle-scale"
-          />
+          <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-slate-950">
+            {resolveProfilePhoto(candidate) ? (
+              <img
+                src={resolveProfilePhoto(candidate)}
+                alt={candidate.name}
+                className="w-full h-full object-cover filter brightness-75 animate-subtle-scale"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <SafeAvatar
+                  src={null}
+                  alt={candidate.name}
+                  gender={candidate.gender}
+                  size="2xl"
+                  className="w-24 h-24"
+                />
+              </div>
+            )}
+          </div>
         )}
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
@@ -552,9 +568,11 @@ export default function VideoCallModal({
           <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/50 backdrop-blur-xs px-4">
             <div className="relative">
               <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-[#D4AF37] overflow-hidden shadow-2xl">
-                <img
-                  src={candidate.photo || candidate.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'}
+                <SafeAvatar
+                  src={resolveProfilePhoto(candidate)}
                   alt={candidate.name}
+                  gender={candidate.gender}
+                  size="2xl"
                   className="w-full h-full object-cover"
                 />
               </div>

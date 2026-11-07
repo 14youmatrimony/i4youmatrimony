@@ -554,6 +554,27 @@ export function getStoredUserSession() {
     if (!resolvedId) return null;
     user.id = resolvedId;
 
+    // Purge any legacy demo/mock account sessions
+    if (user.id === 'demo-priya' || user.id === 'demo-rohan' || String(user.id).startsWith('demo-') || user.isDemo || user.isTest) {
+      localStorage.removeItem('i4u_auth_user');
+      localStorage.removeItem('i4u_current_user_id');
+      localStorage.removeItem('i4u_register_id');
+      return null;
+    }
+
+    // Strictly sanitize and strip any fake/Unsplash placeholder photos
+    if (user.photo && isFakeAvatarUrl(user.photo)) {
+      user.photo = null;
+      user.photo_url = null;
+      user.avatar_url = null;
+    }
+    if (Array.isArray(user.singlePhotos)) {
+      user.singlePhotos = user.singlePhotos.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+    }
+    if (Array.isArray(user.familyPhotos)) {
+      user.familyPhotos = user.familyPhotos.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+    }
+
     const isAadhaarDone = localStorage.getItem('i4u_aadhaar_verified') === 'true';
     if (isAadhaarDone) {
       user.aadhaarVerified = true;

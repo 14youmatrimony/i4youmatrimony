@@ -45,16 +45,9 @@ export const DEMO_USER_FEMALE = {
   hobbies: 'UI/UX Design Sketching, Watercolor Painting, Photography',
   interests: 'Fintech Innovation, Modern Art Galleries, Specialty Coffee & Travel',
   sportsFitness: 'Pilates, Badminton & Cycling',
-  photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800',
-  singlePhotos: [
-    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=800'
-  ],
-  familyPhotos: [
-    'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&q=80&w=800'
-  ],
+  photo: null,
+  singlePhotos: [],
+  familyPhotos: [],
   verified: true,
   mobileVerified: true,
   aadhaarVerified: false,
@@ -125,16 +118,9 @@ export const DEMO_USER_MALE = {
   hobbies: 'Acoustic Guitar, Hiking Western Ghats, Sci-Fi Books',
   interests: 'Autonomous AI Systems, Space Exploration, Heritage Cafes',
   sportsFitness: 'Trekking, Rock Climbing, Swimming',
-  photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800',
-  singlePhotos: [
-    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800'
-  ],
-  familyPhotos: [
-    'https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1542037104857-ffbc0b91c487?auto=format&fit=crop&q=80&w=800'
-  ],
+  photo: null,
+  singlePhotos: [],
+  familyPhotos: [],
   verified: true,
   mobileVerified: true,
   aadhaarVerified: true,

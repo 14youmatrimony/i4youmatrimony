@@ -28,6 +28,7 @@ import {
   isLiveAadhaarConfigured,
   getActiveAadhaarProvider
 } from '../services/surepassAadhaar';
+import SafeAvatar from './common/SafeAvatar';
 import { optimizeImageFile } from '../utils/imageOptimizer';
 import {
   saveSandboxCredentials,
@@ -42,7 +43,7 @@ export function generateCandidateAadhaarFront(name, aadhaarNo, dob, gender, phot
   const resolvedDob = dob || '15/08/1998';
   const resolvedGender = String(gender || 'FEMALE').toUpperCase();
   const genderText = resolvedGender.includes('FEMALE') ? 'FEMALE' : 'MALE';
-  const safePhoto = photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800';
+  const safePhoto = photoUrl || '';
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 440" width="700" height="440">
   <defs>
@@ -182,7 +183,7 @@ export function generateCandidateAadhaarBack(name, aadhaarNo, district, state, p
 }
 
 // Realistic High-Definition Aadhaar Card SVGs for Instant Demo Testing
-const SAMPLE_AADHAAR_FRONT = generateCandidateAadhaarFront('Priya Sharma', '492081735928', '15/08/1998', 'Female', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800');
+const SAMPLE_AADHAAR_FRONT = generateCandidateAadhaarFront('Priya Sharma', '492081735928', '15/08/1998', 'Female', '');
 const SAMPLE_AADHAAR_BACK = generateCandidateAadhaarBack('Priya Sharma', '492081735928', 'Thiruvananthapuram', 'Kerala', '695010');
 
 export default function AadhaarVerificationScreen({
@@ -1338,10 +1339,12 @@ export default function AadhaarVerificationScreen({
             {/* Profile Trust Unlocked Card */}
             <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/60 to-amber-50/40 border border-emerald-200/80 text-left text-xs space-y-2.5">
               <div className="flex items-center space-x-3 pb-2 border-b border-emerald-200/50">
-                <img 
-                  src={verifiedProfileData?.profileImage ? `data:image/jpeg;base64,${verifiedProfileData.profileImage}` : (registrationData?.photo || (registrationData?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300"))} 
+                <SafeAvatar 
+                  src={verifiedProfileData?.profileImage ? `data:image/jpeg;base64,${verifiedProfileData.profileImage}` : (registrationData?.photo || null)} 
                   alt={verifiedProfileData?.fullName || registrationData?.name || registrationData?.fullName}
-                  className="w-12 h-12 rounded-full object-cover ring-2 ring-emerald-500 shadow-sm" 
+                  gender={registrationData?.gender}
+                  size="md"
+                  className="w-12 h-12 rounded-full ring-2 ring-emerald-500 shadow-sm" 
                 />
                 <div>
                   <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">

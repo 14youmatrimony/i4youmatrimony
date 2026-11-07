@@ -11,6 +11,8 @@ import {
   Sparkles,
   Users
 } from 'lucide-react';
+import SafeAvatar from './common/SafeAvatar';
+import { resolveProfilePhoto } from '../services/api';
 
 export default function Navbar({ 
   currentScreen, 
@@ -144,10 +146,12 @@ export default function Navbar({
               className="flex items-center space-x-2.5 pl-2 py-1 pr-3 rounded-full bg-white/5 border border-[#D4AF37]/30 hover:border-[#D4AF37] cursor-pointer transition-all"
             >
               <div className="relative">
-                <img 
-                  src={currentUser?.photo || (currentUser?.gender === 'Male' ? "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150")} 
-                  alt={currentUser?.name || "User"} 
-                  className="w-8 h-8 rounded-full object-cover ring-1 ring-[#DFB76C]"
+                <SafeAvatar 
+                  src={resolveProfilePhoto(currentUser)} 
+                  alt={currentUser?.name || "Member"} 
+                  gender={currentUser?.gender} 
+                  size="sm"
+                  className="w-8 h-8 rounded-full ring-1 ring-[#DFB76C]"
                 />
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 absolute -bottom-0.5 -right-0.5 bg-[#0B192C] rounded-full" />
               </div>

@@ -47,19 +47,8 @@ const SAMPLE_VIDEOS = [
   }
 ];
 
-// Curated sample matrimony photos for instant test
-const SAMPLE_PHOTOS = [
-  {
-    name: 'Traditional Festivities',
-    url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
-    caption: 'Traditional family celebration and cultural festivities 🏛️✨'
-  },
-  {
-    name: 'Festive Attire',
-    url: 'https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&q=80&w=800',
-    caption: 'Traditional ethnic celebration weekend with blessings 🙏🌺'
-  }
-];
+// Sample matrimony photos (empty: strictly real candidate status media)
+const SAMPLE_PHOTOS = [];
 
 export default function WhatsAppStatusSystem({
   myStatus,
@@ -184,7 +173,7 @@ export function WhatsAppStoryViewerModal({
   if (!status || typeof status !== 'object') {
     status = {
       type: 'photo',
-      mediaUrl: resolveProfilePhoto(profile) || profile?.coverPhoto || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800",
+      mediaUrl: resolveProfilePhoto(profile) || profile?.coverPhoto || null,
       caption: profile?.about || `${profile?.name || 'Candidate'}'s Story`,
       timestamp: 'Just now'
     };
@@ -338,11 +327,21 @@ export function WhatsAppStoryViewerModal({
         ) : (
           /* Photo Status */
           <div className="relative w-full h-full flex items-center justify-center">
-            <img 
-              src={status?.mediaUrl || profile?.photo || profile?.coverPhoto || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800"} 
-              alt="Status Story" 
-              className="max-h-full max-w-full object-contain"
-            />
+            {status?.mediaUrl || profile?.photo || profile?.coverPhoto ? (
+              <img 
+                src={status?.mediaUrl || profile?.photo || profile?.coverPhoto} 
+                alt="Status Story" 
+                className="max-h-full max-w-full object-contain"
+              />
+            ) : (
+              <SafeAvatar
+                src={resolveProfilePhoto(profile)}
+                alt={profile?.name || 'Status'}
+                gender={profile?.gender}
+                size="2xl"
+                className="w-24 h-24"
+              />
+            )}
           </div>
         )}
       </div>

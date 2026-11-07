@@ -18,7 +18,7 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
-import { SAMPLE_SINGLE_PHOTOS, SAMPLE_FAMILY_PHOTOS } from '../RegistrationWizard';
+import { isFakeAvatarUrl } from '../../services/api';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { optimizeImageFile, compressImageToWebP } from '../../utils/imageOptimizer';
 import { uploadPhotoToR2 } from '../../services/r2Storage';
@@ -38,17 +38,18 @@ export default function MobilePhotoManagerSheet({
   const [photoVisibility, setPhotoVisibility] = useState(currentUser?.photoVisibility || 'all'); // 'all' | 'accepted' | 'request' | 'hidden'
   const [blurPhotosForUnconnected, setBlurPhotosForUnconnected] = useState(currentUser?.blurPhotosForUnconnected ?? false);
 
-  // Local synchronized state for immediate and reactive UI updates
+  // Local synchronized state for immediate and reactive UI updates (strictly genuine user photos)
   const [singlePhotos, setSinglePhotos] = useState(() => {
-    return currentUser?.singlePhotos?.length
-      ? currentUser.singlePhotos
-      : [currentUser?.photo || SAMPLE_SINGLE_PHOTOS[0].url];
+    const list = Array.isArray(currentUser?.singlePhotos) ? currentUser.singlePhotos : [];
+    const clean = list.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+    if (clean.length > 0) return clean;
+    if (currentUser?.photo && !isFakeAvatarUrl(currentUser.photo)) return [currentUser.photo];
+    return [];
   });
 
   const [familyPhotos, setFamilyPhotos] = useState(() => {
-    return currentUser?.familyPhotos?.length
-      ? currentUser.familyPhotos
-      : [SAMPLE_FAMILY_PHOTOS[0].url, SAMPLE_FAMILY_PHOTOS[1].url];
+    const list = Array.isArray(currentUser?.familyPhotos) ? currentUser.familyPhotos : [];
+    return list.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
   });
 
   const [uploadingSingle, setUploadingSingle] = useState(false);
@@ -67,14 +68,20 @@ export default function MobilePhotoManagerSheet({
       setHidePhotos(currentUser?.hidePhotos ?? false);
       setPhotoVisibility(currentUser?.photoVisibility || 'all');
       setBlurPhotosForUnconnected(currentUser?.blurPhotosForUnconnected ?? false);
-      if (currentUser?.singlePhotos?.length) {
-        setSinglePhotos(currentUser.singlePhotos);
-      } else if (currentUser?.photo) {
+      
+      const cleanSingles = (Array.isArray(currentUser?.singlePhotos) ? currentUser.singlePhotos : [])
+        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+      if (cleanSingles.length > 0) {
+        setSinglePhotos(cleanSingles);
+      } else if (currentUser?.photo && !isFakeAvatarUrl(currentUser.photo)) {
         setSinglePhotos([currentUser.photo]);
+      } else {
+        setSinglePhotos([]);
       }
-      if (currentUser?.familyPhotos?.length) {
-        setFamilyPhotos(currentUser.familyPhotos);
-      }
+
+      const cleanFamilies = (Array.isArray(currentUser?.familyPhotos) ? currentUser.familyPhotos : [])
+        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+      setFamilyPhotos(cleanFamilies);
     }
   }, [isOpen, initialTab, currentUser]);
 

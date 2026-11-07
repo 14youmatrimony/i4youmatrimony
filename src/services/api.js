@@ -427,11 +427,22 @@ export function isFakeAvatarUrl(url) {
     str.includes('pravatar') ||
     str.includes('placeholder') ||
     str.includes('ui-avatars.com') ||
+    str.includes('unsplash.com') ||
+    str.includes('images.unsplash.com') ||
     str.includes('photo-1535713875002-d1d0cf377fde') ||
     str.includes('photo-1507003211169-0a1dd7228f2d') ||
     str.includes('photo-1534528741775-53994a69daeb') ||
     str.includes('photo-1506794778202-cad84cf45f1d') ||
-    str.includes('photo-1544005313-94ddf0286df2')
+    str.includes('photo-1544005313-94ddf0286df2') ||
+    str.includes('photo-1573496359142-b8d87734a5a2') ||
+    str.includes('photo-1517841905240-472988babdf9') ||
+    str.includes('photo-1524504388940-b1c1722653e1') ||
+    str.includes('photo-1511895426328-dc8714191300') ||
+    str.includes('photo-1609234656388-0ff363383899') ||
+    str.includes('photo-1576765608535-5f04d1e3f289') ||
+    str.includes('photo-1542037104857-ffbc0b91c487') ||
+    str.includes('photo-1500648767791-00dcc994a43e') ||
+    str.includes('photo-1519741497674-611481863552')
   ) {
     return true;
   }
@@ -440,7 +451,7 @@ export function isFakeAvatarUrl(url) {
 
 /**
  * Resolves genuine user profile photo by checking all candidate fields:
- * photo_url, avatar_url, profile_photo, photo, photos[0], images[0], singlePhotos[0].
+ * profile_photo_url, photo_url, avatar_url, profile_photo, photo, photos[0], images[0], singlePhotos[0].
  * Returns null if no genuine photo exists or if it's a fake/placeholder URL.
  */
 export function resolveProfilePhoto(profile) {
@@ -453,6 +464,7 @@ export function resolveProfilePhoto(profile) {
 
   // 1. Direct photo fields
   let candidate =
+    profile.profile_photo_url ||
     profile.photo_url ||
     profile.avatar_url ||
     profile.profile_photo ||
