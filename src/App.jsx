@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { profileSyncService } from './services/profileSyncService';
@@ -72,91 +72,8 @@ import { Sparkles } from 'lucide-react';
 export const getNotificationsForUser = () => [];
 export const INITIAL_NOTIFICATIONS = [];
 
-// Pan-India authentic candidate status stories (Photo, Video max 60s, and Text)
-const CANDIDATE_STATUSES = {
-  p1: {
-    id: 'st-p1',
-    type: 'photo',
-    mediaUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
-    caption: 'Auspicious family prayer at Trimbakeshwar Shiva temple today 🙏✨',
-    timestamp: '15m ago',
-    duration: null
-  },
-  p2: {
-    id: 'st-p2',
-    type: 'video',
-    mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-tree-branches-in-the-breeze-1188-large.mp4',
-    caption: 'Morning hiking trail in Coorg Western Ghats 🌿⛰️',
-    timestamp: '45m ago',
-    duration: 24
-  },
-  p3: {
-    id: 'st-p3',
-    type: 'photo',
-    mediaUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
-    caption: 'Annual classical Kathakali recital in Kochi 🌺',
-    timestamp: '2h ago',
-    duration: null
-  },
-  p4: {
-    id: 'st-p4',
-    type: 'photo',
-    mediaUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800',
-    caption: 'Evening serenity at Golden Temple, Amritsar 🪔',
-    timestamp: '3h ago',
-    duration: null
-  },
-  p5: {
-    id: 'st-p5',
-    type: 'text',
-    text: '“Marriage is not just joining two souls, but uniting two families with trust, respect, and mutual laughter.”',
-    bgGradient: 'from-emerald-900 via-teal-900 to-emerald-950',
-    caption: 'Auspicious thoughts on a Sunday morning ✨',
-    timestamp: '5h ago',
-    duration: null
-  },
-  p6: {
-    id: 'st-p6',
-    type: 'photo',
-    mediaUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=800',
-    caption: 'National cardiology convention in AIIMS Delhi 🩺',
-    timestamp: '6h ago',
-    duration: null
-  },
-  p7: {
-    id: 'st-p7',
-    type: 'photo',
-    mediaUrl: 'https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?auto=format&fit=crop&q=80&w=800',
-    caption: 'Heritage walk across Rumi Darwaza in Lucknow 🏛️✨',
-    timestamp: '7h ago',
-    duration: null
-  },
-  p8: {
-    id: 'st-p8',
-    type: 'video',
-    mediaUrl: 'https://assets.mixkit.co/videos/preview/mixkit-waves-coming-to-the-beach-5016-large.mp4',
-    caption: 'Coastal sunset reflections at Somnath Temple 🙏🌊',
-    timestamp: '8h ago',
-    duration: 32
-  },
-  p9: {
-    id: 'st-p9',
-    type: 'photo',
-    mediaUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800',
-    caption: 'Serene morning waves at Fort Kochi beach, Kerala 🌴⛵',
-    timestamp: '10h ago',
-    duration: null
-  },
-  p10: {
-    id: 'st-p10',
-    type: 'text',
-    text: '“A joyful marriage begins when we accept each other’s heritage and build a lifetime of shared dreams.”',
-    bgGradient: 'from-[#0B192C] via-[#152E52] to-[#1E3A8A]',
-    caption: 'Reflections from Kolkata Heritage Walk 📚✨',
-    timestamp: '12h ago',
-    duration: null
-  }
-};
+// Candidate status stories: No hardcoded or mock dummy statuses
+const CANDIDATE_STATUSES = {};
 
 /**
  * Synchronously verify whether a valid authenticated user session is stored in localStorage.
@@ -504,9 +421,7 @@ export default function App() {
         }
       }
     } catch (e) {}
-    return Array.isArray(INITIAL_PROFILES) && INITIAL_PROFILES.length > 0 
-      ? INITIAL_PROFILES.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)).map(sanitizeProfilePhotos) 
-      : [];
+    return [];
   });
 
   const profilesRef = useRef(profiles);
@@ -1153,6 +1068,24 @@ export default function App() {
   });
   const [declinedReceivedIds, setDeclinedReceivedIds] = useState(() => {
     try {
+      const savedUser = localStorage.getItem('i4u_auth_user');
+      let userId = null;
+      if (savedUser) {
+        try {
+          const u = JSON.parse(savedUser);
+          userId = u?.id || u?.registerId || u?.register_id || u?.user_id || u?.userId;
+        } catch (e) {}
+      }
+      if (!userId) {
+        userId = localStorage.getItem('i4u_current_user_id');
+      }
+      if (userId) {
+        const userSpecific = localStorage.getItem(`declined_interest_ids_${userId}`);
+        if (userSpecific) {
+          const parsed = JSON.parse(userSpecific);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
       const saved = localStorage.getItem('i4u_declined_received_ids');
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -1581,12 +1514,32 @@ export default function App() {
     } catch (e) {}
   }, [conversations, currentUser?.id]);
 
-  // Persist declinedReceivedIds to storage
+  // Persist declinedReceivedIds to storage under both generic and user-scoped keys
   useEffect(() => {
     try {
       localStorage.setItem('i4u_declined_received_ids', JSON.stringify(declinedReceivedIds));
+      const uid = currentUser?.id || currentUser?.registerId || currentUser?.register_id || localStorage.getItem('i4u_current_user_id');
+      if (uid) {
+        localStorage.setItem(`declined_interest_ids_${uid}`, JSON.stringify(declinedReceivedIds));
+      }
     } catch (e) {}
-  }, [declinedReceivedIds]);
+  }, [declinedReceivedIds, currentUser?.id, currentUser?.registerId, currentUser?.register_id]);
+
+  // Synchronize declinedReceivedIds whenever active currentUser session becomes available
+  useEffect(() => {
+    const uid = currentUser?.id || currentUser?.registerId || currentUser?.register_id;
+    if (uid) {
+      try {
+        const raw = localStorage.getItem(`declined_interest_ids_${uid}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDeclinedReceivedIds(prev => Array.from(new Set([...prev, ...parsed])));
+          }
+        }
+      } catch (e) {}
+    }
+  }, [currentUser?.id, currentUser?.registerId, currentUser?.register_id]);
 
   // Helper to reliably check if a candidate profile has received user interest
   const isProfileInterested = useCallback((profileOrId) => {
@@ -1789,24 +1742,62 @@ export default function App() {
         if (!isMounted || !Array.isArray(records)) return;
         setNotifications((prev) => {
           const map = new Map();
-          // Filter prev to discard stale mock or 'Verified Member' entries
+          const curUid = currentUser?.id || currentUser?.register_id || currentUser?.registerId;
+          const declinedSet = new Set((declinedReceivedIds || []).map(String));
+          if (curUid) {
+            try {
+              const raw = localStorage.getItem(`declined_interest_ids_${curUid}`);
+              if (raw) {
+                JSON.parse(raw).forEach(id => declinedSet.add(String(id)));
+              }
+            } catch (e) {}
+          }
+
+          // Filter prev to discard stale mock or 'Verified Member' entries or declined items
           (prev || []).forEach(n => {
             const k = n?.notification_id || n?.id;
             const sName = String(n?.sender_name || n?.senderName || n?.sender?.name || '').toLowerCase();
             const title = String(n?.title || '').toLowerCase();
-            if (k && !sName.includes('verified member') && !title.includes('verified member') && !k.startsWith('sim-')) {
+            const sId = String(n?.sender_id || n?.senderId || n?.metadata?.senderId || n?.profileId || '');
+            const iId = String(n?.interest_id || n?.interestId || '');
+
+            if (
+              k && 
+              !sName.includes('verified member') && 
+              !title.includes('verified member') && 
+              !k.startsWith('sim-') &&
+              n.status !== 'declined' &&
+              n.status !== 'rejected' &&
+              !declinedSet.has(String(k)) &&
+              !(sId && declinedSet.has(sId)) &&
+              !(iId && declinedSet.has(iId))
+            ) {
               map.set(k, n);
             }
           });
+
           // Merge newly fetched dynamic records from PostgreSQL / Supabase
           records.forEach(rec => {
             if (!rec) return;
+            if (rec.status === 'declined' || rec.status === 'rejected') return;
             const recSenderId = String(rec.sender_id || rec.senderId || rec.metadata?.senderId || '');
+            const notifId = String(rec.notification_id || rec.id || `notif_${rec.sender_id || rec.senderId}_${rec.created_at}`);
+            const interestId = String(rec.interest_id || rec.interestId || rec.metadata?.interest_id || '');
+
+            if (
+              (recSenderId && declinedSet.has(recSenderId)) ||
+              (notifId && declinedSet.has(notifId)) ||
+              (interestId && declinedSet.has(interestId))
+            ) {
+              map.delete(notifId);
+              return;
+            }
+
             const isInterestNotif = rec.type === 'interest' || rec.type === 'interest_received';
             if (isInterestNotif && recSenderId && userIds.includes(recSenderId)) {
               return; // Do NOT add notification if logged-in user is the sender!
             }
-            const notifId = rec.notification_id || rec.id || `notif_${rec.sender_id || rec.senderId}_${rec.created_at}`;
+
             const existing = map.get(notifId);
             map.set(notifId, {
               ...rec,
@@ -1816,6 +1807,7 @@ export default function App() {
               status: existing?.status || rec.status || 'pending'
             });
           });
+
           return Array.from(map.values()).sort((a, b) => {
             const tA = new Date(a.created_at || a.timestamp || 0).getTime();
             const tB = new Date(b.created_at || b.timestamp || 0).getTime();
@@ -2305,7 +2297,75 @@ export default function App() {
     };
   }, [currentUser?.id, currentUser?.user_id, currentUser?.userId, currentUser?.register_id, currentUser?.registerId]);
 
-  const unreadNotificationsCount = currentUser ? (notifications || []).filter(n => n && !n.isRead).length : 0;
+  const unreadNotificationsCount = useMemo(() => {
+    if (!currentUser) return 0;
+    const uid = currentUser?.id || currentUser?.register_id || currentUser?.registerId;
+    let lastOpened = 0;
+    let viewedIds = new Set();
+    let declinedIds = new Set((declinedReceivedIds || []).map(String));
+    if (uid) {
+      try {
+        lastOpened = Number(localStorage.getItem(`i4u_notifications_last_opened_${uid}`) || 0);
+        const viewedRaw = localStorage.getItem(`viewed_notification_ids_${uid}`) || localStorage.getItem(`i4u_viewed_notification_ids_${uid}`);
+        if (viewedRaw) {
+          JSON.parse(viewedRaw).forEach(id => viewedIds.add(String(id)));
+        }
+        const decRaw = localStorage.getItem(`declined_interest_ids_${uid}`);
+        if (decRaw) {
+          JSON.parse(decRaw).forEach(id => declinedIds.add(String(id)));
+        }
+      } catch (e) {}
+    }
+
+    return (notifications || []).filter(n => {
+      if (!n) return false;
+      const notifId = String(n.notification_id || n.id || '');
+      const senderId = String(n.sender_id || n.senderId || n.metadata?.senderId || n.profileId || '');
+      const interestId = String(n.interest_id || n.interestId || '');
+
+      // Exclude declined or rejected items
+      if (n.status === 'declined' || n.status === 'rejected') return false;
+      if (senderId && declinedIds.has(senderId)) return false;
+      if (notifId && declinedIds.has(notifId)) return false;
+      if (interestId && declinedIds.has(interestId)) return false;
+
+      // Exclude already marked read
+      if (n.isRead || n.is_read) return false;
+
+      // Exclude viewed
+      if (viewedIds.has(notifId)) return false;
+
+      // If lastOpened exists and notification timestamp is before or equal to lastOpened, it was already opened
+      if (lastOpened > 0) {
+        const itemTime = new Date(n.created_at || n.timestamp || 0).getTime();
+        if (itemTime > 0 && itemTime <= lastOpened) return false;
+      }
+
+      return true;
+    }).length;
+  }, [currentUser, notifications, declinedReceivedIds]);
+
+  // Clear unread notifications badge immediately when notifications panel is opened
+  useEffect(() => {
+    if (isNotificationsOpen && currentUser) {
+      const uid = currentUser?.id || currentUser?.register_id || currentUser?.registerId;
+      const nowStr = Date.now().toString();
+      try {
+        localStorage.setItem(`i4u_notifications_last_opened_${uid}`, nowStr);
+        const currentNotifIds = (notifications || []).map(n => n.notification_id || n.id).filter(Boolean).map(String);
+        const existingViewed = JSON.parse(localStorage.getItem(`viewed_notification_ids_${uid}`) || '[]');
+        const merged = Array.from(new Set([...existingViewed, ...currentNotifIds]));
+        localStorage.setItem(`viewed_notification_ids_${uid}`, JSON.stringify(merged));
+        localStorage.setItem(`i4u_viewed_notification_ids_${uid}`, JSON.stringify(merged));
+      } catch (e) {}
+
+      setNotifications(prev => (prev || []).map(n => ({ ...n, isRead: true })));
+
+      if (uid) {
+        markAllUserNotificationsAsRead(uid).catch(() => {});
+      }
+    }
+  }, [isNotificationsOpen, currentUser]);
 
   const toastTimeoutRef = useRef(null);
   const showToast = (msg) => {
@@ -2604,9 +2664,21 @@ export default function App() {
 
   const handleMarkAllNotificationsAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    const uid = currentUser?.id || currentUser?.register_id || currentUser?.registerId;
+    if (uid) {
+      try {
+        localStorage.setItem(`i4u_notifications_last_opened_${uid}`, Date.now().toString());
+        const currentNotifIds = (notifications || []).map(n => n.notification_id || n.id).filter(Boolean).map(String);
+        const existingViewed = JSON.parse(localStorage.getItem(`viewed_notification_ids_${uid}`) || '[]');
+        const merged = Array.from(new Set([...existingViewed, ...currentNotifIds]));
+        localStorage.setItem(`viewed_notification_ids_${uid}`, JSON.stringify(merged));
+        localStorage.setItem(`i4u_viewed_notification_ids_${uid}`, JSON.stringify(merged));
+      } catch (e) {}
+      markAllUserNotificationsAsRead(uid).catch(() => {});
+    }
     (notifications || []).forEach(n => {
       const k = n.notification_id || n.id;
-      if (k && currentUser?.id) markNotificationAsReadApi(k, currentUser.id);
+      if (k && uid) markNotificationAsReadApi(k, uid);
     });
     showToast('All notifications marked as read ✓');
   };
@@ -2656,6 +2728,7 @@ export default function App() {
   const handleDeclineInterestNotification = async (notifId, explicitInterestId = null, notifObj = null) => {
     const notif = notifObj || notifications.find(n => n.id === notifId || n.notification_id === notifId);
     const targetSenderId = notif?.senderId || notif?.sender_id || notif?.profileId;
+    const currentUid = currentUser?.id || currentUser?.register_id || currentUser?.registerId;
     
     // 1. AGGRESSIVE OPTIMISTIC UI REMOVAL: INSTANTLY remove that notification from local React state array BEFORE awaiting Supabase
     setNotifications(prev => prev.filter(n => {
@@ -2664,12 +2737,18 @@ export default function App() {
       return true;
     }));
 
-    if (targetSenderId) {
-      setDeclinedReceivedIds(prev => Array.from(new Set([...prev, String(targetSenderId)])));
+    const declineTargets = [targetSenderId, notifId, explicitInterestId].filter(Boolean).map(String);
+    if (declineTargets.length > 0) {
+      setDeclinedReceivedIds(prev => Array.from(new Set([...prev, ...declineTargets])));
       try {
         const saved = JSON.parse(localStorage.getItem('i4u_declined_received_ids') || '[]');
-        const merged = Array.from(new Set([...(Array.isArray(saved) ? saved : []), String(targetSenderId)]));
+        const merged = Array.from(new Set([...(Array.isArray(saved) ? saved : []), ...declineTargets]));
         localStorage.setItem('i4u_declined_received_ids', JSON.stringify(merged));
+        if (currentUid) {
+          const userSaved = JSON.parse(localStorage.getItem(`declined_interest_ids_${currentUid}`) || '[]');
+          const userMerged = Array.from(new Set([...(Array.isArray(userSaved) ? userSaved : []), ...declineTargets]));
+          localStorage.setItem(`declined_interest_ids_${currentUid}`, JSON.stringify(userMerged));
+        }
       } catch (e) {}
     }
 
@@ -2679,15 +2758,13 @@ export default function App() {
       interestId = interestId.replace('interest_', '');
     }
 
-    // 3. ROBUST BACKEND CALL: Execute delete with fallback to update if delete blocked by RLS
-    // PREVENT UI SNAPBACK: Do NOT revert the UI state even if the Supabase request fails in background
+    // 3. ROBUST BACKEND CALL: Execute delete with fallback to update if delete blocked by RLS on BOTH interests AND notifications
     if (isSupabaseConfigured() && supabase) {
       try {
         const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
         if (interestId && isUuid(interestId)) {
           const { error } = await supabase.from('interests').delete().eq('id', interestId);
           if (error) {
-            // Fallback to update if delete is blocked by RLS
             await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).eq('id', interestId);
           }
         } else if (currentUser && targetSenderId) {
@@ -2696,6 +2773,21 @@ export default function App() {
           if (delErr) {
             await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).in('receiver_id', currentIds).eq('sender_id', String(targetSenderId));
           }
+        }
+
+        // Also delete/update corresponding notification row in notifications table
+        if (notifId && isUuid(notifId)) {
+          const { error: notifDelErr } = await supabase.from('notifications').delete().eq('id', notifId);
+          if (notifDelErr) {
+            await supabase.from('notifications').update({ is_read: true, status: 'declined', updated_at: new Date().toISOString() }).eq('id', notifId);
+          }
+        }
+        if (currentUser && targetSenderId) {
+          const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+          await supabase.from('notifications').delete().in('user_id', currentIds).eq('sender_id', String(targetSenderId));
+          await supabase.from('notifications').delete().in('user_id', currentIds).eq('from_user_id', String(targetSenderId));
+          await supabase.from('notifications').update({ is_read: true, status: 'declined' }).in('user_id', currentIds).eq('sender_id', String(targetSenderId));
+          await supabase.from('notifications').update({ is_read: true, status: 'declined' }).in('user_id', currentIds).eq('from_user_id', String(targetSenderId));
         }
       } catch (err) {
         console.error("Supabase Decline Error:", err);
@@ -2712,14 +2804,16 @@ export default function App() {
     const profile = profiles.find(p => p.id === profileId || p.registerId === profileId || p.register_id === profileId);
     const targetId = profile?.id || profileId;
     const targetRegId = profile?.registerId || profile?.register_id;
-    const allDeclinedIds = [String(targetId), String(profileId), targetRegId ? String(targetRegId) : null].filter(Boolean);
+    const allDeclinedIds = [String(targetId), String(profileId), targetRegId ? String(targetRegId) : null, explicitInterestId ? String(explicitInterestId) : null].filter(Boolean);
+    const currentUid = currentUser?.id || currentUser?.register_id || currentUser?.registerId;
 
     // 1. AGGRESSIVE OPTIMISTIC UI REMOVAL: INSTANTLY remove that profile/notification from local state BEFORE awaiting Supabase
     setDeclinedReceivedIds(prev => Array.from(new Set([...prev, ...allDeclinedIds])));
     setReceivedInterests(prev => (Array.isArray(prev) ? prev : []).filter(id => !allDeclinedIds.includes(String(id))));
     setNotifications(prev => prev.filter(n => {
       const nPid = String(n.profileId || n.senderId || n.sender_id || '');
-      if (allDeclinedIds.includes(nPid)) return false;
+      const nId = String(n.id || n.notification_id || '');
+      if (allDeclinedIds.includes(nPid) || allDeclinedIds.includes(nId)) return false;
       return true;
     }));
 
@@ -2727,6 +2821,11 @@ export default function App() {
       const saved = JSON.parse(localStorage.getItem('i4u_declined_received_ids') || '[]');
       const merged = Array.from(new Set([...(Array.isArray(saved) ? saved : []), ...allDeclinedIds]));
       localStorage.setItem('i4u_declined_received_ids', JSON.stringify(merged));
+      if (currentUid) {
+        const userSaved = JSON.parse(localStorage.getItem(`declined_interest_ids_${currentUid}`) || '[]');
+        const userMerged = Array.from(new Set([...(Array.isArray(userSaved) ? userSaved : []), ...allDeclinedIds]));
+        localStorage.setItem(`declined_interest_ids_${currentUid}`, JSON.stringify(userMerged));
+      }
     } catch (e) {}
 
     let interestId = explicitInterestId;
@@ -2734,15 +2833,13 @@ export default function App() {
       interestId = interestId.replace('interest_', '');
     }
 
-    // 3. ROBUST BACKEND CALL: Execute delete with fallback to update if delete blocked by RLS
-    // PREVENT UI SNAPBACK: Do NOT revert the UI state even if the Supabase request fails in background
+    // 3. ROBUST BACKEND CALL: Execute delete with fallback to update if delete blocked by RLS on BOTH interests AND notifications
     if (isSupabaseConfigured() && supabase) {
       try {
         const isUuid = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || '').trim());
         if (interestId && isUuid(interestId)) {
           const { error } = await supabase.from('interests').delete().eq('id', interestId);
           if (error) {
-            // Fallback to update if delete is blocked by RLS
             await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).eq('id', interestId);
           }
         } else if (currentUser && (profile || targetId)) {
@@ -2750,6 +2847,17 @@ export default function App() {
           const { error: delErr } = await supabase.from('interests').delete().in('receiver_id', currentIds).in('sender_id', allDeclinedIds);
           if (delErr) {
             await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).in('receiver_id', currentIds).in('sender_id', allDeclinedIds);
+          }
+        }
+
+        // Also delete/update notifications table
+        if (currentUser && allDeclinedIds.length > 0) {
+          const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
+          for (const decId of allDeclinedIds) {
+            await supabase.from('notifications').delete().in('user_id', currentIds).eq('sender_id', String(decId));
+            await supabase.from('notifications').delete().in('user_id', currentIds).eq('from_user_id', String(decId));
+            await supabase.from('notifications').update({ is_read: true, status: 'declined' }).in('user_id', currentIds).eq('sender_id', String(decId));
+            await supabase.from('notifications').update({ is_read: true, status: 'declined' }).in('user_id', currentIds).eq('from_user_id', String(decId));
           }
         }
       } catch (err) {
@@ -2831,8 +2939,25 @@ export default function App() {
     fetchUserNotifications(currentUser, profiles)
       .then((records) => {
         if (Array.isArray(records)) {
-          setNotifications(records);
-          showToast(`Notifications synchronized with database (${records.length} items) ✓`);
+          const curUid = currentUser?.id || currentUser?.register_id || currentUser?.registerId;
+          const declinedSet = new Set((declinedReceivedIds || []).map(String));
+          if (curUid) {
+            try {
+              const raw = localStorage.getItem(`declined_interest_ids_${curUid}`);
+              if (raw) JSON.parse(raw).forEach(id => declinedSet.add(String(id)));
+            } catch (e) {}
+          }
+          const clean = records.filter(r => {
+            if (!r) return false;
+            if (r.status === 'declined' || r.status === 'rejected') return false;
+            const sId = String(r.sender_id || r.senderId || r.metadata?.senderId || '');
+            const nId = String(r.id || r.notification_id || '');
+            const iId = String(r.interest_id || '');
+            if (declinedSet.has(sId) || declinedSet.has(nId) || declinedSet.has(iId)) return false;
+            return true;
+          });
+          setNotifications(clean);
+          showToast(`Notifications synchronized with database (${clean.length} items) ✓`);
         }
       })
       .catch(() => showToast('Notifications up to date ✓'));
@@ -3114,6 +3239,18 @@ export default function App() {
       }).catch(err => {
         console.warn('[App handleStartChat] fetchLiveUserProfile fallback warning:', err);
       });
+    }
+
+    // Record read receipt timestamp in localStorage and mark conversation read in Supabase
+    const currentUid = String(currentUser?.id || currentUser?.user_id || currentUser?.register_id || '');
+    if (currentUid && targetId) {
+      const nowStr = Date.now().toString();
+      try {
+        localStorage.setItem(`i4u_chat_read_${currentUid}_${targetId}`, nowStr);
+        if (partner?.register_id) localStorage.setItem(`i4u_chat_read_${currentUid}_${partner.register_id}`, nowStr);
+        if (partner?.registerId) localStorage.setItem(`i4u_chat_read_${currentUid}_${partner.registerId}`, nowStr);
+      } catch (e) {}
+      liveChatService.markConversationAsRead(currentUser, targetId, convId).catch(() => {});
     }
 
     setActiveChatProfileId(targetId);
@@ -4524,12 +4661,85 @@ export default function App() {
     return computeUnreadMessagesCount(conversations, currentUser, profiles, declinedReceivedIds);
   }, [conversations, currentUser, profiles, declinedReceivedIds]);
 
+  // Clear Interests tab badge immediately when the user visits the Interests tab
+  useEffect(() => {
+    if (activeTab === 'interests' && currentUser) {
+      const uid = currentUser?.id || currentUser?.register_id || currentUser?.registerId;
+      if (uid) {
+        const nowStr = Date.now().toString();
+        try {
+          localStorage.setItem(`i4u_interests_last_opened_${uid}`, nowStr);
+          const seenIds = [];
+          (notifications || []).forEach(n => {
+            if (n && (n.type === 'interest' || n.type === 'interest_received')) {
+              if (n.id) seenIds.push(String(n.id));
+              if (n.notification_id) seenIds.push(String(n.notification_id));
+              if (n.sender_id) seenIds.push(String(n.sender_id));
+              if (n.senderId) seenIds.push(String(n.senderId));
+              if (n.metadata?.senderId) seenIds.push(String(n.metadata.senderId));
+            }
+          });
+          (receivedInterests || []).forEach(id => {
+            if (id) seenIds.push(String(id));
+          });
+          const existingSeen = JSON.parse(localStorage.getItem(`seen_interest_ids_${uid}`) || '[]');
+          const merged = Array.from(new Set([...existingSeen, ...seenIds]));
+          localStorage.setItem(`seen_interest_ids_${uid}`, JSON.stringify(merged));
+        } catch (e) {}
+      }
+    }
+  }, [activeTab, currentUser, notifications, receivedInterests]);
+
   const pendingReceivedInterestsCount = useMemo(() => {
     if (!currentUser) return 0;
-    return (notifications || []).filter(n => 
-      n && n.type === 'interest' && !n.isRead && n.status !== 'declined'
-    ).length;
-  }, [currentUser, notifications]);
+    const uid = currentUser?.id || currentUser?.register_id || currentUser?.registerId;
+    let lastInterestsOpened = 0;
+    let seenInterestIds = new Set();
+    let declinedIds = new Set((declinedReceivedIds || []).map(String));
+    if (uid) {
+      try {
+        lastInterestsOpened = Number(localStorage.getItem(`i4u_interests_last_opened_${uid}`) || 0);
+        const seenRaw = localStorage.getItem(`seen_interest_ids_${uid}`);
+        if (seenRaw) {
+          JSON.parse(seenRaw).forEach(id => seenInterestIds.add(String(id)));
+        }
+        const decRaw = localStorage.getItem(`declined_interest_ids_${uid}`);
+        if (decRaw) {
+          JSON.parse(decRaw).forEach(id => declinedIds.add(String(id)));
+        }
+      } catch (e) {}
+    }
+
+    return (notifications || []).filter(n => {
+      if (!n) return false;
+      const isInterest = n.type === 'interest' || n.type === 'interest_received';
+      if (!isInterest) return false;
+      
+      const notifId = String(n.notification_id || n.id || '');
+      const senderId = String(n.sender_id || n.senderId || n.metadata?.senderId || '');
+      const interestId = String(n.interest_id || '');
+
+      // Exclude declined or rejected
+      if (n.status === 'declined' || n.status === 'rejected') return false;
+      if (senderId && declinedIds.has(senderId)) return false;
+      if (notifId && declinedIds.has(notifId)) return false;
+      if (interestId && declinedIds.has(interestId)) return false;
+
+      // Exclude already marked read
+      if (n.isRead || n.is_read) return false;
+
+      // Exclude already seen
+      if (seenInterestIds.has(notifId) || (senderId && seenInterestIds.has(senderId))) return false;
+
+      // If lastInterestsOpened exists, must be newer than the time the tab was opened
+      if (lastInterestsOpened > 0) {
+        const itemTime = new Date(n.created_at || n.timestamp || 0).getTime();
+        if (itemTime > 0 && itemTime <= lastInterestsOpened) return false;
+      }
+
+      return true;
+    }).length;
+  }, [currentUser, notifications, declinedReceivedIds]);
 
   return (
     <ThemeProvider>

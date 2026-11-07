@@ -89,7 +89,18 @@ export default function MobileNotificationsSheet({
   onSimulateNotification
 }) {
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'interest' | 'shortlist' | 'visitor' | 'contact_view' | 'message'
-  const [hiddenInterestIds, setHiddenInterestIds] = useState([]);
+  const [hiddenInterestIds, setHiddenInterestIds] = useState(() => {
+    try {
+      const curId = currentUser?.id;
+      const key = curId ? `declined_interest_ids_${curId}` : 'i4u_declined_received_ids';
+      const stored = localStorage.getItem(key) || localStorage.getItem('i4u_declined_received_ids');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      }
+    } catch (e) {}
+    return [];
+  });
   const { triggerScreenshotBlock } = usePhotoPrivacy();
 
   // Side Scroll state & refs for Filter Pills Bar
@@ -643,6 +654,7 @@ export default function MobileNotificationsSheet({
 
     const visibleGrouped = allGrouped.filter(notif => {
       if (!notif) return false;
+      if (notif.status === 'declined' || notif.status === 'rejected') return false;
       const nId = String(notif.id || notif.notification_id || '');
       const intId = String(notif.interestId || notif.interest_id || '');
       const sId = String(notif.senderId || notif.sender_id || notif.profileId || '');
@@ -680,20 +692,73 @@ export default function MobileNotificationsSheet({
       return;
     }
 
-    setHiddenInterestIds(prev => [
-      ...prev,
+    const candidateId = String(notif?.senderId || notif?.sender_id || notif?.profileId || '');
+    const idsToHide = [
       String(idToHide),
       String(notifId),
       String(notif?.id),
       String(notif?.notification_id),
-      String(notif?.senderId),
-      String(notif?.sender_id),
-      String(notif?.profileId)
-    ].filter(Boolean));
+      candidateId,
+      interestId ? String(interestId) : null
+    ].filter(Boolean);
 
-    if (isSupabaseConfigured() && supabase && interestId) {
+    setHiddenInterestIds(prev => Array.from(new Set([...prev, ...idsToHide])));
+
+    // Persist to localStorage
+    if (currentUser?.id) {
       try {
-        await supabase.from('interests').delete().eq('id', interestId);
+        const key = `declined_interest_ids_${currentUser.id}`;
+        const existing = JSON.parse(localStorage.getItem(key) || '[]');
+        const merged = Array.from(new Set([...(Array.isArray(existing) ? existing : []), ...idsToHide]));
+        localStorage.setItem(key, JSON.stringify(merged));
+        localStorage.setItem('i4u_declined_received_ids', JSON.stringify(merged));
+      } catch (e) {}
+    }
+
+    // Supabase delete / update on BOTH interests and notifications
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        let cleanIntId = interestId || notif?.interest_id || notif?.interestId;
+        if (typeof cleanIntId === 'string' && (cleanIntId.startsWith('interest_') || cleanIntId.startsWith('int_'))) {
+          cleanIntId = cleanIntId.replace(/^interest_/, '').replace(/^int_/, '');
+        }
+        if (cleanIntId && cleanIntId.includes('-')) {
+          const { error: intDelErr } = await supabase.from('interests').delete().eq('id', cleanIntId);
+          if (intDelErr) {
+            await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).eq('id', cleanIntId);
+          }
+        }
+
+        const currentIds = currentUser ? [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String) : [];
+        if (currentIds.length > 0 && candidateId) {
+          const { error: pairErr } = await supabase.from('interests').delete().in('receiver_id', currentIds).eq('sender_id', candidateId);
+          if (pairErr) {
+            await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).in('receiver_id', currentIds).eq('sender_id', candidateId);
+          }
+        }
+
+        const rawNotifId = String(notifId).replace('db_', '').replace('notif_', '');
+        if (rawNotifId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawNotifId)) {
+          const { error: notifErr } = await supabase.from('notifications').delete().eq('id', rawNotifId);
+          if (notifErr) {
+            await supabase.from('notifications').update({ is_read: true, status: 'declined' }).eq('id', rawNotifId);
+          }
+        }
+
+        if (currentIds.length > 0 && candidateId) {
+          try {
+            await supabase
+              .from('notifications')
+              .delete()
+              .in('recipient_id', currentIds)
+              .or(`metadata->>senderId.eq.${candidateId},metadata->>sender_id.eq.${candidateId},sender_id.eq.${candidateId}`);
+          } catch (ne) {
+            await supabase
+              .from('notifications')
+              .update({ is_read: true, status: 'declined' })
+              .in('recipient_id', currentIds);
+          }
+        }
       } catch (e) {
         console.error("Supabase error silently caught:", e);
       }

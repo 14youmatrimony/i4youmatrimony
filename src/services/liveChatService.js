@@ -1062,10 +1062,26 @@ class LiveChatService {
       // Strictly exclude incomplete or placeholder profiles (e.g. "Member usr_...", "User...", missing valid names)
       if (isPlaceholderOrIncompleteProfile(partnerObj)) continue;
 
-      const actualUnread = cleanMsgs.filter((m) =>
-        (m.sender === 'them' || (m.sender_id && !userIds.includes(String(m.sender_id)))) &&
-        m.status !== 'read'
-      ).length;
+      const partnerIdStr = String(partnerObj.id || conv.profileId || '');
+      const lastReadTime = Number(
+        localStorage.getItem(`i4u_chat_read_${userIds[0]}_${partnerIdStr}`) || 
+        (partnerObj.register_id ? localStorage.getItem(`i4u_chat_read_${userIds[0]}_${partnerObj.register_id}`) : 0) || 0
+      );
+
+      const actualUnread = cleanMsgs.filter((m) => {
+        const isFromThem = m.sender === 'them' || (m.sender_id && !userIds.includes(String(m.sender_id)));
+        if (!isFromThem) return false;
+        if (m.status === 'read' || m.is_read === true || m.isRead === true) return false;
+        if (lastReadTime > 0) {
+          const msgTime = new Date(m.created_at || m.timestamp || 0).getTime();
+          if (msgTime <= lastReadTime) {
+            m.status = 'read';
+            m.is_read = true;
+            return false;
+          }
+        }
+        return true;
+      }).length;
 
       const lastMsg = cleanMsgs.length > 0 ? cleanMsgs[cleanMsgs.length - 1] : null;
 
@@ -1098,31 +1114,54 @@ class LiveChatService {
   /**
    * Mark all unread messages in a conversation as read both locally and in Supabase
    */
-  async markConversationAsRead({ currentUserId, partnerUserId, conversationId }) {
+  async markConversationAsRead(arg1, arg2, arg3) {
+    let currentUserId, partnerUserId, conversationId;
+    if (arg1 && typeof arg1 === 'object' && ('currentUserId' in arg1 || 'partnerUserId' in arg1)) {
+      currentUserId = arg1.currentUserId;
+      partnerUserId = arg1.partnerUserId;
+      conversationId = arg1.conversationId;
+    } else {
+      currentUserId = (arg1 && typeof arg1 === 'object') ? (arg1.id || arg1.user_id || arg1.userId) : arg1;
+      partnerUserId = (arg2 && typeof arg2 === 'object') ? (arg2.id || arg2.user_id || arg2.userId) : arg2;
+      conversationId = arg3;
+    }
+
     if (!currentUserId || !partnerUserId) return;
     const currentIdStr = String(currentUserId);
     const partnerIdStr = String(partnerUserId);
+    const now = Date.now();
 
-    // 1. Supabase database update
+    // 1. Store read receipt timestamp per chat partner in localStorage
+    try {
+      localStorage.setItem(`i4u_chat_read_${currentIdStr}_${partnerIdStr}`, now.toString());
+    } catch (e) {}
+
+    // 2. Supabase database update
     if (isSupabaseConfigured() && supabase) {
       try {
         let query = supabase
           .from('messages')
-          .update({ status: 'read' })
+          .update({ status: 'read', is_read: true })
           .eq('receiver_id', currentIdStr)
-          .eq('sender_id', partnerIdStr)
-          .neq('status', 'read');
+          .eq('sender_id', partnerIdStr);
 
         if (conversationId) {
           query = query.eq('conversation_id', conversationId);
         }
         await query;
+
+        // Also mark corresponding message notifications as read in Supabase
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('recipient_id', currentIdStr)
+          .or(`type.eq.chat_message,type.eq.message,type.eq.message_received`);
       } catch (e) {
         console.warn('[LiveChat] Error updating read status in DB:', e);
       }
     }
 
-    // 2. Synchronize localStorage cache atomically
+    // 3. Synchronize localStorage cache atomically
     try {
       const key = `i4u_conversations_${currentIdStr}`;
       const raw = localStorage.getItem(key);

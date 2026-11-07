@@ -132,10 +132,23 @@ export function getActiveConversations(conversations = [], currentUser, profiles
     const isAccepted = c.isAccepted === true || c.status === 'accepted' || c.isMatch === true;
     if (cleanMessages.length === 0 && !isAccepted) continue;
 
+    // Read receipt timestamp per chat partner in localStorage
+    const lastReadTime = Number(
+      localStorage.getItem(`i4u_chat_read_${currentUserId}_${partnerIdStr}`) ||
+      (partner.register_id ? localStorage.getItem(`i4u_chat_read_${currentUserId}_${partner.register_id}`) : 0) ||
+      (partner.registerId ? localStorage.getItem(`i4u_chat_read_${currentUserId}_${partner.registerId}`) : 0) || 0
+    );
+
     // Tally actual unread incoming messages sent by the partner
     const actualUnread = cleanMessages.filter(m => {
       const isFromMe = m.sender === 'me' || (m.sender_id && userIds.includes(String(m.sender_id)));
-      return !isFromMe && m.status !== 'read';
+      if (isFromMe) return false;
+      if (m.status === 'read' || m.is_read === true || m.isRead === true) return false;
+      if (lastReadTime > 0) {
+        const msgTime = new Date(m.created_at || m.timestamp || 0).getTime();
+        if (msgTime <= lastReadTime) return false;
+      }
+      return true;
     }).length;
 
     activeList.push({

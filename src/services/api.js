@@ -546,6 +546,10 @@ export function isPlaceholderOrIncompleteProfile(profile, options = {}) {
   // 1. Generic placeholder name patterns (e.g. "Member usr_9496", "User_...", "User 123", "usr_...")
   if (
     /^member\s*usr/i.test(cleanName) ||
+    cleanName.toLowerCase().startsWith('member usr_') ||
+    cleanName.toLowerCase().startsWith('usr_') ||
+    cleanName.toLowerCase().includes('member usr_') ||
+    cleanName.toLowerCase().includes('usr_') ||
     /^user\s*[_0-9]/i.test(cleanName) ||
     /^user\b/i.test(cleanName) ||
     /^usr_/i.test(cleanName) ||
@@ -825,7 +829,22 @@ export function isDemoProfile(p) {
     return true;
   }
 
-  // Match explicit dummy test candidate names
+  // Match legacy mock candidate IDs
+  const legacyMockIds = [
+    'i4y1021_1791653762897',
+    'i4y1020_1791653471074',
+    'i4y1003_1791565753630',
+    'i4y1025_1791653762898',
+    'i4y1026_1791653762899',
+    'i4y1027_1791653762900',
+    'i4y1028_1791653762901',
+    'i4y1007_1791482054639',
+    'i4y1010_1791482054642',
+    'i4y1009_1791482054641'
+  ];
+  if (legacyMockIds.includes(id)) return true;
+
+  // Match explicit dummy test candidate names & legacy mock names
   const testDummyNames = [
     'test candidate',
     'test registration',
@@ -836,9 +855,17 @@ export function isDemoProfile(p) {
     'demo user',
     'dummy user',
     'priya sharma',
-    'rohan jayasimha'
+    'rohan jayasimha',
+    'rahul nair',
+    'mathew george',
+    'amal'
   ];
   if (testDummyNames.includes(name)) return true;
+  if (name.includes('rahul nair') || name.includes('mathew george')) return true;
+  if (name === 'amal' || name.startsWith('amal ')) {
+    const loc = String(p.location || p.city || p.district || p.state || '').toLowerCase();
+    if (loc.includes('palakkad') || loc.includes('kerala')) return true;
+  }
 
   return false;
 }
@@ -856,7 +883,10 @@ export async function purgeDemoProfilesFromSupabase() {
       'p_1790420920023', 'p_1790423415609', 'p_1791044984217',
       'p_1790182902571', 'p_1790585472737', 'p_1790963054403', 'p_1791395066352', 'p_1791395066369',
       'i4y1008_1791482054640',
-      'test_sdk_1791097509591', 'test_sync_1791098620388', 'test_anon_1791369041', 'test_probe_1791394020373', 'test_payload_1'
+      'test_sdk_1791097509591', 'test_sync_1791098620388', 'test_anon_1791369041', 'test_probe_1791394020373', 'test_payload_1',
+      'i4y1021_1791653762897', 'i4y1020_1791653471074', 'i4y1003_1791565753630',
+      'i4y1025_1791653762898', 'i4y1026_1791653762899', 'i4y1027_1791653762900', 'i4y1028_1791653762901',
+      'i4y1007_1791482054639', 'i4y1010_1791482054642', 'i4y1009_1791482054641'
     ];
     // Delete legacy IDs
     await supabase.from('profiles').delete().in('id', demoIds);
@@ -865,6 +895,10 @@ export async function purgeDemoProfilesFromSupabase() {
     await supabase.from('profiles').delete().ilike('name', '%demo%');
     await supabase.from('profiles').delete().ilike('name', '%test%');
     await supabase.from('profiles').delete().ilike('name', '%dummy%');
+    await supabase.from('profiles').delete().ilike('name', '%rahul nair%');
+    await supabase.from('profiles').delete().ilike('name', '%mathew george%');
+    await supabase.from('profiles').delete().ilike('name', 'member usr%');
+    await supabase.from('profiles').delete().ilike('name', 'amal').ilike('district', '%palakkad%');
 
     // Delete profiles with demo or test in id
     await supabase.from('profiles').delete().ilike('id', '%demo%');
@@ -1069,11 +1103,7 @@ export async function fetchLiveProfiles(currentUserId = null) {
     }
   } catch (e) {}
 
-  // 4. Default authentic fallback profiles
-  if (Array.isArray(INITIAL_PROFILES) && INITIAL_PROFILES.length > 0) {
-    return deduplicateProfiles(INITIAL_PROFILES.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)));
-  }
-
+  // 4. Default authentic fallback profiles: Strictly empty (zero hardcoded mock profiles)
   return [];
 }
 
@@ -2065,16 +2095,7 @@ export async function fetchLiveUserProfile(userId) {
     } catch (e) {}
   }
 
-  // 3. Check INITIAL_PROFILES (strictly valid candidates, excluding demo/test)
-  if (Array.isArray(INITIAL_PROFILES)) {
-    const foundMock = INITIAL_PROFILES.find((p) => {
-      if (!p || isDemoProfile(p) || isPlaceholderOrIncompleteProfile(p)) return false;
-      const pId = String(p.id || '').toLowerCase();
-      const pReg = String(p.register_id || p.registerId || '').toLowerCase();
-      return pId === cleanIdLower || pReg === cleanIdLower || pReg === regIdToken.toLowerCase();
-    });
-    if (foundMock) return foundMock;
-  }
+  // 3. Fallback: checked real profiles only, no mock profiles
 
   // 4. Try Flask API (local dev only)
   try {
@@ -2572,6 +2593,50 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
       const combined = [];
       const seen = new Set();
 
+      // Retrieve permanently declined IDs from localStorage
+      const declinedIds = new Set();
+      try {
+        const primaryUid = (typeof userOrId === 'object' && userOrId !== null) ? (userOrId.id || userOrId.register_id || userOrId.registerId) : userOrId;
+        const uidKeys = [
+          primaryUid ? `declined_interest_ids_${primaryUid}` : null,
+          userOrId?.id ? `declined_interest_ids_${userOrId.id}` : null,
+          userOrId?.register_id ? `declined_interest_ids_${userOrId.register_id}` : null,
+          userOrId?.registerId ? `declined_interest_ids_${userOrId.registerId}` : null,
+          'i4u_declined_received_ids'
+        ].filter(Boolean);
+        uidKeys.forEach(k => {
+          const stored = localStorage.getItem(k);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) parsed.forEach(id => declinedIds.add(String(id)));
+          }
+        });
+      } catch (e) {}
+
+      // Retrieve viewed notification IDs and last opened timestamp
+      const viewedIds = new Set();
+      let lastOpened = 0;
+      try {
+        const primaryUid = (typeof userOrId === 'object' && userOrId !== null) ? (userOrId.id || userOrId.register_id || userOrId.registerId) : userOrId;
+        const uidKeys = [
+          primaryUid ? `viewed_notification_ids_${primaryUid}` : null,
+          userOrId?.id ? `viewed_notification_ids_${userOrId.id}` : null
+        ].filter(Boolean);
+        uidKeys.forEach(k => {
+          const stored = localStorage.getItem(k);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) parsed.forEach(id => viewedIds.add(String(id)));
+          }
+        });
+        if (primaryUid) {
+          lastOpened = Number(localStorage.getItem(`i4u_notifications_last_opened_${primaryUid}`) || 0);
+        }
+        if (!lastOpened && userOrId?.id) {
+          lastOpened = Number(localStorage.getItem(`i4u_notifications_last_opened_${userOrId.id}`) || 0);
+        }
+      } catch (e) {}
+
       // Helper to map profile from profilesMap
       const findProfile = (senderId) => {
         if (!senderId) return null;
@@ -2595,18 +2660,29 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
       (interestRows || []).forEach(row => {
         const sId = String(row.sender_id || row.senderId);
         if (!sId || userIds.includes(sId)) return;
+        const rawRowId = String(row.id || '');
         const intId = `interest_${row.id || sId}`;
+        const rowStatus = String(row.status || '').toLowerCase();
+
+        // 1. Permanently filter out declined / rejected interests
+        if (rowStatus === 'declined' || rowStatus === 'rejected') return;
+        if (declinedIds.has(rawRowId) || declinedIds.has(intId) || (sId && declinedIds.has(sId))) return;
+
         const senderInterestKey = `interest_sender_${sId}`;
         if (seen.has(intId) || seen.has(senderInterestKey)) return;
         seen.add(intId);
         seen.add(senderInterestKey);
 
         const matched = findProfile(sId);
+        if (matched && (isDemoProfile(matched) || isPlaceholderOrIncompleteProfile(matched))) return;
+
         const fallbackMemberName = matched?.register_id ? `Member ${matched.register_id}` : (sId && sId.length <= 12 ? `Member ${sId}` : 'Candidate');
         const sName = sanitizeName(
           matched?.name || matched?.full_name,
           sanitizeName(row.metadata?.senderName, fallbackMemberName)
         );
+
+        if (!sName || isPlaceholderOrIncompleteProfile({ name: sName, id: sId })) return;
 
         const sPhoto = resolveProfilePhoto(matched) || resolveProfilePhoto(row.metadata?.senderPhoto) || null;
         const sAge = matched?.age || row.metadata?.senderAge || null;
@@ -2633,6 +2709,14 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
 
         const cleanMsg = sanitizeText(row.message, sName) || `${sName} expressed matrimonial interest in connecting with you.`;
 
+        const createdAtTime = new Date(row.created_at || row.updated_at || 0).getTime();
+        const isReadState = Boolean(
+          row.is_read || 
+          viewedIds.has(intId) || 
+          viewedIds.has(rawRowId) || 
+          (lastOpened > 0 && createdAtTime <= lastOpened)
+        );
+
         combined.push({
           notification_id: intId,
           id: intId,
@@ -2652,8 +2736,8 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
           type: 'interest',
           title: `💖 Interest from ${sName}!`,
           message: cleanMsg,
-          is_read: false,
-          isRead: false,
+          is_read: isReadState,
+          isRead: isReadState,
           status: row.status || 'pending',
           created_at: row.created_at || row.updated_at || new Date().toISOString()
         });
@@ -2661,12 +2745,15 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
 
       (notifRows || []).forEach(row => {
         const notifId = `db_${row.id}`;
+        const rawRowId = String(row.id || '');
         if (seen.has(notifId)) return;
         seen.add(notifId);
 
         const isPaymentRow = row.type === 'payment_success' || row.type === 'payment' || row.type === 'payment_failed';
 
         if (isPaymentRow) {
+          const createdAtTime = new Date(row.created_at || 0).getTime();
+          const isReadState = Boolean(row.is_read || viewedIds.has(notifId) || viewedIds.has(rawRowId) || (lastOpened > 0 && createdAtTime <= lastOpened));
           combined.push({
             notification_id: notifId,
             id: notifId,
@@ -2684,8 +2771,8 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
             badge: row.metadata?.badge || row.metadata?.planName || 'Upgraded',
             amount: row.metadata?.amount || null,
             invoice: row.metadata?.invoice || null,
-            is_read: Boolean(row.is_read),
-            isRead: Boolean(row.is_read),
+            is_read: isReadState,
+            isRead: isReadState,
             status: 'completed',
             created_at: row.created_at || new Date().toISOString()
           });
@@ -2695,6 +2782,13 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         const sId = String(row.metadata?.senderId || row.metadata?.sender_id || row.metadata?.from_user_id || row.metadata?.actor_id || row.sender_id || '');
         const rId = String(row.recipient_id || row.recipient_register_id || '');
         const isInterestRow = row.type === 'interest' || row.type === 'interest_received';
+        const rowStatus = String(row.status || '').toLowerCase();
+
+        // 1. Permanently filter out declined / rejected notifications
+        if (rowStatus === 'declined' || rowStatus === 'rejected') return;
+        if (declinedIds.has(rawRowId) || declinedIds.has(notifId) || (sId && declinedIds.has(sId))) return;
+        if (isInterestRow && sId && declinedIds.has(sId)) return;
+
         if (isInterestRow && (!sId || userIds.includes(sId))) return; // STRICT GUARD: sender cannot be logged-in user!
         if (rId && !userIds.includes(rId)) return; // STRICT GUARD: recipient must be logged-in user!
 
@@ -2705,11 +2799,15 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         }
 
         const matched = findProfile(sId);
+        if (matched && (isDemoProfile(matched) || isPlaceholderOrIncompleteProfile(matched))) return;
+
         const fallbackMemberName = matched?.register_id ? `Member ${matched.register_id}` : (sId && sId.length <= 12 ? `Member ${sId}` : 'Candidate');
         const sName = sanitizeName(
           matched?.name || matched?.full_name,
           sanitizeName(row.metadata?.senderName, fallbackMemberName)
         );
+
+        if (!sName || isPlaceholderOrIncompleteProfile({ name: sName, id: sId })) return;
 
         const sPhoto = resolveProfilePhoto(matched) || resolveProfilePhoto(row.metadata?.senderPhoto) || null;
         const sAge = matched?.age || row.metadata?.senderAge || null;
@@ -2747,6 +2845,14 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         const cleanTitle = sanitizeText(row.title, sName) || defaultTitle;
         const cleanMsg = sanitizeText(row.message, sName) || '';
 
+        const createdAtTime = new Date(row.created_at || 0).getTime();
+        const isReadState = Boolean(
+          row.is_read || 
+          viewedIds.has(notifId) || 
+          viewedIds.has(rawRowId) || 
+          (lastOpened > 0 && createdAtTime <= lastOpened)
+        );
+
         combined.push({
           notification_id: notifId,
           id: notifId,
@@ -2764,8 +2870,8 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
           type: row.type || 'interest',
           title: cleanTitle,
           message: cleanMsg,
-          is_read: Boolean(row.is_read),
-          isRead: Boolean(row.is_read),
+          is_read: isReadState,
+          isRead: isReadState,
           status: 'pending',
           created_at: row.created_at || new Date().toISOString()
         });
@@ -2815,5 +2921,27 @@ export async function deleteNotificationApi(notificationId, userId) {
   if (isSupabaseConfigured() && supabase) {
     const rawId = String(notificationId).replace('db_', '').replace('notif_', '');
     supabase.from('notifications').delete().eq('id', rawId).catch(() => {});
+  }
+}
+
+/**
+ * Marks all incoming notifications as read in Supabase for the current user
+ */
+export async function markAllUserNotificationsAsRead(userOrId) {
+  if (!userOrId) return;
+  const userIds = (typeof userOrId === 'object' && userOrId !== null)
+    ? [userOrId.id, userOrId.register_id, userOrId.registerId, userOrId.user_id].filter(Boolean).map(String)
+    : [String(userOrId).trim()];
+  if (!userIds.length) return;
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .in('recipient_id', userIds);
+    } catch (e) {
+      console.warn('[markAllUserNotificationsAsRead] error:', e);
+    }
   }
 }

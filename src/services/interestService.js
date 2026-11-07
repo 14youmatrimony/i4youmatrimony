@@ -331,6 +331,25 @@ class InterestService {
     const rejectedSet = new Set();
     let combinedRows = [];
 
+    // Retrieve permanently declined IDs from localStorage
+    const declinedIds = new Set();
+    try {
+      const keys = [
+        primaryId ? `declined_interest_ids_${primaryId}` : null,
+        userOrId?.id ? `declined_interest_ids_${userOrId.id}` : null,
+        userOrId?.register_id ? `declined_interest_ids_${userOrId.register_id}` : null,
+        userOrId?.registerId ? `declined_interest_ids_${userOrId.registerId}` : null,
+        'i4u_declined_received_ids'
+      ].filter(Boolean);
+      keys.forEach(k => {
+        const stored = localStorage.getItem(k);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) parsed.forEach(id => declinedIds.add(String(id)));
+        }
+      });
+    } catch (e) {}
+
     // 1. Batch query Supabase 'interests' table in parallel (as sender and as receiver)
     if (isSupabaseConfigured() && supabase) {
       try {
@@ -414,6 +433,12 @@ class InterestService {
           this.statusCache.set(key, status);
         }
       });
+
+      // Filter out declined or rejected interests from receivedSet
+      if (declinedIds.has(partnerId) || (row.id && declinedIds.has(String(row.id)))) {
+        rejectedSet.add(partnerId);
+        return;
+      }
 
       if (status === 'accepted') {
         acceptedSet.add(partnerId);
@@ -1093,6 +1118,25 @@ class InterestService {
     const userId = receiverIds[0];
     console.log(`Fetching received interests for user: [${userId}]`);
 
+    // Retrieve permanently declined IDs from localStorage
+    const declinedIds = new Set();
+    try {
+      const keys = [
+        userId ? `declined_interest_ids_${userId}` : null,
+        userOrId?.id ? `declined_interest_ids_${userOrId.id}` : null,
+        userOrId?.register_id ? `declined_interest_ids_${userOrId.register_id}` : null,
+        userOrId?.registerId ? `declined_interest_ids_${userOrId.registerId}` : null,
+        'i4u_declined_received_ids'
+      ].filter(Boolean);
+      keys.forEach(k => {
+        const stored = localStorage.getItem(k);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) parsed.forEach(id => declinedIds.add(String(id)));
+        }
+      });
+    } catch (e) {}
+
     let rawRecords = [];
 
     // 1. Query Supabase 'interests' table
@@ -1105,10 +1149,13 @@ class InterestService {
           .order('updated_at', { ascending: false });
 
         if (!error && Array.isArray(data)) {
-          // Strictly only records where currentUser is receiver_id, and NOT sender_id
+          // Strictly only records where currentUser is receiver_id, and NOT sender_id, and NOT declined/rejected
           rawRecords = data.filter(r => {
             const sId = String(r.sender_id || '');
             const rId = String(r.receiver_id || '');
+            const rStatus = String(r.status || '').toLowerCase();
+            if (rStatus === 'declined' || rStatus === 'rejected') return false;
+            if (declinedIds.has(String(r.id)) || (sId && declinedIds.has(sId))) return false;
             return receiverIds.includes(rId) && !receiverIds.includes(sId);
           });
         } else if (error) {
@@ -1334,10 +1381,15 @@ class InterestService {
     }
 
     // Final sanity check: Strictly ensure receiver is current user and sender is NOT current user,
-    // and exclude any placeholder/incomplete sender profiles (e.g. "Member usr_...", "User...")
+    // and exclude any placeholder/incomplete sender profiles (e.g. "Member usr_...", "User..."),
+    // and exclude any permanently declined / rejected candidates
     const finalReceived = deduplicatedEnriched.filter(item => {
       const sId = String(item.sender_id || item.senderId || '');
       const rId = String(item.receiver_id || item.receiverId || '');
+      const itemStatus = String(item.status || '').toLowerCase();
+      const intId = String(item.id || item.interest_id || item.interestId || '');
+      if (itemStatus === 'declined' || itemStatus === 'rejected') return false;
+      if (declinedIds.has(sId) || (intId && declinedIds.has(intId))) return false;
       if (receiverIds.includes(sId) || (!receiverIds.includes(rId) && rId)) return false;
       if (isPlaceholderOrIncompleteProfile(item.sender) || isPlaceholderOrIncompleteProfile({ name: item.sender_name, id: sId })) return false;
       return true;
@@ -2236,6 +2288,17 @@ class InterestService {
     const pairKey = this.getPairKey(receiver, sender);
     if (pairKey) this.statusCache.set(pairKey, 'rejected');
 
+    // Persist declined IDs in localStorage under declined_interest_ids_${receiverId}
+    try {
+      const curId = String(receiverId);
+      const userKey = `declined_interest_ids_${curId}`;
+      const saved = JSON.parse(localStorage.getItem(userKey) || '[]');
+      const toAdd = [String(senderId), explicitInterestId ? String(explicitInterestId) : null].filter(Boolean);
+      const merged = Array.from(new Set([...(Array.isArray(saved) ? saved : []), ...toAdd]));
+      localStorage.setItem(userKey, JSON.stringify(merged));
+      localStorage.setItem('i4u_declined_received_ids', JSON.stringify(merged));
+    } catch (e) {}
+
     // Update local records
     const records = this.getLocalRecords().filter((r) => {
       const match1 = String(r.senderId) === String(senderId) && String(r.receiverId) === String(receiverId);
@@ -2256,47 +2319,64 @@ class InterestService {
     if (isSupabaseConfigured() && supabase) {
       try {
         let cleanIntId = explicitInterestId;
-        if (typeof cleanIntId === 'string' && cleanIntId.startsWith('interest_')) {
-          cleanIntId = cleanIntId.replace('interest_', '');
+        if (typeof cleanIntId === 'string' && (cleanIntId.startsWith('interest_') || cleanIntId.startsWith('int_'))) {
+          cleanIntId = cleanIntId.replace(/^interest_/, '').replace(/^int_/, '');
         }
         if (cleanIntId && cleanIntId.includes('-')) {
-          await supabase
-            .from('interests')
-            .update({
-              status: 'declined',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', cleanIntId);
+          const { error: delErr } = await supabase.from('interests').delete().eq('id', cleanIntId);
+          if (delErr) {
+            await supabase
+              .from('interests')
+              .update({
+                status: 'declined',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', cleanIntId);
+          }
         }
 
         const cleanSenderId = String(senderId).replace(/["']/g, '');
         const cleanReceiverId = String(receiverId).replace(/["']/g, '');
-        const { data: existingRows } = await supabase
-          .from('interests')
-          .select('id, sender_id, receiver_id, status')
-          .or(`and(sender_id.eq.${cleanSenderId},receiver_id.eq.${cleanReceiverId}),and(sender_id.eq.${cleanReceiverId},receiver_id.eq.${cleanSenderId})`)
-          .limit(1);
 
-        if (existingRows && existingRows.length > 0) {
-          await supabase
+        // 1. Delete/update matching (sender_id = candidateId AND receiver_id = currentUserId)
+        const { error: pairDelErr } = await supabase
+          .from('interests')
+          .delete()
+          .eq('sender_id', cleanSenderId)
+          .eq('receiver_id', cleanReceiverId);
+
+        if (pairDelErr) {
+          const { data: existingRows } = await supabase
             .from('interests')
-            .update({
-              status: 'declined',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', existingRows[0].id);
-        } else if (!cleanIntId || !cleanIntId.includes('-')) {
-          await supabase
-            .from('interests')
-            .insert([
-              {
-                id: generateUUID(),
-                sender_id: String(senderId),
-                receiver_id: String(receiverId),
+            .select('id, sender_id, receiver_id, status')
+            .or(`and(sender_id.eq.${cleanSenderId},receiver_id.eq.${cleanReceiverId}),and(sender_id.eq.${cleanReceiverId},receiver_id.eq.${cleanSenderId})`)
+            .limit(1);
+
+          if (existingRows && existingRows.length > 0) {
+            await supabase
+              .from('interests')
+              .update({
                 status: 'declined',
                 updated_at: new Date().toISOString()
-              }
-            ]);
+              })
+              .eq('id', existingRows[0].id);
+          }
+        }
+
+        // 2. Also delete/update the corresponding notification row in notifications so the alert never reloads
+        try {
+          await supabase
+            .from('notifications')
+            .delete()
+            .eq('recipient_id', cleanReceiverId)
+            .or(`metadata->>senderId.eq.${cleanSenderId},metadata->>sender_id.eq.${cleanSenderId},sender_id.eq.${cleanSenderId}`);
+        } catch (nErr) {
+          await supabase
+            .from('notifications')
+            .update({ is_read: true, status: 'declined' })
+            .eq('recipient_id', cleanReceiverId)
+            .or(`metadata->>senderId.eq.${cleanSenderId},metadata->>sender_id.eq.${cleanSenderId},sender_id.eq.${cleanSenderId}`)
+            .catch(() => {});
         }
       } catch (e) {}
 

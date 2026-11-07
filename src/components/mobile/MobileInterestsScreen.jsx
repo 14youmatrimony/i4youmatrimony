@@ -44,8 +44,30 @@ export default function MobileInterestsScreen({
 }) {
   const { triggerScreenshotBlock, screenshotRestricted } = usePhotoPrivacy();
   const [internalSegment, setInternalSegment] = useState('sent'); // 'sent' | 'received' | 'shortlist'
-  const [localDeclinedIds, setLocalDeclinedIds] = useState([]);
-  const [hiddenInterestIds, setHiddenInterestIds] = useState([]);
+  const [localDeclinedIds, setLocalDeclinedIds] = useState(() => {
+    try {
+      const curId = currentUser?.id;
+      const key = curId ? `declined_interest_ids_${curId}` : 'i4u_declined_received_ids';
+      const stored = localStorage.getItem(key) || localStorage.getItem('i4u_declined_received_ids');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      }
+    } catch (e) {}
+    return [];
+  });
+  const [hiddenInterestIds, setHiddenInterestIds] = useState(() => {
+    try {
+      const curId = currentUser?.id;
+      const key = curId ? `declined_interest_ids_${curId}` : 'i4u_declined_received_ids';
+      const stored = localStorage.getItem(key) || localStorage.getItem('i4u_declined_received_ids');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      }
+    } catch (e) {}
+    return [];
+  });
   const [liveReceivedInterests, setLiveReceivedInterests] = useState([]);
   const [liveSentInterests, setLiveSentInterests] = useState([]);
   const [isLoadingReceived, setIsLoadingReceived] = useState(false);
@@ -761,11 +783,21 @@ export default function MobileInterestsScreen({
     const allToDecline = [candidateId, actualInterestId, idStr].filter(Boolean);
     setLocalDeclinedIds(prev => Array.from(new Set([...prev, ...allToDecline])));
 
-    try {
-      const saved = JSON.parse(localStorage.getItem('i4u_declined_received_ids') || '[]');
-      const merged = Array.from(new Set([...(Array.isArray(saved) ? saved : []), ...allToDecline]));
-      localStorage.setItem('i4u_declined_received_ids', JSON.stringify(merged));
-    } catch (e) {}
+    if (currentUser?.id) {
+      try {
+        const userKey = `declined_interest_ids_${currentUser.id}`;
+        const saved = JSON.parse(localStorage.getItem(userKey) || '[]');
+        const merged = Array.from(new Set([...(Array.isArray(saved) ? saved : []), ...allToDecline]));
+        localStorage.setItem(userKey, JSON.stringify(merged));
+        localStorage.setItem('i4u_declined_received_ids', JSON.stringify(merged));
+      } catch (e) {}
+    } else {
+      try {
+        const saved = JSON.parse(localStorage.getItem('i4u_declined_received_ids') || '[]');
+        const merged = Array.from(new Set([...(Array.isArray(saved) ? saved : []), ...allToDecline]));
+        localStorage.setItem('i4u_declined_received_ids', JSON.stringify(merged));
+      } catch (e) {}
+    }
 
     // 2. Fire the Supabase request silently in the background:
     if (isSupabaseConfigured() && supabase) {
@@ -778,11 +810,26 @@ export default function MobileInterestsScreen({
             // Fallback to update if delete is blocked by RLS
             await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).eq('id', idToDelete);
           }
-        } else if (currentUser && candidateId) {
+        }
+        if (currentUser && candidateId) {
           const currentIds = [currentUser.id, currentUser.register_id, currentUser.registerId].filter(Boolean).map(String);
           const { error: delErr } = await supabase.from('interests').delete().in('receiver_id', currentIds).eq('sender_id', candidateId);
           if (delErr) {
             await supabase.from('interests').update({ status: 'declined', updated_at: new Date().toISOString() }).in('receiver_id', currentIds).eq('sender_id', candidateId);
+          }
+
+          // Also delete/update corresponding notification in notifications table so alert never reloads
+          try {
+            await supabase
+              .from('notifications')
+              .delete()
+              .in('recipient_id', currentIds)
+              .or(`metadata->>senderId.eq.${candidateId},metadata->>sender_id.eq.${candidateId},sender_id.eq.${candidateId}`);
+          } catch (ne) {
+            await supabase
+              .from('notifications')
+              .update({ is_read: true, status: 'declined' })
+              .in('recipient_id', currentIds);
           }
         }
       } catch (err) {
