@@ -184,16 +184,16 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
     return { success: true, publicUrl: file };
   }
 
-  // 1. Client-Side WebP Compression (1080px max, quality 0.75, ~60-100 KB)
+  // 1. Client-Side Compression (1000px max, quality 0.75)
   let compressed;
   try {
     compressed = await compressImageToWebP(file, {
-      maxDimension: 1080,
+      maxDimension: 1000,
       quality: 0.75,
       fillBackground: false
     });
   } catch (compErr) {
-    console.warn('[r2Upload] WebP compression notice:', compErr);
+    console.warn('[r2Upload] Compression notice:', compErr);
     return await fallbackUpload({ dataUrl: file, sizeKB: 0 }, userId, folder);
   }
 
@@ -205,13 +205,14 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
 
   const { endpoint, accessKeyId, secretAccessKey, bucketName, publicUrl: basePublicUrl, region } = getR2Config();
 
-  // 3. Format path: profile/${userId}_$timestamp.jpg or family/${userId}_$timestamp.jpg
+  // 3. Unique timestamped filename: profile_${userId}_${timestamp}.jpg or family_${userId}_${timestamp}.jpg
   const cleanUserId = String(userId || 'user').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
   const cleanFolder = String(folder || 'profile').trim().toLowerCase();
   const isFamily = cleanFolder.includes('family');
-  const targetFolder = isFamily ? 'family' : 'profile';
   const timestamp = Date.now();
-  const filePath = `${targetFolder}/${cleanUserId}_${timestamp}.jpg`;
+  const filePath = isFamily
+    ? `family_${cleanUserId}_${timestamp}.jpg`
+    : `profile_${cleanUserId}_${timestamp}.jpg`;
 
   try {
     // 4. Extract ArrayBuffer from WebP Blob

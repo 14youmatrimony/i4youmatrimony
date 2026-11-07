@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/cloudflare_r2_photo_service.dart';
 
@@ -13,24 +14,27 @@ import '../services/cloudflare_r2_photo_service.dart';
 /// 2. Reads pure [Uint8List] bytes via `await image.readAsBytes()` (Zero dart:io File usage; safe for Web, Android, iOS).
 /// 3. Does NOT update UI state with local temporary file paths before upload completion.
 /// 4. Direct upload of Uint8List bytes to Cloudflare R2:
-///     - profile/${userId}_$timestamp.jpg
-///     - family/${userId}_$timestamp.jpg
-/// 5. Immediate update/upsert of exact columns in the Supabase `profiles` table:
+///     - profile_${userId}_$timestamp.jpg
+///     - family_${userId}_$timestamp.jpg
+/// 5. Immediate update of exact columns in Supabase `profiles` table:
 ///     - Profile: `profile_photo_url`, `photo_url`, `photo`, `avatar_url`
 ///     - Family: `family_photo_url`, `family_photos`
-/// 6. Visible error logging: Displays red SnackBar if R2 upload or Supabase update fails.
-/// 7. Only after Supabase database update succeeds, updates UI state with the permanent R2 public URL.
-/// 8. State Persistence: Waits for `supabase.auth.currentUser` to initialize on page refresh before querying `profiles`.
+/// 6. Synchronizes `supabase.auth.updateUser` metadata and local SharedPreferences / Provider cache.
+/// 7. Visible error logging: Displays red SnackBar if R2 upload or Supabase update fails.
+/// 8. Only after Supabase database update succeeds, updates UI state with the permanent R2 public URL.
+/// 9. On page refresh, always fetches the latest row from Supabase `public.profiles` and uses `ValueKey(photoUrl)` on the image widget so old photos never come back.
 class MatrimonyPhotoManager extends StatefulWidget {
   final CloudflareR2PhotoService? r2Service;
   final String? customUserId;
   final VoidCallback? onPhotosUpdated;
+  final void Function(String photoUrl, bool isProfilePhoto)? onPhotoCached;
 
   const MatrimonyPhotoManager({
     super.key,
     this.r2Service,
     this.customUserId,
     this.onPhotosUpdated,
+    this.onPhotoCached,
   });
 
   @override
@@ -136,19 +140,37 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         return;
       }
 
-      // Query profiles table for all recognized photo columns to guarantee display
       final supabase = Supabase.instance.client;
+
+      // Auto-create profile row in public.profiles (id, user_id, full_name, name) if not present
+      await _r2Service.ensureProfileRowExists(
+        userId: userId,
+        name: supabase.auth.currentUser?.userMetadata?['name']?.toString() ??
+              supabase.auth.currentUser?.userMetadata?['full_name']?.toString() ??
+              'Member',
+      );
+
+      // Query profiles table for all recognized photo columns directly from Supabase
       var response = await supabase
           .from('profiles')
-          .select('profile_photo_url, photo_url, photo, avatar_url, family_photo_url, family_photos')
+          .select('id, user_id, full_name, name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url, family_photos')
           .eq('id', userId)
           .maybeSingle();
+
+      if (response == null) {
+        // Fallback by user_id
+        response = await supabase
+            .from('profiles')
+            .select('id, user_id, full_name, name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url, family_photos')
+            .eq('user_id', userId)
+            .maybeSingle();
+      }
 
       if (response == null) {
         // Fallback by register_id or phone if id didn't match primary key
         response = await supabase
             .from('profiles')
-            .select('profile_photo_url, photo_url, photo, avatar_url, family_photo_url, family_photos')
+            .select('id, user_id, full_name, name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url, family_photos')
             .or('register_id.eq.$userId,phone.eq.$userId')
             .maybeSingle();
       }
@@ -181,6 +203,10 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
             }
           }
         }
+
+        // Evict previous cached images so old photos never come back on refresh
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
 
         setState(() {
           _profilePhotoUrl = profilePhoto?.toString();
@@ -255,8 +281,9 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
       }
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final folder = isProfilePhoto ? 'profile' : 'family';
-      final filePath = '$folder/${userId}_$timestamp.jpg';
+      final filePath = isProfilePhoto
+          ? 'profile_${userId}_$timestamp.jpg'
+          : 'family_${userId}_$timestamp.jpg';
 
       // 5. Step 1: Upload Uint8List bytes to Cloudflare R2
       String permanentR2Url;
@@ -303,7 +330,25 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         return; // Abort: do not update UI state
       }
 
-      // 7. Step 3: Only after Supabase database update succeeds, update UI state with permanent URL
+      // 7. Step 3: Update local SharedPreferences & Provider cache
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (isProfilePhoto) {
+          await prefs.setString('profile_photo_url', permanentR2Url);
+          await prefs.setString('photo_url', permanentR2Url);
+          await prefs.setString('avatar_url', permanentR2Url);
+          await prefs.setString('photo', permanentR2Url);
+        } else {
+          await prefs.setString('family_photo_url', permanentR2Url);
+        }
+      } catch (prefErr) {
+        debugPrint('[MatrimonyPhotoManager] SharedPreferences notice: $prefErr');
+      }
+
+      // Notify external Provider / StateNotifier cache listener
+      widget.onPhotoCached?.call(permanentR2Url, isProfilePhoto);
+
+      // 8. Step 4: Evict stale cached images and update UI state with permanent URL
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
 

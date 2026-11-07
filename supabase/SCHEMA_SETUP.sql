@@ -1,7 +1,7 @@
 -- ============================================================================
 -- I 4 YOU MATRIMONY - SUPABASE SCHEMA & TABLES SETUP (PART 1)
 -- Run this in Supabase SQL Editor:
--- https://supabase.com/dashboard/project/kzvdzospvgzlfkkptadl/sql/new
+-- https://supabase.com/dashboard/project/pheqzsfrwhjxspaaroea/sql/new
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -12,9 +12,11 @@ CREATE SEQUENCE IF NOT EXISTS public.register_id_seq START WITH 1025 INCREMENT B
 -- 1. Table: public.profiles
 CREATE TABLE IF NOT EXISTS public.profiles (
   id VARCHAR(100) PRIMARY KEY,
+  user_id VARCHAR(100),
   register_id VARCHAR(30) UNIQUE,
   password TEXT,
   name VARCHAR(150) NOT NULL,
+  full_name VARCHAR(150),
   email VARCHAR(250),
   phone VARCHAR(250),
   age INTEGER,
@@ -23,6 +25,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   skin_colour VARCHAR(50),
   photo TEXT,
   photo_url TEXT,
+  profile_photo_url TEXT,
+  avatar_url TEXT,
+  family_photo_url TEXT,
   religion VARCHAR(50),
   caste VARCHAR(50),
   mother_tongue VARCHAR(50),
@@ -74,6 +79,16 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public all access on profiles" ON public.profiles;
 CREATE POLICY "Allow public all access on profiles" ON public.profiles FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- Ensure all mandatory photo and identity columns exist if profiles table already existed
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS user_id VARCHAR(100);
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS profile_photo_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS family_photo_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS single_photos TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS family_photos TEXT;
 
 -- 2. Table: public.admin_users
 CREATE TABLE IF NOT EXISTS public.admin_users (

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { profileSyncService } from './services/profileSyncService';
@@ -86,6 +86,14 @@ export const checkStoredUserSession = () => {
     if (localStorage.getItem('i4u_logged_out') === 'true') {
       return null;
     }
+
+    // Fresh start migration for Newi4you Supabase project:
+    // Clear old mock/cached profiles & stale photo URLs
+    if (localStorage.getItem('i4u_fresh_newi4you_init') !== 'true') {
+      localStorage.removeItem('i4u_cached_profiles');
+      localStorage.setItem('i4u_fresh_newi4you_init', 'true');
+    }
+
     const saved = localStorage.getItem('i4u_auth_user');
     if (!saved) return null;
     const user = JSON.parse(saved);
@@ -116,17 +124,17 @@ export const checkStoredUserSession = () => {
       return null;
     }
 
-    // Strictly sanitize and strip any fake/Unsplash placeholder photos
-    if (user.photo && isFakeAvatarUrl(user.photo)) {
+    // Strictly sanitize and strip any fake/Unsplash placeholder photos or old project URLs
+    if (user.photo && (isFakeAvatarUrl(user.photo) || (typeof user.photo === 'string' && user.photo.includes('kzvdzospvgzlfkkptadl.supabase.co')))) {
       user.photo = null;
       user.photo_url = null;
       user.avatar_url = null;
     }
     if (Array.isArray(user.singlePhotos)) {
-      user.singlePhotos = user.singlePhotos.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+      user.singlePhotos = user.singlePhotos.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p) && !p.includes('kzvdzospvgzlfkkptadl.supabase.co'));
     }
     if (Array.isArray(user.familyPhotos)) {
-      user.familyPhotos = user.familyPhotos.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+      user.familyPhotos = user.familyPhotos.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p) && !p.includes('kzvdzospvgzlfkkptadl.supabase.co'));
     }
 
     const isAadhaarDone = localStorage.getItem('i4u_aadhaar_verified') === 'true';
@@ -413,8 +421,8 @@ export default function App() {
       if (!p) return p;
       const fixUrl = (url) => {
         if (!url || typeof url !== 'string' || !url.trim() || url === 'null' || isFakeAvatarUrl(url)) return null;
-        if (url.includes('ejtkrilhntdbsiavugta.supabase.co') || url.includes('pheqzsfrwhjxspaaroea.supabase.co')) {
-          return url.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://kzvdzospvgzlfkkptadl.supabase.co');
+        if (url.includes('ejtkrilhntdbsiavugta.supabase.co') || url.includes('kzvdzospvgzlfkkptadl.supabase.co')) {
+          return url.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://pheqzsfrwhjxspaaroea.supabase.co');
         }
         return url;
       };
@@ -1237,7 +1245,7 @@ export default function App() {
     let isMounted = true;
     const fetchId = currentUser.id || currentUser.registerId || currentUser.phone;
 
-    fetchLiveUserProfile(fetchId).then((liveProfile) => {
+    fetchLiveUserProfile(fetchId).then(async (liveProfile) => {
       if (!isMounted) return;
       if (liveProfile) {
         setCurrentUser(prev => {
@@ -1249,12 +1257,20 @@ export default function App() {
           return merged;
         });
       } else {
-        console.warn('[Supabase Sync] Active user session not found in Supabase profiles table:', fetchId);
-        if (isDemoProfile(currentUser) || String(currentUser.id).startsWith('demo-') || String(currentUser.id).startsWith('p_')) {
-          localStorage.removeItem('i4u_auth_user');
-          localStorage.removeItem('i4u_current_user_id');
-          localStorage.removeItem('i4u_register_id');
-          setCurrentUser(null);
+        // If not found in Supabase public.profiles, immediately auto-create their row!
+        console.info('[Supabase Sync] Profile row not found in public.profiles. Auto-creating row for:', fetchId);
+        try {
+          await ensureProfileRowExists(currentUser);
+          const freshCreated = await fetchLiveUserProfile(fetchId);
+          if (freshCreated && isMounted) {
+            setCurrentUser(prev => {
+              const merged = { ...(prev || {}), ...freshCreated };
+              try { localStorage.setItem('i4u_auth_user', JSON.stringify(merged)); } catch (e) {}
+              return merged;
+            });
+          }
+        } catch (autoErr) {
+          console.warn('[Supabase Sync] Auto-create row notice:', autoErr);
         }
       }
     }).catch(err => {
@@ -1265,6 +1281,25 @@ export default function App() {
       isMounted = false;
     };
   }, [currentUser?.id]);
+
+  // When user opens the Profile page (activeTab === 'account'), ensure row exists in public.profiles and strictly fetch latest data
+  useEffect(() => {
+    if (activeTab === 'account' && currentUser?.id && isSupabaseConfigured()) {
+      ensureProfileRowExists(currentUser).then(() => {
+        return fetchLiveUserProfile(currentUser.id);
+      }).then(freshProfile => {
+        if (freshProfile) {
+          setCurrentUser(prev => {
+            const merged = { ...(prev || {}), ...freshProfile };
+            try { localStorage.setItem('i4u_auth_user', JSON.stringify(merged)); } catch (e) {}
+            return merged;
+          });
+        }
+      }).catch(err => {
+        console.warn('[AccountTab] Ensure profile row warning:', err);
+      });
+    }
+  }, [activeTab, currentUser?.id]);
 
   // Real-Time Cross-Platform Profile Synchronization Listener (Multi-Device, Web, Mobile)
   useEffect(() => {

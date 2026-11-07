@@ -89,6 +89,7 @@ export default function SafeAvatar({
       onClick={onClick}
     >
       <img
+        key={imgSrc}
         src={imgSrc}
         alt=""
         onError={handleError}

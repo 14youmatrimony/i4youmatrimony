@@ -8,7 +8,7 @@ import { uploadProfilePhoto } from './storageService';
 import { sanitizeInput, hashPasswordSha256 } from '../utils/security';
 import { sendRegistrationEmail } from './emailNotificationService';
 import { DEMO_USER_FEMALE, DEMO_USER_MALE } from '../data/mockProfiles';
-import { resolveProfilePhoto, isFakeAvatarUrl } from './api';
+import { resolveProfilePhoto, isFakeAvatarUrl, ensureProfileRowExists } from './api';
 
 // Built-in Demo Credentials permanently disabled (strictly real verified accounts only)
 export const DEMO_CREDENTIALS = [];
@@ -183,6 +183,11 @@ export async function registerWithRegisterId(formData) {
 
   // Persist session to local device storage
   persistUserSession(userSession);
+
+  // Auto-create/upsert user row in Supabase public.profiles (id, user_id, full_name, name)
+  ensureProfileRowExists(userSession).catch(err => {
+    console.warn('[authService] ensureProfileRowExists on registration warning:', err);
+  });
 
   // 4. Send "Profile Created Successfully" Email Notification
   if (cleanEmail) {
@@ -518,6 +523,12 @@ export function persistUserSession(user, tokens = {}) {
     if (typeof window !== 'undefined' && normalizedUser.id) {
       window.__currentUserId = normalizedUser.id;
     }
+
+    // Auto-create/upsert user row in Supabase public.profiles (id, user_id, full_name, name)
+    ensureProfileRowExists(normalizedUser).catch(err => {
+      console.warn('[authService] Auto-create profile in Supabase warning:', err);
+    });
+
     return normalizedUser;
   } catch (e) {
     console.warn('[authService] localStorage write error:', e);
@@ -535,6 +546,14 @@ export function getStoredUserSession() {
     if (localStorage.getItem('i4u_logged_out') === 'true') {
       return null;
     }
+
+    // Fresh start migration for Newi4you Supabase project:
+    // Clear old mock/cached profiles & stale photo URLs
+    if (localStorage.getItem('i4u_fresh_newi4you_init') !== 'true') {
+      localStorage.removeItem('i4u_cached_profiles');
+      localStorage.setItem('i4u_fresh_newi4you_init', 'true');
+    }
+
     const saved = localStorage.getItem('i4u_auth_user');
     if (!saved) return null;
     const user = JSON.parse(saved);
@@ -562,8 +581,8 @@ export function getStoredUserSession() {
       return null;
     }
 
-    // Strictly sanitize and strip any fake/Unsplash placeholder photos
-    if (user.photo && isFakeAvatarUrl(user.photo)) {
+    // Strictly sanitize and strip any fake/Unsplash placeholder photos or old project URLs
+    if (user.photo && (isFakeAvatarUrl(user.photo) || (typeof user.photo === 'string' && user.photo.includes('kzvdzospvgzlfkkptadl.supabase.co')))) {
       user.photo = null;
       user.photo_url = null;
       user.avatar_url = null;

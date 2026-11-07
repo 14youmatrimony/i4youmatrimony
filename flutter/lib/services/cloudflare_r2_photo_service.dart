@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Pure Cross-Platform Cloudflare R2 & Supabase Photo Upload Service
@@ -13,12 +14,27 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// - Accepts Uint8List bytes extracted via await image.readAsBytes().
 /// - Signs requests using AWS Signature Version 4 (HMAC-SHA256) in pure Dart.
 /// - Uploads bytes directly to Cloudflare R2 via HTTP PUT with unique timestamped filenames:
-///     - profile/${userId}_$timestamp.jpg
-///     - family/${userId}_$timestamp.jpg
+///     - profile_${userId}_$timestamp.jpg
+///     - family_${userId}_$timestamp.jpg
 /// - Immediately updates/upserts exact columns in the Supabase `profiles` table:
-///     - Profile Photo: `profile_photo_url`, `photo_url`, `photo`, `avatar_url`
+///     - Profile Photo: `profile_photo_url`, `photo_url`, `avatar_url`, `photo`
 ///     - Family Photo: `family_photo_url`, `family_photos`
+/// - Auto-creates profile row in public.profiles (id, user_id, full_name, name) if missing
 class CloudflareR2PhotoService {
+  static const String defaultSupabaseUrl = 'https://pheqzsfrwhjxspaaroea.supabase.co';
+  static const String defaultSupabaseAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoZXF6c2Zyd2hqeHNwYWFyb2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjY2MjgsImV4cCI6MjEwNzU0MjYyOH0.U-W92yqF0vMoyqK-uScBSjlV6LtfuAMV9J2ncPaL6PI';
+
+  static String normalizeSupabaseUrl(String url) {
+    if (url.isEmpty) return defaultSupabaseUrl;
+    final clean = url.trim().replaceAll(RegExp(r'/+$'), '');
+    final match = RegExp(r'supabase\.com/dashboard/project/([a-z0-9]+)', caseSensitive: false).firstMatch(clean);
+    if (match != null && match.group(1) != null) {
+      return 'https://${match.group(1)}.supabase.co';
+    }
+    return clean;
+  }
+
   static const String defaultEndpoint =
       'https://60ba75772b194956aea9a7080138d7e0.r2.cloudflarestorage.com';
   static const String defaultAccessKeyId = '962068b554d3ca1ea4dd357be61b8a8f';
@@ -134,19 +150,98 @@ class CloudflareR2PhotoService {
     }
   }
 
+  /// Auto-creates profile row in Supabase public.profiles if missing.
+  /// Ensures the table is never empty whenever a user logs in, signs up, or opens the Profile page.
+  Future<void> ensureProfileRowExists({
+    required String userId,
+    String? name,
+    String? fullName,
+    String? email,
+    String? phone,
+    String? photoUrl,
+    String? familyPhotoUrl,
+  }) async {
+    final supabase = Supabase.instance.client;
+    final cleanId = userId.trim();
+    if (cleanId.isEmpty) return;
+
+    final resolvedName = (name != null && name.trim().isNotEmpty)
+        ? name.trim()
+        : ((fullName != null && fullName.trim().isNotEmpty) ? fullName.trim() : 'Member');
+
+    try {
+      // 1. Check if row exists in public.profiles
+      final existing = await supabase
+          .from('profiles')
+          .select('id, user_id, full_name, name, profile_photo_url, photo_url, avatar_url, family_photo_url')
+          .or('id.eq.$cleanId,user_id.eq.$cleanId')
+          .maybeSingle();
+
+      if (existing != null) {
+        return; // Row already exists!
+      }
+
+      // 2. Automatically upsert into public.profiles (id, user_id, full_name, name)
+      final Map<String, dynamic> payload = {
+        'id': cleanId,
+        'user_id': cleanId,
+        'full_name': resolvedName,
+        'name': resolvedName,
+        'status': 'active',
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+      if (email != null && email.isNotEmpty) payload['email'] = email;
+      if (phone != null && phone.isNotEmpty) payload['phone'] = phone;
+      if (photoUrl != null && photoUrl.isNotEmpty) {
+        payload['profile_photo_url'] = photoUrl;
+        payload['photo_url'] = photoUrl;
+        payload['avatar_url'] = photoUrl;
+        payload['photo'] = photoUrl;
+      }
+      if (familyPhotoUrl != null && familyPhotoUrl.isNotEmpty) {
+        payload['family_photo_url'] = familyPhotoUrl;
+        payload['family_photos'] = jsonEncode([familyPhotoUrl]);
+      }
+
+      try {
+        await supabase.from('profiles').upsert(payload, onConflict: 'id');
+        debugPrint('[CloudflareR2PhotoService] Auto-created profile row in public.profiles for: $cleanId');
+      } catch (upsertErr) {
+        if (upsertErr.toString().contains('column') || upsertErr.toString().contains('42703')) {
+          final fallbackPayload = Map<String, dynamic>.from(payload);
+          fallbackPayload.remove('user_id');
+          fallbackPayload.remove('full_name');
+          fallbackPayload.remove('profile_photo_url');
+          fallbackPayload.remove('family_photo_url');
+          fallbackPayload.remove('avatar_url');
+          await supabase.from('profiles').upsert(fallbackPayload, onConflict: 'id');
+        } else {
+          rethrow;
+        }
+      }
+    } catch (e) {
+      debugPrint('[CloudflareR2PhotoService] Warning in ensureProfileRowExists: $e');
+    }
+  }
+
   /// Persists the returned photo URL into Supabase `profiles` table.
-  /// Updates all matching photo columns to guarantee universal display across screens:
-  /// - Profile: `profile_photo_url`, `photo_url`, `photo`, `avatar_url`
-  /// - Family: `family_photo_url`, `family_photos`
+  /// Updates and immediately synchronizes exact columns in the Supabase `profiles` table:
+  /// - Profile Photo: `profile_photo_url`, `photo_url`, `avatar_url`, `photo`
+  /// - Family Photo: `family_photo_url`, `family_photos`
+  /// Also synchronizes supabase.auth.updateUser metadata and SharedPreferences cache.
   Future<void> persistPhotoUrlToSupabase({
     required String url,
     required bool isProfilePhoto,
     required String userId,
   }) async {
     final supabase = Supabase.instance.client;
+    final cleanId = userId.trim();
 
     final targetColumn = isProfilePhoto ? 'profile_photo_url' : 'family_photo_url';
     final Map<String, dynamic> updatePayload = {
+      'id': cleanId,
+      'user_id': cleanId,
       targetColumn: url,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
@@ -156,62 +251,83 @@ class CloudflareR2PhotoService {
       updatePayload['photo'] = url;
       updatePayload['photo_url'] = url;
       updatePayload['avatar_url'] = url;
+      updatePayload['profile_photo_url'] = url;
     } else {
+      updatePayload['family_photo_url'] = url;
       updatePayload['family_photos'] = jsonEncode([url]);
     }
 
+    // 1. Update the existing user row in Supabase public.profiles
     try {
       final List<dynamic> updatedRows = await supabase
           .from('profiles')
           .update(updatePayload)
-          .eq('id', userId)
-          .select();
+          .eq('id', cleanId)
+          .select('id');
 
       if (updatedRows.isEmpty) {
-        // Fallback: match by register_id or phone if id didn't match primary key
-        final List<dynamic> altRows = await supabase
+        final List<dynamic> altUpdatedRows = await supabase
             .from('profiles')
             .update(updatePayload)
-            .or('register_id.eq.$userId,phone.eq.$userId')
-            .select();
+            .eq('user_id', cleanId)
+            .select('id');
 
-        if (altRows.isEmpty) {
-          // Upsert if no existing profile row exists yet
-          await supabase.from('profiles').upsert({
-            'id': userId,
-            ...updatePayload,
-          }).select();
+        if (altUpdatedRows.isEmpty) {
+          // If no row existed, perform upsert to guarantee persistence
+          await supabase.from('profiles').upsert(updatePayload, onConflict: 'id');
         }
       }
+      debugPrint('[CloudflareR2PhotoService] Updated existing user row in public.profiles for: $cleanId');
     } catch (e) {
-      // If error indicates column does not exist (PostgreSQL code 42703), retry with standard columns
+      // If error indicates column does not exist (PostgreSQL code 42703), retry with fallback payload
       if (e.toString().contains('column') || e.toString().contains('42703')) {
         final safePayload = Map<String, dynamic>.from(updatePayload);
-        safePayload.remove(targetColumn);
-
-        final List<dynamic> safeRows = await supabase
-            .from('profiles')
-            .update(safePayload)
-            .eq('id', userId)
-            .select();
-
-        if (safeRows.isEmpty) {
-          final List<dynamic> altSafeRows = await supabase
-              .from('profiles')
-              .update(safePayload)
-              .or('register_id.eq.$userId,phone.eq.$userId')
-              .select();
-
-          if (altSafeRows.isEmpty) {
-            await supabase.from('profiles').upsert({
-              'id': userId,
-              ...safePayload,
-            }).select();
-          }
-        }
+        safePayload.remove('user_id');
+        safePayload.remove('profile_photo_url');
+        safePayload.remove('family_photo_url');
+        safePayload.remove('avatar_url');
+        await supabase.from('profiles').upsert(safePayload, onConflict: 'id');
       } else {
         rethrow;
       }
+    }
+
+    // 2. Synchronize supabase.auth.updateUser metadata
+    try {
+      final currentUser = supabase.auth.currentUser;
+      if (currentUser != null) {
+        final metadata = Map<String, dynamic>.from(currentUser.userMetadata ?? {});
+        if (isProfilePhoto) {
+          metadata['profile_photo_url'] = url;
+          metadata['photo_url'] = url;
+          metadata['avatar_url'] = url;
+          metadata['photo'] = url;
+        } else {
+          metadata['family_photo_url'] = url;
+        }
+        await supabase.auth.updateUser(
+          UserAttributes(data: metadata),
+        );
+        debugPrint('[CloudflareR2PhotoService] Updated supabase.auth.updateUser metadata successfully');
+      }
+    } catch (authErr) {
+      debugPrint('[CloudflareR2PhotoService] Auth metadata sync warning: $authErr');
+    }
+
+    // 3. Synchronize local SharedPreferences cache
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (isProfilePhoto) {
+        await prefs.setString('profile_photo_url', url);
+        await prefs.setString('photo_url', url);
+        await prefs.setString('avatar_url', url);
+        await prefs.setString('photo', url);
+      } else {
+        await prefs.setString('family_photo_url', url);
+      }
+      debugPrint('[CloudflareR2PhotoService] Updated SharedPreferences cache with new URL');
+    } catch (prefErr) {
+      debugPrint('[CloudflareR2PhotoService] SharedPreferences cache warning: $prefErr');
     }
   }
 
@@ -228,8 +344,9 @@ class CloudflareR2PhotoService {
     }
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final folder = isProfilePhoto ? 'profile' : 'family';
-    final filePath = '$folder/${currentUserId}_$timestamp.jpg';
+    final filePath = isProfilePhoto
+        ? 'profile_${currentUserId}_$timestamp.jpg'
+        : 'family_${currentUserId}_$timestamp.jpg';
 
     // 1. Upload to Cloudflare R2
     final permanentUrl = await uploadBytesToR2(
@@ -238,7 +355,7 @@ class CloudflareR2PhotoService {
       contentType: 'image/jpeg',
     );
 
-    // 2. Persist in Supabase profiles table
+    // 2. Persist in Supabase profiles table, Auth metadata, and local cache
     await persistPhotoUrlToSupabase(
       url: permanentUrl,
       isProfilePhoto: isProfilePhoto,

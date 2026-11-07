@@ -33,6 +33,98 @@ export async function compressBase64Image(dataUrl, maxDim = 1200, quality = 0.84
 
 
 /**
+ * Automatically ensures user row exists in Supabase public.profiles.
+ * Whenever a user logs in, signs up, or opens the Profile page, immediately checks if their row exists.
+ * If not, automatically upserts their record into public.profiles (id, user_id, full_name, name) so the table is never empty.
+ */
+export async function ensureProfileRowExists(user) {
+  if (!user) return null;
+  const uid = user.id || user.user_id || user.userId || user.uid;
+  if (!uid) return null;
+
+  const rawName = user.name || user.fullName || user.full_name || 'Member';
+  const cleanId = String(uid).trim();
+  const phone = user.phone || user.mobile || null;
+  const email = user.email || null;
+  const registerId = user.register_id || user.registerId || null;
+  const photoUrl = user.profile_photo_url || user.photo_url || user.photo || user.avatar_url || null;
+  const familyPhotoUrl = user.family_photo_url || (Array.isArray(user.familyPhotos) ? user.familyPhotos[0] : null) || null;
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      // 1. Check if row exists in public.profiles
+      const orTokens = [`id.eq.${cleanId}`, `user_id.eq.${cleanId}`];
+      if (registerId) orTokens.push(`register_id.eq.${registerId}`);
+      if (phone && String(phone).replace(/\D/g, '').length >= 10) orTokens.push(`phone.eq.${phone}`);
+
+      const { data: existing, error: checkErr } = await supabase
+        .from('profiles')
+        .select('id, user_id, name, full_name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url')
+        .or(orTokens.join(','))
+        .limit(1)
+        .maybeSingle();
+
+      if (!checkErr && existing) {
+        return existing;
+      }
+
+      // 2. If row does not exist, automatically upsert record into public.profiles (id, user_id, full_name, name)
+      const upsertPayload = {
+        id: cleanId,
+        user_id: cleanId,
+        full_name: rawName,
+        name: rawName,
+        gender: user.gender || 'Female',
+        status: user.status || 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      if (email) upsertPayload.email = email;
+      if (phone) upsertPayload.phone = phone;
+      if (registerId) upsertPayload.register_id = registerId;
+      if (photoUrl) {
+        upsertPayload.photo = photoUrl;
+        upsertPayload.photo_url = photoUrl;
+        upsertPayload.profile_photo_url = photoUrl;
+        upsertPayload.avatar_url = photoUrl;
+      }
+      if (familyPhotoUrl) {
+        upsertPayload.family_photo_url = familyPhotoUrl;
+        upsertPayload.family_photos = JSON.stringify([familyPhotoUrl]);
+      }
+
+      let { data: inserted, error: insertErr } = await supabase
+        .from('profiles')
+        .upsert(upsertPayload, { onConflict: 'id' })
+        .select()
+        .maybeSingle();
+
+      // Gracefully handle PostgreSQL error 42703 (missing column in custom schemas)
+      if (insertErr && (insertErr.message?.includes('column') || insertErr.code === '42703')) {
+        const safePayload = { ...upsertPayload };
+        delete safePayload.user_id;
+        delete safePayload.full_name;
+        delete safePayload.profile_photo_url;
+        delete safePayload.family_photo_url;
+        delete safePayload.avatar_url;
+        const retryRes = await supabase
+          .from('profiles')
+          .upsert(safePayload, { onConflict: 'id' })
+          .select()
+          .maybeSingle();
+        inserted = retryRes.data;
+      }
+
+      console.log('[ensureProfileRowExists] Auto-created profile row in public.profiles for:', cleanId);
+      return inserted;
+    } catch (e) {
+      console.warn('[ensureProfileRowExists] Supabase check/upsert warning:', e);
+    }
+  }
+  return null;
+}
+
+/**
  * Synchronizes any profile record directly into Supabase 'profiles' table via Supabase SDK
  */
 export async function syncProfileToSupabase(userData) {
@@ -61,6 +153,7 @@ export async function syncProfileToSupabase(userData) {
     profileId = regId ? `${String(regId).toLowerCase()}_${Date.now()}` : `usr_${Date.now()}`;
   }
   userData.id = profileId;
+  userData.user_id = profileId;
   try {
     let photo = userData.photo;
     if (photo && (photo.startsWith('data:') || photo.startsWith('blob:') || photo instanceof File)) {
@@ -644,8 +737,8 @@ export function mapSupabaseRowToProfile(r) {
     if (!u || typeof u !== 'string') return null;
     let str = u.trim();
     if (!str || str === 'null' || str === 'undefined' || isFakeAvatarUrl(str)) return null;
-    if (str.includes('ejtkrilhntdbsiavugta.supabase.co') || str.includes('pheqzsfrwhjxspaaroea.supabase.co')) {
-      str = str.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://kzvdzospvgzlfkkptadl.supabase.co');
+    if (str.includes('ejtkrilhntdbsiavugta.supabase.co') || str.includes('kzvdzospvgzlfkkptadl.supabase.co')) {
+      str = str.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://pheqzsfrwhjxspaaroea.supabase.co');
     }
     return addCacheBuster(str, profileTimestamp);
   };
@@ -1480,43 +1573,65 @@ export async function updateLivePhotos(photoData) {
     payload.photo_visibility = photoData.photoVisibility;
   }
 
-  // 1. Direct Supabase sync
+  // 1. Direct Supabase sync (immediate upsert into public.profiles)
   if (isSupabaseConfigured() && cleanId) {
     try {
-      const isRegId = cleanId.toUpperCase().startsWith('I4Y');
-      const enhancedPayload = {
+      const resolvedName = photoData.name || photoData.userName || photoData.fullName || 'Member';
+      const upsertPayload = {
+        id: cleanId,
+        user_id: cleanId,
+        full_name: resolvedName,
+        name: resolvedName,
         ...payload,
-        ...(photo ? { avatar_url: photo, profile_photo_url: photo } : {}),
+        ...(photo ? { avatar_url: photo, profile_photo_url: photo, photo_url: photo, photo } : {}),
         ...(singlePhotos ? { photos: singlePhotos } : {}),
         ...(finalFamilyPhotos && finalFamilyPhotos.length > 0 ? { family_photo_url: finalFamilyPhotos[0] } : {})
       };
-      let query = supabase.from('profiles').update(enhancedPayload);
-      if (isRegId) {
-        query = query.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
-      } else {
-        query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
-      }
-      let { error } = await query.select();
 
-      // If error indicates avatar_url, photos, profile_photo_url, or family_photo_url column does not exist, retry with standard payload
-      if (error && (error.message?.includes('avatar_url') || error.message?.includes('photos') || error.message?.includes('profile_photo_url') || error.message?.includes('family_photo_url'))) {
-        const safePayload = { ...payload };
+      let { error } = await supabase
+        .from('profiles')
+        .upsert(upsertPayload, { onConflict: 'id' })
+        .select();
+
+      // If missing custom columns in schema, retry without them
+      if (error && (error.code === '42703' || error.message?.includes('column') || error.message?.includes('profile_photo_url') || error.message?.includes('family_photo_url') || error.message?.includes('avatar_url') || error.message?.includes('user_id') || error.message?.includes('full_name'))) {
+        const safePayload = { ...upsertPayload };
+        delete safePayload.user_id;
+        delete safePayload.full_name;
         delete safePayload.profile_photo_url;
         delete safePayload.family_photo_url;
-        let retryQuery = supabase.from('profiles').update(safePayload);
-        if (isRegId) {
-          retryQuery = retryQuery.or(`register_id.ilike.${cleanId},id.eq.${cleanId}`);
-        } else {
-          retryQuery = retryQuery.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
-        }
-        const retryRes = await retryQuery.select();
+        delete safePayload.avatar_url;
+        delete safePayload.photos;
+        const retryRes = await supabase.from('profiles').upsert(safePayload, { onConflict: 'id' }).select();
         error = retryRes.error;
       }
 
       if (error) {
         console.warn('[Supabase Photo Sync Warning]:', error.message);
       } else {
-        console.log('[Supabase Photo Sync Success]: Updated photos for', cleanId);
+        console.log('[Supabase Photo Sync Success]: Upserted and locked photos in public.profiles for', cleanId);
+      }
+
+      // Synchronize supabase.auth.updateUser metadata
+      if (supabase && supabase.auth && typeof supabase.auth.updateUser === 'function') {
+        try {
+          const authUser = (await supabase.auth.getUser())?.data?.user;
+          if (authUser) {
+            const currentMeta = { ...(authUser.user_metadata || {}) };
+            if (photo) {
+              currentMeta.photo = photo;
+              currentMeta.photo_url = photo;
+              currentMeta.profile_photo_url = photo;
+              currentMeta.avatar_url = photo;
+            }
+            if (finalFamilyPhotos && finalFamilyPhotos.length > 0) {
+              currentMeta.family_photo_url = finalFamilyPhotos[0];
+            }
+            await supabase.auth.updateUser({ data: currentMeta });
+          }
+        } catch (authErr) {
+          console.warn('[Supabase Photo Auth Metadata Warning]:', authErr?.message);
+        }
       }
     } catch (sbErr) {
       console.warn('[Supabase Photo Sync Warning]:', sbErr.message);
@@ -2087,13 +2202,13 @@ export async function fetchLiveUserProfile(userId) {
   const cleanIdLower = cleanId.toLowerCase();
   const regIdToken = cleanId.includes('_') ? cleanId.split('_')[0] : cleanId;
 
-  // 1. Try Supabase direct query
+  // 1. Try Supabase direct query (Strict Database Fetch)
   if (isSupabaseConfigured() && supabase) {
     try {
-      // In PostgreSQL profiles table, id is VARCHAR(100), register_id is VARCHAR(30), phone is VARCHAR(20)
-      // Unconditionally query by id, register_id, and phone without UUID format restrictions
+      // In PostgreSQL profiles table, id is VARCHAR(100), user_id is VARCHAR(100), register_id is VARCHAR(30), phone is VARCHAR(20)
       const orTokens = [
         `id.eq.${cleanId}`,
+        `user_id.eq.${cleanId}`,
         `register_id.ilike.${cleanId}`,
         `register_id.ilike.${regIdToken}`
       ];
@@ -2104,25 +2219,10 @@ export async function fetchLiveUserProfile(userId) {
 
       let { data, error } = await supabase
         .from('profiles')
-        .select(PROFILE_DETAIL_COLUMNS)
+        .select('*')
         .or(orCondition)
         .limit(1)
         .maybeSingle();
-
-      if (error || !data) {
-        // Fallback query with select('*') if any custom column in PROFILE_DETAIL_COLUMNS is missing
-        const fallbackRes = await supabase
-          .from('profiles')
-          .select('*')
-          .or(orCondition)
-          .limit(1)
-          .maybeSingle();
-
-        if (!fallbackRes.error && fallbackRes.data) {
-          data = fallbackRes.data;
-          error = null;
-        }
-      }
 
       if (!error && data) {
         return mapSupabaseRowToProfile(data);

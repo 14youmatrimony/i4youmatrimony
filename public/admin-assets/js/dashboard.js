@@ -4730,8 +4730,8 @@ async function loadAadhaarVerifications() {
 
       // Direct fallback to PostgreSQL (Supabase REST API)
       try {
-        const SUPABASE_BASE = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/profiles';
-        const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
+        const SUPABASE_BASE = 'https://pheqzsfrwhjxspaaroea.supabase.co/rest/v1/profiles';
+        const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoZXF6c2Zyd2hqeHNwYWFyb2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjY2MjgsImV4cCI6MjEwNzU0MjYyOH0.U-W92yqF0vMoyqK-uScBSjlV6LtfuAMV9J2ncPaL6PI';
         
         let filterQuery = `select=*&order=${encodeURIComponent(state.aadhaar.sortBy || 'created_at')}.${state.aadhaar.order || 'desc'}`;
         if (state.aadhaar.status === 'pending') {
