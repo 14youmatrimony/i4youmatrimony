@@ -77,18 +77,21 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 );
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow full access to profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Allow public all access on profiles" ON public.profiles;
-CREATE POLICY "Allow public all access on profiles" ON public.profiles FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow full access to profiles" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
 
 -- Ensure all mandatory photo and identity columns exist if profiles table already existed
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS user_id VARCHAR(100);
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name VARCHAR(150);
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS profile_photo_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS photo TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS profile_photo_url TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS family_photo TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS family_photo_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS family_photos TEXT[];
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS single_photos TEXT;
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS family_photos TEXT;
 
 -- 2. Table: public.admin_users
 CREATE TABLE IF NOT EXISTS public.admin_users (
@@ -325,3 +328,45 @@ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- 14. Automatic synchronization trigger for Cloudflare R2 photos (Add, Update & Delete)
+CREATE OR REPLACE FUNCTION sync_r2_photo_columns()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Profile photo synchronization (Add, Update & Delete)
+  IF NEW.photo IS DISTINCT FROM OLD.photo THEN
+    NEW.photo_url := NEW.photo;
+    NEW.profile_photo_url := NEW.photo;
+    NEW.avatar_url := NEW.photo;
+  ELSIF NEW.photo_url IS DISTINCT FROM OLD.photo_url THEN
+    NEW.photo := NEW.photo_url;
+    NEW.profile_photo_url := NEW.photo_url;
+    NEW.avatar_url := NEW.photo_url;
+  ELSIF NEW.profile_photo_url IS DISTINCT FROM OLD.profile_photo_url THEN
+    NEW.photo := NEW.profile_photo_url;
+    NEW.photo_url := NEW.profile_photo_url;
+    NEW.avatar_url := NEW.profile_photo_url;
+  ELSIF NEW.avatar_url IS DISTINCT FROM OLD.avatar_url THEN
+    NEW.photo := NEW.avatar_url;
+    NEW.photo_url := NEW.avatar_url;
+    NEW.profile_photo_url := NEW.avatar_url;
+  END IF;
+
+  -- Family photo synchronization (Add, Update & Delete)
+  IF NEW.family_photo_url IS DISTINCT FROM OLD.family_photo_url THEN
+    NEW.family_photo := NEW.family_photo_url;
+  ELSIF NEW.family_photo IS DISTINCT FROM OLD.family_photo THEN
+    NEW.family_photo_url := NEW.family_photo;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_sync_photos ON public.profiles;
+DROP TRIGGER IF EXISTS trigger_sync_r2_photos ON public.profiles;
+
+CREATE TRIGGER trigger_sync_r2_photos
+BEFORE UPDATE OR INSERT ON public.profiles
+FOR EACH ROW EXECUTE FUNCTION sync_r2_photo_columns();
+
