@@ -67,7 +67,7 @@ import {
   normalizeGender, 
   isSelfProfile 
 } from './utils/genderMatch';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, AlertCircle } from 'lucide-react';
 
 // Real notification state initializer: No hardcoded or mock arrays
 export const getNotificationsForUser = () => [];
@@ -126,7 +126,7 @@ export const checkStoredUserSession = () => {
     }
 
     // Strictly sanitize photos and format R2 public domain
-    if (user.photo && (isFakeAvatarUrl(user.photo) || (typeof user.photo === 'string' && user.photo.includes('kzvdzospvgzlfkkptadl.supabase.co')))) {
+    if (user.photo && isFakeAvatarUrl(user.photo)) {
       user.photo = null;
       user.photo_url = null;
       user.avatar_url = null;
@@ -141,12 +141,12 @@ export const checkStoredUserSession = () => {
     }
     if (Array.isArray(user.singlePhotos)) {
       user.singlePhotos = user.singlePhotos
-        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p) && !p.includes('kzvdzospvgzlfkkptadl.supabase.co'))
+        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p))
         .map(formatR2PublicUrl);
     }
     if (Array.isArray(user.familyPhotos)) {
       user.familyPhotos = user.familyPhotos
-        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p) && !p.includes('kzvdzospvgzlfkkptadl.supabase.co'))
+        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p))
         .map(formatR2PublicUrl);
     }
 
@@ -493,54 +493,76 @@ export default function App() {
       const targetUserId = activeUser?.id || activeUser?.registerId || activeUser?.register_id || localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id');
       if (targetUserId && isSupabaseConfigured() && supabase) {
         try {
-          const orTokens = [];
-          if (activeUser?.id) orTokens.push(`id.eq.${activeUser.id}`);
-          if (activeUser?.registerId) {
-            orTokens.push(`register_id.eq.${activeUser.registerId}`);
-            orTokens.push(`register_id.eq.${activeUser.registerId.toUpperCase()}`);
-          }
-          if (activeUser?.register_id) {
-            orTokens.push(`register_id.eq.${activeUser.register_id}`);
-            orTokens.push(`register_id.eq.${activeUser.register_id.toUpperCase()}`);
-          }
-          if (targetUserId) {
-            orTokens.push(`id.eq.${targetUserId}`);
-            orTokens.push(`register_id.eq.${targetUserId}`);
-            orTokens.push(`register_id.eq.${String(targetUserId).toUpperCase()}`);
-          }
-          const userOrFilter = orTokens.join(',');
-
-          const { data: freshUserRow } = await supabase
+          const { data: allSupabaseProfiles } = await supabase
             .from('profiles')
-            .select('*')
-            .or(userOrFilter)
-            .maybeSingle();
+            .select('*');
 
-          if (freshUserRow) {
-            const mappedUser = mapSupabaseRowToProfile(freshUserRow);
-            if (mappedUser) {
-              setCurrentUser(prev => {
-                const currentSingles = Array.isArray(prev?.singlePhotos) ? prev.singlePhotos : [];
-                const incomingSingles = Array.isArray(mappedUser?.singlePhotos) ? mappedUser.singlePhotos : [];
-                const finalSingles = incomingSingles.length >= currentSingles.length ? incomingSingles : currentSingles;
+          if (Array.isArray(allSupabaseProfiles)) {
+            const cleanDigits = (activeUser?.mobile || activeUser?.phone || '').replace(/\D/g, '');
+            const cleanReg = (activeUser?.registerId || activeUser?.register_id || '').trim().toLowerCase();
+            const cleanUid = (activeUser?.id || targetUserId || '').trim().toLowerCase();
+            const cleanEmail = (activeUser?.email || '').trim().toLowerCase();
 
-                const currentFamilies = Array.isArray(prev?.familyPhotos) ? prev.familyPhotos : [];
-                const incomingFamilies = Array.isArray(mappedUser?.familyPhotos) ? mappedUser.familyPhotos : [];
-                const finalFamilies = incomingFamilies.length >= currentFamilies.length ? incomingFamilies : currentFamilies;
+            const freshUserRow = allSupabaseProfiles.find(row => {
+              const rId = String(row.id || '').trim().toLowerCase();
+              const rReg = String(row.register_id || '').trim().toLowerCase();
+              const rPhone = String(row.phone || '').trim();
+              const rEmail = String(row.email || '').trim().toLowerCase();
+
+              if (cleanUid && (rId === cleanUid || rReg === cleanUid)) return true;
+              if (cleanReg && (rReg === cleanReg || rId === cleanReg)) return true;
+              if (cleanReg && rId.startsWith(`${cleanReg}_`)) return true;
+              if (cleanUid && rId.startsWith(`${cleanUid}_`)) return true;
+              if (cleanDigits.length >= 10 && rPhone && rPhone.includes(cleanDigits.slice(-10))) return true;
+              if (cleanEmail && rEmail === cleanEmail) return true;
+              return false;
+            });
+
+            if (freshUserRow) {
+              const mappedUser = mapSupabaseRowToProfile(freshUserRow);
+              if (mappedUser) {
+                // Strictly take photos from fresh Supabase database row!
+                const freshSingles = (Array.isArray(mappedUser.singlePhotos) && mappedUser.singlePhotos.length > 0)
+                  ? mappedUser.singlePhotos
+                  : (mappedUser.photo ? [mappedUser.photo] : []);
+                const freshFamilies = (Array.isArray(mappedUser.familyPhotos) && mappedUser.familyPhotos.length > 0)
+                  ? mappedUser.familyPhotos
+                  : (mappedUser.family_photo ? [mappedUser.family_photo] : []);
 
                 const merged = { 
-                  ...(prev || {}), 
+                  ...(activeUser || {}), 
                   ...mappedUser,
-                  singlePhotos: finalSingles,
-                  photos: finalSingles,
-                  familyPhotos: finalFamilies
+                  photo: mappedUser.photo || null,
+                  photo_url: mappedUser.photo_url || mappedUser.photo || null,
+                  profile_photo_url: mappedUser.profile_photo_url || mappedUser.photo || null,
+                  avatar_url: mappedUser.avatar_url || mappedUser.photo || null,
+                  singlePhotos: freshSingles,
+                  photos: freshSingles,
+                  single_photos: freshSingles,
+                  familyPhotos: freshFamilies,
+                  family_photo: mappedUser.family_photo || (freshFamilies[0] || null),
+                  family_photo_url: mappedUser.family_photo_url || (freshFamilies[0] || null),
+                  family_photos: freshFamilies
                 };
-                try {
-                  localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
-                  localStorage.setItem('current_user_profile', JSON.stringify(merged));
-                } catch (_) {}
-                return merged;
-              });
+
+                const storageKeys = [
+                  'i4u_auth_user',
+                  'current_user_profile',
+                  'user_profile',
+                  'i4u_user',
+                  'user',
+                  'cached_user',
+                  'cached_user_profile',
+                  'user_data'
+                ];
+                storageKeys.forEach(k => {
+                  try {
+                    localStorage.setItem(k, JSON.stringify(merged));
+                  } catch (_) {}
+                });
+
+                setCurrentUser(merged);
+              }
             }
           }
         } catch (uErr) {
@@ -2546,14 +2568,17 @@ export default function App() {
   }, [isNotificationsOpen, currentUser]);
 
   const toastTimeoutRef = useRef(null);
-  const showToast = (msg) => {
+  const [toastType, setToastType] = useState('success');
+  const showToast = (msg, options = {}) => {
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current);
     }
+    const isError = options?.type === 'error' || (typeof msg === 'string' && (msg.startsWith('Error:') || msg.toLowerCase().includes('0 rows updated') || msg.toLowerCase().includes('failed')));
+    setToastType(isError ? 'error' : 'success');
     setToastMessage(msg);
     toastTimeoutRef.current = setTimeout(() => {
       setToastMessage('');
-    }, 3200);
+    }, isError ? 6500 : 3200);
   };
 
   // Production Mode Enforcement (Demo Mode permanently disabled)
@@ -4061,18 +4086,6 @@ export default function App() {
       });
     });
 
-    if (photosData.hidePhotos) {
-      showToast('Photos hidden from public search 🔒');
-    } else if (photosData.photoVisibility === 'accepted') {
-      showToast('Photos set to Accepted Matches only 🔒');
-    } else if (photosData.photoVisibility === 'request') {
-      showToast('Photos set to Request Approval only 🔑');
-    } else if (isProfileDeleted && isFamilyDeleted) {
-      showToast('Photos removed successfully');
-    } else {
-      showToast('Profile & Family Photos updated! ⭐');
-    }
-
     // 3. Persist to Supabase and upload image strictly to Cloudflare R2
     try {
       const syncResult = await updateLivePhotos({
@@ -4094,7 +4107,27 @@ export default function App() {
         blurPhotosForUnconnected: photosData.blurPhotosForUnconnected
       });
 
-      // If Supabase Storage returned a permanent URL (https://...), update currentUser and profile feeds seamlessly
+      // Check if update in Supabase succeeded or if 0 rows were updated
+      if (syncResult && syncResult.success === false) {
+        const triedIdentifier = syncResult.triedId || currentUser?.registerId || currentUser?.id || 'unknown';
+        showToast(`Error: 0 rows updated in Supabase for user ${triedIdentifier}! Photo was not saved to database.`, { type: 'error' });
+        return syncResult;
+      }
+
+      // Show success toast only after Supabase verification succeeds
+      if (photosData.hidePhotos) {
+        showToast('Photos hidden from public search 🔒');
+      } else if (photosData.photoVisibility === 'accepted') {
+        showToast('Photos set to Accepted Matches only 🔒');
+      } else if (photosData.photoVisibility === 'request') {
+        showToast('Photos set to Request Approval only 🔑');
+      } else if (isProfileDeleted && isFamilyDeleted) {
+        showToast('Photos removed successfully');
+      } else {
+        showToast('Profile & Family Photos updated! ⭐');
+      }
+
+      // If Supabase returned a permanent URL (https://...), update currentUser and profile feeds seamlessly
       if (syncResult) {
         const finalPhotoUrl = syncResult.photo || primaryPhoto;
         const finalSingles = Array.isArray(syncResult.singlePhotos) && syncResult.singlePhotos.length > 0
@@ -4114,14 +4147,27 @@ export default function App() {
             avatar_url: finalPhotoUrl,
             singlePhotos: finalSingles,
             photos: finalSingles,
+            single_photos: finalSingles,
             familyPhotos: finalFamilies,
             family_photo: finalFamilies[0] || null,
-            family_photo_url: finalFamilies[0] || null
+            family_photo_url: finalFamilies[0] || null,
+            family_photos: finalFamilies
           };
-          try {
-            localStorage.setItem('i4u_auth_user', JSON.stringify(refined));
-            localStorage.setItem('current_user_profile', JSON.stringify(refined));
-          } catch (e) {}
+          const storageKeys = [
+            'i4u_auth_user',
+            'current_user_profile',
+            'user_profile',
+            'i4u_user',
+            'user',
+            'cached_user',
+            'cached_user_profile',
+            'user_data'
+          ];
+          storageKeys.forEach(k => {
+            try {
+              localStorage.setItem(k, JSON.stringify(refined));
+            } catch (_) {}
+          });
           return refined;
         });
 
@@ -4141,9 +4187,11 @@ export default function App() {
                 avatar_url: finalPhotoUrl,
                 singlePhotos: finalSingles,
                 photos: finalSingles,
+                single_photos: finalSingles,
                 familyPhotos: finalFamilies,
                 family_photo: finalFamilies[0] || null,
-                family_photo_url: finalFamilies[0] || null
+                family_photo_url: finalFamilies[0] || null,
+                family_photos: finalFamilies
               };
             }
             return p;
@@ -4156,7 +4204,7 @@ export default function App() {
       }
     } catch (err) {
       console.warn('[handlePhotoUpdateAction] updateLivePhotos error (preserving local state):', err);
-      // NEVER revert local state!
+      showToast(`Error saving photos to Supabase: ${err.message || 'Network failure'}`, { type: 'error' });
     }
   }, [currentUser, showToast]);
 
@@ -5470,8 +5518,16 @@ export default function App() {
             {/* Floating Toast Notification */}
             {toastMessage && (
               <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[80] animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-none max-w-md w-[90%]">
-                <div className="bg-[#0B192C]/95 text-white px-4 py-3 rounded-2xl shadow-2xl border border-[#D4AF37]/50 flex items-center space-x-2.5 text-xs font-semibold backdrop-blur-md">
-                  <Sparkles className="w-4 h-4 text-[#DFB76C] shrink-0" />
+                <div className={`px-4 py-3 rounded-2xl shadow-2xl flex items-center space-x-2.5 text-xs font-semibold backdrop-blur-md ${
+                  toastType === 'error'
+                    ? 'bg-rose-950/95 text-rose-100 border border-rose-500 shadow-rose-900/50'
+                    : 'bg-[#0B192C]/95 text-white border border-[#D4AF37]/50 shadow-black/40'
+                }`}>
+                  {toastType === 'error' ? (
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-[#DFB76C] shrink-0" />
+                  )}
                   <span className="truncate">{toastMessage}</span>
                 </div>
               </div>
@@ -5507,8 +5563,16 @@ export default function App() {
         {/* Floating Mobile Toast Notification */}
         {toastMessage && (
           <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[80] animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-none w-[90%]">
-            <div className="bg-[#0B192C]/95 text-white px-3.5 py-2.5 rounded-2xl shadow-xl border border-[#D4AF37]/50 flex items-center space-x-2 text-xs font-semibold backdrop-blur-md">
-              <Sparkles className="w-3.5 h-3.5 text-[#DFB76C] shrink-0" />
+            <div className={`px-3.5 py-2.5 rounded-2xl shadow-xl flex items-center space-x-2 text-xs font-semibold backdrop-blur-md ${
+              toastType === 'error'
+                ? 'bg-rose-950/95 text-rose-100 border border-rose-500 shadow-rose-900/50'
+                : 'bg-[#0B192C]/95 text-white border border-[#D4AF37]/50 shadow-black/40'
+            }`}>
+              {toastType === 'error' ? (
+                <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 text-[#DFB76C] shrink-0" />
+              )}
               <span className="truncate">{toastMessage}</span>
             </div>
           </div>

@@ -75,16 +75,34 @@ class _HomeMatchesScreenState extends State<HomeMatchesScreen> {
       try {
         final prefs = await SharedPreferences.getInstance();
         final currentUserId = prefs.getString('user_id') ?? prefs.getString('cached_user_id') ?? prefs.getString('id');
-        if (currentUserId != null && currentUserId.isNotEmpty) {
+        final currentRegId = prefs.getString('register_id');
+        if ((currentUserId != null && currentUserId.isNotEmpty) || (currentRegId != null && currentRegId.isNotEmpty)) {
           final matching = parsedList.firstWhere(
-            (p) => p['id'] == currentUserId || p['register_id'] == currentUserId,
+            (p) {
+              final pId = (p['id'] ?? '').toString().trim().toLowerCase();
+              final pReg = (p['register_id'] ?? '').toString().trim().toLowerCase();
+              final cUid = (currentUserId ?? '').trim().toLowerCase();
+              final cReg = (currentRegId ?? '').trim().toLowerCase();
+              return (cUid.isNotEmpty && (pId == cUid || pReg == cUid)) ||
+                     (cReg.isNotEmpty && (pReg == cReg || pId == cReg)) ||
+                     (cReg.isNotEmpty && pId.startsWith('${cReg}_'));
+            },
             orElse: () => {},
           );
           if (matching.isNotEmpty) {
             prefs.setString('photo', matching['photo'] as String);
-            prefs.setString('photo_url', matching['photo'] as String);
+            prefs.setString('photo_url', matching['photo_url'] as String);
+            prefs.setString('profile_photo_url', matching['profile_photo_url'] as String);
+            prefs.setString('avatar_url', matching['profile_photo_url'] as String);
+            if (matching['family_photo'] != null) {
+              prefs.setString('family_photo', matching['family_photo'] as String);
+              prefs.setString('family_photo_url', matching['family_photo_url'] as String);
+            }
             prefs.setString('i4u_auth_user', jsonEncode(matching));
             prefs.setString('current_user_profile', jsonEncode(matching));
+            prefs.setString('user_profile', jsonEncode(matching));
+            prefs.setString('cached_user', jsonEncode(matching));
+            prefs.setString('user_data', jsonEncode(matching));
             debugPrint('[HomeMatchesScreen] Overwrote local cached user object from fresh Supabase query');
           }
         }
@@ -126,6 +144,39 @@ class _HomeMatchesScreenState extends State<HomeMatchesScreen> {
         .trim();
     final String familyPhotoImage = CloudflareR2PhotoService.formatR2PublicUrl(rawFamily);
 
+    // Safely extract photos and photo lists
+    List<String> singleList = [];
+    final dynamic rawSingles = row['single_photos'] ?? row['photos'];
+    if (rawSingles is List) {
+      singleList = rawSingles.map((e) => CloudflareR2PhotoService.formatR2PublicUrl(e.toString())).where((s) => s.isNotEmpty).toList();
+    } else if (rawSingles is String && rawSingles.trim().startsWith('[')) {
+      try {
+        final decoded = jsonDecode(rawSingles);
+        if (decoded is List) {
+          singleList = decoded.map((e) => CloudflareR2PhotoService.formatR2PublicUrl(e.toString())).where((s) => s.isNotEmpty).toList();
+        }
+      } catch (_) {}
+    }
+    if (singleList.isEmpty && photoImage.isNotEmpty) {
+      singleList = [photoImage];
+    }
+
+    List<String> familyList = [];
+    final dynamic rawFamilies = row['family_photos'];
+    if (rawFamilies is List) {
+      familyList = rawFamilies.map((e) => CloudflareR2PhotoService.formatR2PublicUrl(e.toString())).where((s) => s.isNotEmpty).toList();
+    } else if (rawFamilies is String && rawFamilies.trim().startsWith('[')) {
+      try {
+        final decoded = jsonDecode(rawFamilies);
+        if (decoded is List) {
+          familyList = decoded.map((e) => CloudflareR2PhotoService.formatR2PublicUrl(e.toString())).where((s) => s.isNotEmpty).toList();
+        }
+      } catch (_) {}
+    }
+    if (familyList.isEmpty && familyPhotoImage.isNotEmpty) {
+      familyList = [familyPhotoImage];
+    }
+
     final String name = (row['name'] ?? row['full_name'] ?? 'Candidate').toString().trim();
     final String fullName = (row['full_name'] ?? row['name'] ?? '').toString().trim();
     final String id = (row['id'] ?? '').toString().trim();
@@ -152,8 +203,11 @@ class _HomeMatchesScreenState extends State<HomeMatchesScreen> {
       'photo': photoImage,
       'photo_url': photoImage,
       'profile_photo_url': photoImage,
+      'photos': singleList,
+      'single_photos': singleList,
       'family_photo': familyPhotoImage,
       'family_photo_url': familyPhotoImage,
+      'family_photos': familyList,
       'gender': gender,
       'age': age,
       'height': height,

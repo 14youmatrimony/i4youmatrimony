@@ -95,7 +95,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
       // 1. Fetch fresh profiles directly from public.profiles
       final dynamic rowsResponse = await supabase
           .from('profiles')
-          .select('id, register_id, name, phone, email, photo, photo_url, profile_photo_url, avatar_url, family_photo, family_photo_url');
+          .select('id, register_id, name, phone, email, photo, photo_url, profile_photo_url, avatar_url, photos, single_photos, family_photo, family_photo_url, family_photos');
 
       final List<Map<String, dynamic>> loadedList = [];
       if (rowsResponse is List) {
@@ -107,52 +107,75 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
       }
       _allProfiles = loadedList;
 
-      // 2. Determine target user ID (from widget prop, auth session, or SharedPreferences)
+      // 2. Determine target user (checking custom props, SharedPreferences, and auth session)
       String? targetId = widget.customUserId?.trim();
       String? targetRegId = widget.customRegisterId?.trim();
 
-      if (targetId == null || targetId.isEmpty) {
-        final authUser = supabase.auth.currentUser;
-        if (authUser != null) {
-          targetId = authUser.id;
-        }
-      }
+      String? prefUserId;
+      String? prefRegId;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        prefUserId = prefs.getString('user_id') ?? prefs.getString('cached_user_id') ?? prefs.getString('id');
+        prefRegId = prefs.getString('register_id');
+      } catch (_) {}
 
-      if (targetId == null || targetId.isEmpty) {
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          targetId = prefs.getString('user_id') ?? prefs.getString('cached_user_id') ?? prefs.getString('id');
-          targetRegId = targetRegId ?? prefs.getString('register_id');
-        } catch (_) {}
-      }
+      final authUser = supabase.auth.currentUser;
+      final authPhone = authUser?.phone;
+      final authEmail = authUser?.email;
 
       Map<String, dynamic>? freshProfileRow;
 
-      // 3. Match user row accurately using .or('id.eq.$userId,register_id.eq.$userId')
-      if (targetId != null && targetId.isNotEmpty) {
-        try {
-          final orFilter = 'id.eq.$targetId,register_id.eq.$targetId';
-          final dynamic directResult = await supabase
-              .from('profiles')
-              .select('id, register_id, name, photo, photo_url, profile_photo_url, avatar_url, family_photo, family_photo_url')
-              .or(orFilter)
-              .maybeSingle();
+      // Find in _allProfiles with exact + fallback matching
+      if (_allProfiles.isNotEmpty) {
+        for (final p in _allProfiles) {
+          final pId = (p['id'] ?? '').toString().trim().toLowerCase();
+          final pReg = (p['register_id'] ?? '').toString().trim().toLowerCase();
+          final pPhone = (p['phone'] ?? '').toString().trim();
+          final pEmail = (p['email'] ?? '').toString().trim().toLowerCase();
 
-          if (directResult is Map) {
-            freshProfileRow = Map<String, dynamic>.from(directResult);
+          // Check custom ids
+          if (targetId != null && targetId.isNotEmpty && (pId == targetId.toLowerCase() || pReg == targetId.toLowerCase())) {
+            freshProfileRow = p;
+            break;
           }
-        } catch (e) {
-          debugPrint('[MatrimonyPhotoManager] Direct fetch notice: $e');
+          if (targetRegId != null && targetRegId.isNotEmpty && (pReg == targetRegId.toLowerCase() || pId == targetRegId.toLowerCase())) {
+            freshProfileRow = p;
+            break;
+          }
+          if (targetRegId != null && targetRegId.isNotEmpty && pId.startsWith('${targetRegId.toLowerCase()}_')) {
+            freshProfileRow = p;
+            break;
+          }
+          // Check prefs
+          if (prefRegId != null && prefRegId.isNotEmpty && (pReg == prefRegId.toLowerCase() || pId == prefRegId.toLowerCase())) {
+            freshProfileRow = p;
+            break;
+          }
+          if (prefUserId != null && prefUserId.isNotEmpty && (pId == prefUserId.toLowerCase() || pReg == prefUserId.toLowerCase())) {
+            freshProfileRow = p;
+            break;
+          }
+          if (prefRegId != null && prefRegId.isNotEmpty && pId.startsWith('${prefRegId.toLowerCase()}_')) {
+            freshProfileRow = p;
+            break;
+          }
+          // Check auth phone / email
+          if (authPhone != null && authPhone.isNotEmpty) {
+            final digits = authPhone.replaceAll(RegExp(r'\D'), '');
+            if (digits.length >= 10 && pPhone.contains(digits.substring(digits.length - 10))) {
+              freshProfileRow = p;
+              break;
+            }
+          }
+          if (authEmail != null && authEmail.isNotEmpty && pEmail == authEmail.toLowerCase()) {
+            freshProfileRow = p;
+            break;
+          }
         }
 
-        if (freshProfileRow == null && _allProfiles.isNotEmpty) {
-          freshProfileRow = _allProfiles.firstWhere(
-            (p) => p['id']?.toString() == targetId || p['register_id']?.toString() == targetId,
-            orElse: () => _allProfiles.first,
-          );
+        if (freshProfileRow == null) {
+          freshProfileRow = _allProfiles.first;
         }
-      } else if (_allProfiles.isNotEmpty) {
-        freshProfileRow = _allProfiles.first;
       }
 
       if (freshProfileRow != null) {
@@ -212,10 +235,13 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
           prefs.setString('photo_url', cleanProfilePhoto);
           prefs.setString('profile_photo_url', cleanProfilePhoto);
           prefs.setString('avatar_url', cleanProfilePhoto);
+          prefs.setString('photos', jsonEncode([cleanProfilePhoto]));
+          prefs.setString('single_photos', jsonEncode([cleanProfilePhoto]));
         }
         if (cleanFamilyPhoto.isNotEmpty) {
           prefs.setString('family_photo', cleanFamilyPhoto);
           prefs.setString('family_photo_url', cleanFamilyPhoto);
+          prefs.setString('family_photos', jsonEncode([cleanFamilyPhoto]));
         }
 
         // Update stored user JSON
@@ -224,10 +250,16 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         freshUserMap['photo_url'] = cleanProfilePhoto;
         freshUserMap['profile_photo_url'] = cleanProfilePhoto;
         freshUserMap['avatar_url'] = cleanProfilePhoto;
+        freshUserMap['photos'] = [cleanProfilePhoto];
+        freshUserMap['single_photos'] = [cleanProfilePhoto];
         freshUserMap['family_photo'] = cleanFamilyPhoto;
         freshUserMap['family_photo_url'] = cleanFamilyPhoto;
+        freshUserMap['family_photos'] = [cleanFamilyPhoto];
         prefs.setString('i4u_auth_user', jsonEncode(freshUserMap));
         prefs.setString('current_user_profile', jsonEncode(freshUserMap));
+        prefs.setString('user_profile', jsonEncode(freshUserMap));
+        prefs.setString('cached_user', jsonEncode(freshUserMap));
+        prefs.setString('user_data', jsonEncode(freshUserMap));
         debugPrint('[MatrimonyPhotoManager] Overwrote local cached user object in SharedPreferences');
       });
     } catch (_) {}
@@ -330,13 +362,18 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         contentType: 'image/jpeg',
       );
 
-      // 5. Update Supabase public.profiles matching .or('id.eq.$userId,register_id.eq.$userId')
+      // 5. Update Supabase public.profiles matching row
       final updatedRow = await _r2Service.persistPhotoUrlToSupabase(
         url: publicUrl,
         isProfilePhoto: isProfilePhoto,
         userId: userId,
         registerId: _resolvedRegisterId,
       );
+
+      if (updatedRow == null || updatedRow.isEmpty) {
+        final tried = _resolvedRegisterId ?? userId;
+        throw Exception('0 rows updated in Supabase for user: $tried');
+      }
 
       // 6. Update local session cache (SharedPreferences / Provider) immediately
       try {
@@ -413,21 +450,25 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     } catch (e) {
       debugPrint('[MatrimonyPhotoManager] Upload pipeline error: $e');
       if (mounted) {
+        final errText = e.toString().replaceAll('Exception:', '').trim();
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, color: Color(0xFFF87171), size: 20),
+                const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('Upload failed: ${e.toString()}'),
+                  child: Text(
+                    'Error: $errText',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
                 ),
               ],
             ),
-            backgroundColor: const Color(0xFF991B1B),
+            backgroundColor: const Color(0xFFDC2626), // RED SnackBar showing exact user tried
             behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 6),
+            duration: const Duration(seconds: 7),
           ),
         );
       }

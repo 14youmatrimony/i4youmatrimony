@@ -100,7 +100,7 @@ export default function MobilePhotoManagerSheet({
 
   if (!isOpen) return null;
 
-  const handleUpdate = (newSingle, newFamily, extraPrivacy = {}) => {
+  const handleUpdate = async (newSingle, newFamily, extraPrivacy = {}) => {
     const nextSingle = (newSingle !== undefined ? newSingle : singlePhotos).map(formatR2PublicUrl);
     const nextFamily = (newFamily !== undefined ? newFamily : familyPhotos).map(formatR2PublicUrl);
     const primary = nextSingle && nextSingle.length > 0 ? nextSingle[0] : null;
@@ -110,7 +110,7 @@ export default function MobilePhotoManagerSheet({
     setSinglePhotos(nextSingle || []);
     setFamilyPhotos(nextFamily || []);
 
-    onUpdatePhotos?.({
+    const res = await onUpdatePhotos?.({
       singlePhotos: nextSingle || [],
       photos: nextSingle || [],
       familyPhotos: nextFamily || [],
@@ -124,6 +124,11 @@ export default function MobilePhotoManagerSheet({
       photoVisibility: extraPrivacy.photoVisibility !== undefined ? extraPrivacy.photoVisibility : photoVisibility,
       blurPhotosForUnconnected: extraPrivacy.blurPhotosForUnconnected !== undefined ? extraPrivacy.blurPhotosForUnconnected : blurPhotosForUnconnected
     });
+
+    if (res && res.success === false) {
+      showFeedback(res.error || 'Failed to update photos in database');
+    }
+    return res;
   };
 
   // Single Photos (Max 5) Handlers
@@ -792,9 +797,11 @@ export default function MobilePhotoManagerSheet({
 
         <button
           type="button"
-          onClick={() => {
-            handleUpdate(singlePhotos, familyPhotos);
-            onClose();
+          onClick={async () => {
+            const res = await handleUpdate(singlePhotos, familyPhotos);
+            if (!res || res.success !== false) {
+              onClose();
+            }
           }}
           className="px-6 py-2 rounded-xl text-xs font-bold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] hover:from-[#dfb76c] hover:to-[#b89228] active:scale-95 transition-all shadow-md shadow-[#D4AF37]/25 flex items-center gap-1.5 cursor-pointer shrink-0"
         >

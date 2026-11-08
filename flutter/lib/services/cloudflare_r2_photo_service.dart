@@ -270,6 +270,8 @@ class CloudflareR2PhotoService {
     required bool isProfilePhoto,
     required String userId,
     String? registerId,
+    String? phone,
+    String? email,
   }) async {
     final supabase = Supabase.instance.client;
     final cleanUid = userId.trim();
@@ -287,65 +289,132 @@ class CloudflareR2PhotoService {
       updatePayload['photo_url'] = publicUrl;
       updatePayload['profile_photo_url'] = publicUrl;
       updatePayload['avatar_url'] = publicUrl;
+      updatePayload['photos'] = [publicUrl];
       updatePayload['single_photos'] = jsonEncode([publicUrl]);
     } else {
       updatePayload['family_photo'] = publicUrl;
       updatePayload['family_photo_url'] = publicUrl;
-      updatePayload['family_photos'] = jsonEncode([publicUrl]);
+      updatePayload['family_photos'] = [publicUrl];
+    }
+
+    // 2. Pre-locate exact row in public.profiles using id, register_id, prefix pattern, phone, or email
+    String? matchedRowId;
+    try {
+      final dynamic allProfiles = await supabase
+          .from('profiles')
+          .select('id, register_id, phone, email, name');
+
+      if (allProfiles is List) {
+        final cleanDigits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+        final cleanReg = cleanRegId.toLowerCase();
+        final cleanU = cleanUid.toLowerCase();
+        final cleanEm = (email ?? '').trim().toLowerCase();
+
+        for (final item in allProfiles) {
+          if (item is Map) {
+            final rId = (item['id'] ?? '').toString().trim().toLowerCase();
+            final rReg = (item['register_id'] ?? '').toString().trim().toLowerCase();
+            final rPhone = (item['phone'] ?? '').toString().trim();
+            final rEmail = (item['email'] ?? '').toString().trim().toLowerCase();
+
+            if (cleanU.isNotEmpty && (rId == cleanU || rReg == cleanU)) {
+              matchedRowId = item['id']?.toString();
+              break;
+            }
+            if (cleanReg.isNotEmpty && (rReg == cleanReg || rId == cleanReg)) {
+              matchedRowId = item['id']?.toString();
+              break;
+            }
+            if (cleanReg.isNotEmpty && rId.startsWith('${cleanReg}_')) {
+              matchedRowId = item['id']?.toString();
+              break;
+            }
+            if (cleanU.isNotEmpty && rId.startsWith('${cleanU}_')) {
+              matchedRowId = item['id']?.toString();
+              break;
+            }
+            if (cleanDigits.length >= 10 && rPhone.contains(cleanDigits.substring(cleanDigits.length - 10))) {
+              matchedRowId = item['id']?.toString();
+              break;
+            }
+            if (cleanEm.isNotEmpty && rEmail == cleanEm) {
+              matchedRowId = item['id']?.toString();
+              break;
+            }
+          }
+        }
+      }
+    } catch (findErr) {
+      debugPrint('[CloudflareR2PhotoService] Pre-lookup profiles warning: $findErr');
     }
 
     List<dynamic> updatedRows = [];
 
-    // 2. Match user row accurately using .or('id.eq.$userId,register_id.eq.$userId')
-    try {
-      final orFilter = (cleanUid == cleanRegId)
-          ? 'id.eq.$cleanUid,register_id.eq.$cleanUid'
-          : 'id.eq.$cleanUid,register_id.eq.$cleanUid,id.eq.$cleanRegId,register_id.eq.$cleanRegId';
-
-      updatedRows = await supabase
-          .from('profiles')
-          .update(updatePayload)
-          .or(orFilter)
-          .select();
-    } catch (e) {
-      debugPrint('[CloudflareR2PhotoService] Update with or filter notice: $e');
+    // 3. Update using matched row ID if found
+    if (matchedRowId != null && matchedRowId.isNotEmpty) {
+      try {
+        updatedRows = await supabase
+            .from('profiles')
+            .update(updatePayload)
+            .eq('id', matchedRowId)
+            .select();
+      } catch (e) {
+        debugPrint('[CloudflareR2PhotoService] Update by matched row ID notice: $e');
+      }
     }
 
-    // Fallback: match by id directly
+    // 4. Fallback matching using .or() filter
     if (updatedRows.isEmpty) {
-      try {
-        updatedRows = await supabase
-            .from('profiles')
-            .update(updatePayload)
-            .eq('id', cleanUid)
-            .select();
-      } catch (_) {}
+      final orTokens = <String>[];
+      if (cleanUid.isNotEmpty) {
+        orTokens.add('id.eq.$cleanUid');
+        orTokens.add('register_id.eq.$cleanUid');
+      }
+      if (cleanRegId.isNotEmpty) {
+        orTokens.add('register_id.eq.$cleanRegId');
+        orTokens.add('register_id.eq.${cleanRegId.toUpperCase()}');
+        orTokens.add('register_id.eq.${cleanRegId.toLowerCase()}');
+        orTokens.add('id.eq.$cleanRegId');
+      }
+      if (phone != null && phone.trim().isNotEmpty) {
+        final digits = phone.replaceAll(RegExp(r'\D'), '');
+        if (digits.length >= 10) {
+          orTokens.add('phone.eq.$phone');
+          orTokens.add('phone.eq.${digits.substring(digits.length - 10)}');
+        }
+      }
+      if (email != null && email.trim().isNotEmpty) {
+        orTokens.add('email.eq.$email');
+      }
+
+      if (orTokens.isNotEmpty) {
+        try {
+          updatedRows = await supabase
+              .from('profiles')
+              .update(updatePayload)
+              .or(orTokens.join(','))
+              .select();
+        } catch (e) {
+          debugPrint('[CloudflareR2PhotoService] Update with orFilter notice: $e');
+        }
+      }
     }
 
-    // Fallback: match by register_id directly
-    if (updatedRows.isEmpty && cleanRegId.isNotEmpty) {
-      try {
-        updatedRows = await supabase
-            .from('profiles')
-            .update(updatePayload)
-            .eq('register_id', cleanRegId)
-            .select();
-      } catch (_) {}
+    // Check if the returned list from .update({...}).select() is empty!
+    if (updatedRows.isEmpty) {
+      final triedIdentifier = (cleanRegId.isNotEmpty ? cleanRegId : cleanUid);
+      throw Exception('0 rows updated in Supabase for user: $triedIdentifier');
     }
 
     // Print updated row result
     debugPrint('====================================================');
     debugPrint('[CloudflareR2PhotoService] Supabase Profile Update Result:');
-    if (updatedRows.isNotEmpty) {
-      debugPrint(jsonEncode(updatedRows.first));
-      // ignore: avoid_print
-      print('[CloudflareR2PhotoService] Supabase Profile Update Result: ${jsonEncode(updatedRows.first)}');
-    } else {
-      debugPrint('No matching row updated for ID: $cleanUid');
-    }
+    debugPrint(jsonEncode(updatedRows.first));
+    // ignore: avoid_print
+    print('[CloudflareR2PhotoService] Supabase Profile Update Result: ${jsonEncode(updatedRows.first)}');
     debugPrint('====================================================');
 
-    // 3. Immediately Update Local Session Cache (SharedPreferences / Provider)
+    // 5. Immediately Update Local Session Cache (SharedPreferences / Provider)
     try {
       final prefs = await SharedPreferences.getInstance();
       if (isProfilePhoto) {
@@ -353,9 +422,12 @@ class CloudflareR2PhotoService {
         await prefs.setString('photo_url', publicUrl);
         await prefs.setString('profile_photo_url', publicUrl);
         await prefs.setString('avatar_url', publicUrl);
+        await prefs.setString('photos', jsonEncode([publicUrl]));
+        await prefs.setString('single_photos', jsonEncode([publicUrl]));
       } else {
         await prefs.setString('family_photo', publicUrl);
         await prefs.setString('family_photo_url', publicUrl);
+        await prefs.setString('family_photos', jsonEncode([publicUrl]));
       }
 
       // Update stored user JSON in SharedPreferences so refreshing does not reload stale data
@@ -370,9 +442,12 @@ class CloudflareR2PhotoService {
               userMap['photo_url'] = publicUrl;
               userMap['profile_photo_url'] = publicUrl;
               userMap['avatar_url'] = publicUrl;
+              userMap['photos'] = [publicUrl];
+              userMap['single_photos'] = jsonEncode([publicUrl]);
             } else {
               userMap['family_photo'] = publicUrl;
               userMap['family_photo_url'] = publicUrl;
+              userMap['family_photos'] = [publicUrl];
             }
             await prefs.setString(key, jsonEncode(userMap));
             debugPrint('[CloudflareR2PhotoService] Updated stored user JSON in SharedPreferences key: $key');
@@ -383,7 +458,7 @@ class CloudflareR2PhotoService {
       debugPrint('[CloudflareR2PhotoService] Local session cache update notice: $e');
     }
 
-    // 4. Synchronize supabase.auth user metadata
+    // 6. Synchronize supabase.auth user metadata
     try {
       final currentUser = supabase.auth.currentUser;
       if (currentUser != null) {

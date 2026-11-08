@@ -1554,89 +1554,132 @@ export async function updateLivePhotos(photoData) {
     payload.photos = [];
   }
 
-  // Persist BOTH family_photo/family_photo_url and family_photos (JSON string)
+  // Persist BOTH family_photo/family_photo_url and family_photos
   if (finalFamilyPhotos.length > 0) {
     payload.family_photo = finalFamilyPhotos[0];
     payload.family_photo_url = finalFamilyPhotos[0];
-    payload.family_photos = JSON.stringify(finalFamilyPhotos);
+    payload.family_photos = finalFamilyPhotos;
   } else if (photoData.family_photo === null || photoData.family_photo_url === null || (Array.isArray(photoData.familyPhotos) && photoData.familyPhotos.length === 0)) {
     payload.family_photo = null;
     payload.family_photo_url = null;
-    payload.family_photos = '[]';
+    payload.family_photos = [];
   }
 
   if (photoData.hidePhotos !== undefined) payload.hide_photos = photoData.hidePhotos ? 1 : 0;
   if (photoData.photoVisibility !== undefined) payload.photo_visibility = photoData.photoVisibility;
 
-  // 1. Direct Supabase sync: match user row using comprehensive or tokens (id, register_id, phone)
-  const orTokens = [];
-  if (id) {
-    orTokens.push(`id.eq.${id}`);
-    orTokens.push(`register_id.eq.${id}`);
-  }
-  if (regId) {
-    orTokens.push(`register_id.eq.${regId}`);
-    orTokens.push(`register_id.eq.${regId.toUpperCase()}`);
-    orTokens.push(`register_id.eq.${regId.toLowerCase()}`);
-    orTokens.push(`id.eq.${regId}`);
-  }
-  if (phone && phone.replace(/\D/g, '').length >= 10) {
-    const rawDigits = phone.replace(/\D/g, '');
-    orTokens.push(`phone.eq.${phone}`);
-    orTokens.push(`phone.eq.${rawDigits.slice(-10)}`);
-  }
-  const matchFilter = orTokens.join(',');
+  // 1. Direct Supabase sync: accurate row matching and verification
+  let supabaseUpdateSucceeded = false;
+  let supabaseUpdatedCount = 0;
+  let lastSbError = null;
 
-  if (isSupabaseConfigured() && matchFilter) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const resolvedName = photoData.name || photoData.userName || photoData.fullName || 'Member';
-      const updatePayload = { ...payload };
+      let matchedRowId = null;
 
-      let { data: updatedRows, error } = await supabase
-        .from('profiles')
-        .update(updatePayload)
-        .or(matchFilter)
-        .select();
-
-      // Gracefully handle PostgreSQL error 42703 (missing column in custom schemas)
-      if (error && (error.code === '42703' || error.message?.includes('column'))) {
-        console.warn('[updateLivePhotos] Schema column mismatch, retrying without optional columns:', error.message);
-        const safePayload = { ...updatePayload };
-        delete safePayload.user_id;
-        delete safePayload.full_name;
-        delete safePayload.profile_photo_url;
-        delete safePayload.family_photo_url;
-        delete safePayload.avatar_url;
-        delete safePayload.photos;
-        const retryRes = await supabase
+      // Pre-locate exact row in public.profiles using id, register_id, prefix pattern, phone, or email
+      try {
+        const { data: allProfiles } = await supabase
           .from('profiles')
-          .update(safePayload)
-          .or(matchFilter)
-          .select();
-        error = retryRes.error;
-        updatedRows = retryRes.data;
+          .select('id, register_id, phone, email, name');
+
+        if (Array.isArray(allProfiles)) {
+          const cleanDigits = (phone || '').replace(/\D/g, '');
+          const cleanReg = (regId || '').trim().toLowerCase();
+          const cleanUid = (id || '').trim().toLowerCase();
+          const cleanEmail = (photoData.email || '').trim().toLowerCase();
+
+          for (const row of allProfiles) {
+            const rId = String(row.id || '').trim().toLowerCase();
+            const rReg = String(row.register_id || '').trim().toLowerCase();
+            const rPhone = String(row.phone || '').trim();
+            const rEmail = String(row.email || '').trim().toLowerCase();
+
+            // 1. Match by id or register_id
+            if (cleanUid && (rId === cleanUid || rReg === cleanUid)) {
+              matchedRowId = row.id;
+              break;
+            }
+            if (cleanReg && (rReg === cleanReg || rId === cleanReg)) {
+              matchedRowId = row.id;
+              break;
+            }
+            // 2. Pattern match prefix: e.g. i4y1004_1791656308517 starts with i4y1004_
+            if (cleanReg && rId.startsWith(`${cleanReg}_`)) {
+              matchedRowId = row.id;
+              break;
+            }
+            if (cleanUid && rId.startsWith(`${cleanUid}_`)) {
+              matchedRowId = row.id;
+              break;
+            }
+            // 3. Match phone digits
+            if (cleanDigits.length >= 10 && rPhone && rPhone.includes(cleanDigits.slice(-10))) {
+              matchedRowId = row.id;
+              break;
+            }
+            // 4. Match email
+            if (cleanEmail && rEmail === cleanEmail) {
+              matchedRowId = row.id;
+              break;
+            }
+          }
+        }
+      } catch (findErr) {
+        console.warn('[updateLivePhotos] Pre-lookup profiles warning:', findErr);
       }
 
-      // If no row was updated (user not yet in public.profiles), fallback to upsert
-      if (!error && (!updatedRows || updatedRows.length === 0) && cleanId) {
-        const upsertPayload = {
-          id: id || cleanId,
-          register_id: regId || cleanId,
-          full_name: resolvedName,
-          name: resolvedName,
-          ...updatePayload
-        };
-        const upsertRes = await supabase
+      let updatedRows = [];
+      let error = null;
+
+      if (matchedRowId) {
+        const directRes = await supabase
           .from('profiles')
-          .upsert(upsertPayload, { onConflict: 'id' })
+          .update(payload)
+          .eq('id', matchedRowId)
           .select();
-        error = upsertRes.error;
+        updatedRows = directRes.data;
+        error = directRes.error;
       }
 
-      if (error) {
-        console.warn('[updateLivePhotos] Supabase Photo Sync Warning:', error.message);
+      // Fallback: match using comprehensive or tokens
+      if (!updatedRows || updatedRows.length === 0) {
+        const orTokens = [];
+        if (id) {
+          orTokens.push(`id.eq.${id}`);
+          orTokens.push(`register_id.eq.${id}`);
+        }
+        if (regId) {
+          orTokens.push(`register_id.eq.${regId}`);
+          orTokens.push(`register_id.eq.${regId.toUpperCase()}`);
+          orTokens.push(`register_id.eq.${regId.toLowerCase()}`);
+          orTokens.push(`id.eq.${regId}`);
+        }
+        if (phone && phone.replace(/\D/g, '').length >= 10) {
+          const rawDigits = phone.replace(/\D/g, '');
+          orTokens.push(`phone.eq.${phone}`);
+          orTokens.push(`phone.eq.${rawDigits.slice(-10)}`);
+        }
+        if (orTokens.length > 0) {
+          const fallbackRes = await supabase
+            .from('profiles')
+            .update(payload)
+            .or(orTokens.join(','))
+            .select();
+          if (fallbackRes.data && fallbackRes.data.length > 0) {
+            updatedRows = fallbackRes.data;
+            error = fallbackRes.error;
+          }
+        }
+      }
+
+      if (updatedRows && updatedRows.length > 0) {
+        supabaseUpdateSucceeded = true;
+        supabaseUpdatedCount = updatedRows.length;
+        console.log('[updateLivePhotos] Supabase rows updated successfully:', updatedRows.length, 'for:', matchedRowId || cleanId);
       } else {
-        console.log('[updateLivePhotos] Successfully persisted photo lists to Supabase for:', cleanId);
+        lastSbError = error ? error.message : '0 rows matched in Supabase public.profiles';
+        console.warn('[updateLivePhotos] 0 rows updated in Supabase for user:', cleanId, error);
       }
 
       // Synchronize supabase.auth.updateUser metadata
@@ -1662,8 +1705,20 @@ export async function updateLivePhotos(photoData) {
         }
       }
     } catch (sbErr) {
+      lastSbError = sbErr?.message || String(sbErr);
       console.warn('[Supabase Photo Sync Warning]:', sbErr.message);
     }
+  }
+
+  // If Supabase is configured and 0 rows were updated, do NOT pretend to succeed!
+  if (isSupabaseConfigured() && !supabaseUpdateSucceeded) {
+    const triedIdentifier = regId || id || cleanId || 'unknown';
+    return {
+      success: false,
+      updatedCount: 0,
+      triedId: triedIdentifier,
+      error: `0 rows updated in Supabase for user: ${triedIdentifier}. Detail: ${lastSbError || 'No matching row found'}`
+    };
   }
 
   // 2. Always synchronize with FastAPI/Flask Backend and PostgreSQL database
@@ -1695,7 +1750,19 @@ export async function updateLivePhotos(photoData) {
 
   // 3. Keep local device storage / session state in sync immediately so all 5 single slots and 2 family slots persist permanently
   try {
-    ['i4u_auth_user', 'current_user_profile', 'user_profile', 'i4u_user'].forEach(storageKey => {
+    const storageKeys = [
+      'i4u_auth_user',
+      'current_user_profile',
+      'user_profile',
+      'i4u_user',
+      'user',
+      'cached_user',
+      'cached_user_profile',
+      'user_data',
+      'profile',
+      'my_profile'
+    ];
+    storageKeys.forEach(storageKey => {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         try {
@@ -1709,18 +1776,59 @@ export async function updateLivePhotos(photoData) {
             avatar_url: payload.avatar_url ?? parsed.avatar_url,
             singlePhotos: finalSinglePhotos,
             photos: finalSinglePhotos,
+            single_photos: finalSinglePhotos,
             familyPhotos: finalFamilyPhotos,
             family_photo: payload.family_photo ?? parsed.family_photo,
-            family_photo_url: payload.family_photo_url ?? parsed.family_photo_url
+            family_photo_url: payload.family_photo_url ?? parsed.family_photo_url,
+            family_photos: finalFamilyPhotos
           };
           localStorage.setItem(storageKey, JSON.stringify(updated));
         } catch (_) {}
       }
     });
+
+    // Also update match feed cache immediately
+    const cachedProfilesRaw = localStorage.getItem('i4u_cached_profiles');
+    if (cachedProfilesRaw) {
+      try {
+        const cachedList = JSON.parse(cachedProfilesRaw);
+        if (Array.isArray(cachedList)) {
+          const cleanReg = (regId || '').trim().toLowerCase();
+          const cleanUid = (id || '').trim().toLowerCase();
+          const updatedList = cachedList.map(p => {
+            if (!p) return p;
+            const pId = String(p.id || '').trim().toLowerCase();
+            const pReg = String(p.register_id || p.registerId || '').trim().toLowerCase();
+            const isMatch = (cleanUid && (pId === cleanUid || pReg === cleanUid)) ||
+                            (cleanReg && (pReg === cleanReg || pId === cleanReg)) ||
+                            (cleanReg && pId.startsWith(`${cleanReg}_`));
+            if (isMatch) {
+              return {
+                ...p,
+                photo: payload.photo ?? p.photo,
+                photo_url: payload.photo_url ?? p.photo_url,
+                profile_photo_url: payload.profile_photo_url ?? p.profile_photo_url,
+                avatar_url: payload.avatar_url ?? p.avatar_url,
+                photos: finalSinglePhotos,
+                singlePhotos: finalSinglePhotos,
+                single_photos: finalSinglePhotos,
+                familyPhotos: finalFamilyPhotos,
+                family_photo: payload.family_photo ?? p.family_photo,
+                family_photo_url: payload.family_photo_url ?? p.family_photo_url,
+                family_photos: finalFamilyPhotos
+              };
+            }
+            return p;
+          });
+          localStorage.setItem('i4u_cached_profiles', JSON.stringify(updatedList));
+        }
+      } catch (_) {}
+    }
   } catch (e) {}
 
   const resultObj = { 
     success: true, 
+    updatedCount: supabaseUpdatedCount,
     photo: payload.photo || photo, 
     photo_url: payload.photo_url || photo, 
     profile_photo_url: payload.profile_photo_url || photo,
