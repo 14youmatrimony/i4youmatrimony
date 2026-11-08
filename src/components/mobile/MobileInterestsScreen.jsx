@@ -11,9 +11,7 @@ import {
   CheckCheck,
   Eye
 } from 'lucide-react';
-import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { getTargetCandidateGender, isCandidateMatchingTarget, normalizeGender } from '../../utils/genderMatch';
-import { getAppMode } from '../../config/appConfig';
 import { interestService } from '../../services/interestService';
 import SafeAvatar from '../common/SafeAvatar';
 import { resolveProfilePhoto, isPlaceholderOrIncompleteProfile } from '../../services/api';
@@ -42,7 +40,6 @@ export default function MobileInterestsScreen({
   notifications = [],
   showToast
 }) {
-  const { triggerScreenshotBlock, screenshotRestricted } = usePhotoPrivacy();
   const [internalSegment, setInternalSegment] = useState('sent'); // 'sent' | 'received' | 'shortlist'
   const [localDeclinedIds, setLocalDeclinedIds] = useState(() => {
     try {
@@ -71,7 +68,6 @@ export default function MobileInterestsScreen({
   const [liveReceivedInterests, setLiveReceivedInterests] = useState([]);
   const [liveSentInterests, setLiveSentInterests] = useState([]);
   const [isLoadingReceived, setIsLoadingReceived] = useState(false);
-  const [isLoadingSent, setIsLoadingSent] = useState(false);
   const [withdrawingKeys, setWithdrawingKeys] = useState({});
   const [localWithdrawnIds, setLocalWithdrawnIds] = useState(new Set());
 
@@ -82,8 +78,6 @@ export default function MobileInterestsScreen({
   // Fetch received and sent interests on component mount and subscribe to real-time incoming events
   useEffect(() => {
     if (!currentUser) return;
-    const userId = currentUser.id || currentUser.register_id || currentUser.registerId;
-    console.log(`Fetching received interests for user: [${userId}]`);
 
     let isMounted = true;
     setIsLoadingReceived(true);
@@ -91,7 +85,6 @@ export default function MobileInterestsScreen({
     interestService.getReceivedInterests(currentUser, profilesRef.current)
       .then((records) => {
         if (isMounted) {
-          console.log(`Found [${records.length}] records for receiver`);
           setLiveReceivedInterests(records);
           setIsLoadingReceived(false);
         }
@@ -101,24 +94,19 @@ export default function MobileInterestsScreen({
         if (isMounted) setIsLoadingReceived(false);
       });
 
-    setIsLoadingSent(true);
     interestService.getSentInterests(currentUser, profilesRef.current)
       .then((records) => {
         if (isMounted) {
-          console.log(`Found [${records.length}] records for sender`);
           setLiveSentInterests(records);
-          setIsLoadingSent(false);
         }
       })
       .catch((err) => {
         console.warn('[MobileInterestsScreen] Error fetching sent interests:', err);
-        if (isMounted) setIsLoadingSent(false);
       });
 
     // Real-time listener for incoming interest alerts with strict cleanup and state deduplication
     const unsub = interestService.subscribeToInterestInbox(currentUser, (payload) => {
       if (!isMounted || !payload) return;
-      console.log('[MobileInterestsScreen] Real-time incoming interest event received:', payload);
 
       const incomingInterestId = payload.interest_id || payload.interestId || payload.id;
       const incomingSenderId = String(payload.senderId || payload.sender_id || payload.userAId || '');
@@ -267,10 +255,6 @@ export default function MobileInterestsScreen({
 
   const targetCandidateGender = getTargetCandidateGender(currentUser);
   const isMaleUser = normalizeGender(currentUser?.gender) === 'male';
-  // Strictly dynamic received candidate IDs from real user account only
-  const initialReceivedCandidateIds = Array.isArray(currentUser?.receivedInterests)
-    ? currentUser.receivedInterests
-    : [];
 
   const isSelfProfile = (p) => {
     if (!p || !currentUser) return false;

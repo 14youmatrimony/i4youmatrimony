@@ -3,7 +3,6 @@ import {
   X, 
   RotateCcw, 
   Filter, 
-  MapPin, 
   ShieldCheck, 
   GraduationCap, 
   Sparkles,
@@ -15,10 +14,9 @@ import {
   Cigarette,
   Crown,
   Phone,
-  Globe,
-  Plane
+  Globe
 } from 'lucide-react';
-import { STATES_AND_CITIES, getDistrictsForState, NRI_COUNTRIES, isNriProfile, getProfileCountry, normalizeCountry } from '../../data/locationData';
+import { STATES_AND_CITIES, getDistrictsForState } from '../../data/locationData';
 import { RELIGIONS, EDUCATION_CATEGORIES } from '../RegistrationWizard';
 import SearchableSelect from '../common/SearchableSelect';
 import DualRangeSlider from '../common/DualRangeSlider';

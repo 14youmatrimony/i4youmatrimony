@@ -10,7 +10,7 @@ import {
   MapPin,
   X
 } from 'lucide-react';
-import { webrtcCallService, AudioRoutingHelper, Helper, RTCVideoRenderer } from '../../services/webrtcCallService';
+import { webrtcCallService, AudioRoutingHelper, RTCVideoRenderer } from '../../services/webrtcCallService';
 import SafeAvatar from '../common/SafeAvatar';
 import { resolveProfilePhoto } from '../../services/api';
 
@@ -29,10 +29,8 @@ export default function AudioCallModal({
   const [isKeypadOpen, setIsKeypadOpen] = useState(false);
   const [dialedDigits, setDialedDigits] = useState('');
   const [audioLevel, setAudioLevel] = useState(0);
-  const [hasMicPermission, setHasMicPermission] = useState(false);
   const [micPermissionError, setMicPermissionError] = useState(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  const [isConnectedPeer, setIsConnectedPeer] = useState(false);
   const [remoteStream, setRemoteStream] = useState(null);
 
   // Initialize remoteRenderer via RTCVideoRenderer

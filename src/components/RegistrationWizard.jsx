@@ -35,11 +35,10 @@ import SearchableSelect from './common/SearchableSelect';
 import WorldCountrySearchSelect from './common/WorldCountrySearchSelect';
 import DualRangeSlider from './common/DualRangeSlider';
 import { sanitizeInput, sanitizePhone, sanitizeEmail } from '../utils/security';
-import { optimizeImageFile, compressImageToWebP } from '../utils/imageOptimizer';
 import { uploadPhotoToR2 } from '../services/r2Storage';
 import { registerWithRegisterId } from '../services/authService';
 import SelfieVerificationSection from './SelfieVerificationSection';
-import { STATES_AND_CITIES, NRI_COUNTRIES, RESIDENCY_STATUS_OPTIONS, PREFERRED_COUNTRY_OPTIONS } from '../data/locationData';
+import { STATES_AND_CITIES, RESIDENCY_STATUS_OPTIONS } from '../data/locationData';
 import { 
   ALL_INDIA_RELIGIONS, 
   RELIGION_COMMUNITIES, 
@@ -349,10 +348,6 @@ export const NAKSHATRAS = [
   'Moola', 'Purva Ashadha', 'Uttara Ashadha', 'Shravana', 'Dhanishta', 
   'Shatabhisha', 'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati', 'Don’t Know'
 ];
-
-export const SAMPLE_SINGLE_PHOTOS = [];
-export const SAMPLE_FAMILY_PHOTOS = [];
-export const SAMPLE_PHOTOS = SAMPLE_SINGLE_PHOTOS;
 
 export const SKIN_COLOURS = [
   'Fair',

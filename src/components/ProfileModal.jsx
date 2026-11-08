@@ -17,8 +17,6 @@ import {
   ChevronRight,
   Crown,
   AlertCircle,
-  Zap,
-  CheckCheck,
   Send
 } from 'lucide-react';
 import SafeAvatar from './common/SafeAvatar';

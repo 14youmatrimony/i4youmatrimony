@@ -14,8 +14,7 @@ import {
   Trash2,
   Receipt,
   CheckCircle2,
-  AlertCircle,
-  CreditCard
+  AlertCircle
 } from 'lucide-react';
 import { addCacheBuster } from '../../utils/cacheBuster';
 import { resolveProfilePhoto, cleanCandidateName } from '../../services/api';
@@ -139,44 +138,6 @@ export default function NotificationCard({
 
   const displayTime = formatNotificationTime(rawTimestamp, notif.time);
 
-  // Helper to validate and clean genuine candidate names
-  const cleanValidName = (name) => {
-    if (!name || typeof name !== 'string') return null;
-    const clean = name.trim();
-    const lower = clean.toLowerCase();
-    if (
-      lower === '' ||
-      lower === 'verified member' ||
-      lower === 'a verified member' ||
-      lower === 'member' ||
-      lower === 'a member' ||
-      lower === 'candidate' ||
-      lower === 'a candidate' ||
-      lower === 'verified candidate' ||
-      lower === 'someone' ||
-      lower === 'null' ||
-      lower === 'undefined' ||
-      lower.startsWith('usr_') ||
-      lower.startsWith('member usr_') ||
-      lower.includes('usr_') ||
-      lower.startsWith('sim-') ||
-      lower.startsWith('auth_') ||
-      /^[0-9+]+$/.test(lower)
-    ) {
-      return null;
-    }
-    return clean;
-  };
-
-  // Helper to extract clean initials for avatar fallback
-  const getInitials = (name) => {
-    if (!name || typeof name !== 'string') return 'C';
-    const words = name.trim().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return 'C';
-    if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
-    return (words[0].slice(0, 1) + words[words.length - 1].slice(0, 1)).toUpperCase();
-  };
-
   // Dynamic variable bindings for real sender details from API / database
   const candidateName = 
     cleanCandidateName(notif.sender_name, null) ||
@@ -189,8 +150,6 @@ export default function NotificationCard({
     (profile?.registerId ? `Member ${String(profile.registerId).toUpperCase()}` : null) ||
     (notif.sender_id && !String(notif.sender_id).startsWith('sim-') && !String(notif.sender_id).startsWith('usr_') && !String(notif.sender_id).includes('_') && !String(notif.sender_id).includes('-') ? `Member ${notif.sender_id}` : null) ||
     'Candidate';
-
-  const candidateInitials = getInitials(candidateName);
 
   const rawPhoto = 
     resolveProfilePhoto(profile) || 

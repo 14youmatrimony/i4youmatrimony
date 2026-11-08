@@ -36,7 +36,7 @@ import AadhaarVerificationScreen from '../AadhaarVerificationScreen';
 import MobilePhotoManagerSheet from './MobilePhotoManagerSheet';
 import EditProfileModal from '../EditProfileModal';
 import SelfieVerificationSection from '../SelfieVerificationSection';
-import { updateLiveUserProfile, syncProfileToSupabase, resolveProfilePhoto, isFakeAvatarUrl, ensureProfileRowExists } from '../../services/api';
+import { updateLiveUserProfile, syncProfileToSupabase, resolveProfilePhoto, isFakeAvatarUrl } from '../../services/api';
 import SafeAvatar from '../common/SafeAvatar';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -121,8 +121,7 @@ export default function MobileAccountScreen({
   // Photo Privacy Context State
   const { 
     screenshotRestricted, 
-    setScreenshotRestricted, 
-    triggerScreenshotBlock
+    setScreenshotRestricted
   } = usePhotoPrivacy();
 
   // Privacy toggles state

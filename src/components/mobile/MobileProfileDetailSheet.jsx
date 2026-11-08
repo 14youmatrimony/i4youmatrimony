@@ -23,7 +23,6 @@ import {
   Zap, 
   AlertCircle, 
   Video,
-  CheckCheck,
   Send
 } from 'lucide-react';
 import { 

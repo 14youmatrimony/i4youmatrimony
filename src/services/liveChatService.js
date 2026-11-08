@@ -11,7 +11,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { isSelfProfile } from '../utils/genderMatch.js';
-import { sendBackendMessage, fetchLiveUserProfile, mapSupabaseRowToProfile, isPlaceholderOrIncompleteProfile } from './api.js';
+import { sendBackendMessage, mapSupabaseRowToProfile, isPlaceholderOrIncompleteProfile } from './api.js';
 import { fcmNotificationService } from './fcmNotificationService.js';
 
 class LiveChatService {

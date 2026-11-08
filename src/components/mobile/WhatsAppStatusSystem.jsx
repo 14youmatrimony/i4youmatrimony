@@ -31,25 +31,6 @@ const TEXT_GRADIENTS = [
   { id: 'gold', label: 'Auspicious Gold', bg: 'from-[#8C6D1F] via-[#DFB76C] to-[#0B192C]', text: 'text-amber-100' }
 ];
 
-// Curated sample matrimony videos (under 60s) for instant 1-click test
-const SAMPLE_VIDEOS = [
-  {
-    name: 'Western Ghats Hiking (24s)',
-    url: 'https://assets.mixkit.co/videos/preview/mixkit-tree-branches-in-the-breeze-1188-large.mp4',
-    duration: 24,
-    caption: 'Serene morning nature walk in the Western Ghats 🌿⛰️'
-  },
-  {
-    name: 'Temple Celebration (32s)',
-    url: 'https://assets.mixkit.co/videos/preview/mixkit-waves-coming-to-the-beach-5016-large.mp4',
-    duration: 32,
-    caption: 'Auspicious coastal temple visit with family 🙏🌊'
-  }
-];
-
-// Sample matrimony photos (empty: strictly real candidate status media)
-const SAMPLE_PHOTOS = [];
-
 export default function WhatsAppStatusSystem({
   myStatus,
   activeStoryViewer,
@@ -666,13 +647,7 @@ export function WhatsAppStatusEditorSheet({
             </button>
 
             <button
-              onClick={() => {
-                setActiveTab('video');
-                if (!mediaUrl) {
-                  setMediaUrl(SAMPLE_VIDEOS[0].url);
-                  setVideoDuration(SAMPLE_VIDEOS[0].duration);
-                }
-              }}
+              onClick={() => setActiveTab('video')}
               className={`flex-1 py-1.5 rounded-lg font-bold flex items-center justify-center space-x-1.5 transition-all ${
                 activeTab === 'video' 
                   ? 'bg-white text-slate-900 shadow-xs' 
@@ -722,23 +697,6 @@ export function WhatsAppStatusEditorSheet({
                   <Camera className="w-3.5 h-3.5 text-[#DFB76C]" />
                   <span>Choose Photo</span>
                 </button>
-              </div>
-
-              {/* Sample Photo Presets */}
-              <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
-                <span className="text-[10px] text-slate-400 font-bold shrink-0">Sample:</span>
-                {SAMPLE_PHOTOS.map((sp, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setMediaUrl(sp.url);
-                      setCaption(sp.caption);
-                    }}
-                    className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap font-medium border border-slate-200"
-                  >
-                    {sp.name}
-                  </button>
-                ))}
               </div>
             </div>
           )}
@@ -796,25 +754,6 @@ export function WhatsAppStatusEditorSheet({
                   <span>WhatsApp status supports maximum 60 seconds of video.</span>
                 </div>
               )}
-
-              {/* Sample Videos Presets */}
-              <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
-                <span className="text-[10px] text-slate-400 font-bold shrink-0">Sample:</span>
-                {SAMPLE_VIDEOS.map((sv, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setMediaUrl(sv.url);
-                      setVideoDuration(sv.duration);
-                      setCaption(sv.caption);
-                      setDurationError('');
-                    }}
-                    className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap font-medium border border-slate-200"
-                  >
-                    {sv.name}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
 

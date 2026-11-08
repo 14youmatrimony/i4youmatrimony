@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { isFakeAvatarUrl } from '../../services/api';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
-import { optimizeImageFile, compressImageToWebP } from '../../utils/imageOptimizer';
 import { uploadPhotoToR2, deletePhotoFromR2, formatR2PublicUrl } from '../../services/r2Storage';
 
 export default function MobilePhotoManagerSheet({

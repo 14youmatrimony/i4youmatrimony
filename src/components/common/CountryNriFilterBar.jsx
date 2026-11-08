@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, Check, ChevronDown } from 'lucide-react';
 import { 
-  TOP_100_WORLD_COUNTRIES,
   findCountryByName, 
   searchWorldCountries 
 } from '../../data/worldCountries.js';

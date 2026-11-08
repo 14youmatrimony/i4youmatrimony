@@ -27,7 +27,7 @@ import {
   isCandidateMatchingTarget, 
   isSelfProfile 
 } from '../../utils/genderMatch';
-import { isDemoProfile, isPlaceholderOrIncompleteProfile } from '../../services/api';
+import { isPlaceholderOrIncompleteProfile } from '../../services/api';
 
 export function parseHeightInches(hStr) {
   if (!hStr) return null;

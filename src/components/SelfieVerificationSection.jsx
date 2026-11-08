@@ -57,7 +57,6 @@ export default function SelfieVerificationSection({
     isVerified ? { isMatch: true, similarityScore: verifiedScore || 92, status: 'verified' } : null
   );
   const [cameraError, setCameraError] = useState(null);
-  const [cameraErrorType, setCameraErrorType] = useState(null);
 
   // Active Liveness Challenge State
   const [trackerState, setTrackerState] = useState(() => createLivenessTracker());

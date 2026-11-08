@@ -201,7 +201,7 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
     compressed = { dataUrl: file, sizeKB: 0 };
   }
 
-  const { endpoint, accessKeyId, secretAccessKey, bucketName, publicUrl: basePublicUrl, region } = getR2Config();
+  const { endpoint, accessKeyId, secretAccessKey, bucketName, region } = getR2Config();
 
   // 2. Unique timestamped filename conforming to Step-2 paths
   const cleanUserId = String(userId || 'user').trim().replace(/[^a-zA-Z0-9_-]/g, '_');

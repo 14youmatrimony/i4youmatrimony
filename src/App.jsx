@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
 import { formatR2PublicUrl } from './utils/r2Upload';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
@@ -50,17 +50,9 @@ import { fcmNotificationService } from './services/fcmNotificationService';
 import PremiumUpgradePromptModal from './components/calling/PremiumUpgradePromptModal';
 import { getAppMode, setAppMode } from './config/appConfig';
 import { sendInAppNotificationWithEmail } from './services/emailNotificationService';
-import { isNriProfile, getProfileCountry, isSameAbroadCountry, normalizeCountry } from './data/locationData';
+import { isNriProfile, getProfileCountry, isSameAbroadCountry } from './data/locationData';
 import { isCountryMatch } from './data/worldCountries';
 
-import { 
-  INITIAL_PROFILES, 
-  INITIAL_CONVERSATIONS, 
-  DEMO_USER, 
-  DEMO_USER_FEMALE, 
-  DEMO_USER_MALE, 
-  getConversationsForUser 
-} from './data/mockProfiles';
 import { 
   getTargetCandidateGender, 
   isCandidateMatchingTarget, 
@@ -68,10 +60,6 @@ import {
   isSelfProfile 
 } from './utils/genderMatch';
 import { Sparkles, AlertCircle } from 'lucide-react';
-
-// Real notification state initializer: No hardcoded or mock arrays
-export const getNotificationsForUser = () => [];
-export const INITIAL_NOTIFICATIONS = [];
 
 // Candidate status stories: No hardcoded or mock dummy statuses
 const CANDIDATE_STATUSES = {};
@@ -4855,7 +4843,6 @@ export default function App() {
       if (selectedCountryFilter && selectedCountryFilter !== 'All Profiles') {
         const candidateIsNri = isNriProfile(p);
         const candidateCountry = getProfileCountry(p);
-        const normCandCountry = normalizeCountry(candidateCountry);
 
         if (selectedCountryFilter === 'Working Abroad (NRI)') {
           if (!candidateIsNri) return false;

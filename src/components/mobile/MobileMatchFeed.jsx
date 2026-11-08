@@ -23,10 +23,7 @@ import {
   FileCheck2, 
   LayoutGrid, 
   Square,
-  CheckCheck,
-  Phone,
-  Globe,
-  Plane
+  Phone
 } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { 
@@ -34,8 +31,7 @@ import {
   isNriProfile, 
   getProfileCountry, 
   isSameAbroadCountry, 
-  normalizeCountry, 
-  NRI_COUNTRIES 
+  normalizeCountry 
 } from '../../data/locationData';
 import { useTheme } from '../../context/ThemeContext';
 import { 

@@ -3,12 +3,10 @@
  * Connects the mobile / web frontend with the Python Flask Backend (http://127.0.0.1:5000)
  */
 
-import { INITIAL_PROFILES } from '../data/mockProfiles.js';
 import { supabase, isSupabaseConfigured } from './supabase';
-import { uploadProfilePhoto } from './storageService';
 import { optimizeBase64String } from '../utils/imageOptimizer';
 import { addCacheBuster } from '../utils/cacheBuster';
-import { uploadPhotoToR2, isR2Configured, compressImageToWebP, formatR2PublicUrl, PUBLIC_R2_DOMAIN } from './r2Storage';
+import { uploadPhotoToR2, formatR2PublicUrl } from './r2Storage';
 
 /**
  * Cross-tab & Multi-window BroadcastChannel for instant profile data synchronization
@@ -2070,7 +2068,6 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
   let existingProfile = null;
   if (isSupabaseConfigured() && supabase) {
     try {
-      const isRegId = cleanId.toUpperCase().startsWith('I4Y');
       const orTokens = [
         `id.eq.${cleanId}`,
         `register_id.ilike.${cleanId}`

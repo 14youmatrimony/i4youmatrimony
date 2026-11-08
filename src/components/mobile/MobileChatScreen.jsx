@@ -50,7 +50,7 @@ export default function MobileChatScreen({
   isConnected = false,
   activeConv: propActiveConv = null
 }) {
-  const { bottomBarStyle, accent, isDarkMode } = useTheme();
+  const { accent, isDarkMode } = useTheme();
   const [inConversation, setInConversation] = useState(isDirectChatOpen);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -512,7 +512,6 @@ export default function MobileChatScreen({
 
   // Guaranteed activeConv reference preventing any "activeConv is not defined" runtime crash
   const activeConv = propActiveConv || derivedActiveConv || null;
-  const existingConv = activeConv;
   const activeConvRef = useRef(activeConv);
   activeConvRef.current = activeConv;
 

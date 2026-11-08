@@ -7,7 +7,6 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { uploadProfilePhoto } from './storageService';
 import { sanitizeInput, hashPasswordSha256 } from '../utils/security';
 import { sendRegistrationEmail } from './emailNotificationService';
-import { DEMO_USER_FEMALE, DEMO_USER_MALE } from '../data/mockProfiles';
 import { resolveProfilePhoto, isFakeAvatarUrl, ensureProfileRowExists } from './api';
 
 // Built-in Demo Credentials permanently disabled (strictly real verified accounts only)

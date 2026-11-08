@@ -4,7 +4,7 @@ import {
   MapPin, Briefcase, Sparkles, Lock, Globe, Plane, HeartHandshake 
 } from 'lucide-react';
 import { fetchLiveUserProfile, updateLiveUserProfile } from '../services/api';
-import { NRI_COUNTRIES, RESIDENCY_STATUS_OPTIONS, PREFERRED_COUNTRY_OPTIONS } from '../data/locationData';
+import { RESIDENCY_STATUS_OPTIONS } from '../data/locationData';
 import WorldCountrySearchSelect from './common/WorldCountrySearchSelect';
 
 /**

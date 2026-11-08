@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Volume2
 } from 'lucide-react';
-import { webrtcCallService, AudioRoutingHelper, Helper, RTCVideoRenderer } from '../../services/webrtcCallService';
+import { webrtcCallService, AudioRoutingHelper, RTCVideoRenderer } from '../../services/webrtcCallService';
 import SafeAvatar from '../common/SafeAvatar';
 import { resolveProfilePhoto } from '../../services/api';
 
@@ -30,8 +30,6 @@ export default function VideoCallModal({
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [cameraNotice, setCameraNotice] = useState(null);
-  const [remoteStream, setRemoteStream] = useState(null);
-  const [localStream, setLocalStream] = useState(null);
 
   // Renderers instantiated via RTCVideoRenderer
   const localRendererRef = useRef(new RTCVideoRenderer('localVideo'));

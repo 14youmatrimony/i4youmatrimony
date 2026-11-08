@@ -10,8 +10,7 @@ import {
   CheckCircle2,
   SlidersHorizontal,
   Crown,
-  Globe,
-  Plane
+  Globe
 } from 'lucide-react';
 import { 
   STATES_AND_CITIES, 
@@ -20,8 +19,7 @@ import {
   isNriProfile,
   getProfileCountry,
   isSameAbroadCountry,
-  normalizeCountry,
-  NRI_COUNTRIES
+  normalizeCountry
 } from '../../data/locationData';
 import { RELIGIONS } from '../RegistrationWizard';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
@@ -102,7 +100,6 @@ export default function MobileSearchScreen({
         if (selectedCountry !== 'All Profiles') {
           const candidateIsNri = isNriProfile(p);
           const candidateCountry = getProfileCountry(p);
-          const normCandCountry = normalizeCountry(candidateCountry);
 
           if (selectedCountry === 'Working Abroad (NRI)') {
             if (!candidateIsNri) return false;

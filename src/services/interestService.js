@@ -1276,7 +1276,7 @@ class InterestService {
       } catch (e) {}
     }
 
-    const enriched = rawRecords.map((rec, index) => {
+    const enriched = rawRecords.map((rec) => {
       const senderId = String(rec.sender_id || rec.senderId);
       const receiverId = String(rec.receiver_id || rec.receiverId);
       let senderProfile = profilesMap.get(senderId);
@@ -1395,7 +1395,6 @@ class InterestService {
       return true;
     });
 
-    console.log(`Found [${finalReceived.length}] records for receiver`);
     return finalReceived;
   }
 
@@ -1411,7 +1410,6 @@ class InterestService {
     if (!senderIds.length) return [];
 
     const userId = senderIds[0];
-    console.log(`Fetching sent interests for user: [${userId}]`);
 
     let rawRecords = [];
 
@@ -1560,7 +1558,6 @@ class InterestService {
       });
     });
 
-    console.log(`Found [${result.length}] records for sender`);
     return result;
   }
 
@@ -1719,7 +1716,6 @@ class InterestService {
     const handleWindowEvt = (e) => {
       if (!e?.detail) return;
       const update = e.detail;
-      const sId = String(update.senderId || update.sender_id || update.userAId || '');
       const rId = String(update.receiverId || update.receiver_id || update.userBId || '');
       const status = update.status || 'pending';
       const event = update.event || '';
@@ -1752,7 +1748,6 @@ class InterestService {
     // Also listen to local status change events (in-memory + cross-tab)
     const unsubLocal = this.onStatusChange((update) => {
       if (!update) return;
-      const sId = String(update.senderId || update.sender_id || update.userAId || '');
       const rId = String(update.receiverId || update.receiver_id || update.userBId || '');
       const status = update.status || 'pending';
       const event = update.event || '';
@@ -2099,7 +2094,6 @@ class InterestService {
 
     const receiverName = typeof receiver === 'object' ? (receiver.name || 'Candidate') : 'Candidate';
     const receiverPhoto = typeof receiver === 'object' ? (receiver.photo || receiver.photo_url || null) : null;
-    const senderName = typeof sender === 'object' ? (sender.name || 'Candidate') : 'Candidate';
 
     // 3. Save to Supabase 'interests' and 'notifications' table
     if (isSupabaseConfigured() && supabase) {

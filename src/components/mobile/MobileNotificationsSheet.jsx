@@ -11,7 +11,6 @@ import {
   ChevronLeft, 
   Users, 
   Lock, 
-  Sparkles,
   Receipt,
   CheckCircle2,
   AlertCircle

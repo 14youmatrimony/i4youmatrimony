@@ -134,12 +134,9 @@ C:\Project\I 4 You\
 │   │   │
 │   │   ├── AadhaarVerificationScreen.jsx      # Government ID (Aadhaar) scan & verify
 │   │   ├── EditProfileModal.jsx               # Profile information editor modal
-│   │   ├── Footer.jsx                         # App footer
 │   │   ├── GoogleSignInButton.jsx             # Google OAuth sign-in button
 │   │   ├── LoginScreen.jsx                    # Mobile / Register ID / password login
-│   │   ├── MatchFeed.jsx                      # Desktop match feed
 │   │   ├── MobileVerificationScreen.jsx       # Phone number OTP verification
-│   │   ├── Navbar.jsx                         # Main app top navbar
 │   │   ├── ProfileModal.jsx                   # Desktop profile view modal
 │   │   ├── RegisterPhoneVerification.jsx      # Registration phone step
 │   │   ├── RegistrationWizard.jsx             # Multi-step profile registration wizard
@@ -155,9 +152,9 @@ C:\Project\I 4 You\
 │   │
 │   ├── data/                      # Static & Reference Datasets
 │   │   ├── locationData.js        # Indian states, districts, and major cities
-│   │   ├── mockProfiles.js        # Seed / demo candidates for development mode
 │   │   ├── plansData.js           # Membership plans and features catalog
-│   │   └── religionData.js        # Religions, castes, and Vedic star lists
+│   │   ├── religionData.js        # Religions, castes, and Vedic star lists
+│   │   └── worldCountries.js      # Top 100 world countries reference dataset
 │   │
 │   ├── services/                  # Application Services & API Integrations
 │   │   ├── api.js                 # Primary data queries, profiles CRUD, payments, Cashfree
@@ -166,7 +163,6 @@ C:\Project\I 4 You\
 │   │   ├── faceVerificationService.js  # Liveness & face similarity scoring
 │   │   ├── fast2sms.js            # SMS OTP delivery service
 │   │   ├── fcmNotificationService.js   # Push notification registration & token management
-│   │   ├── firebase.js            # Firebase SDK client initialization
 │   │   ├── googleAuth.js          # Google OAuth credential handler
 │   │   ├── interestService.js     # Matrimonial interest requests, acceptances, blocks
 │   │   ├── liveChatService.js     # Real-time chat messages via Supabase Realtime
