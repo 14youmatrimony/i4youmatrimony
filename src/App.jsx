@@ -421,8 +421,8 @@ export default function App() {
       if (!p) return p;
       const fixUrl = (url) => {
         if (!url || typeof url !== 'string' || !url.trim() || url === 'null' || isFakeAvatarUrl(url)) return null;
-        if (url.includes('ejtkrilhntdbsiavugta.supabase.co') || url.includes('kzvdzospvgzlfkkptadl.supabase.co')) {
-          return url.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://pheqzsfrwhjxspaaroea.supabase.co');
+        if (url.includes('pheqzsfrwhjxspaaroea.supabase.co') || url.includes('ejtkrilhntdbsiavugta.supabase.co')) {
+          return url.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://kzvdzospvgzlfkkptadl.supabase.co');
         }
         return url;
       };
@@ -468,7 +468,7 @@ export default function App() {
       const currentAuthId = currentUser?.id || currentUser?.user_id || currentUserRef.current?.id || currentUserRef.current?.user_id;
       const liveList = await fetchLiveProfiles(currentAuthId);
       if (Array.isArray(liveList) && liveList.length > 0) {
-        const cleanList = liveList.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p));
+        const cleanList = liveList.filter(p => Boolean(p && (p.name || p.fullName || p.id)));
         setProfiles(cleanList);
         try {
           localStorage.setItem('i4u_cached_profiles', JSON.stringify(cleanList));

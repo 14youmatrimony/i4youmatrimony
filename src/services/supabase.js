@@ -2,11 +2,11 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * Normalizes any Supabase URL format:
- * Safely converts dashboard links (e.g. https://supabase.com/dashboard/project/pheqzsfrwhjxspaaroea/...)
- * into the standard Supabase API endpoint (https://pheqzsfrwhjxspaaroea.supabase.co).
+ * Safely converts dashboard links (e.g. https://supabase.com/dashboard/project/kzvdzospvgzlfkkptadl/...)
+ * into the standard Supabase API endpoint (https://kzvdzospvgzlfkkptadl.supabase.co).
  */
 export function normalizeSupabaseUrl(url) {
-  if (!url || typeof url !== 'string') return 'https://pheqzsfrwhjxspaaroea.supabase.co';
+  if (!url || typeof url !== 'string') return 'https://kzvdzospvgzlfkkptadl.supabase.co';
   const clean = url.trim().replace(/\/+$/, '');
   const dashboardMatch = clean.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
   if (dashboardMatch && dashboardMatch[1]) {
@@ -15,9 +15,9 @@ export function normalizeSupabaseUrl(url) {
   return clean;
 }
 
-const rawSupabaseUrl = import.meta?.env?.VITE_SUPABASE_URL || 'https://pheqzsfrwhjxspaaroea.supabase.co';
+const rawSupabaseUrl = import.meta?.env?.VITE_SUPABASE_URL || 'https://kzvdzospvgzlfkkptadl.supabase.co';
 const supabaseUrl = normalizeSupabaseUrl(rawSupabaseUrl);
-const supabaseAnonKey = import.meta?.env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoZXF6c2Zyd2hqeHNwYWFyb2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjY2MjgsImV4cCI6MjEwNzU0MjYyOH0.U-W92yqF0vMoyqK-uScBSjlV6LtfuAMV9J2ncPaL6PI';
+const supabaseAnonKey = import.meta?.env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
 
 /**
  * Checks whether valid Supabase configuration is present.
@@ -53,7 +53,7 @@ export const supabase = createClient(
 
 if (!isSupabaseConfigured()) {
   console.warn(
-    '[Supabase] Connected to project https://pheqzsfrwhjxspaaroea.supabase.co, but VITE_SUPABASE_ANON_KEY is not yet set in .env. Please add your anon public key from the Supabase Dashboard.'
+    '[Supabase] Connected to project https://kzvdzospvgzlfkkptadl.supabase.co, but VITE_SUPABASE_ANON_KEY is not yet set in .env. Please add your anon public key from the Supabase Dashboard.'
   );
 }
 

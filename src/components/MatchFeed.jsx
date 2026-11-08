@@ -34,15 +34,17 @@ export default function MatchFeed({
 }) {
   const [activeCategory, setActiveCategory] = useState('all');
 
-  // Filter profiles by category chips (strictly real candidates only)
+  // Filter profiles by category chips (safely parse all profiles handling nulls)
   const filteredProfiles = profiles
-    .filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
+    .filter(p => Boolean(p && (p.name || p.fullName || p.id)))
     .filter(p => {
     if (activeCategory === 'nri') return isNriProfile(p);
-    if (activeCategory === 'high_match') return p.matchScore >= 93;
-    if (activeCategory === 'medical') return p.educationCategory.includes('Medical');
-    if (activeCategory === 'tech') return p.educationCategory.includes('Engineering') || p.profession.includes('Engineer');
-    if (activeCategory === 'govt') return p.educationCategory.includes('Civil') || p.profession.includes('IAS') || p.profession.includes('Advocate');
+    if (activeCategory === 'high_match') return (p.matchScore || 0) >= 93;
+    const edu = String(p.educationCategory || p.education || '');
+    const prof = String(p.profession || '');
+    if (activeCategory === 'medical') return edu.includes('Medical');
+    if (activeCategory === 'tech') return edu.includes('Engineering') || prof.includes('Engineer');
+    if (activeCategory === 'govt') return edu.includes('Civil') || prof.includes('IAS') || prof.includes('Advocate');
     return true;
   });
 

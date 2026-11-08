@@ -686,7 +686,7 @@
 
   const store = loadStore();
 
-  const SUPABASE_BASE = 'https://pheqzsfrwhjxspaaroea.supabase.co/rest/v1/profiles';
+  const SUPABASE_BASE = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/profiles';
   const LIGHTWEIGHT_PROFILE_COLS = [
     'id', 'register_id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'skin_colour',
     'religion', 'caste', 'mother_tongue', 'state', 'city', 'district', 'native_address',
@@ -695,11 +695,11 @@
     'aadhaar_status', 'aadhaar_rejection_reason', 'aadhaar_front_image', 'aadhaar_back_image',
     'status', 'photo', 'photo_url', 'created_at', 'updated_at'
   ].join(',');
-  const SUPABASE_REST = `https://pheqzsfrwhjxspaaroea.supabase.co/rest/v1/profiles?select=${LIGHTWEIGHT_PROFILE_COLS}&order=created_at.desc`;
-  const SUPABASE_OFFERS = 'https://pheqzsfrwhjxspaaroea.supabase.co/rest/v1/offers';
-  const SUPABASE_PLANS = 'https://pheqzsfrwhjxspaaroea.supabase.co/rest/v1/membership_plans';
-  const SUPABASE_PAYMENTS = 'https://pheqzsfrwhjxspaaroea.supabase.co/rest/v1/payments';
-  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoZXF6c2Zyd2hqeHNwYWFyb2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjY2MjgsImV4cCI6MjEwNzU0MjYyOH0.U-W92yqF0vMoyqK-uScBSjlV6LtfuAMV9J2ncPaL6PI';
+  const SUPABASE_REST = `https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/profiles?select=${LIGHTWEIGHT_PROFILE_COLS}&order=created_at.desc`;
+  const SUPABASE_OFFERS = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/offers';
+  const SUPABASE_PLANS = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/membership_plans';
+  const SUPABASE_PAYMENTS = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/payments';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
 
   const VALID_PROFILE_COLS = new Set([
     'id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'skin_colour',
@@ -810,7 +810,7 @@
       // Supabase Realtime broadcast if supabase SDK available
       try {
         if (!window.__i4u_sb_client && window.supabase && typeof window.supabase.createClient === 'function') {
-          window.__i4u_sb_client = window.supabase.createClient('https://pheqzsfrwhjxspaaroea.supabase.co', SUPABASE_ANON);
+          window.__i4u_sb_client = window.supabase.createClient('https://kzvdzospvgzlfkkptadl.supabase.co', SUPABASE_ANON);
         }
         if (window.__i4u_sb_client) {
           const ch = window.__i4u_sb_client.channel('public:offers_and_plans_sync');
@@ -846,7 +846,7 @@
 
       try {
         if (!window.__i4u_sb_client && window.supabase && typeof window.supabase.createClient === 'function') {
-          window.__i4u_sb_client = window.supabase.createClient('https://pheqzsfrwhjxspaaroea.supabase.co', SUPABASE_ANON);
+          window.__i4u_sb_client = window.supabase.createClient('https://kzvdzospvgzlfkkptadl.supabase.co', SUPABASE_ANON);
         }
         if (window.__i4u_sb_client) {
           const ch = window.__i4u_sb_client.channel('public:offers_and_plans_sync');

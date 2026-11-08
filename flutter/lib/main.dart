@@ -1,28 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/supabase_service.dart';
+import 'widgets/home_matches_screen.dart';
 import 'widgets/matrimony_photo_manager.dart';
 import 'widgets/supabase_config_screen.dart';
 
-/// Main Application Entrypoint
+/// Main Application Entrypoint for I 4 You Matrimony
 ///
 /// Workflow:
 /// 1. Ensures Flutter framework bindings are ready.
-/// 2. Reads persisted Supabase credentials from [SharedPreferences] (falling back to default kzvdzospvgzlfkkptadl values).
-/// 3. Initializes [SupabaseService] with the saved credentials.
-/// 4. Boots the Material 3 Application with Photo Manager and live Configuration screens.
+/// 2. Clears any legacy SharedPreferences URL overrides to enforce strict connection to main Supabase project.
+/// 3. Initializes [SupabaseService] with exact project credentials (kzvdzospvgzlfkkptadl).
+/// 4. Boots the Material 3 Application with Home/Matches feed, Photo Manager, and Configuration.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Read saved keys from SharedPreferences before initializing Supabase
-  final prefs = await SharedPreferences.getInstance();
-  final savedUrl = prefs.getString(SupabaseService.prefKeyUrl) ?? SupabaseService.defaultUrl;
-  final savedAnonKey = prefs.getString(SupabaseService.prefKeyAnonKey) ?? SupabaseService.defaultAnonKey;
+  // 1. Remove any legacy SharedPreferences URL overrides to ensure strict connection
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(SupabaseService.prefKeyUrl);
+    await prefs.remove(SupabaseService.prefKeyAnonKey);
+  } catch (e) {
+    debugPrint('[Main] Error resetting SharedPreferences overrides: $e');
+  }
 
-  // 2. Initialize Supabase with the persisted credentials
+  // 2. Initialize Supabase strictly with the exact credentials
   await SupabaseService.initialize(
-    url: savedUrl,
-    anonKey: savedAnonKey,
+    url: SupabaseService.defaultUrl,
+    anonKey: SupabaseService.defaultAnonKey,
   );
 
   // 3. Launch Application
@@ -101,6 +106,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> screens = [
+      HomeMatchesScreen(
+        onOpenSettings: _openConfigurationModal,
+      ),
       const MatrimonyPhotoManager(),
       SupabaseConfigScreen(
         onConfigurationSaved: () {
@@ -162,6 +170,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           });
         },
         destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.people_outline_rounded),
+            selectedIcon: Icon(Icons.people_rounded),
+            label: 'Matches',
+          ),
           NavigationDestination(
             icon: Icon(Icons.photo_library_outlined),
             selectedIcon: Icon(Icons.photo_library_rounded),

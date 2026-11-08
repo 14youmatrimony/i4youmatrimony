@@ -737,8 +737,8 @@ export function mapSupabaseRowToProfile(r) {
     if (!u || typeof u !== 'string') return null;
     let str = u.trim();
     if (!str || str === 'null' || str === 'undefined' || isFakeAvatarUrl(str)) return null;
-    if (str.includes('ejtkrilhntdbsiavugta.supabase.co') || str.includes('kzvdzospvgzlfkkptadl.supabase.co')) {
-      str = str.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://pheqzsfrwhjxspaaroea.supabase.co');
+    if (str.includes('pheqzsfrwhjxspaaroea.supabase.co') || str.includes('ejtkrilhntdbsiavugta.supabase.co')) {
+      str = str.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://kzvdzospvgzlfkkptadl.supabase.co');
     }
     return addCacheBuster(str, profileTimestamp);
   };
@@ -995,43 +995,8 @@ export function isDemoProfile(p) {
  * Permanently deletes all legacy demo, dummy, and test profiles from Supabase database in the cloud
  */
 export async function purgeDemoProfilesFromSupabase() {
-  if (!isSupabaseConfigured() || !supabase) return;
-  try {
-    const demoIds = [
-      'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10',
-      'p11', 'p12', 'p13', 'p14', 'p15',
-      'demo-priya', 'demo-rohan', 'demo_user',
-      'p_1790420920023', 'p_1790423415609', 'p_1791044984217',
-      'p_1790182902571', 'p_1790585472737', 'p_1790963054403', 'p_1791395066352', 'p_1791395066369',
-      'i4y1008_1791482054640',
-      'test_sdk_1791097509591', 'test_sync_1791098620388', 'test_anon_1791369041', 'test_probe_1791394020373', 'test_payload_1',
-      'i4y1021_1791653762897', 'i4y1020_1791653471074', 'i4y1003_1791565753630',
-      'i4y1025_1791653762898', 'i4y1026_1791653762899', 'i4y1027_1791653762900', 'i4y1028_1791653762901',
-      'i4y1007_1791482054639', 'i4y1010_1791482054642', 'i4y1009_1791482054641'
-    ];
-    // Delete legacy IDs
-    await supabase.from('profiles').delete().in('id', demoIds);
-
-    // Delete profiles with demo, test, or dummy in name
-    await supabase.from('profiles').delete().ilike('name', '%demo%');
-    await supabase.from('profiles').delete().ilike('name', '%test%');
-    await supabase.from('profiles').delete().ilike('name', '%dummy%');
-    await supabase.from('profiles').delete().ilike('name', '%rahul nair%');
-    await supabase.from('profiles').delete().ilike('name', '%mathew george%');
-    await supabase.from('profiles').delete().ilike('name', 'member usr%');
-    await supabase.from('profiles').delete().ilike('name', 'amal').ilike('district', '%palakkad%');
-
-    // Delete profiles with demo or test in id
-    await supabase.from('profiles').delete().ilike('id', '%demo%');
-    await supabase.from('profiles').delete().ilike('id', '%test%');
-    await supabase.from('profiles').delete().ilike('id', 'p_%');
-
-    // Delete profiles marked with is_demo or is_test
-    await supabase.from('profiles').delete().eq('is_demo', true);
-    await supabase.from('profiles').delete().eq('is_test', true);
-  } catch (err) {
-    console.warn('[purgeDemoProfilesFromSupabase] Notice:', err);
-  }
+  // Safe guard: Do not delete existing profiles from production Supabase database
+  return;
 }
 
 export const CANDIDATE_FEED_COLUMNS = [
@@ -1125,20 +1090,11 @@ export async function fetchLiveProfiles(currentUserId = null) {
     try {
       let query = supabase
         .from('profiles')
-        .select(CANDIDATE_FEED_COLUMNS)
-        .eq('status', 'active')
-        .not('is_demo', 'is', true)
-        .not('is_test', 'is', true)
-        .not('name', 'ilike', '%demo%')
-        .not('name', 'ilike', '%test%')
-        .not('name', 'ilike', '%dummy%')
-        .not('id', 'ilike', '%demo%')
-        .not('id', 'ilike', '%test%')
-        .not('id', 'ilike', '%dummy%');
+        .select('*');
 
       if (currentUserId) {
         const uidStr = String(currentUserId).trim();
-        // Explicitly filter out currently authenticated user from backend PostgreSQL query
+        // Filter out currently authenticated user if specified
         query = query.neq('id', uidStr).neq('user_id', uidStr);
       }
 
@@ -1154,10 +1110,11 @@ export async function fetchLiveProfiles(currentUserId = null) {
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (!error && Array.isArray(data) && data.length > 0) {
+        console.log(`[Supabase] Fetched ${data.length} profiles from public.profiles`);
         const rawList = data
           .map(mapSupabaseRowToProfile)
           .filter(p => {
-            if (!p || isDemoProfile(p) || isPlaceholderOrIncompleteProfile(p)) return false;
+            if (!p) return false;
             if (currentUserId) {
               const uidStr = String(currentUserId).trim();
               if (String(p.id) === uidStr || (p.user_id && String(p.user_id) === uidStr)) return false;

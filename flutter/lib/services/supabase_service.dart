@@ -57,12 +57,22 @@ class SupabaseService {
   }
 
   /// Loads saved Supabase credentials from SharedPreferences.
-  /// Falls back to default values if not yet configured.
+  /// Falls back to default values if not yet configured or if an old URL was saved.
   static Future<Map<String, String>> loadSavedCredentials() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final url = prefs.getString(prefKeyUrl);
       final anonKey = prefs.getString(prefKeyAnonKey);
+
+      // Clean up legacy URL overrides if they don't point to the main project
+      if (url != null && !url.contains('kzvdzospvgzlfkkptadl')) {
+        await prefs.remove(prefKeyUrl);
+        await prefs.remove(prefKeyAnonKey);
+        return {
+          'url': defaultUrl,
+          'anonKey': defaultAnonKey,
+        };
+      }
 
       return {
         'url': (url != null && url.trim().isNotEmpty) ? normalizeUrl(url) : defaultUrl,

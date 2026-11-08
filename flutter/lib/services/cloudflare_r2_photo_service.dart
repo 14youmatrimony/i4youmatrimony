@@ -21,9 +21,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 ///     - Family Photo: `family_photo_url`, `family_photos`
 /// - Auto-creates profile row in public.profiles (id, user_id, full_name, name) if missing
 class CloudflareR2PhotoService {
-  static const String defaultSupabaseUrl = 'https://pheqzsfrwhjxspaaroea.supabase.co';
+  static const String defaultSupabaseUrl = 'https://kzvdzospvgzlfkkptadl.supabase.co';
   static const String defaultSupabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoZXF6c2Zyd2hqeHNwYWFyb2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjY2MjgsImV4cCI6MjEwNzU0MjYyOH0.U-W92yqF0vMoyqK-uScBSjlV6LtfuAMV9J2ncPaL6PI';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
 
   static String normalizeSupabaseUrl(String url) {
     if (url.isEmpty) return defaultSupabaseUrl;
