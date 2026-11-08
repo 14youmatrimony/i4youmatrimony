@@ -745,9 +745,10 @@ export function mapSupabaseRowToProfile(r) {
   };
 
   let singlePhotos = [];
+  const rawSingles = r.single_photos || r.photos || r.gallery;
   try {
-    if (r.single_photos) {
-      const parsed = typeof r.single_photos === 'string' ? JSON.parse(r.single_photos) : r.single_photos;
+    if (rawSingles) {
+      const parsed = typeof rawSingles === 'string' ? JSON.parse(rawSingles) : rawSingles;
       if (Array.isArray(parsed)) {
         singlePhotos = parsed.map(sanitizeUrl).filter(Boolean);
       }
@@ -759,9 +760,10 @@ export function mapSupabaseRowToProfile(r) {
   if (!Array.isArray(singlePhotos)) singlePhotos = [];
 
   let familyPhotos = [];
+  const rawFamily = r.family_photos || r.familyPhotos;
   try {
-    if (r.family_photos) {
-      const parsed = typeof r.family_photos === 'string' ? JSON.parse(r.family_photos) : r.family_photos;
+    if (rawFamily) {
+      const parsed = typeof rawFamily === 'string' ? JSON.parse(rawFamily) : rawFamily;
       if (Array.isArray(parsed)) {
         familyPhotos = parsed.map(sanitizeUrl).filter(Boolean);
       }
@@ -770,6 +772,14 @@ export function mapSupabaseRowToProfile(r) {
     familyPhotos = [];
   }
   if (!Array.isArray(familyPhotos)) familyPhotos = [];
+  if (familyPhotos.length === 0 && r.family_photo) {
+    const fam1 = sanitizeUrl(r.family_photo);
+    if (fam1) familyPhotos = [fam1];
+  }
+  if (familyPhotos.length === 0 && r.family_photo_url) {
+    const fam2 = sanitizeUrl(r.family_photo_url);
+    if (fam2) familyPhotos = [fam2];
+  }
 
   const isSentBack = r.aadhaar_status === 'sent_back';
   const isApproved = r.aadhaar_status === 'approved' || (Boolean(r.aadhaar_verified) && !isSentBack);
@@ -1437,16 +1447,17 @@ export async function verifyLiveAadhaar(aadhaarData) {
  * Update candidate profile photos directly in Supabase and backend
  */
 export async function updateLivePhotos(photoData) {
-  const profileId = photoData.id || photoData.userId || photoData.registerId || photoData.register_id;
-  const targetId = profileId || photoData.phone || photoData.mobile;
-  const cleanId = targetId ? String(targetId).trim() : null;
+  const id = photoData.id ? String(photoData.id).trim() : null;
+  const regId = (photoData.registerId || photoData.register_id) ? String(photoData.registerId || photoData.register_id).trim() : null;
+  const phone = (photoData.phone || photoData.mobile) ? String(photoData.phone || photoData.mobile).trim() : null;
+  const cleanId = id || regId || phone || 'user';
 
   let photo = photoData.photo;
 
-  // 1. Upload primary portrait to Cloudflare R2 (with WebP compression & smart fallback)
+  // 1. Upload primary portrait to Cloudflare R2 if it's a new file/data URI
   if (photo && (photo.startsWith('data:') || photo.startsWith('blob:') || photo instanceof File)) {
     try {
-      const uploadRes = await uploadPhotoToR2(photo, cleanId || 'user', 'profiles');
+      const uploadRes = await uploadPhotoToR2(photo, cleanId, 'profiles');
       if (uploadRes && uploadRes.success && uploadRes.publicUrl) {
         photo = uploadRes.publicUrl;
       }
@@ -1455,63 +1466,76 @@ export async function updateLivePhotos(photoData) {
     }
   }
 
-  // Apply cache-busting timestamp
+  // Ensure public R2 domain and cache buster
   if (photo && photo.startsWith('http')) {
+    photo = formatR2PublicUrl(photo);
     photo = addCacheBuster(photo, Date.now());
   }
 
-  // 2. Upload up to 5 Single Portrait Gallery photos to Cloudflare R2 in parallel
-  let singlePhotos = photoData.singlePhotos;
-  let finalSinglePhotos = Array.isArray(singlePhotos) ? [...singlePhotos] : [];
+  // 2. Upload and sanitize up to 5 Single Portrait Gallery photos
+  let singlePhotos = photoData.singlePhotos || photoData.photos;
+  let finalSinglePhotos = [];
   if (Array.isArray(singlePhotos)) {
     const uploadedSingles = await Promise.all(
       singlePhotos.map(async (p) => {
         if (!p) return null;
-        if (typeof p === 'string' && p.startsWith('http')) return p;
+        if (typeof p === 'string' && p.startsWith('http')) return formatR2PublicUrl(p);
         try {
-          const res = await uploadPhotoToR2(p, cleanId || 'user', 'profiles');
-          return res?.publicUrl || p;
+          const res = await uploadPhotoToR2(p, cleanId, 'profiles');
+          return res?.publicUrl ? formatR2PublicUrl(res.publicUrl) : p;
         } catch (e) {
           return p;
         }
       })
     );
-    let filteredSingles = uploadedSingles.filter(Boolean);
+    let filteredSingles = uploadedSingles
+      .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p))
+      .map(formatR2PublicUrl);
+
     if (photo && filteredSingles.length > 0 && filteredSingles[0] !== photo) {
       filteredSingles[0] = photo;
     } else if (photo && filteredSingles.length === 0) {
       filteredSingles = [photo];
     }
-    finalSinglePhotos = filteredSingles.map(p => (typeof p === 'string' && p.startsWith('http')) ? addCacheBuster(p, Date.now()) : p);
-    singlePhotos = JSON.stringify(finalSinglePhotos);
+    finalSinglePhotos = filteredSingles.slice(0, 5);
+  } else if (photo) {
+    finalSinglePhotos = [photo];
   }
 
-  // 3. Upload Family Photos to Cloudflare R2 in parallel
-  let familyPhotos = photoData.familyPhotos;
-  let finalFamilyPhotos = Array.isArray(familyPhotos) ? [...familyPhotos] : [];
+  // 3. Upload and sanitize up to 2 Family Photos
+  let familyPhotos = photoData.familyPhotos || photoData.family_photos;
+  let finalFamilyPhotos = [];
   if (Array.isArray(familyPhotos)) {
     const uploadedFamily = await Promise.all(
       familyPhotos.map(async (f) => {
         if (!f) return null;
-        if (typeof f === 'string' && f.startsWith('http')) return f;
+        if (typeof f === 'string' && f.startsWith('http')) return formatR2PublicUrl(f);
         try {
-          const res = await uploadPhotoToR2(f, cleanId || 'user', 'family');
-          return res?.publicUrl || f;
+          const res = await uploadPhotoToR2(f, cleanId, 'family');
+          return res?.publicUrl ? formatR2PublicUrl(res.publicUrl) : f;
         } catch (e) {
           return f;
         }
       })
     );
-    finalFamilyPhotos = uploadedFamily.filter(Boolean).map(f => (typeof f === 'string' && f.startsWith('http')) ? addCacheBuster(f, Date.now()) : f);
-    familyPhotos = JSON.stringify(finalFamilyPhotos);
+    finalFamilyPhotos = uploadedFamily
+      .filter(f => f && typeof f === 'string' && !isFakeAvatarUrl(f))
+      .map(formatR2PublicUrl)
+      .slice(0, 2);
+  }
+  if (finalFamilyPhotos.length === 0 && photoData.family_photo) {
+    finalFamilyPhotos = [formatR2PublicUrl(photoData.family_photo)];
+  } else if (finalFamilyPhotos.length === 0 && photoData.family_photo_url) {
+    finalFamilyPhotos = [formatR2PublicUrl(photoData.family_photo_url)];
   }
 
   const payload = {
     updated_at: new Date().toISOString()
   };
+
   if (photo) {
     payload.photo = photo;
-    payload.photo_url = photo; // CRITICAL: BOTH photo AND photo_url MUST BE UPDATED
+    payload.photo_url = photo;
     payload.profile_photo_url = photo;
     payload.avatar_url = photo;
   } else if (photoData.photo === null) {
@@ -1521,84 +1545,62 @@ export async function updateLivePhotos(photoData) {
     payload.avatar_url = null;
   }
 
-  if (singlePhotos) payload.single_photos = singlePhotos;
+  // Persist BOTH single_photos (JSON string) and photos (array)
+  if (finalSinglePhotos.length > 0) {
+    payload.single_photos = JSON.stringify(finalSinglePhotos);
+    payload.photos = finalSinglePhotos;
+  } else if (photoData.singlePhotos !== undefined || photoData.photos !== undefined) {
+    payload.single_photos = '[]';
+    payload.photos = [];
+  }
 
-  if (familyPhotos) {
-    payload.family_photos = familyPhotos;
-    if (finalFamilyPhotos && finalFamilyPhotos.length > 0) {
-      payload.family_photo = finalFamilyPhotos[0];
-      payload.family_photo_url = finalFamilyPhotos[0];
-    }
-  } else if (photoData.family_photo === null || photoData.family_photo_url === null) {
+  // Persist BOTH family_photo/family_photo_url and family_photos (JSON string)
+  if (finalFamilyPhotos.length > 0) {
+    payload.family_photo = finalFamilyPhotos[0];
+    payload.family_photo_url = finalFamilyPhotos[0];
+    payload.family_photos = JSON.stringify(finalFamilyPhotos);
+  } else if (photoData.family_photo === null || photoData.family_photo_url === null || (Array.isArray(photoData.familyPhotos) && photoData.familyPhotos.length === 0)) {
     payload.family_photo = null;
     payload.family_photo_url = null;
     payload.family_photos = '[]';
   }
 
-  if (photoData.profile_photo_url && photo) {
-    payload.profile_photo_url = photoData.profile_photo_url;
-  }
-  if (photoData.family_photo_url && !payload.family_photo_url && payload.family_photo_url !== null) {
-    payload.family_photo_url = photoData.family_photo_url;
-  }
-  if (photoData.hidePhotos !== undefined) {
-    payload.hide_photos = photoData.hidePhotos ? 1 : 0;
-  }
-  if (photoData.photoVisibility !== undefined) {
-    payload.photo_visibility = photoData.photoVisibility;
-  }
+  if (photoData.hidePhotos !== undefined) payload.hide_photos = photoData.hidePhotos ? 1 : 0;
+  if (photoData.photoVisibility !== undefined) payload.photo_visibility = photoData.photoVisibility;
 
-  // 1. Direct Supabase sync: match user row using .or('id.eq.$userId,register_id.eq.$userId')
-  if (isSupabaseConfigured() && cleanId) {
+  // 1. Direct Supabase sync: match user row using comprehensive or tokens (id, register_id, phone)
+  const orTokens = [];
+  if (id) {
+    orTokens.push(`id.eq.${id}`);
+    orTokens.push(`register_id.eq.${id}`);
+  }
+  if (regId) {
+    orTokens.push(`register_id.eq.${regId}`);
+    orTokens.push(`register_id.eq.${regId.toUpperCase()}`);
+    orTokens.push(`register_id.eq.${regId.toLowerCase()}`);
+    orTokens.push(`id.eq.${regId}`);
+  }
+  if (phone && phone.replace(/\D/g, '').length >= 10) {
+    const rawDigits = phone.replace(/\D/g, '');
+    orTokens.push(`phone.eq.${phone}`);
+    orTokens.push(`phone.eq.${rawDigits.slice(-10)}`);
+  }
+  const matchFilter = orTokens.join(',');
+
+  if (isSupabaseConfigured() && matchFilter) {
     try {
       const resolvedName = photoData.name || photoData.userName || photoData.fullName || 'Member';
-      const cleanPublicPhoto = photo ? formatR2PublicUrl(photo) : (photoData.photo ? formatR2PublicUrl(photoData.photo) : null);
-      const cleanPublicFamily = (finalFamilyPhotos && finalFamilyPhotos.length > 0)
-        ? formatR2PublicUrl(finalFamilyPhotos[0])
-        : (photoData.family_photo ? formatR2PublicUrl(photoData.family_photo) : null);
+      const updatePayload = { ...payload };
 
-      const updatePayload = {
-        updated_at: new Date().toISOString()
-      };
-
-      if (cleanPublicPhoto) {
-        updatePayload.photo = cleanPublicPhoto;
-        updatePayload.photo_url = cleanPublicPhoto;
-        updatePayload.profile_photo_url = cleanPublicPhoto;
-        updatePayload.avatar_url = cleanPublicPhoto;
-      } else if (photoData.photo === null) {
-        updatePayload.photo = null;
-        updatePayload.photo_url = null;
-        updatePayload.profile_photo_url = null;
-        updatePayload.avatar_url = null;
-      }
-
-      if (singlePhotos) {
-        updatePayload.single_photos = singlePhotos;
-      }
-
-      if (cleanPublicFamily) {
-        updatePayload.family_photo = cleanPublicFamily;
-        updatePayload.family_photo_url = cleanPublicFamily;
-        updatePayload.family_photos = familyPhotos;
-      } else if (photoData.family_photo === null || photoData.family_photo_url === null) {
-        updatePayload.family_photo = null;
-        updatePayload.family_photo_url = null;
-        updatePayload.family_photos = '[]';
-      }
-
-      if (photoData.hidePhotos !== undefined) updatePayload.hide_photos = photoData.hidePhotos ? 1 : 0;
-      if (photoData.photoVisibility !== undefined) updatePayload.photo_visibility = photoData.photoVisibility;
-
-      // Update matching user row by id OR register_id
       let { data: updatedRows, error } = await supabase
         .from('profiles')
         .update(updatePayload)
-        .or(`id.eq.${cleanId},register_id.eq.${cleanId}`)
+        .or(matchFilter)
         .select();
 
       // Gracefully handle PostgreSQL error 42703 (missing column in custom schemas)
-      if (error && (error.code === '42703' || error.message?.includes('column') || error.message?.includes('profile_photo_url') || error.message?.includes('family_photo_url') || error.message?.includes('avatar_url') || error.message?.includes('user_id') || error.message?.includes('full_name'))) {
+      if (error && (error.code === '42703' || error.message?.includes('column'))) {
+        console.warn('[updateLivePhotos] Schema column mismatch, retrying without optional columns:', error.message);
         const safePayload = { ...updatePayload };
         delete safePayload.user_id;
         delete safePayload.full_name;
@@ -1609,17 +1611,17 @@ export async function updateLivePhotos(photoData) {
         const retryRes = await supabase
           .from('profiles')
           .update(safePayload)
-          .or(`id.eq.${cleanId},register_id.eq.${cleanId}`)
+          .or(matchFilter)
           .select();
         error = retryRes.error;
         updatedRows = retryRes.data;
       }
 
       // If no row was updated (user not yet in public.profiles), fallback to upsert
-      if (!error && (!updatedRows || updatedRows.length === 0)) {
+      if (!error && (!updatedRows || updatedRows.length === 0) && cleanId) {
         const upsertPayload = {
-          id: cleanId,
-          register_id: photoData.registerId || photoData.register_id || cleanId,
+          id: id || cleanId,
+          register_id: regId || cleanId,
           full_name: resolvedName,
           name: resolvedName,
           ...updatePayload
@@ -1632,9 +1634,9 @@ export async function updateLivePhotos(photoData) {
       }
 
       if (error) {
-        console.warn('[Supabase Photo Sync Warning]:', error.message);
+        console.warn('[updateLivePhotos] Supabase Photo Sync Warning:', error.message);
       } else {
-        console.log('[Supabase Photo Sync Success]: Updated photos in public.profiles for', cleanId);
+        console.log('[updateLivePhotos] Successfully persisted photo lists to Supabase for:', cleanId);
       }
 
       // Synchronize supabase.auth.updateUser metadata
@@ -1643,15 +1645,15 @@ export async function updateLivePhotos(photoData) {
           const authUser = (await supabase.auth.getUser())?.data?.user;
           if (authUser) {
             const currentMeta = { ...(authUser.user_metadata || {}) };
-            if (cleanPublicPhoto) {
-              currentMeta.photo = cleanPublicPhoto;
-              currentMeta.photo_url = cleanPublicPhoto;
-              currentMeta.profile_photo_url = cleanPublicPhoto;
-              currentMeta.avatar_url = cleanPublicPhoto;
+            if (payload.photo) {
+              currentMeta.photo = payload.photo;
+              currentMeta.photo_url = payload.photo;
+              currentMeta.profile_photo_url = payload.photo;
+              currentMeta.avatar_url = payload.photo;
             }
-            if (cleanPublicFamily) {
-              currentMeta.family_photo = cleanPublicFamily;
-              currentMeta.family_photo_url = cleanPublicFamily;
+            if (payload.family_photo) {
+              currentMeta.family_photo = payload.family_photo;
+              currentMeta.family_photo_url = payload.family_photo;
             }
             await supabase.auth.updateUser({ data: currentMeta });
           }
@@ -1666,18 +1668,19 @@ export async function updateLivePhotos(photoData) {
 
   // 2. Always synchronize with FastAPI/Flask Backend and PostgreSQL database
   try {
-    const cleanPublicPhoto = photo ? formatR2PublicUrl(photo) : (photoData.photo ? formatR2PublicUrl(photoData.photo) : null);
     const backendPayload = {
       userId: cleanId,
       id: cleanId,
       name: photoData.name || photoData.userName || photoData.fullName,
       phone: photoData.phone || photoData.mobile,
-      photo: cleanPublicPhoto,
-      photo_url: cleanPublicPhoto,
-      avatar_url: cleanPublicPhoto,
-      singlePhotos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos,
-      photos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos,
-      familyPhotos: finalFamilyPhotos.length > 0 ? finalFamilyPhotos : photoData.familyPhotos,
+      photo: payload.photo || null,
+      photo_url: payload.photo_url || null,
+      avatar_url: payload.avatar_url || null,
+      singlePhotos: finalSinglePhotos,
+      photos: finalSinglePhotos,
+      familyPhotos: finalFamilyPhotos,
+      family_photo: payload.family_photo || null,
+      family_photo_url: payload.family_photo_url || null,
       hidePhotos: photoData.hidePhotos,
       photoVisibility: photoData.photoVisibility
     };
@@ -1690,32 +1693,25 @@ export async function updateLivePhotos(photoData) {
     console.warn('[updateLivePhotos] Backend update-photos notification notice:', err.message);
   }
 
-  // 3. Keep local device storage / session state in sync immediately
+  // 3. Keep local device storage / session state in sync immediately so all 5 single slots and 2 family slots persist permanently
   try {
-    const cleanPublicPhoto = photo ? formatR2PublicUrl(photo) : (photoData.photo ? formatR2PublicUrl(photoData.photo) : null);
-    const cleanPublicFamily = (finalFamilyPhotos && finalFamilyPhotos.length > 0)
-      ? formatR2PublicUrl(finalFamilyPhotos[0])
-      : (photoData.family_photo ? formatR2PublicUrl(photoData.family_photo) : null);
-
     ['i4u_auth_user', 'current_user_profile', 'user_profile', 'i4u_user'].forEach(storageKey => {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          let parsedSingles = finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos;
-          if (typeof parsedSingles === 'string') {
-            try { parsedSingles = JSON.parse(parsedSingles); } catch(e) {}
-          }
           const updated = {
             ...parsed,
             ...photoData,
-            photo: cleanPublicPhoto ?? parsed.photo,
-            photo_url: cleanPublicPhoto ?? parsed.photo_url,
-            profile_photo_url: cleanPublicPhoto ?? parsed.profile_photo_url,
-            avatar_url: cleanPublicPhoto ?? parsed.avatar_url,
-            family_photo: cleanPublicFamily ?? parsed.family_photo,
-            family_photo_url: cleanPublicFamily ?? parsed.family_photo_url,
-            singlePhotos: parsedSingles || parsed.singlePhotos
+            photo: payload.photo ?? parsed.photo,
+            photo_url: payload.photo_url ?? parsed.photo_url,
+            profile_photo_url: payload.profile_photo_url ?? parsed.profile_photo_url,
+            avatar_url: payload.avatar_url ?? parsed.avatar_url,
+            singlePhotos: finalSinglePhotos,
+            photos: finalSinglePhotos,
+            familyPhotos: finalFamilyPhotos,
+            family_photo: payload.family_photo ?? parsed.family_photo,
+            family_photo_url: payload.family_photo_url ?? parsed.family_photo_url
           };
           localStorage.setItem(storageKey, JSON.stringify(updated));
         } catch (_) {}
@@ -1725,12 +1721,15 @@ export async function updateLivePhotos(photoData) {
 
   const resultObj = { 
     success: true, 
-    photo, 
-    photo_url: photo, 
-    avatar_url: photo,
-    photos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos,
-    singlePhotos: finalSinglePhotos.length > 0 ? finalSinglePhotos : photoData.singlePhotos, 
-    familyPhotos: finalFamilyPhotos.length > 0 ? finalFamilyPhotos : photoData.familyPhotos 
+    photo: payload.photo || photo, 
+    photo_url: payload.photo_url || photo, 
+    profile_photo_url: payload.profile_photo_url || photo,
+    avatar_url: payload.avatar_url || photo,
+    photos: finalSinglePhotos,
+    singlePhotos: finalSinglePhotos, 
+    familyPhotos: finalFamilyPhotos,
+    family_photo: payload.family_photo || (finalFamilyPhotos[0] || null),
+    family_photo_url: payload.family_photo_url || (finalFamilyPhotos[0] || null)
   };
 
   // 4. Broadcast instant synchronization across all tabs, windows, and realtime listeners
@@ -1742,10 +1741,13 @@ export async function updateLivePhotos(photoData) {
         photos: resultObj,
         profile: {
           id: cleanId,
-          photo,
-          photo_url: photo,
+          photo: resultObj.photo,
+          photo_url: resultObj.photo_url,
           singlePhotos: resultObj.singlePhotos,
-          familyPhotos: resultObj.familyPhotos
+          photos: resultObj.photos,
+          familyPhotos: resultObj.familyPhotos,
+          family_photo: resultObj.family_photo,
+          family_photo_url: resultObj.family_photo_url
         }
       });
     } catch (e) {}
@@ -1757,10 +1759,13 @@ export async function updateLivePhotos(photoData) {
         photos: resultObj,
         profile: {
           id: cleanId,
-          photo,
-          photo_url: photo,
+          photo: resultObj.photo,
+          photo_url: resultObj.photo_url,
           singlePhotos: resultObj.singlePhotos,
-          familyPhotos: resultObj.familyPhotos
+          photos: resultObj.photos,
+          familyPhotos: resultObj.familyPhotos,
+          family_photo: resultObj.family_photo,
+          family_photo_url: resultObj.family_photo_url
         }
       }
     }));
@@ -1771,7 +1776,7 @@ export async function updateLivePhotos(photoData) {
       syncChn.send({
         type: 'broadcast',
         event: 'profile_updated',
-        payload: { userId: cleanId, photo, photo_url: photo }
+        payload: { userId: cleanId, photo: resultObj.photo, photo_url: resultObj.photo_url }
       });
     } catch (e) {}
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Camera, 
   Users, 
@@ -21,7 +21,7 @@ import {
 import { isFakeAvatarUrl } from '../../services/api';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { optimizeImageFile, compressImageToWebP } from '../../utils/imageOptimizer';
-import { uploadPhotoToR2, deletePhotoFromR2 } from '../../services/r2Storage';
+import { uploadPhotoToR2, deletePhotoFromR2, formatR2PublicUrl } from '../../services/r2Storage';
 
 export default function MobilePhotoManagerSheet({
   isOpen,
@@ -40,16 +40,20 @@ export default function MobilePhotoManagerSheet({
 
   // Local synchronized state for immediate and reactive UI updates (strictly genuine user photos)
   const [singlePhotos, setSinglePhotos] = useState(() => {
-    const list = Array.isArray(currentUser?.singlePhotos) ? currentUser.singlePhotos : [];
-    const clean = list.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+    const list = Array.isArray(currentUser?.singlePhotos) ? currentUser.singlePhotos : (Array.isArray(currentUser?.photos) ? currentUser.photos : []);
+    const clean = list.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p)).map(formatR2PublicUrl);
     if (clean.length > 0) return clean;
-    if (currentUser?.photo && !isFakeAvatarUrl(currentUser.photo)) return [currentUser.photo];
+    if (currentUser?.photo && !isFakeAvatarUrl(currentUser.photo)) return [formatR2PublicUrl(currentUser.photo)];
     return [];
   });
 
   const [familyPhotos, setFamilyPhotos] = useState(() => {
     const list = Array.isArray(currentUser?.familyPhotos) ? currentUser.familyPhotos : [];
-    return list.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+    const clean = list.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p)).map(formatR2PublicUrl);
+    if (clean.length > 0) return clean;
+    if (currentUser?.family_photo && !isFakeAvatarUrl(currentUser.family_photo)) return [formatR2PublicUrl(currentUser.family_photo)];
+    if (currentUser?.family_photo_url && !isFakeAvatarUrl(currentUser.family_photo_url)) return [formatR2PublicUrl(currentUser.family_photo_url)];
+    return [];
   });
 
   const [uploadingSingle, setUploadingSingle] = useState(false);
@@ -61,49 +65,59 @@ export default function MobilePhotoManagerSheet({
     setTimeout(() => setFeedbackMsg(null), 3500);
   };
 
-  // Sync state whenever sheet opens or currentUser updates
+  // Lock state while sheet is open so background parent updates or realtime streams never wipe local photos!
+  const wasOpenRef = useRef(false);
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !wasOpenRef.current) {
+      wasOpenRef.current = true;
       if (initialTab) setActiveTab(initialTab);
       setHidePhotos(currentUser?.hidePhotos ?? false);
       setPhotoVisibility(currentUser?.photoVisibility || 'all');
       setBlurPhotosForUnconnected(currentUser?.blurPhotosForUnconnected ?? false);
       
-      const cleanSingles = (Array.isArray(currentUser?.singlePhotos) ? currentUser.singlePhotos : [])
-        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
-      if (cleanSingles.length > 0) {
-        setSinglePhotos(cleanSingles);
-      } else if (currentUser?.photo && !isFakeAvatarUrl(currentUser.photo)) {
-        setSinglePhotos([currentUser.photo]);
-      } else {
-        setSinglePhotos([]);
-      }
+      const rawSingles = Array.isArray(currentUser?.singlePhotos) && currentUser.singlePhotos.length > 0
+        ? currentUser.singlePhotos
+        : (Array.isArray(currentUser?.photos) && currentUser.photos.length > 0
+            ? currentUser.photos
+            : (currentUser?.photo ? [currentUser.photo] : []));
+      const cleanSingles = rawSingles
+        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p))
+        .map(formatR2PublicUrl);
+      setSinglePhotos(cleanSingles);
 
-      const cleanFamilies = (Array.isArray(currentUser?.familyPhotos) ? currentUser.familyPhotos : [])
-        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p));
+      const rawFamilies = Array.isArray(currentUser?.familyPhotos) && currentUser.familyPhotos.length > 0
+        ? currentUser.familyPhotos
+        : (currentUser?.family_photo ? [currentUser.family_photo] : (currentUser?.family_photo_url ? [currentUser.family_photo_url] : []));
+      const cleanFamilies = rawFamilies
+        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p))
+        .map(formatR2PublicUrl);
       setFamilyPhotos(cleanFamilies);
+    } else if (!isOpen) {
+      wasOpenRef.current = false;
     }
-  }, [isOpen, initialTab, currentUser]);
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
 
-
-
   const handleUpdate = (newSingle, newFamily, extraPrivacy = {}) => {
-    const nextSingle = newSingle !== undefined ? newSingle : singlePhotos;
-    const nextFamily = newFamily !== undefined ? newFamily : familyPhotos;
+    const nextSingle = (newSingle !== undefined ? newSingle : singlePhotos).map(formatR2PublicUrl);
+    const nextFamily = (newFamily !== undefined ? newFamily : familyPhotos).map(formatR2PublicUrl);
     const primary = nextSingle && nextSingle.length > 0 ? nextSingle[0] : null;
     const familyPrimary = nextFamily && nextFamily.length > 0 ? nextFamily[0] : null;
 
+    // Keep locked in local state
     setSinglePhotos(nextSingle || []);
     setFamilyPhotos(nextFamily || []);
 
     onUpdatePhotos?.({
       singlePhotos: nextSingle || [],
+      photos: nextSingle || [],
       familyPhotos: nextFamily || [],
       photo: primary,
       photo_url: primary,
       profile_photo_url: primary,
+      avatar_url: primary,
       family_photo: familyPrimary,
       family_photo_url: familyPrimary,
       hidePhotos: extraPrivacy.hidePhotos !== undefined ? extraPrivacy.hidePhotos : hidePhotos,
@@ -118,10 +132,15 @@ export default function MobilePhotoManagerSheet({
       alert("Maximum 5 single photos allowed.");
       return;
     }
+    const cleanUrl = formatR2PublicUrl(url);
     // Filter out stock Unsplash images when user uploads an authentic photo
-    const realPhotos = singlePhotos.filter(p => !p.includes('unsplash.com'));
+    const realPhotos = singlePhotos
+      .filter(p => !p.includes('unsplash.com'))
+      .map(formatR2PublicUrl);
+    // Avoid duplicates of the same photo
+    const withoutNew = realPhotos.filter(p => p !== cleanUrl && p.split('?')[0] !== cleanUrl.split('?')[0]);
     // Place newly uploaded photo at index 0 so it becomes primary profile photo immediately
-    const updated = [url, ...realPhotos].slice(0, 5);
+    const updated = [cleanUrl, ...withoutNew].slice(0, 5);
     handleUpdate(updated, familyPhotos);
     showFeedback(customMsg || "Photo uploaded! Set as Slot #1 (Main Profile Photo) ⭐");
   };
@@ -160,13 +179,15 @@ export default function MobilePhotoManagerSheet({
     try {
       const uploadRes = await uploadPhotoToR2(file, currentUser?.id || currentUser?.registerId || 'profile', 'profiles');
       if (uploadRes?.publicUrl) {
+        const publicUrl = formatR2PublicUrl(uploadRes.publicUrl);
         const feedbackMsg = uploadRes.isFallback
           ? `HD Photo optimized (${uploadRes.sizeKB || 75} KB) ⭐ Slot #1 Active`
           : `Photo uploaded to Cloudflare R2 (${uploadRes.sizeKB || 75} KB WebP) ⭐ Slot #1 Active`;
-        handleAddSinglePhoto(uploadRes.publicUrl, feedbackMsg);
+        handleAddSinglePhoto(publicUrl, feedbackMsg);
       }
     } catch (err) {
       console.error("Photo upload error:", err);
+      alert("Photo upload failed. Please try again.");
     } finally {
       setUploadingSingle(false);
       e.target.value = '';
@@ -179,7 +200,12 @@ export default function MobilePhotoManagerSheet({
       alert("Maximum 2 family photos allowed.");
       return;
     }
-    const updated = [...familyPhotos, url].slice(0, 2);
+    const cleanUrl = formatR2PublicUrl(url);
+    const realFamily = familyPhotos
+      .filter(p => !p.includes('unsplash.com'))
+      .map(formatR2PublicUrl);
+    const withoutNew = realFamily.filter(p => p !== cleanUrl && p.split('?')[0] !== cleanUrl.split('?')[0]);
+    const updated = [...withoutNew, cleanUrl].slice(0, 2);
     handleUpdate(singlePhotos, updated);
     showFeedback(customMsg || "Family photo added to album! 👨‍👩‍👧");
   };
@@ -209,13 +235,15 @@ export default function MobilePhotoManagerSheet({
     try {
       const uploadRes = await uploadPhotoToR2(file, currentUser?.id || currentUser?.registerId || 'profile', 'family');
       if (uploadRes?.publicUrl) {
+        const publicUrl = formatR2PublicUrl(uploadRes.publicUrl);
         const feedbackMsg = uploadRes.isFallback
           ? `Family photo optimized (${uploadRes.sizeKB || 80} KB) 👨‍👩‍👧`
           : `Family photo uploaded to Cloudflare R2 (${uploadRes.sizeKB || 80} KB WebP) 👨‍👩‍👧`;
-        handleAddFamilyPhoto(uploadRes.publicUrl, feedbackMsg);
+        handleAddFamilyPhoto(publicUrl, feedbackMsg);
       }
     } catch (err) {
       console.error("Family photo upload error:", err);
+      alert("Family photo upload failed. Please try again.");
     } finally {
       setUploadingFamily(false);
       e.target.value = '';

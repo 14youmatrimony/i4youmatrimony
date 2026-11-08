@@ -493,17 +493,48 @@ export default function App() {
       const targetUserId = activeUser?.id || activeUser?.registerId || activeUser?.register_id || localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id');
       if (targetUserId && isSupabaseConfigured() && supabase) {
         try {
+          const orTokens = [];
+          if (activeUser?.id) orTokens.push(`id.eq.${activeUser.id}`);
+          if (activeUser?.registerId) {
+            orTokens.push(`register_id.eq.${activeUser.registerId}`);
+            orTokens.push(`register_id.eq.${activeUser.registerId.toUpperCase()}`);
+          }
+          if (activeUser?.register_id) {
+            orTokens.push(`register_id.eq.${activeUser.register_id}`);
+            orTokens.push(`register_id.eq.${activeUser.register_id.toUpperCase()}`);
+          }
+          if (targetUserId) {
+            orTokens.push(`id.eq.${targetUserId}`);
+            orTokens.push(`register_id.eq.${targetUserId}`);
+            orTokens.push(`register_id.eq.${String(targetUserId).toUpperCase()}`);
+          }
+          const userOrFilter = orTokens.join(',');
+
           const { data: freshUserRow } = await supabase
             .from('profiles')
             .select('*')
-            .or(`id.eq.${targetUserId},register_id.eq.${targetUserId}`)
+            .or(userOrFilter)
             .maybeSingle();
 
           if (freshUserRow) {
             const mappedUser = mapSupabaseRowToProfile(freshUserRow);
             if (mappedUser) {
               setCurrentUser(prev => {
-                const merged = { ...(prev || {}), ...mappedUser };
+                const currentSingles = Array.isArray(prev?.singlePhotos) ? prev.singlePhotos : [];
+                const incomingSingles = Array.isArray(mappedUser?.singlePhotos) ? mappedUser.singlePhotos : [];
+                const finalSingles = incomingSingles.length >= currentSingles.length ? incomingSingles : currentSingles;
+
+                const currentFamilies = Array.isArray(prev?.familyPhotos) ? prev.familyPhotos : [];
+                const incomingFamilies = Array.isArray(mappedUser?.familyPhotos) ? mappedUser.familyPhotos : [];
+                const finalFamilies = incomingFamilies.length >= currentFamilies.length ? incomingFamilies : currentFamilies;
+
+                const merged = { 
+                  ...(prev || {}), 
+                  ...mappedUser,
+                  singlePhotos: finalSingles,
+                  photos: finalSingles,
+                  familyPhotos: finalFamilies
+                };
                 try {
                   localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
                   localStorage.setItem('current_user_profile', JSON.stringify(merged));
@@ -557,11 +588,25 @@ export default function App() {
                     return [mapped, ...prev];
                   });
 
-                  // If updated profile is current user, keep current user reactive
+                  // If updated profile is current user, keep current user reactive without regressing photos
                   setCurrentUser(prev => {
                     if (!prev) return prev;
                     if (prev.id === mapped.id || (mapped.registerId && prev.registerId === mapped.registerId) || (mapped.phone && prev.phone === mapped.phone)) {
-                      const merged = { ...prev, ...mapped };
+                      const currentSingles = Array.isArray(prev?.singlePhotos) ? prev.singlePhotos : [];
+                      const incomingSingles = Array.isArray(mapped?.singlePhotos) ? mapped.singlePhotos : [];
+                      const finalSingles = incomingSingles.length >= currentSingles.length ? incomingSingles : currentSingles;
+
+                      const currentFamilies = Array.isArray(prev?.familyPhotos) ? prev.familyPhotos : [];
+                      const incomingFamilies = Array.isArray(mapped?.familyPhotos) ? mapped.familyPhotos : [];
+                      const finalFamilies = incomingFamilies.length >= currentFamilies.length ? incomingFamilies : currentFamilies;
+
+                      const merged = { 
+                        ...prev, 
+                        ...mapped,
+                        singlePhotos: finalSingles,
+                        photos: finalSingles,
+                        familyPhotos: finalFamilies
+                      };
                       try { localStorage.setItem('i4u_auth_user', JSON.stringify(merged)); } catch (e) {}
                       return merged;
                     }
@@ -3947,6 +3992,13 @@ export default function App() {
       rawFamily = formatR2PublicUrl(rawFamily);
     }
 
+    const cleanSingles = Array.isArray(photosData.singlePhotos)
+      ? photosData.singlePhotos.map(formatR2PublicUrl)
+      : (primaryPhoto ? [primaryPhoto] : []);
+    const cleanFamilies = Array.isArray(photosData.familyPhotos)
+      ? photosData.familyPhotos.map(formatR2PublicUrl)
+      : (rawFamily ? [rawFamily] : []);
+
     // 1. Immediately update reactive state for currentUser
     let updatedUser;
     setCurrentUser(prev => {
@@ -3956,12 +4008,17 @@ export default function App() {
         photo: primaryPhoto,
         photo_url: primaryPhoto,
         profile_photo_url: primaryPhoto,
+        avatar_url: primaryPhoto,
+        singlePhotos: cleanSingles,
+        photos: cleanSingles,
+        familyPhotos: cleanFamilies,
         family_photo: rawFamily,
         family_photo_url: rawFamily
       };
 
       try {
         localStorage.setItem('i4u_auth_user', JSON.stringify(updatedUser));
+        localStorage.setItem('current_user_profile', JSON.stringify(updatedUser));
       } catch (e) {
         console.warn('LocalStorage quota warning in handlePhotoUpdateAction, saving minimal session:', e);
         try {
@@ -3970,6 +4027,7 @@ export default function App() {
             minimal.singlePhotos = [minimal.singlePhotos[0]];
           }
           localStorage.setItem('i4u_auth_user', JSON.stringify(minimal));
+          localStorage.setItem('current_user_profile', JSON.stringify(minimal));
         } catch (e2) {}
       }
 
@@ -3988,8 +4046,10 @@ export default function App() {
             photo: primaryPhoto,
             photo_url: primaryPhoto,
             profile_photo_url: primaryPhoto,
-            singlePhotos: photosData.singlePhotos || p.singlePhotos,
-            familyPhotos: photosData.familyPhotos || p.familyPhotos,
+            avatar_url: primaryPhoto,
+            singlePhotos: cleanSingles,
+            photos: cleanSingles,
+            familyPhotos: cleanFamilies,
             family_photo: rawFamily,
             family_photo_url: rawFamily,
             hidePhotos: photosData.hidePhotos !== undefined ? photosData.hidePhotos : p.hidePhotos,
@@ -4023,8 +4083,10 @@ export default function App() {
         photo: isProfileDeleted ? null : primaryPhoto,
         photo_url: isProfileDeleted ? null : primaryPhoto,
         profile_photo_url: isProfileDeleted ? null : primaryPhoto,
-        singlePhotos: photosData.singlePhotos,
-        familyPhotos: photosData.familyPhotos,
+        avatar_url: isProfileDeleted ? null : primaryPhoto,
+        singlePhotos: cleanSingles,
+        photos: cleanSingles,
+        familyPhotos: cleanFamilies,
         family_photo: isFamilyDeleted ? null : rawFamily,
         family_photo_url: isFamilyDeleted ? null : rawFamily,
         hidePhotos: photosData.hidePhotos,
@@ -4033,13 +4095,14 @@ export default function App() {
       });
 
       // If Supabase Storage returned a permanent URL (https://...), update currentUser and profile feeds seamlessly
-      if (syncResult && syncResult.photo && syncResult.photo.startsWith('http')) {
-        const finalPhotoUrl = syncResult.photo;
+      if (syncResult) {
+        const finalPhotoUrl = syncResult.photo || primaryPhoto;
         const finalSingles = Array.isArray(syncResult.singlePhotos) && syncResult.singlePhotos.length > 0
           ? syncResult.singlePhotos
-          : (Array.isArray(currentUser?.singlePhotos) && currentUser.singlePhotos.length > 0
-              ? [finalPhotoUrl, ...currentUser.singlePhotos.slice(1)]
-              : [finalPhotoUrl]);
+          : cleanSingles;
+        const finalFamilies = Array.isArray(syncResult.familyPhotos) && syncResult.familyPhotos.length > 0
+          ? syncResult.familyPhotos
+          : cleanFamilies;
 
         setCurrentUser(prev => {
           if (!prev) return prev;
@@ -4048,11 +4111,16 @@ export default function App() {
             photo: finalPhotoUrl,
             photo_url: finalPhotoUrl,
             profile_photo_url: finalPhotoUrl,
+            avatar_url: finalPhotoUrl,
             singlePhotos: finalSingles,
-            family_photo_url: syncResult.family_photo_url || prev.family_photo_url || null
+            photos: finalSingles,
+            familyPhotos: finalFamilies,
+            family_photo: finalFamilies[0] || null,
+            family_photo_url: finalFamilies[0] || null
           };
           try {
             localStorage.setItem('i4u_auth_user', JSON.stringify(refined));
+            localStorage.setItem('current_user_profile', JSON.stringify(refined));
           } catch (e) {}
           return refined;
         });
@@ -4070,8 +4138,12 @@ export default function App() {
                 photo: finalPhotoUrl,
                 photo_url: finalPhotoUrl,
                 profile_photo_url: finalPhotoUrl,
+                avatar_url: finalPhotoUrl,
                 singlePhotos: finalSingles,
-                family_photo_url: syncResult.family_photo_url || p.family_photo_url || null
+                photos: finalSingles,
+                familyPhotos: finalFamilies,
+                family_photo: finalFamilies[0] || null,
+                family_photo_url: finalFamilies[0] || null
               };
             }
             return p;
@@ -4083,7 +4155,8 @@ export default function App() {
         });
       }
     } catch (err) {
-      console.warn('[handlePhotoUpdateAction] updateLivePhotos error:', err);
+      console.warn('[handlePhotoUpdateAction] updateLivePhotos error (preserving local state):', err);
+      // NEVER revert local state!
     }
   }, [currentUser, showToast]);
 
