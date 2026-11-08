@@ -26,7 +26,9 @@ import {
   Palette,
   Scale,
   Scan,
-  Heart
+  Heart,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import TermsAndConditionsModal from '../common/TermsAndConditionsModal';
 import LoginScreen from '../LoginScreen';
@@ -102,11 +104,56 @@ export default function MobileAccountScreen({
     }));
   }, [profiles, currentUser]);
 
-  // Personal Account Deletion State
+  // Personal Account Deletion & Marriage Success Story State
+  const MARRIAGE_FIXED_REASON = '💍 Marriage Fixed / Found Partner on I 4 You Matrimony';
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteReason, setDeleteReason] = useState('Found life partner on I 4 You');
+  const [deleteReason, setDeleteReason] = useState(MARRIAGE_FIXED_REASON);
   const [deleteFeedback, setDeleteFeedback] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Success Story & Wedding Photo Upload state
+  const [shareSuccessStory, setShareSuccessStory] = useState(true);
+  const [coupleNames, setCoupleNames] = useState(currentUser?.name ? `${currentUser.name} & Partner` : '');
+  const [weddingPhotoPreview, setWeddingPhotoPreview] = useState('');
+  const [weddingPhotoFile, setWeddingPhotoFile] = useState(null);
+  const [weddingDate, setWeddingDate] = useState(() => {
+    return new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  });
+  const [storyQuote, setStoryQuote] = useState('We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey.');
+  const [coupleLocation, setCoupleLocation] = useState(
+    currentUser?.city 
+      ? `${currentUser.city}${currentUser?.state ? ', ' + currentUser.state : ''}` 
+      : (currentUser?.location || 'Kerala, India')
+  );
+
+  // Sync couple name & location if currentUser updates
+  React.useEffect(() => {
+    if (currentUser?.name && (!coupleNames || coupleNames === 'Member & Partner')) {
+      setCoupleNames(`${currentUser.name} & Partner`);
+    }
+    if (!coupleLocation && (currentUser?.city || currentUser?.location)) {
+      const loc = currentUser?.city 
+        ? `${currentUser.city}${currentUser?.state ? ', ' + currentUser.state : ''}` 
+        : (currentUser?.location || 'Kerala, India');
+      setCoupleLocation(loc);
+    }
+  }, [currentUser]);
+
+  const handleWeddingPhotoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setWeddingPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setWeddingPhotoPreview(ev.target?.result || '');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveWeddingPhoto = () => {
+    setWeddingPhotoFile(null);
+    setWeddingPhotoPreview('');
+  };
 
   // Kundali & Horoscope Matching Settings Modal State
   const [showKundaliSettingsModal, setShowKundaliSettingsModal] = useState(false);
@@ -1349,13 +1396,21 @@ export default function MobileAccountScreen({
           ======================================================== */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-[#0B192C] text-white rounded-3xl border border-rose-500/40 p-4 shadow-2xl flex flex-col max-h-[86vh] overflow-hidden">
+          <div className="w-full max-w-md bg-[#0B192C] text-white rounded-3xl border border-rose-500/40 p-4 sm:p-5 shadow-2xl flex flex-col max-h-[88vh] overflow-hidden">
             
             {/* Header */}
             <div className="flex items-center justify-between pb-2.5 border-b border-white/10 shrink-0">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center shrink-0">
-                  <Trash2 className="w-4 h-4" />
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                  deleteReason === MARRIAGE_FIXED_REASON 
+                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' 
+                    : 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                }`}>
+                  {deleteReason === MARRIAGE_FIXED_REASON ? (
+                    <Heart className="w-4 h-4 fill-current" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">Delete Personal Account</h3>
@@ -1373,7 +1428,7 @@ export default function MobileAccountScreen({
             </div>
 
             {/* Scrollable Content Body */}
-            <div className="flex-1 overflow-y-auto min-h-0 py-2.5 space-y-2.5 dark-scrollbar pr-0.5">
+            <div className="flex-1 overflow-y-auto min-h-0 py-2.5 space-y-3 dark-scrollbar pr-0.5">
               
               {/* Warning Message */}
               <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-800/60 text-xs text-rose-200 flex items-start space-x-2">
@@ -1392,9 +1447,13 @@ export default function MobileAccountScreen({
                   Select Primary Reason:
                 </label>
                 
-                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 dark-scrollbar">
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1 dark-scrollbar">
                   {[
-                    { title: 'Found life partner on I 4 You', desc: 'Matched and finalized wedding via I 4 You 💕' },
+                    { 
+                      title: '💍 Marriage Fixed / Found Partner on I 4 You Matrimony', 
+                      desc: 'Matched and finalized wedding via I 4 You Matrimony! 💕',
+                      isSpecial: true
+                    },
                     { title: 'Found match from other sources', desc: 'Alliance fixed through family or other channels 💍' },
                     { title: 'Taking a temporary break', desc: 'Pausing matrimony search for some time ⏳' },
                     { title: 'Privacy or security concerns', desc: 'Wish to hide photos & details from public view 🔒' },
@@ -1406,22 +1465,30 @@ export default function MobileAccountScreen({
                       <div 
                         key={idx}
                         onClick={() => setDeleteReason(item.title)}
-                        className={`p-2 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                        className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
                           isSelected 
-                            ? 'bg-rose-500/20 border-rose-500 text-white font-semibold' 
-                            : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800/70'
+                            ? (item.isSpecial
+                                ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-semibold shadow-md ring-1 ring-amber-400/50'
+                                : 'bg-rose-500/20 border-rose-500 text-white font-semibold')
+                            : (item.isSpecial
+                                ? 'bg-gradient-to-r from-amber-950/40 to-slate-900/80 border-amber-500/40 text-amber-300 hover:border-amber-400'
+                                : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800/70')
                         }`}
                       >
                         <div className="space-y-0.5 min-w-0 pr-2">
-                          <div className="text-[11.5px] font-medium leading-tight truncate">{item.title}</div>
-                          {isSelected && (
-                            <div className="text-[9.5px] text-rose-300 leading-tight">{item.desc}</div>
-                          )}
+                          <div className={`text-[11.5px] leading-tight truncate ${item.isSpecial ? 'text-amber-300 font-bold' : 'font-medium'}`}>
+                            {item.title}
+                          </div>
+                          <div className={`text-[9.5px] leading-tight ${item.isSpecial ? 'text-amber-200/80' : isSelected ? 'text-rose-300' : 'text-slate-400'}`}>
+                            {item.desc}
+                          </div>
                         </div>
-                        <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
-                          isSelected ? 'border-rose-400 bg-rose-500 text-white' : 'border-slate-600'
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                          isSelected 
+                            ? (item.isSpecial ? 'border-amber-400 bg-amber-500 text-slate-950' : 'border-rose-400 bg-rose-500 text-white')
+                            : 'border-slate-600'
                         }`}>
-                          {isSelected && <Check className="w-2 h-2 stroke-[3]" />}
+                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                         </div>
                       </div>
                     );
@@ -1429,16 +1496,167 @@ export default function MobileAccountScreen({
                 </div>
               </div>
 
-              {/* Dedicated Column / Textarea for Mentioning Reason & Feedback */}
+              {/* Celebratory Marriage Success Story & Wedding Photo Upload Card */}
+              {deleteReason === MARRIAGE_FIXED_REASON && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#152E52]/90 to-[#0B192C] border border-[#D4AF37]/60 shadow-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between border-b border-[#D4AF37]/30 pb-2.5">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 rounded-lg bg-[#D4AF37]/20 border border-[#D4AF37]/50 text-[#DFB76C] flex items-center justify-center">
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-[#DFB76C] block leading-tight">
+                          Share Your Success Story on Our Main Website
+                        </span>
+                        <span className="text-[9.5px] text-slate-300">
+                          Inspire other members with your blessed wedding
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Toggle Switch */}
+                    <button
+                      type="button"
+                      onClick={() => setShareSuccessStory(!shareSuccessStory)}
+                      className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 cursor-pointer flex items-center ${
+                        shareSuccessStory ? 'bg-emerald-500 justify-end' : 'bg-slate-700 justify-start'
+                      }`}
+                      title="Toggle Success Story sharing"
+                    >
+                      <span className="w-5 h-5 rounded-full bg-white shadow-md transform transition-transform" />
+                    </button>
+                  </div>
+
+                  {shareSuccessStory && (
+                    <div className="space-y-3 pt-1">
+                      {/* Couple / Partner Name Input */}
+                      <div className="space-y-1">
+                        <label className="text-[10.5px] font-bold text-amber-300 flex items-center justify-between">
+                          <span>Couple / Partner Names:</span>
+                          <span className="text-[9px] text-slate-400 font-normal">e.g. Arun & Anjana</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={coupleNames}
+                          onChange={(e) => setCoupleNames(e.target.value)}
+                          placeholder="Your Name & Partner's Name"
+                          className="w-full bg-[#070F1E] border border-[#D4AF37]/40 focus:border-[#DFB76C] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
+                        />
+                      </div>
+
+                      {/* Wedding / Engagement Photo Upload */}
+                      <div className="space-y-1">
+                        <label className="text-[10.5px] font-bold text-amber-300 flex items-center justify-between">
+                          <span>Wedding / Engagement Photo:</span>
+                          <span className="text-[9px] text-emerald-400 font-semibold">WebP Cloudflare R2</span>
+                        </label>
+
+                        {weddingPhotoPreview ? (
+                          <div className="relative w-full h-36 rounded-xl overflow-hidden border border-[#D4AF37]/50 group bg-slate-900 shadow-inner">
+                            <img
+                              src={weddingPhotoPreview}
+                              alt="Wedding Photo Preview"
+                              className="w-full h-full object-cover"
+                              onContextMenu={(e) => e.preventDefault()}
+                              draggable={false}
+                            />
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                              <label className="px-3 py-1.5 rounded-lg bg-black/80 hover:bg-black text-white text-[10.5px] font-bold cursor-pointer border border-white/20 transition-colors flex items-center gap-1">
+                                <Upload className="w-3 h-3" />
+                                <span>Change</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleWeddingPhotoSelect}
+                                  className="hidden"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={handleRemoveWeddingPhoto}
+                                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[10.5px] font-bold cursor-pointer transition-colors"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            <span className="absolute bottom-2 left-2 px-2.5 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 text-[9.5px] font-bold flex items-center gap-1 shadow-md">
+                              <Check className="w-3 h-3" />
+                              <span>Photo Ready to Feature</span>
+                            </span>
+                          </div>
+                        ) : (
+                          <label className="w-full h-24 rounded-xl border-2 border-dashed border-[#D4AF37]/40 hover:border-[#DFB76C] bg-[#070F1E]/60 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-[#070F1E] group">
+                            <div className="w-8 h-8 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#DFB76C] mb-1 group-hover:scale-110 transition-transform">
+                              <Camera className="w-4 h-4" />
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-200">
+                              Upload Wedding / Engagement Photo
+                            </span>
+                            <span className="text-[9.5px] text-slate-400">
+                              Auto-compressed to WebP & hosted on Cloudflare R2
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleWeddingPhotoSelect}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                      </div>
+
+                      {/* Testimonial / Happy Message */}
+                      <div className="space-y-1">
+                        <label className="text-[10.5px] font-bold text-amber-300 block">
+                          Testimonial / Happy Message:
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={storyQuote}
+                          onChange={(e) => setStoryQuote(e.target.value)}
+                          placeholder="e.g. We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey."
+                          className="w-full bg-[#070F1E] border border-[#D4AF37]/40 focus:border-[#DFB76C] rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition-colors resize-none"
+                        />
+                      </div>
+
+                      {/* Location & Wedding Date */}
+                      <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        <div>
+                          <label className="text-slate-400 font-medium block mb-0.5">Location:</label>
+                          <input
+                            type="text"
+                            value={coupleLocation}
+                            onChange={(e) => setCoupleLocation(e.target.value)}
+                            placeholder="City, State"
+                            className="w-full bg-[#070F1E] border border-slate-700 rounded-lg px-2.5 py-1.5 text-[10.5px] text-slate-200 focus:outline-none focus:border-[#DFB76C]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400 font-medium block mb-0.5">Wedding Month & Year:</label>
+                          <input
+                            type="text"
+                            value={weddingDate}
+                            onChange={(e) => setWeddingDate(e.target.value)}
+                            placeholder="e.g. November 2026"
+                            className="w-full bg-[#070F1E] border border-slate-700 rounded-lg px-2.5 py-1.5 text-[10.5px] text-slate-200 focus:outline-none focus:border-[#DFB76C]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Dedicated Column / Textarea for Mentioning Additional Reason & Feedback */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-300 block">
-                  Mention specific feedback / details:
+                  Additional feedback / notes (Optional):
                 </label>
                 <textarea 
                   rows={2}
                   value={deleteFeedback}
                   onChange={(e) => setDeleteFeedback(e.target.value)}
-                  placeholder="Please describe your reason or share feedback with us (Optional)..."
+                  placeholder="Share any additional feedback with our matrimonial team..."
                   className="w-full bg-[#070F1E] border border-slate-700 focus:border-rose-500 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition-colors resize-none"
                 />
               </div>
@@ -1468,23 +1686,43 @@ export default function MobileAccountScreen({
                   if (onDeleteAccount) {
                     await onDeleteAccount({
                       reason: deleteReason,
-                      feedback: deleteFeedback
+                      feedback: deleteFeedback,
+                      shareSuccessStory: deleteReason === MARRIAGE_FIXED_REASON && shareSuccessStory,
+                      coupleNames: coupleNames || (currentUser?.name ? `${currentUser.name} & Partner` : 'Blessed Couple'),
+                      weddingPhotoFile,
+                      weddingPhotoPreview,
+                      weddingDate,
+                      storyText: storyQuote || deleteFeedback,
+                      location: coupleLocation
                     });
                   }
                   setIsDeleting(false);
                   setShowDeleteModal(false);
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white text-xs font-bold shadow-lg shadow-rose-900/40 active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer"
+                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer ${
+                  deleteReason === MARRIAGE_FIXED_REASON && shareSuccessStory && (weddingPhotoFile || weddingPhotoPreview)
+                    ? 'bg-gradient-to-r from-amber-500 via-emerald-600 to-teal-700 hover:from-amber-400 hover:to-emerald-600 shadow-emerald-950/50'
+                    : 'bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 shadow-rose-900/40'
+                }`}
               >
                 {isDeleting ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    <span>Deleting...</span>
+                    <span>{deleteReason === MARRIAGE_FIXED_REASON && shareSuccessStory && (weddingPhotoFile || weddingPhotoPreview) ? 'Submitting Story...' : 'Deleting...'}</span>
                   </>
                 ) : (
                   <>
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Confirm Delete</span>
+                    {deleteReason === MARRIAGE_FIXED_REASON && shareSuccessStory && (weddingPhotoFile || weddingPhotoPreview) ? (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                        <span>🎉 Submit Story & Complete</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Confirm Delete</span>
+                      </>
+                    )}
                   </>
                 )}
               </button>

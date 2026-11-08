@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl, fetchActiveStoriesApi, insertStoryApi, deleteStoryApi, deleteExpiredStoriesApi } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl, fetchActiveStoriesApi, insertStoryApi, deleteStoryApi, deleteExpiredStoriesApi, insertSuccessStoryApi, fetchSuccessStoriesApi } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
-import { formatR2PublicUrl, uploadStoryToR2, deletePhotoFromR2 } from './utils/r2Upload';
+import { formatR2PublicUrl, uploadStoryToR2, uploadSuccessStoryToR2, deletePhotoFromR2 } from './utils/r2Upload';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { profileSyncService } from './services/profileSyncService';
 import { uploadProfilePhoto } from './services/storageService';
@@ -4605,8 +4605,45 @@ export default function App() {
   };
 
   // Handler when user deletes their personal account
-  const handleDeleteAccount = async ({ reason, feedback }) => {
+  const handleDeleteAccount = async ({ 
+    reason, 
+    feedback, 
+    shareSuccessStory, 
+    coupleNames, 
+    weddingPhotoFile, 
+    weddingPhotoPreview, 
+    weddingDate, 
+    storyText, 
+    location 
+  }) => {
     try {
+      // 1. If marriage success story is provided and user opted in, upload to Cloudflare R2 and save to public.success_stories
+      if (shareSuccessStory && (weddingPhotoFile || weddingPhotoPreview)) {
+        try {
+          showToast('Uploading wedding photo to Cloudflare R2...');
+          const uploadRes = await uploadSuccessStoryToR2(weddingPhotoFile || weddingPhotoPreview);
+          if (uploadRes && uploadRes.publicUrl) {
+            const finalLocation = location || (currentUser?.city ? `${currentUser.city}${currentUser?.state ? ', ' + currentUser.state : ''}` : (currentUser?.location || 'Kerala, India'));
+            const finalWeddingDate = weddingDate || new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+            const finalStoryText = storyText || feedback || 'We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey.';
+            const finalCoupleNames = coupleNames || (currentUser?.name ? `${currentUser.name} & Partner` : 'Blessed Couple');
+
+            await insertSuccessStoryApi({
+              coupleNames: finalCoupleNames,
+              location: finalLocation,
+              weddingDate: finalWeddingDate,
+              storyText: finalStoryText,
+              photoUrl: uploadRes.publicUrl
+            });
+            showToast('🎉 Congratulations! Your success story is now live on our website.');
+          }
+        } catch (storyErr) {
+          console.error('[handleDeleteAccount] Error saving success story to R2/Supabase:', storyErr);
+          showToast('Notice: Proceeding with profile deactivation.');
+        }
+      }
+
+      // 2. ONLY AFTER saving success story, delete/deactivate user's personal profile
       await deletePersonalAccount({
         userId: currentUser?.id,
         reason,
@@ -4628,7 +4665,7 @@ export default function App() {
         setShortlisted([]);
         setMyStatus(null);
       }
-      showToast('Personal account deleted. We will miss you! 👋');
+      showToast('Personal account deactivated. Wishing you a blessed married life! 💍');
       // Reset current user state and redirect to login screen
       setTimeout(() => {
         setCurrentScreen('login');

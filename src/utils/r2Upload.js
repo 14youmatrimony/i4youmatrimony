@@ -458,6 +458,144 @@ export async function uploadStoryToR2(file, userId = 'user') {
 }
 
 /**
+ * Uploads a Wedding / Marriage Success Story photo directly to Cloudflare R2:
+ * 1. Compresses in browser using WebP compressor (max 1200px, image/webp, quality 0.80)
+ * 2. Dedicated Cloudflare R2 path: success-stories/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp
+ * 3. Returns permanent public URL: ${PUBLIC_R2_DOMAIN}/success-stories/...webp
+ */
+export async function uploadSuccessStoryToR2(file) {
+  if (!file) {
+    return { success: false, error: 'No image provided for success story upload' };
+  }
+
+  // If already an authentic live remote URL, return as-is
+  if (typeof file === 'string' && file.startsWith('http')) {
+    return { success: true, publicUrl: file };
+  }
+
+  // 1. Client-Side WebP Compression (max 1200px, quality 0.80, image/webp)
+  let compressed;
+  try {
+    compressed = await compressImageToWebP(file, {
+      maxDimension: 1200,
+      quality: 0.80,
+      fillBackground: false
+    });
+  } catch (compErr) {
+    console.warn('[r2Upload] Success story WebP compression notice:', compErr);
+    compressed = { dataUrl: file, sizeKB: 0 };
+  }
+
+  const { endpoint, accessKeyId, secretAccessKey, bucketName, region } = getR2Config();
+
+  // 2. Dedicated Cloudflare R2 path: success-stories/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp
+  const timestamp = Date.now();
+  const randomSuffix = Math.random().toString(36).slice(2, 7);
+  const filePath = `success-stories/${timestamp}-${randomSuffix}.webp`;
+  const contentType = 'image/webp';
+
+  try {
+    // 3. Extract ArrayBuffer from WebP Blob or DataURL
+    let bodyBuffer;
+    if (compressed.blob) {
+      bodyBuffer = await compressed.blob.arrayBuffer();
+    } else if (compressed.dataUrl) {
+      const byteString = atob(compressed.dataUrl.split(',')[1]);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      bodyBuffer = ab;
+    }
+
+    if (!bodyBuffer) {
+      throw new Error('Could not convert compressed success story photo to ArrayBuffer');
+    }
+
+    // 4. Build AWS Signature Version 4 PUT Request
+    const now = new Date();
+    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+    const dateStamp = amzDate.substring(0, 8);
+
+    const urlObj = new URL(endpoint);
+    const host = urlObj.host;
+
+    const uploadUrl = `${endpoint}/${bucketName}/${filePath}`;
+    const canonicalUri = `/${encodeURIComponent(bucketName)}/${filePath.split('/').map(encodeURIComponent).join('/')}`;
+    const canonicalQuery = '';
+
+    const payloadHash = await sha256Hex(bodyBuffer);
+
+    const canonicalHeaders = 
+      `content-type:${contentType}\n` +
+      `host:${host}\n` +
+      `x-amz-content-sha256:${payloadHash}\n` +
+      `x-amz-date:${amzDate}\n`;
+
+    const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+
+    const canonicalRequest = 
+      `PUT\n` +
+      `${canonicalUri}\n` +
+      `${canonicalQuery}\n` +
+      `${canonicalHeaders}\n` +
+      `${signedHeaders}\n` +
+      `${payloadHash}`;
+
+    const canonicalReqHash = await sha256Hex(canonicalRequest);
+
+    const credentialScope = `${dateStamp}/${region}/s3/aws4_request`;
+    const stringToSign = 
+      `AWS4-HMAC-SHA256\n` +
+      `${amzDate}\n` +
+      `${credentialScope}\n` +
+      `${canonicalReqHash}`;
+
+    const kDate = await hmacSha256(`AWS4${secretAccessKey}`, dateStamp);
+    const kRegion = await hmacSha256(kDate, region);
+    const kService = await hmacSha256(kRegion, 's3');
+    const kSigning = await hmacSha256(kService, 'aws4_request');
+
+    const signature = bufferToHex(await hmacSha256(kSigning, stringToSign));
+    const authHeader = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+    const res = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+        'x-amz-date': amzDate,
+        'x-amz-content-sha256': payloadHash,
+        'Authorization': authHeader
+      },
+      body: bodyBuffer
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Cloudflare R2 Success Story PUT failed (${res.status}): ${errText || res.statusText}`);
+    }
+
+    const cleanObjectKey = filePath.replace(/^\/+/, '').replace(/^i4youmatrimony\//, '');
+    const rawPublicUrl = `${PUBLIC_R2_DOMAIN}/${cleanObjectKey}`;
+    const publicUrl = addCacheBuster(rawPublicUrl, timestamp);
+
+    console.info(`[r2Upload] Uploaded success story photo to Cloudflare R2: ${publicUrl} (${compressed.sizeKB || Math.round(bodyBuffer.byteLength / 1024)} KB)`);
+
+    return {
+      success: true,
+      publicUrl,
+      rawPublicUrl,
+      filePath: cleanObjectKey,
+      sizeKB: compressed.sizeKB || Math.round(bodyBuffer.byteLength / 1024)
+    };
+  } catch (err) {
+    console.error('[r2Upload] Cloudflare R2 success story upload error:', err.message);
+    throw err;
+  }
+}
+
+/**
  * Deletes an object directly from Cloudflare R2 using AWS SigV4 DELETE.
  * 
  * @param {string} urlOrKey - Full URL or relative object key

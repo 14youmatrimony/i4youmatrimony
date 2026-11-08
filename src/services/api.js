@@ -3407,3 +3407,102 @@ export async function deleteExpiredStoriesApi() {
     // Non-blocking background cleanup
   }
 }
+
+/**
+ * -----------------------------------------------------------------------------
+ * MARRIAGE SUCCESS STORIES & WEDDING PHOTO SYSTEM
+ * -----------------------------------------------------------------------------
+ */
+
+const LOCAL_STORAGE_SUCCESS_STORIES_KEY = 'i4you_success_stories';
+
+/**
+ * Fetches all verified marriage success stories from Supabase public.success_stories
+ * ordered by created_at DESC. Falls back to localStorage cache if network fails.
+ */
+export async function fetchSuccessStoriesApi() {
+  let cached = [];
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_SUCCESS_STORIES_KEY);
+    if (raw) cached = JSON.parse(raw);
+  } catch (e) {}
+
+  if (!isSupabaseConfigured() || !supabase) {
+    return cached;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('success_stories')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('[fetchSuccessStoriesApi] Supabase query warning:', error.message);
+      return cached;
+    }
+
+    if (Array.isArray(data) && data.length > 0) {
+      try {
+        localStorage.setItem(LOCAL_STORAGE_SUCCESS_STORIES_KEY, JSON.stringify(data));
+      } catch (e) {}
+      return data;
+    }
+
+    return cached;
+  } catch (err) {
+    console.warn('[fetchSuccessStoriesApi] Fetch exception:', err);
+    return cached;
+  }
+}
+
+/**
+ * Inserts a new marriage success story into public.success_stories
+ * and updates localStorage cache.
+ */
+export async function insertSuccessStoryApi({ coupleNames, location, weddingDate, storyText, photoUrl }) {
+  if (!photoUrl || !coupleNames) {
+    throw new Error('Couple names and wedding photo are required for success story');
+  }
+
+  const payload = {
+    couple_names: String(coupleNames).trim(),
+    location: location ? String(location).trim() : 'Kerala, India',
+    wedding_date: weddingDate ? String(weddingDate).trim() : new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+    story_text: storyText ? String(storyText).trim() : 'We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey.',
+    photo_url: photoUrl,
+    created_at: new Date().toISOString()
+  };
+
+  // 1. Mirror into localStorage cache immediately
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_SUCCESS_STORIES_KEY);
+    const existing = raw ? JSON.parse(raw) : [];
+    const updated = [payload, ...existing.filter(s => s.photo_url !== photoUrl)];
+    localStorage.setItem(LOCAL_STORAGE_SUCCESS_STORIES_KEY, JSON.stringify(updated));
+  } catch (e) {}
+
+  // 2. Insert into Supabase public.success_stories
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('success_stories')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[insertSuccessStoryApi] Supabase insert error:', error.message);
+        throw error;
+      }
+
+      console.info('[insertSuccessStoryApi] Successfully saved success story:', data?.id);
+      return data;
+    } catch (err) {
+      console.error('[insertSuccessStoryApi] Insert exception:', err);
+      throw err;
+    }
+  }
+
+  return payload;
+}
