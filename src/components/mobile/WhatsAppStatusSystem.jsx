@@ -255,6 +255,21 @@ export function WhatsAppStoryViewerModal({
         </div>
 
         <div className="flex items-center space-x-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {isOwnStatus && onDeleteMyStatus && (
+            <button
+              onClick={() => {
+                if (window.confirm('Delete this story?')) {
+                  onDeleteMyStatus();
+                  onClose();
+                }
+              }}
+              className="p-1.5 rounded-full bg-rose-950/70 hover:bg-rose-600 text-rose-300 hover:text-white transition-colors cursor-pointer"
+              title="Delete My Story"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+
           {status?.type === 'video' && (
             <button
               onClick={() => {
@@ -476,6 +491,7 @@ export function WhatsAppStatusEditorSheet({
   const [videoDuration, setVideoDuration] = useState(initialStatus?.duration || 0);
   const [durationError, setDurationError] = useState('');
   const [selectedGradient, setSelectedGradient] = useState(initialStatus?.bgGradient || TEXT_GRADIENTS[0].bg);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -485,6 +501,7 @@ export function WhatsAppStatusEditorSheet({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setSelectedFile(file);
     setIsProcessing(true);
     setDurationError('');
 
@@ -584,6 +601,7 @@ export function WhatsAppStatusEditorSheet({
     const newStatus = {
       id: 'status-' + Date.now(),
       type: activeTab,
+      file: selectedFile || null,
       mediaUrl: activeTab === 'text' ? null : (mediaUrl || ''),
       duration: activeTab === 'video' ? (videoDuration > 60 ? 60 : videoDuration || 20) : null,
       caption: caption.trim(),

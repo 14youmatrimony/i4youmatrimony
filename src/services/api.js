@@ -3287,3 +3287,123 @@ export async function markAllUserNotificationsAsRead(userOrId) {
     }
   }
 }
+
+/**
+ * -----------------------------------------------------------------------------
+ * CLOUDFLARE R2 & SUPABASE STORIES / STATUS SYSTEM
+ * -----------------------------------------------------------------------------
+ */
+
+/**
+ * Fetches all active stories created within the last 24 hours (expires_at > now).
+ * Strictly returns only valid active rows from public.stories.
+ */
+export async function fetchActiveStoriesApi() {
+  if (!isSupabaseConfigured() || !supabase) return [];
+
+  try {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('stories')
+      .select('*')
+      .gt('expires_at', nowIso)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('[fetchActiveStoriesApi] Supabase stories error:', error.message);
+      return [];
+    }
+
+    return (data || []).map(row => ({
+      id: row.id,
+      user_id: String(row.user_id),
+      user_name: row.user_name || 'Member',
+      user_avatar: row.user_avatar || null,
+      user_location: row.user_location || null,
+      media_url: row.media_url,
+      caption: row.caption || '',
+      created_at: row.created_at,
+      expires_at: row.expires_at
+    }));
+  } catch (err) {
+    console.warn('[fetchActiveStoriesApi] Fetch error:', err);
+    return [];
+  }
+}
+
+/**
+ * Inserts a new story row into public.stories with Cloudflare R2 public URL
+ * and 24-hour expiration.
+ */
+export async function insertStoryApi({ userId, userName, userAvatar, userLocation, mediaUrl, caption }) {
+  if (!isSupabaseConfigured() || !supabase || !mediaUrl) return null;
+
+  try {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+    const payload = {
+      user_id: String(userId || 'user'),
+      user_name: userName || 'Member',
+      user_avatar: userAvatar || null,
+      user_location: userLocation || null,
+      media_url: mediaUrl,
+      caption: caption ? String(caption).trim() : null,
+      created_at: now.toISOString(),
+      expires_at: expiresAt
+    };
+
+    const { data, error } = await supabase
+      .from('stories')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[insertStoryApi] Error inserting into public.stories:', error.message);
+      throw error;
+    }
+
+    return data;
+  } catch (err) {
+    console.error('[insertStoryApi] Story insert exception:', err);
+    throw err;
+  }
+}
+
+/**
+ * Deletes a story row from public.stories by ID (and verifies owner if userId provided).
+ */
+export async function deleteStoryApi(storyId, userId) {
+  if (!isSupabaseConfigured() || !supabase || !storyId) return { success: false };
+
+  try {
+    let query = supabase.from('stories').delete().eq('id', storyId);
+    if (userId) {
+      query = query.eq('user_id', String(userId));
+    }
+    const { error } = await query;
+    if (error) {
+      console.warn('[deleteStoryApi] Supabase delete error:', error.message);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error('[deleteStoryApi] Delete story exception:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Cleans up expired stories in the background (expires_at < now).
+ */
+export async function deleteExpiredStoriesApi() {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    const nowIso = new Date().toISOString();
+    await supabase.from('stories').delete().lt('expires_at', nowIso);
+  } catch (e) {
+    // Non-blocking background cleanup
+  }
+}

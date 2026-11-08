@@ -13,6 +13,7 @@ import { isDemoProfile, isPlaceholderOrIncompleteProfile } from '../../services/
 
 export default function WebsiteStoriesReel({
   profiles,
+  activeStories = [],
   candidateStatuses = {},
   myStatus,
   onOpenStatusViewer,
@@ -23,14 +24,60 @@ export default function WebsiteStoriesReel({
   const reelRef = useRef(null);
 
   const targetCandidateGender = getTargetCandidateGender(currentUser);
-  // Profiles that have an active status story (strictly opposite gender, real profiles only)
-  const profilesWithStories = (profiles || [])
-    .filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
-    .filter(p => {
-      if (isSelfProfile(p, currentUser)) return false;
-      if (!isCandidateMatchingTarget(p, targetCandidateGender)) return false;
-      return candidateStatuses[p.id] || p.singlePhotos?.length > 1;
-    });
+  
+  // Strictly only show candidates who actually have an active status story in public.stories (< 24h old)
+  // Never pull regular photo_url or family photos from profiles into the Status bar!
+  const candidateStories = React.useMemo(() => {
+    if (Array.isArray(activeStories) && activeStories.length > 0) {
+      return activeStories
+        .filter(s => {
+          if (!s || !s.media_url) return false;
+          if (currentUser?.id && String(s.user_id) === String(currentUser.id)) return false;
+          return true;
+        })
+        .map(s => {
+          const matchedProfile = (profiles || []).find(p => 
+            String(p.id) === String(s.user_id) || 
+            String(p.registerId) === String(s.user_id) ||
+            String(p.register_id) === String(s.user_id)
+          );
+
+          if (matchedProfile && targetCandidateGender && !isCandidateMatchingTarget(matchedProfile, targetCandidateGender)) {
+            return null;
+          }
+
+          const candidateObj = matchedProfile ? { ...matchedProfile } : {
+            id: s.user_id,
+            name: s.user_name || 'Member',
+            photo: s.user_avatar || s.media_url,
+            city: s.user_location,
+            district: s.user_location
+          };
+
+          const statusObj = {
+            id: s.id,
+            type: 'photo',
+            mediaUrl: s.media_url,
+            caption: s.caption || '',
+            createdAt: s.created_at,
+            expiresAt: s.expires_at,
+            timestamp: 'Active Story'
+          };
+
+          return { profile: candidateObj, status: statusObj };
+        })
+        .filter(Boolean);
+    }
+
+    return (profiles || [])
+      .filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
+      .filter(p => {
+        if (isSelfProfile(p, currentUser)) return false;
+        if (!isCandidateMatchingTarget(p, targetCandidateGender)) return false;
+        return Boolean(candidateStatuses && candidateStatuses[p.id]);
+      })
+      .map(p => ({ profile: p, status: candidateStatuses[p.id] }));
+  }, [activeStories, profiles, candidateStatuses, currentUser, targetCandidateGender]);
 
   return (
     <section id="stories-section" className="py-7 sm:py-9 bg-[#07111E] border-b border-white/10 text-white select-none">
@@ -123,17 +170,10 @@ export default function WebsiteStoriesReel({
           )}
 
           {/* Candidate Story Cards */}
-          {profilesWithStories.map((profile) => {
-            const status = candidateStatuses[profile.id] || {
-              type: 'photo',
-              mediaUrl: profile.photo,
-              caption: `Life, values & aspirations of ${profile.name}`,
-              timestamp: 'Recently'
-            };
-
+          {candidateStories.map(({ profile, status }) => {
             return (
               <div 
-                key={profile.id}
+                key={status?.id || profile.id}
                 onClick={() => {
                   if (onOpenStatusViewer) {
                     onOpenStatusViewer(profile, status, false);

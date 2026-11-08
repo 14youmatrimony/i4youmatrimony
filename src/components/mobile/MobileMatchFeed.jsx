@@ -62,6 +62,7 @@ export default function MobileMatchFeed({
   onOpenFilter,
   myStatus,
   candidateStatuses = {},
+  activeStories = [],
   hiddenStatusIds = new Set(),
   deletedStatusIds = new Set(),
   onOpenStatusViewer,
@@ -200,23 +201,79 @@ export default function MobileMatchFeed({
     }
   }, []);
 
-  // Filtered list of candidate stories (Strict opposite gender, prioritize those with active statuses, show up to 20)
-  const storyProfiles = useMemo(() => {
-    const valid = (profiles || [])
-      .filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
-      .filter(p => {
-        if (hiddenStatusIds.has(p.id) || deletedStatusIds.has(p.id)) return false;
-        if (isSelfProfile(p, currentUser)) return false;
-        return isCandidateMatchingTarget(p, targetCandidateGender);
-      });
-    return [...valid].sort((a, b) => {
-      const aHas = !!candidateStatuses[a.id];
-      const bHas = !!candidateStatuses[b.id];
-      if (aHas && !bHas) return -1;
-      if (!aHas && bHas) return 1;
-      return 0;
-    }).slice(0, 20);
-  }, [profiles, candidateStatuses, hiddenStatusIds, deletedStatusIds, currentUser, targetCandidateGender]);
+  // Filtered list of candidate stories: ONLY active stories (< 24 hours old from public.stories)
+  // Strictly obeys rule: Never pull regular photo_url or family photos from profiles into the Status bar!
+  const storyCandidates = useMemo(() => {
+    // 1. If activeStories passed, use it directly
+    if (Array.isArray(activeStories) && activeStories.length > 0) {
+      return activeStories
+        .filter(s => {
+          if (!s || !s.media_url) return false;
+          if (currentUser?.id && String(s.user_id) === String(currentUser.id)) return false;
+          if (hiddenStatusIds.has(s.user_id) || deletedStatusIds.has(s.user_id) || deletedStatusIds.has(s.id)) return false;
+          return true;
+        })
+        .map(s => {
+          const matchedProfile = (profiles || []).find(p => 
+            String(p.id) === String(s.user_id) || 
+            String(p.registerId) === String(s.user_id) ||
+            String(p.register_id) === String(s.user_id)
+          );
+
+          if (matchedProfile && targetCandidateGender && !isCandidateMatchingTarget(matchedProfile, targetCandidateGender)) {
+            return null;
+          }
+
+          const candidateProfile = matchedProfile ? { ...matchedProfile } : {
+            id: s.user_id,
+            name: s.user_name || 'Member',
+            photo: s.user_avatar || s.media_url,
+            city: s.user_location,
+            district: s.user_location
+          };
+
+          const statusObj = {
+            id: s.id,
+            type: 'photo',
+            mediaUrl: s.media_url,
+            caption: s.caption || '',
+            createdAt: s.created_at,
+            expiresAt: s.expires_at,
+            timestamp: 'Active Story'
+          };
+
+          return { profile: candidateProfile, status: statusObj };
+        })
+        .filter(Boolean);
+    }
+
+    // 2. Fallback: only profiles that strictly have an active entry in candidateStatuses
+    const candidates = [];
+    Object.keys(candidateStatuses || {}).forEach(uid => {
+      if (currentUser?.id && String(uid) === String(currentUser.id)) return;
+      if (hiddenStatusIds.has(uid) || deletedStatusIds.has(uid)) return;
+
+      const st = candidateStatuses[uid];
+      if (!st || !st.mediaUrl) return;
+
+      const matchedProfile = (profiles || []).find(p => String(p.id) === String(uid));
+      if (matchedProfile && targetCandidateGender && !isCandidateMatchingTarget(matchedProfile, targetCandidateGender)) {
+        return;
+      }
+
+      const pObj = matchedProfile || {
+        id: uid,
+        name: st.userName || 'Member',
+        photo: st.userAvatar || st.mediaUrl,
+        city: st.userLocation,
+        district: st.userLocation
+      };
+
+      candidates.push({ profile: pObj, status: st });
+    });
+
+    return candidates;
+  }, [activeStories, profiles, candidateStatuses, hiddenStatusIds, deletedStatusIds, currentUser, targetCandidateGender]);
 
   return (
     <div className="space-y-4 pb-6">
@@ -333,20 +390,13 @@ export default function MobileMatchFeed({
             </span>
           </div>
 
-          {/* 2. Candidate Status Bubbles */}
-          {storyProfiles.map(p => {
-            const isInterested = Boolean(
-              interestsSent.includes(p.id) ||
-              (p.registerId && interestsSent.includes(p.registerId)) ||
-              (p.register_id && interestsSent.includes(p.register_id))
-            );
-            const locMatch = calculateLocationMatch(currentUser, p);
-            const status = candidateStatuses[p.id];
+          {/* 2. Candidate Status Bubbles (ONLY active stories from public.stories) */}
+          {storyCandidates.map(({ profile: p, status }) => {
             const hasStatus = !!status;
 
             return (
               <div 
-                key={p.id}
+                key={status?.id || p.id}
                 className="flex flex-col items-center shrink-0 cursor-pointer space-y-1 w-16 select-none group"
                 onTouchStart={() => handlePressStart(p, false, hasStatus)}
                 onTouchEnd={handlePressEnd}
@@ -356,31 +406,28 @@ export default function MobileMatchFeed({
                   onOpenStatusMenu && onOpenStatusMenu(p, false, hasStatus);
                 }}
                 onClick={() => handleBubbleClick(() => {
-                  if (hasStatus && onOpenStatusViewer) {
+                  if (onOpenStatusViewer) {
                     onOpenStatusViewer(p, status, false);
-                  } else if (onSelectProfile) {
-                    onSelectProfile(p);
                   }
                 })}
-                title={`${p.name} • Tap to view • Long-press for options`}
+                title={`${p.name} • Tap to view story • Long-press for options`}
               >
                 <div className="relative">
                   {/* WhatsApp Gradient Story Ring */}
-                  <div className={`w-14 h-14 rounded-full p-0.5 transition-transform group-active:scale-95 ${
-                    hasStatus
-                      ? (status?.type === 'video'
-                          ? 'bg-gradient-to-tr from-blue-500 via-indigo-500 to-teal-400 ring-2 ring-blue-300'
-                          : 'bg-gradient-to-tr from-[#D4AF37] via-[#DFB76C] to-[#8C6D1F] ring-2 ring-amber-200')
-                      : isInterested 
-                      ? 'bg-emerald-500' 
-                      : locMatch?.type === 'same_district'
-                      ? 'bg-gradient-to-tr from-emerald-500 to-teal-400 ring-2 ring-emerald-300'
-                      : 'bg-slate-300'
-                  }`}>
+                  <div className="w-14 h-14 rounded-full p-0.5 transition-transform group-active:scale-95 bg-gradient-to-tr from-[#D4AF37] via-[#DFB76C] to-[#8C6D1F] ring-2 ring-amber-200">
                     <img 
-                      src={p.photo} 
+                      src={p.photo || status?.mediaUrl} 
                       alt={p.name}
-                      className="w-full h-full rounded-full object-cover ring-2 ring-white" 
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
+                      onDragStart={(e) => e.preventDefault()}
+                      className="w-full h-full rounded-full object-cover ring-2 ring-white select-none pointer-events-none" 
+                      style={{
+                        WebkitTouchCallout: 'none',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none',
+                        WebkitUserDrag: 'none'
+                      }}
                     />
                   </div>
 
@@ -395,10 +442,10 @@ export default function MobileMatchFeed({
                 </div>
 
                 <span className="text-[10px] font-semibold text-slate-800 truncate w-full text-center">
-                  {p.name.split(' ')[0]}
+                  {p.name ? p.name.split(' ')[0] : 'Member'}
                 </span>
                 <span className="text-[9px] text-[#8C6D1F] font-bold truncate max-w-full text-center">
-                  {status?.type === 'video' ? `🎥 ${status.duration || 20}s` : p.district || p.city}
+                  {p.district || p.city || 'Story'}
                 </span>
               </div>
             );

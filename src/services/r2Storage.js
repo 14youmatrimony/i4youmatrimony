@@ -7,6 +7,7 @@ export {
   getR2Config,
   isR2Configured,
   uploadPhotoToR2,
+  uploadStoryToR2,
   deletePhotoFromR2,
   uploadPhotosBatchToR2,
   compressImageToWebP,

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl, fetchActiveStoriesApi, insertStoryApi, deleteStoryApi, deleteExpiredStoriesApi } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
-import { formatR2PublicUrl } from './utils/r2Upload';
+import { formatR2PublicUrl, uploadStoryToR2, deletePhotoFromR2 } from './utils/r2Upload';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { profileSyncService } from './services/profileSyncService';
 import { uploadProfilePhoto } from './services/storageService';
@@ -1821,6 +1821,73 @@ export default function App() {
   const [statusMenuData, setStatusMenuData] = useState(null); // { profile, isOwnStatus, hasStatus }
   const [hiddenStatusIds, setHiddenStatusIds] = useState(new Set());
   const [deletedStatusIds, setDeletedStatusIds] = useState(new Set());
+  const [activeStories, setActiveStories] = useState([]);
+
+  // Candidate status map: derived directly and strictly from activeStories in public.stories (< 24 hours old)
+  const candidateStatuses = useMemo(() => {
+    const map = {};
+    (activeStories || []).forEach(story => {
+      if (!story || !story.media_url) return;
+      if (currentUser?.id && String(story.user_id) === String(currentUser.id)) return;
+      map[story.user_id] = {
+        id: story.id,
+        type: 'photo',
+        mediaUrl: story.media_url,
+        caption: story.caption || '',
+        createdAt: story.created_at,
+        expiresAt: story.expires_at,
+        timestamp: 'Active Story',
+        userName: story.user_name,
+        userAvatar: story.user_avatar,
+        userLocation: story.user_location
+      };
+    });
+    return map;
+  }, [activeStories, currentUser]);
+
+  // Fetch active stories (< 24h old) directly from public.stories
+  const loadActiveStories = useCallback(async () => {
+    try {
+      // Purge expired rows in background
+      deleteExpiredStoriesApi().catch(() => {});
+
+      // Fetch active stories
+      const liveStories = await fetchActiveStoriesApi();
+      setActiveStories(liveStories);
+
+      // Reconcile current user's active story
+      if (currentUser?.id) {
+        const ownStory = liveStories.find(s => String(s.user_id) === String(currentUser.id));
+        if (ownStory) {
+          setMyStatus({
+            id: ownStory.id,
+            type: 'photo',
+            mediaUrl: ownStory.media_url,
+            caption: ownStory.caption || '',
+            createdAt: ownStory.created_at,
+            expiresAt: ownStory.expires_at,
+            timestamp: 'Active Story'
+          });
+        } else {
+          setMyStatus(prev => {
+            if (prev?.expiresAt && new Date(prev.expiresAt) <= new Date()) {
+              try { localStorage.removeItem('i4u_my_status'); } catch {}
+              return null;
+            }
+            return prev;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[loadActiveStories] Error loading active stories:', err);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    loadActiveStories();
+    const interval = setInterval(loadActiveStories, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loadActiveStories]);
 
   // Mobile Filter Sheet State
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
@@ -3894,83 +3961,100 @@ export default function App() {
   };
 
   const handleSaveMyStatus = async (newStatus) => {
-    let statusToSave = { ...newStatus };
+    if (!currentUser?.id) {
+      showToast('Please sign in to share a story.');
+      return;
+    }
 
-    // If mediaUrl is a base64 Data URL, compress and upload to Supabase Storage
-    if (statusToSave.mediaUrl && statusToSave.mediaUrl.startsWith('data:')) {
-      try {
-        statusToSave.mediaUrl = await compressBase64Image(statusToSave.mediaUrl, 900, 0.78);
-      } catch (cErr) {}
+    const fileToUpload = newStatus.file || newStatus.mediaUrl;
+    if (!fileToUpload) {
+      showToast('Please select a photo for your story');
+      return;
+    }
 
+    let r2PublicUrl = newStatus.mediaUrl;
+
+    // Upload directly to Cloudflare R2 bucket under stories/${currentUser.id}/${Date.now()}.webp
+    if (newStatus.file || (typeof newStatus.mediaUrl === 'string' && (newStatus.mediaUrl.startsWith('data:') || newStatus.mediaUrl.startsWith('blob:')))) {
       try {
-        const uploadRes = await uploadProfilePhoto(statusToSave.mediaUrl, currentUser?.id || 'my_status', 'avatars');
-        if (uploadRes.success && uploadRes.publicUrl) {
-          statusToSave.mediaUrl = uploadRes.publicUrl;
+        showToast('Compressing & uploading story to Cloudflare R2... ⏳');
+        const uploadRes = await uploadStoryToR2(fileToUpload, currentUser.id);
+        if (!uploadRes.success || !uploadRes.publicUrl) {
+          throw new Error(uploadRes.error || 'Cloudflare R2 story upload failed');
         }
-      } catch (photoErr) {
-        console.warn('[handleSaveMyStatus] Storage upload fallback:', photoErr);
+        r2PublicUrl = uploadRes.publicUrl;
+      } catch (r2Err) {
+        console.error('[handleSaveMyStatus] Cloudflare R2 upload error:', r2Err);
+        showToast(`Story upload failed: ${r2Err.message}`);
+        return;
       }
     }
 
-    setMyStatus(statusToSave);
+    // Insert row into Supabase public.stories table
     try {
-      localStorage.removeItem('i4u_my_status_deleted');
-      localStorage.setItem('i4u_my_status', JSON.stringify(statusToSave));
-    } catch (e) {
-      console.warn('[handleSaveMyStatus] LocalStorage save warning:', e);
-    }
-
-    // Keep currentUser cover_photo in sync across sessions
-    if (currentUser) {
-      setCurrentUser(prev => {
-        if (!prev) return prev;
-        const updated = {
-          ...prev,
-          coverPhoto: statusToSave.mediaUrl || prev.coverPhoto,
-          cover_photo: statusToSave.mediaUrl || prev.cover_photo
-        };
-        try {
-          localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
-        } catch (e) {}
-        return updated;
+      const storyRow = await insertStoryApi({
+        userId: currentUser.id,
+        userName: currentUser.name || 'Member',
+        userAvatar: currentUser.photo || null,
+        userLocation: currentUser.district || currentUser.city || null,
+        mediaUrl: r2PublicUrl,
+        caption: newStatus.caption || null
       });
-    }
 
-    // Persist status update to Supabase database if logged in
-    if (currentUser?.id && isSupabaseConfigured()) {
+      const savedStatus = {
+        id: storyRow?.id || 'status-' + Date.now(),
+        type: 'photo',
+        mediaUrl: r2PublicUrl,
+        caption: newStatus.caption || '',
+        createdAt: storyRow?.created_at || new Date().toISOString(),
+        expiresAt: storyRow?.expires_at || new Date(Date.now() + 86400000).toISOString(),
+        timestamp: 'Just now'
+      };
+
+      setMyStatus(savedStatus);
       try {
-        await supabase.from('profiles').update({
-          cover_photo: statusToSave.mediaUrl || null,
-          updated_at: new Date().toISOString()
-        }).eq('id', currentUser.id);
-      } catch (sbErr) {
-        console.warn('[handleSaveMyStatus] Supabase sync warning:', sbErr);
-      }
-    }
+        localStorage.removeItem('i4u_my_status_deleted');
+        localStorage.setItem('i4u_my_status', JSON.stringify(savedStatus));
+      } catch (e) {}
 
-    showToast('Status shared & saved successfully! ✨');
+      // Refresh stories feed immediately
+      loadActiveStories();
+
+      showToast('Status shared to Cloudflare R2 successfully! ✨');
+    } catch (sbErr) {
+      console.error('[handleSaveMyStatus] Supabase story insert error:', sbErr);
+      showToast('Story uploaded to R2, but feed sync failed.');
+    }
   };
 
-  const handleDeleteMyStatus = () => {
+  const handleDeleteMyStatus = async () => {
+    const storyIdToDelete = myStatus?.id;
+    const mediaUrlToDelete = myStatus?.mediaUrl;
+
     setMyStatus(null);
     try {
       localStorage.removeItem('i4u_my_status');
       localStorage.setItem('i4u_my_status_deleted', 'true');
     } catch (e) {}
-    if (currentUser) {
-      setCurrentUser(prev => {
-        if (!prev) return prev;
-        const updated = { ...prev, coverPhoto: null, cover_photo: null };
-        try {
-          localStorage.setItem('i4u_auth_user', JSON.stringify(updated));
-        } catch (e) {}
-        return updated;
+
+    // 1. Delete row from Supabase public.stories
+    if (storyIdToDelete) {
+      deleteStoryApi(storyIdToDelete, currentUser?.id).catch(e => {
+        console.warn('[handleDeleteMyStatus] Supabase delete warning:', e);
       });
     }
-    if (currentUser?.id && isSupabaseConfigured()) {
-      supabase.from('profiles').update({ cover_photo: null }).eq('id', currentUser.id).catch(() => {});
+
+    // 2. Delete from Cloudflare R2 if it's an R2 URL
+    if (mediaUrlToDelete && mediaUrlToDelete.includes('r2.dev')) {
+      deletePhotoFromR2(mediaUrlToDelete).catch(e => {
+        console.warn('[handleDeleteMyStatus] Cloudflare R2 delete warning:', e);
+      });
     }
-    showToast('Status deleted');
+
+    // 3. Reload active stories
+    loadActiveStories();
+
+    showToast('Status deleted successfully');
   };
 
   const handleToggleHideMyStatus = () => {
@@ -5059,7 +5143,8 @@ export default function App() {
               onOpenOffers={handleOpenOffers}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
               unreadNotificationsCount={unreadNotificationsCount}
-              candidateStatuses={CANDIDATE_STATUSES}
+              activeStories={activeStories}
+              candidateStatuses={candidateStatuses}
               myStatus={myStatus}
               onOpenStatusViewer={handleOpenStatusViewer}
               onOpenStatusEditor={handleOpenStatusEditor}
@@ -5404,7 +5489,8 @@ export default function App() {
               onDeclineInterestNotification={handleDeclineInterestNotification}
               onSimulateNotification={handleSimulateNotification}
               myStatus={myStatus}
-              candidateStatuses={CANDIDATE_STATUSES}
+              activeStories={activeStories}
+              candidateStatuses={candidateStatuses}
               hiddenStatusIds={hiddenStatusIds}
               deletedStatusIds={deletedStatusIds}
               onOpenStatusViewer={handleOpenStatusViewer}
@@ -5939,7 +6025,8 @@ export default function App() {
               onOpenOffers={handleOpenOffers}
               offers={activeOffers}
               myStatus={myStatus}
-              candidateStatuses={CANDIDATE_STATUSES}
+              activeStories={activeStories}
+              candidateStatuses={candidateStatuses}
               hiddenStatusIds={hiddenStatusIds}
               deletedStatusIds={deletedStatusIds}
               onOpenStatusViewer={handleOpenStatusViewer}

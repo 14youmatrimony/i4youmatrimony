@@ -28,6 +28,7 @@ export default function WebsiteView({
   onOpenNotifications,
   unreadNotificationsCount = 0,
   candidateStatuses,
+  activeStories = [],
   myStatus,
   onOpenStatusViewer,
   onOpenStatusEditor,
@@ -113,6 +114,7 @@ export default function WebsiteView({
         {currentUser && (
           <WebsiteStoriesReel 
             profiles={profiles}
+            activeStories={activeStories}
             candidateStatuses={candidateStatuses}
             myStatus={myStatus}
             onOpenStatusViewer={onOpenStatusViewer}
