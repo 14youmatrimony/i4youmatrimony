@@ -1575,100 +1575,127 @@ export async function updateLivePhotos(photoData) {
 
   if (isSupabaseConfigured() && supabase) {
     try {
-      let matchedRowId = null;
-
-      // Pre-locate exact row in public.profiles using id, register_id, prefix pattern, phone, or email
-      try {
-        const { data: allProfiles } = await supabase
-          .from('profiles')
-          .select('id, register_id, phone, email, name');
-
-        if (Array.isArray(allProfiles)) {
-          const cleanDigits = (phone || '').replace(/\D/g, '');
-          const cleanReg = (regId || '').trim().toLowerCase();
-          const cleanUid = (id || '').trim().toLowerCase();
-          const cleanEmail = (photoData.email || '').trim().toLowerCase();
-
-          for (const row of allProfiles) {
-            const rId = String(row.id || '').trim().toLowerCase();
-            const rReg = String(row.register_id || '').trim().toLowerCase();
-            const rPhone = String(row.phone || '').trim();
-            const rEmail = String(row.email || '').trim().toLowerCase();
-
-            // 1. Match by id or register_id
-            if (cleanUid && (rId === cleanUid || rReg === cleanUid)) {
-              matchedRowId = row.id;
-              break;
-            }
-            if (cleanReg && (rReg === cleanReg || rId === cleanReg)) {
-              matchedRowId = row.id;
-              break;
-            }
-            // 2. Pattern match prefix: e.g. i4y1004_1791656308517 starts with i4y1004_
-            if (cleanReg && rId.startsWith(`${cleanReg}_`)) {
-              matchedRowId = row.id;
-              break;
-            }
-            if (cleanUid && rId.startsWith(`${cleanUid}_`)) {
-              matchedRowId = row.id;
-              break;
-            }
-            // 3. Match phone digits
-            if (cleanDigits.length >= 10 && rPhone && rPhone.includes(cleanDigits.slice(-10))) {
-              matchedRowId = row.id;
-              break;
-            }
-            // 4. Match email
-            if (cleanEmail && rEmail === cleanEmail) {
-              matchedRowId = row.id;
-              break;
-            }
-          }
-        }
-      } catch (findErr) {
-        console.warn('[updateLivePhotos] Pre-lookup profiles warning:', findErr);
-      }
-
       let updatedRows = [];
       let error = null;
 
-      if (matchedRowId) {
-        const directRes = await supabase
-          .from('profiles')
-          .update(payload)
-          .eq('id', matchedRowId)
-          .select();
-        updatedRows = directRes.data;
-        error = directRes.error;
+      // Primary attempt: call save_and_lock_user_photos RPC (case-insensitive & lock guarantee)
+      const targetUserKey = regId || id || cleanId;
+      if (targetUserKey) {
+        try {
+          const { data: rpcData, error: rpcError } = await supabase.rpc('save_and_lock_user_photos', {
+            p_user_id: targetUserKey,
+            p_main_photo: payload.photo || null,
+            p_single_photos: finalSinglePhotos,
+            p_family_photo: payload.family_photo || null,
+            p_family_photos: finalFamilyPhotos
+          });
+
+          if (!rpcError && rpcData) {
+            updatedRows = [rpcData];
+            supabaseUpdateSucceeded = true;
+            supabaseUpdatedCount = 1;
+            console.log('[updateLivePhotos] save_and_lock_user_photos RPC succeeded for:', targetUserKey);
+          } else if (rpcError) {
+            console.warn('[updateLivePhotos] RPC notice, falling back to direct table update:', rpcError.message);
+          }
+        } catch (rpcEx) {
+          console.warn('[updateLivePhotos] RPC execution notice:', rpcEx);
+        }
       }
 
-      // Fallback: match using comprehensive or tokens
-      if (!updatedRows || updatedRows.length === 0) {
-        const orTokens = [];
-        if (id) {
-          orTokens.push(`id.eq.${id}`);
-          orTokens.push(`register_id.eq.${id}`);
+      let matchedRowId = null;
+
+      // Pre-locate exact row in public.profiles using id, register_id, prefix pattern, phone, or email if not already updated via RPC
+      if (!supabaseUpdateSucceeded) {
+        try {
+          const { data: allProfiles } = await supabase
+            .from('profiles')
+            .select('id, register_id, phone, email, name');
+
+          if (Array.isArray(allProfiles)) {
+            const cleanDigits = (phone || '').replace(/\D/g, '');
+            const cleanReg = (regId || '').trim().toLowerCase();
+            const cleanUid = (id || '').trim().toLowerCase();
+            const cleanEmail = (photoData.email || '').trim().toLowerCase();
+
+            for (const row of allProfiles) {
+              const rId = String(row.id || '').trim().toLowerCase();
+              const rReg = String(row.register_id || '').trim().toLowerCase();
+              const rPhone = String(row.phone || '').trim();
+              const rEmail = String(row.email || '').trim().toLowerCase();
+
+              // 1. Match by id or register_id
+              if (cleanUid && (rId === cleanUid || rReg === cleanUid)) {
+                matchedRowId = row.id;
+                break;
+              }
+              if (cleanReg && (rReg === cleanReg || rId === cleanReg)) {
+                matchedRowId = row.id;
+                break;
+              }
+              // 2. Pattern match prefix: e.g. i4y1004_1791656308517 starts with i4y1004_
+              if (cleanReg && rId.startsWith(`${cleanReg}_`)) {
+                matchedRowId = row.id;
+                break;
+              }
+              if (cleanUid && rId.startsWith(`${cleanUid}_`)) {
+                matchedRowId = row.id;
+                break;
+              }
+              // 3. Match phone digits
+              if (cleanDigits.length >= 10 && rPhone && rPhone.includes(cleanDigits.slice(-10))) {
+                matchedRowId = row.id;
+                break;
+              }
+              // 4. Match email
+              if (cleanEmail && rEmail === cleanEmail) {
+                matchedRowId = row.id;
+                break;
+              }
+            }
+          }
+        } catch (findErr) {
+          console.warn('[updateLivePhotos] Pre-lookup profiles warning:', findErr);
         }
-        if (regId) {
-          orTokens.push(`register_id.eq.${regId}`);
-          orTokens.push(`register_id.eq.${regId.toUpperCase()}`);
-          orTokens.push(`register_id.eq.${regId.toLowerCase()}`);
-          orTokens.push(`id.eq.${regId}`);
-        }
-        if (phone && phone.replace(/\D/g, '').length >= 10) {
-          const rawDigits = phone.replace(/\D/g, '');
-          orTokens.push(`phone.eq.${phone}`);
-          orTokens.push(`phone.eq.${rawDigits.slice(-10)}`);
-        }
-        if (orTokens.length > 0) {
-          const fallbackRes = await supabase
+
+        if (matchedRowId) {
+          const directRes = await supabase
             .from('profiles')
             .update(payload)
-            .or(orTokens.join(','))
+            .eq('id', matchedRowId)
             .select();
-          if (fallbackRes.data && fallbackRes.data.length > 0) {
-            updatedRows = fallbackRes.data;
-            error = fallbackRes.error;
+          updatedRows = directRes.data;
+          error = directRes.error;
+        }
+
+        // Fallback: match using comprehensive or tokens
+        if (!updatedRows || updatedRows.length === 0) {
+          const orTokens = [];
+          if (id) {
+            orTokens.push(`id.eq.${id}`);
+            orTokens.push(`register_id.eq.${id}`);
+          }
+          if (regId) {
+            orTokens.push(`register_id.eq.${regId}`);
+            orTokens.push(`register_id.eq.${regId.toUpperCase()}`);
+            orTokens.push(`register_id.eq.${regId.toLowerCase()}`);
+            orTokens.push(`id.eq.${regId}`);
+          }
+          if (phone && phone.replace(/\D/g, '').length >= 10) {
+            const rawDigits = phone.replace(/\D/g, '');
+            orTokens.push(`phone.eq.${phone}`);
+            orTokens.push(`phone.eq.${rawDigits.slice(-10)}`);
+          }
+          if (orTokens.length > 0) {
+            const fallbackRes = await supabase
+              .from('profiles')
+              .update(payload)
+              .or(orTokens.join(','))
+              .select();
+            if (fallbackRes.data && fallbackRes.data.length > 0) {
+              updatedRows = fallbackRes.data;
+              error = fallbackRes.error;
+            }
           }
         }
       }

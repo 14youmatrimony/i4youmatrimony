@@ -297,61 +297,83 @@ class CloudflareR2PhotoService {
       updatePayload['family_photos'] = [publicUrl];
     }
 
-    // 2. Pre-locate exact row in public.profiles using id, register_id, prefix pattern, phone, or email
+    // 2. Primary: Execute save_and_lock_user_photos PostgreSQL RPC function
+    List<dynamic> updatedRows = [];
+    final primaryTargetKey = cleanRegId.isNotEmpty ? cleanRegId : cleanUid;
+    if (primaryTargetKey.isNotEmpty) {
+      try {
+        final rpcParams = {
+          'p_user_id': primaryTargetKey,
+          'p_main_photo': isProfilePhoto ? publicUrl : null,
+          'p_single_photos': isProfilePhoto ? [publicUrl] : null,
+          'p_family_photo': !isProfilePhoto ? publicUrl : null,
+          'p_family_photos': !isProfilePhoto ? [publicUrl] : null,
+        };
+        final dynamic rpcResult = await supabase.rpc('save_and_lock_user_photos', params: rpcParams);
+        if (rpcResult != null && rpcResult is Map) {
+          updatedRows = [Map<String, dynamic>.from(rpcResult)];
+          debugPrint('[CloudflareR2PhotoService] save_and_lock_user_photos RPC succeeded for: $primaryTargetKey');
+        }
+      } catch (rpcErr) {
+        debugPrint('[CloudflareR2PhotoService] save_and_lock_user_photos RPC notice, falling back: $rpcErr');
+      }
+    }
+
+    // 3. Fallback: Pre-locate exact row in public.profiles using id, register_id, prefix pattern, phone, or email
     String? matchedRowId;
-    try {
-      final dynamic allProfiles = await supabase
-          .from('profiles')
-          .select('id, register_id, phone, email, name');
+    if (updatedRows.isEmpty) {
+      try {
+        final dynamic allProfiles = await supabase
+            .from('profiles')
+            .select('id, register_id, phone, email, name');
 
-      if (allProfiles is List) {
-        final cleanDigits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
-        final cleanReg = cleanRegId.toLowerCase();
-        final cleanU = cleanUid.toLowerCase();
-        final cleanEm = (email ?? '').trim().toLowerCase();
+        if (allProfiles is List) {
+          final cleanDigits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+          final cleanReg = cleanRegId.toLowerCase();
+          final cleanU = cleanUid.toLowerCase();
+          final cleanEm = (email ?? '').trim().toLowerCase();
 
-        for (final item in allProfiles) {
-          if (item is Map) {
-            final rId = (item['id'] ?? '').toString().trim().toLowerCase();
-            final rReg = (item['register_id'] ?? '').toString().trim().toLowerCase();
-            final rPhone = (item['phone'] ?? '').toString().trim();
-            final rEmail = (item['email'] ?? '').toString().trim().toLowerCase();
+          for (final item in allProfiles) {
+            if (item is Map) {
+              final rId = (item['id'] ?? '').toString().trim().toLowerCase();
+              final rReg = (item['register_id'] ?? '').toString().trim().toLowerCase();
+              final rPhone = (item['phone'] ?? '').toString().trim();
+              final rEmail = (item['email'] ?? '').toString().trim().toLowerCase();
 
-            if (cleanU.isNotEmpty && (rId == cleanU || rReg == cleanU)) {
-              matchedRowId = item['id']?.toString();
-              break;
-            }
-            if (cleanReg.isNotEmpty && (rReg == cleanReg || rId == cleanReg)) {
-              matchedRowId = item['id']?.toString();
-              break;
-            }
-            if (cleanReg.isNotEmpty && rId.startsWith('${cleanReg}_')) {
-              matchedRowId = item['id']?.toString();
-              break;
-            }
-            if (cleanU.isNotEmpty && rId.startsWith('${cleanU}_')) {
-              matchedRowId = item['id']?.toString();
-              break;
-            }
-            if (cleanDigits.length >= 10 && rPhone.contains(cleanDigits.substring(cleanDigits.length - 10))) {
-              matchedRowId = item['id']?.toString();
-              break;
-            }
-            if (cleanEm.isNotEmpty && rEmail == cleanEm) {
-              matchedRowId = item['id']?.toString();
-              break;
+              if (cleanU.isNotEmpty && (rId == cleanU || rReg == cleanU)) {
+                matchedRowId = item['id']?.toString();
+                break;
+              }
+              if (cleanReg.isNotEmpty && (rReg == cleanReg || rId == cleanReg)) {
+                matchedRowId = item['id']?.toString();
+                break;
+              }
+              if (cleanReg.isNotEmpty && rId.startsWith('${cleanReg}_')) {
+                matchedRowId = item['id']?.toString();
+                break;
+              }
+              if (cleanU.isNotEmpty && rId.startsWith('${cleanU}_')) {
+                matchedRowId = item['id']?.toString();
+                break;
+              }
+              if (cleanDigits.length >= 10 && rPhone.contains(cleanDigits.substring(cleanDigits.length - 10))) {
+                matchedRowId = item['id']?.toString();
+                break;
+              }
+              if (cleanEm.isNotEmpty && rEmail == cleanEm) {
+                matchedRowId = item['id']?.toString();
+                break;
+              }
             }
           }
         }
+      } catch (findErr) {
+        debugPrint('[CloudflareR2PhotoService] Pre-lookup profiles warning: $findErr');
       }
-    } catch (findErr) {
-      debugPrint('[CloudflareR2PhotoService] Pre-lookup profiles warning: $findErr');
     }
 
-    List<dynamic> updatedRows = [];
-
-    // 3. Update using matched row ID if found
-    if (matchedRowId != null && matchedRowId.isNotEmpty) {
+    // 4. Update using matched row ID if found
+    if (updatedRows.isEmpty && matchedRowId != null && matchedRowId.isNotEmpty) {
       try {
         updatedRows = await supabase
             .from('profiles')
@@ -363,7 +385,7 @@ class CloudflareR2PhotoService {
       }
     }
 
-    // 4. Fallback matching using .or() filter
+    // 5. Fallback matching using .or() filter
     if (updatedRows.isEmpty) {
       final orTokens = <String>[];
       if (cleanUid.isNotEmpty) {
