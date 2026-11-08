@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
+import 'matrimony_photo_manager.dart';
 
 /// Home / Matches Screen for I 4 You Matrimony
 ///
@@ -312,20 +313,54 @@ class _HomeMatchesScreenState extends State<HomeMatchesScreen> {
                   ),
                 ],
                 const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE11D48),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (c) => Scaffold(
+                                appBar: AppBar(
+                                  title: Text('Edit Photos: ${profile['name']}'),
+                                ),
+                                body: MatrimonyPhotoManager(
+                                  customUserId: (profile['id'] ?? '').toString(),
+                                  customRegisterId: (profile['register_id'] ?? '').toString(),
+                                  onPhotosUpdated: _loadProfiles,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.add_a_photo_rounded, size: 18),
+                        label: const Text('Edit / Upload Photos'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0B192C),
+                          foregroundColor: const Color(0xFFDFB76C),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text('Close'),
-                  ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade200,
+                        foregroundColor: const Color(0xFF334155),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                      ),
+                      child: const Text('Close'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -484,7 +519,7 @@ class _HomeMatchesScreenState extends State<HomeMatchesScreen> {
               const SliverFillRemaining(
                 child: Center(
                   child: Column(
-                    mainAxisAlignment: MainChildScrollView.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       CircularProgressIndicator(color: Color(0xFFE11D48)),
                       SizedBox(height: 16),
