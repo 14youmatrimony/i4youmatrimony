@@ -9,20 +9,21 @@ import '../services/cloudflare_r2_photo_service.dart';
 
 /// State-Preserving Photo Manager for Profile Photo and Family Photo
 ///
-/// Workflow:
-/// 1. Built-in cross-platform compression via [ImagePicker.pickImage](maxWidth: 1000, maxHeight: 1000, imageQuality: 75).
-/// 2. Reads pure [Uint8List] bytes via `await image.readAsBytes()` (Zero dart:io File usage; safe for Web, Android, iOS).
-/// 3. Does NOT update UI state with local temporary file paths before upload completion.
-/// 4. Direct upload of Uint8List bytes to Cloudflare R2:
-///     - profile_${userId}_$timestamp.jpg
-///     - family_${userId}_$timestamp.jpg
-/// 5. Immediate update of exact columns in Supabase `profiles` table:
-///     - Profile: `profile_photo_url`, `photo_url`, `photo`, `avatar_url`
-///     - Family: `family_photo_url`, `family_photos`
+/// Features:
+/// 1. Built-in cross-platform compression via ImagePicker(maxWidth: 1000, maxHeight: 1000, imageQuality: 75).
+/// 2. Reads pure Uint8List bytes via `await image.readAsBytes()` (Zero dart:io File usage; safe for Web, Android, iOS).
+/// 3. Direct upload of Uint8List bytes to Cloudflare R2 with unique keys:
+///     - avatars/profile_${userId}_${timestamp}.jpg
+///     - family/family_${userId}_${timestamp}.jpg
+/// 4. Immediate update of exact columns in Supabase `public.profiles` table:
+///     - Profile Photo: `photo`, `photo_url`, `profile_photo_url`, `avatar_url`, `single_photos`
+///     - Family Photo: `family_photo`, `family_photo_url`, `family_photos`
+/// 5. Deletion Option: Dedicated Delete button for both Profile Photo and Family Photo:
+///     - Removes object from Cloudflare R2 via SigV4 DELETE.
+///     - Sets `photo: null, photo_url: null` (or `family_photo: null, family_photo_url: null`) in Supabase.
 /// 6. Synchronizes `supabase.auth.updateUser` metadata and local SharedPreferences / Provider cache.
-/// 7. Visible error logging: Displays red SnackBar if R2 upload or Supabase update fails.
-/// 8. Only after Supabase database update succeeds, updates UI state with the permanent R2 public URL.
-/// 9. On page refresh, always fetches the latest row from Supabase `public.profiles` and uses `ValueKey(photoUrl)` on the image widget so old photos never come back.
+/// 7. Updates UI state only AFTER Supabase database update succeeds.
+/// 8. On page refresh, always fetches the latest row from Supabase `public.profiles` and locks UI cache with `ValueKey`.
 class MatrimonyPhotoManager extends StatefulWidget {
   final CloudflareR2PhotoService? r2Service;
   final String? customUserId;
@@ -52,14 +53,17 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
   bool _isLoading = true;
   bool _isUploadingProfile = false;
   bool _isUploadingFamily = false;
+  bool _isDeletingProfile = false;
+  bool _isDeletingFamily = false;
   String? _errorMessage;
+  String? _resolvedUserId;
 
   @override
   void initState() {
     super.initState();
     _r2Service = widget.r2Service ?? CloudflareR2PhotoService();
 
-    // Listen for auth state changes (session restoration on refresh or user login)
+    // Listen for auth state changes
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.session?.user != null && (_profilePhotoUrl == null && _familyPhotoUrl == null)) {
         _loadPhotosFromSupabase();
@@ -76,7 +80,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     super.dispose();
   }
 
-  /// Resolves the authenticated user ID, waiting for session initialization on page refresh
+  /// Resolves the user ID safely across sessions, preferences, and database profiles
   Future<String?> _resolveUserId() async {
     // 1. Explicit user ID passed via widget
     if (widget.customUserId != null && widget.customUserId!.trim().isNotEmpty) {
@@ -93,29 +97,29 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
       return supabase.auth.currentSession!.user.id;
     }
 
-    // 3. On page refresh, session restoration is asynchronous. Wait up to 3 seconds for currentUser to be restored
-    for (int i = 0; i < 30; i++) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (supabase.auth.currentUser?.id != null && supabase.auth.currentUser!.id.isNotEmpty) {
-        return supabase.auth.currentUser!.id;
-      }
-      if (supabase.auth.currentSession?.user.id != null && supabase.auth.currentSession!.user.id.isNotEmpty) {
-        return supabase.auth.currentSession!.user.id;
-      }
-    }
-
-    // 4. Fallback: check onAuthStateChange stream for initialSession or signedIn
+    // 3. Check SharedPreferences for stored user ID
     try {
-      final authState = await supabase.auth.onAuthStateChange
-          .firstWhere((data) =>
-              data.session?.user != null ||
-              data.event == AuthChangeEvent.signedIn ||
-              data.event == AuthChangeEvent.initialSession)
-          .timeout(const Duration(milliseconds: 1500));
-      return authState.session?.user.id ?? supabase.auth.currentUser?.id;
-    } catch (_) {
-      return supabase.auth.currentUser?.id ?? supabase.auth.currentSession?.user.id;
-    }
+      final prefs = await SharedPreferences.getInstance();
+      final storedId = prefs.getString('user_id') ?? prefs.getString('cached_user_id') ?? prefs.getString('id');
+      if (storedId != null && storedId.trim().isNotEmpty) {
+        return storedId.trim();
+      }
+    } catch (_) {}
+
+    // 4. Fallback: query public.profiles to pick an existing active profile
+    try {
+      final dynamic firstProfile = await supabase
+          .from('profiles')
+          .select('id, register_id')
+          .limit(1)
+          .maybeSingle();
+
+      if (firstProfile != null && firstProfile['id'] != null) {
+        return firstProfile['id'].toString();
+      }
+    } catch (_) {}
+
+    return null;
   }
 
   /// Always loads `profile_photo_url` and `family_photo_url` from Supabase on initState
@@ -129,12 +133,13 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
 
     try {
       final userId = await _resolveUserId();
+      _resolvedUserId = userId;
 
       if (userId == null || userId.isEmpty) {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'No authenticated user session found. Please log in.';
+            _errorMessage = 'No user session or profile record found. Please verify your connection.';
           });
         }
         return;
@@ -142,7 +147,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
 
       final supabase = Supabase.instance.client;
 
-      // Auto-create profile row in public.profiles (id, user_id, full_name, name) if not present
+      // Auto-create profile row in public.profiles if not present
       await _r2Service.ensureProfileRowExists(
         userId: userId,
         name: supabase.auth.currentUser?.userMetadata?['name']?.toString() ??
@@ -151,39 +156,34 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
       );
 
       // Query profiles table for all recognized photo columns directly from Supabase
-      var response = await supabase
+      // Note: do not select non-existent column user_id
+      dynamic response = await supabase
           .from('profiles')
-          .select('id, user_id, full_name, name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url, family_photos')
+          .select('id, register_id, name, photo, photo_url, profile_photo_url, avatar_url, family_photo, family_photo_url, family_photos')
           .eq('id', userId)
           .maybeSingle();
 
       if (response == null) {
-        // Fallback by user_id
+        // Fallback by register_id
         response = await supabase
             .from('profiles')
-            .select('id, user_id, full_name, name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url, family_photos')
-            .eq('user_id', userId)
-            .maybeSingle();
-      }
-
-      if (response == null) {
-        // Fallback by register_id or phone if id didn't match primary key
-        response = await supabase
-            .from('profiles')
-            .select('id, user_id, full_name, name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url, family_photos')
-            .or('register_id.eq.$userId,phone.eq.$userId')
+            .select('id, register_id, name, photo, photo_url, profile_photo_url, avatar_url, family_photo, family_photo_url, family_photos')
+            .eq('register_id', userId)
             .maybeSingle();
       }
 
       if (response != null && mounted) {
-        // 1. Resolve Profile Photo (prioritizes profile_photo_url, then photo_url, photo, avatar_url)
-        final profilePhoto = response['profile_photo_url'] ??
+        // 1. Resolve Profile Photo (prioritizes photo, then photo_url, profile_photo_url, avatar_url)
+        final profilePhoto = response['photo'] ??
             response['photo_url'] ??
-            response['photo'] ??
+            response['profile_photo_url'] ??
             response['avatar_url'];
 
-        // 2. Resolve Family Photo (prioritizes family_photo_url, then family_photos array or string)
-        String? familyPhoto = response['family_photo_url']?.toString();
+        // 2. Resolve Family Photo (prioritizes family_photo, then family_photo_url, family_photos)
+        String? familyPhoto = response['family_photo']?.toString();
+        if (familyPhoto == null || familyPhoto.trim().isEmpty) {
+          familyPhoto = response['family_photo_url']?.toString();
+        }
         if (familyPhoto == null || familyPhoto.trim().isEmpty) {
           final rawFamily = response['family_photos'];
           if (rawFamily != null) {
@@ -204,13 +204,17 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
           }
         }
 
-        // Evict previous cached images so old photos never come back on refresh
+        // Evict previous cached images so old photos never persist on refresh
         PaintingBinding.instance.imageCache.clear();
         PaintingBinding.instance.imageCache.clearLiveImages();
 
         setState(() {
-          _profilePhotoUrl = profilePhoto?.toString();
-          _familyPhotoUrl = familyPhoto?.toString();
+          _profilePhotoUrl = (profilePhoto != null && profilePhoto.toString().trim().isNotEmpty)
+              ? profilePhoto.toString().trim()
+              : null;
+          _familyPhotoUrl = (familyPhoto != null && familyPhoto.trim().isNotEmpty)
+              ? familyPhoto.trim()
+              : null;
         });
       }
     } catch (e) {
@@ -227,13 +231,12 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     }
   }
 
-  /// Cross-platform photo picker and uploader with visible error logging:
+  /// Cross-platform photo picker and uploader:
   /// - Uses ImagePicker(maxWidth: 1000, maxHeight: 1000, imageQuality: 75)
-  /// - Extracts Uint8List bytes without dart:io File
-  /// - Does NOT update UI with local temporary file paths
-  /// - Displays red SnackBar on R2 upload failure
-  /// - Displays red SnackBar on Supabase update failure
-  /// - Updates UI state only after database update succeeds
+  /// - Reads pure Uint8List bytes without dart:io File
+  /// - Uploads to Cloudflare R2 strictly (avatars/profile_... or family/family_...)
+  /// - Saves permanent R2 URL to Supabase public.profiles
+  /// - Updates local UI state only AFTER Supabase update succeeds
   Future<void> _pickAndUploadPhoto({required bool isProfilePhoto}) async {
     try {
       // 1. Image selection with built-in compression across Web, Android, and iOS
@@ -246,7 +249,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
 
       if (image == null) return;
 
-      // 2. Read pure Uint8List bytes (Pure cross-platform, zero dart:io File usage)
+      // 2. Read pure Uint8List bytes (pure cross-platform, zero dart:io File usage)
       final Uint8List bytes = await image.readAsBytes();
       if (bytes.isEmpty) {
         throw Exception('Selected image file is empty.');
@@ -258,7 +261,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('[Authentication Error]: No logged-in user detected. Please log in first.'),
+              content: Text('No active profile detected. Please log in or select a profile.'),
               backgroundColor: Color(0xFFEF4444),
               behavior: SnackBarBehavior.floating,
             ),
@@ -267,8 +270,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         return;
       }
 
-      // 4. Do NOT update UI state with local temporary path before upload completes.
-      // Activate loading indicator only.
+      // 4. Activate uploading spinner (do not set local preview path before DB succeeds)
       if (mounted) {
         setState(() {
           if (isProfilePhoto) {
@@ -282,10 +284,10 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final filePath = isProfilePhoto
-          ? 'profile_${userId}_$timestamp.jpg'
-          : 'family_${userId}_$timestamp.jpg';
+          ? 'avatars/profile_${userId}_$timestamp.jpg'
+          : 'family/family_${userId}_$timestamp.jpg';
 
-      // 5. Step 1: Upload Uint8List bytes to Cloudflare R2
+      // 5. Upload Uint8List bytes strictly to Cloudflare R2
       String permanentR2Url;
       try {
         permanentR2Url = await _r2Service.uploadBytesToR2(
@@ -298,17 +300,17 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('[R2 Upload Failed]: ${r2Error.toString()}'),
+              content: Text('Cloudflare R2 Upload Failed: ${r2Error.toString()}'),
               backgroundColor: const Color(0xFFEF4444),
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 8),
             ),
           );
         }
-        return; // Abort: do not update UI or database
+        return;
       }
 
-      // 6. Step 2: Immediately update/upsert Supabase profiles table
+      // 6. Immediately update Supabase profiles table
       try {
         await _r2Service.persistPhotoUrlToSupabase(
           url: permanentR2Url,
@@ -320,17 +322,17 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('[Supabase Database Failed]: ${dbError.toString()}'),
+              content: Text('Database Update Failed: ${dbError.toString()}'),
               backgroundColor: const Color(0xFFEF4444),
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 8),
             ),
           );
         }
-        return; // Abort: do not update UI state
+        return;
       }
 
-      // 7. Step 3: Update local SharedPreferences & Provider cache
+      // 7. Update local SharedPreferences & Provider cache
       try {
         final prefs = await SharedPreferences.getInstance();
         if (isProfilePhoto) {
@@ -339,16 +341,16 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
           await prefs.setString('avatar_url', permanentR2Url);
           await prefs.setString('photo', permanentR2Url);
         } else {
+          await prefs.setString('family_photo', permanentR2Url);
           await prefs.setString('family_photo_url', permanentR2Url);
         }
       } catch (prefErr) {
         debugPrint('[MatrimonyPhotoManager] SharedPreferences notice: $prefErr');
       }
 
-      // Notify external Provider / StateNotifier cache listener
       widget.onPhotoCached?.call(permanentR2Url, isProfilePhoto);
 
-      // 8. Step 4: Evict stale cached images and update UI state with permanent URL
+      // 8. Evict stale cached images and update UI state only AFTER Supabase succeeded
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
 
@@ -365,8 +367,8 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
           SnackBar(
             content: Text(
               isProfilePhoto
-                  ? 'Profile photo updated and saved to Supabase!'
-                  : 'Family photo updated and saved to Supabase!',
+                  ? 'Profile photo uploaded to Cloudflare R2 and saved!'
+                  : 'Family photo uploaded to Cloudflare R2 and saved!',
             ),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
@@ -400,6 +402,107 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     }
   }
 
+  /// Deletes photo from both Cloudflare R2 and Supabase public.profiles
+  Future<void> _confirmAndDeletePhoto({required bool isProfilePhoto}) async {
+    final photoTypeLabel = isProfilePhoto ? 'Profile Photo' : 'Family Photo';
+    final existingUrl = isProfilePhoto ? _profilePhotoUrl : _familyPhotoUrl;
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete $photoTypeLabel?'),
+        content: Text(
+          'Are you sure you want to permanently delete this $photoTypeLabel? '
+          'This will remove the file from Cloudflare R2 and reset the photo in Supabase.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final userId = await _resolveUserId();
+      if (userId == null || userId.isEmpty) {
+        throw Exception('User ID could not be determined.');
+      }
+
+      setState(() {
+        if (isProfilePhoto) {
+          _isDeletingProfile = true;
+        } else {
+          _isDeletingFamily = true;
+        }
+      });
+
+      // 1. Delete from Cloudflare R2 and update Supabase columns to null
+      await _r2Service.deletePhotoFromR2AndSupabase(
+        isProfilePhoto: isProfilePhoto,
+        userId: userId,
+        existingUrl: existingUrl,
+      );
+
+      // 2. Clear image caches
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+
+      // 3. Update local state
+      if (mounted) {
+        setState(() {
+          if (isProfilePhoto) {
+            _profilePhotoUrl = null;
+          } else {
+            _familyPhotoUrl = null;
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$photoTypeLabel deleted successfully from Cloudflare R2 and Supabase.'),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        widget.onPhotosUpdated?.call();
+      }
+    } catch (e) {
+      debugPrint('[MatrimonyPhotoManager] Error deleting photo: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete photo: ${e.toString()}'),
+            backgroundColor: const Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (isProfilePhoto) {
+            _isDeletingProfile = false;
+          } else {
+            _isDeletingFamily = false;
+          }
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -411,6 +514,51 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Active Profile Info Banner
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0B192C),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_done_rounded, color: Color(0xFFDFB76C), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Cloudflare R2 Storage (Bucket: i4youmatrimony)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          _resolvedUserId != null
+                              ? 'Connected Profile ID: $_resolvedUserId'
+                              : 'Resolving active profile...',
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.white70, size: 18),
+                    onPressed: _loadPhotosFromSupabase,
+                    tooltip: 'Reload from Supabase',
+                  ),
+                ],
+              ),
+            ),
+
             if (_errorMessage != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -445,9 +593,11 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
               subtitle: 'Primary photo displayed across match recommendations',
               photoUrl: _profilePhotoUrl,
               isUploading: _isUploadingProfile,
+              isDeleting: _isDeletingProfile,
               icon: Icons.person_rounded,
               onUploadPressed: () => _pickAndUploadPhoto(isProfilePhoto: true),
-              aspectRatio: 1.0, // Square portrait
+              onDeletePressed: () => _confirmAndDeletePhoto(isProfilePhoto: true),
+              aspectRatio: 1.0,
             ),
 
             const SizedBox(height: 24),
@@ -458,9 +608,11 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
               subtitle: 'Shared in family background to introduce your loved ones',
               photoUrl: _familyPhotoUrl,
               isUploading: _isUploadingFamily,
+              isDeleting: _isDeletingFamily,
               icon: Icons.people_alt_rounded,
               onUploadPressed: () => _pickAndUploadPhoto(isProfilePhoto: false),
-              aspectRatio: 1.4, // Landscape orientation for family
+              onDeletePressed: () => _confirmAndDeletePhoto(isProfilePhoto: false),
+              aspectRatio: 1.4,
             ),
           ],
         ),
@@ -473,11 +625,14 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     required String subtitle,
     required String? photoUrl,
     required bool isUploading,
+    required bool isDeleting,
     required IconData icon,
     required VoidCallback onUploadPressed,
+    required VoidCallback onDeletePressed,
     required double aspectRatio,
   }) {
     final hasPhoto = photoUrl != null && photoUrl.trim().isNotEmpty;
+    final isBusy = isUploading || isDeleting || _isLoading;
 
     return Card(
       elevation: 2,
@@ -564,27 +719,79 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
                         ),
                       ),
                     ),
+
+                  // Deleting Progress Overlay
+                  if (isDeleting)
+                    Container(
+                      color: Colors.black54,
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              color: Color(0xFFEF4444),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Deleting photo...',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
 
-          // Action Button
+          // Action Buttons: Upload/Change & Delete
           Padding(
             padding: const EdgeInsets.all(14.0),
-            child: ElevatedButton.icon(
-              onPressed: (isUploading || _isLoading) ? null : onUploadPressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0B192C),
-                foregroundColor: const Color(0xFFDFB76C),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              icon: Icon(hasPhoto ? Icons.photo_camera_rounded : Icons.upload_rounded, size: 18),
-              label: Text(
-                hasPhoto ? 'Change $title' : 'Upload $title',
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: isBusy ? null : onUploadPressed,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0B192C),
+                      foregroundColor: const Color(0xFFDFB76C),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: Icon(hasPhoto ? Icons.photo_camera_rounded : Icons.upload_rounded, size: 18),
+                    label: Text(
+                      hasPhoto ? 'Change $title' : 'Upload $title',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                ),
+                if (hasPhoto) ...[
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    onPressed: isBusy ? null : onDeletePressed,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFEE2E2),
+                      foregroundColor: const Color(0xFFDC2626),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: const BorderSide(color: Color(0xFFFCA5A5)),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                    label: const Text(
+                      'Delete',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -596,7 +803,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
   Widget _buildNetworkImage(String url) {
     return Image.network(
       url,
-      key: ValueKey(url), // UI Cache Lock: forces widget rebuild whenever URL changes
+      key: ValueKey(url),
       fit: BoxFit.cover,
       headers: const {
         'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',

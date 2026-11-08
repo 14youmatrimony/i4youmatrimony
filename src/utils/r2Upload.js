@@ -1,17 +1,17 @@
 /**
- * Zero-Dependency Cloudflare R2 Uploader for I 4 You Matrimony
+ * Zero-Dependency Cloudflare R2 Uploader & Deletion Service for I 4 You Matrimony
  * 
  * Features:
- * 1. Automatic client-side WebP compression (max 1080px, quality 0.75, ~60-100 KB)
+ * 1. Automatic client-side WebP compression (max 1000px, quality 0.75)
  * 2. Pure browser-native AWS Signature Version 4 (AWS4-HMAC-SHA256 via Web Crypto API crypto.subtle)
  * 3. Direct PUT upload to ${VITE_R2_ENDPOINT}/${VITE_R2_BUCKET_NAME}/${filePath}
  * 4. Permanent public URL return: ${VITE_R2_PUBLIC_URL}/${filePath}
- * 5. Smart fallback to Supabase Storage and WebP data URL to guarantee zero upload breakage
+ * 5. Direct DELETE request from Cloudflare R2 via AWS SigV4
+ * 6. Zero uploads to Supabase Storage avatars bucket (strictly Cloudflare R2)
  */
 
 import { compressImageToWebP } from './imageOptimizer';
 import { addCacheBuster } from './cacheBuster';
-import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 /**
  * Reads environment variables safely in Vite and Node/test environments
@@ -32,14 +32,18 @@ function getEnv(viteKey, reactKey) {
 }
 
 /**
- * Returns the configured Cloudflare R2 credentials from .env
+ * Returns the configured Cloudflare R2 credentials with robust verified defaults
  */
 export function getR2Config() {
-  const endpoint = getEnv('VITE_R2_ENDPOINT', 'REACT_APP_R2_ENDPOINT').replace(/\/+$/, '');
-  const accessKeyId = getEnv('VITE_R2_ACCESS_KEY_ID', 'REACT_APP_R2_ACCESS_KEY_ID');
-  const secretAccessKey = getEnv('VITE_R2_SECRET_ACCESS_KEY', 'REACT_APP_R2_SECRET_ACCESS_KEY');
-  const bucketName = getEnv('VITE_R2_BUCKET_NAME', 'REACT_APP_R2_BUCKET_NAME');
-  const publicUrl = getEnv('VITE_R2_PUBLIC_URL', 'REACT_APP_R2_PUBLIC_URL').replace(/\/+$/, '');
+  const endpoint = (getEnv('VITE_R2_ENDPOINT', 'REACT_APP_R2_ENDPOINT') || 'https://60ba75772b194956aea9a7080138d7e0.r2.cloudflarestorage.com').replace(/\/+$/, '');
+  const accessKeyId = getEnv('VITE_R2_ACCESS_KEY_ID', 'REACT_APP_R2_ACCESS_KEY_ID') || '4eb0c79fe5884a7df815017ee19f7171';
+  const secretAccessKey = getEnv('VITE_R2_SECRET_ACCESS_KEY', 'REACT_APP_R2_SECRET_ACCESS_KEY') || 'f33f804f8d0858ce476bcc6a72ddd54a1a577a7d3072da11672af6b4edb33486';
+  const bucketName = getEnv('VITE_R2_BUCKET_NAME', 'REACT_APP_R2_BUCKET_NAME') || 'i4youmatrimony';
+  let publicUrl = (getEnv('VITE_R2_PUBLIC_URL', 'REACT_APP_R2_PUBLIC_URL') || 'https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev').replace(/\/+$/, '');
+
+  if (publicUrl.includes('dash.cloudflare.com')) {
+    publicUrl = 'https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev';
+  }
 
   return {
     endpoint,
@@ -107,59 +111,7 @@ async function hmacSha256(key, message) {
 }
 
 /**
- * Smart Fallback: Attempts Supabase Storage upload or returns the compressed WebP data URL
- */
-async function fallbackUpload(compressed, userId, folder) {
-  console.info(`[r2Upload] Fallback handler activated for ${folder}/${userId}...`);
-
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      const cleanUserId = String(userId || `user_${Date.now()}`).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-      const fileName = `${cleanUserId}_${Date.now()}.webp`;
-      const filePath = `${cleanUserId}/${fileName}`;
-      const uploadBody = compressed.blob || compressed.file;
-
-      if (uploadBody) {
-        const { error: sbErr } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, uploadBody, {
-            cacheControl: '3600',
-            upsert: true,
-            contentType: 'image/webp'
-          });
-
-        if (!sbErr) {
-          const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-          if (urlData?.publicUrl) {
-            const publicUrl = addCacheBuster(urlData.publicUrl, Date.now());
-            return {
-              success: true,
-              publicUrl,
-              rawPublicUrl: urlData.publicUrl,
-              filePath,
-              sizeKB: compressed.sizeKB,
-              isFallback: true,
-              source: 'supabase_storage'
-            };
-          }
-        }
-      }
-    } catch (sbErr) {
-      console.warn('[r2Upload] Supabase storage fallback error:', sbErr);
-    }
-  }
-
-  return {
-    success: true,
-    publicUrl: compressed.dataUrl,
-    sizeKB: compressed.sizeKB,
-    isFallback: true,
-    source: 'compressed_webp_dataurl'
-  };
-}
-
-/**
- * Uploads a photo (File, Blob, or base64 data URL) to Cloudflare R2
+ * Uploads a photo (File, Blob, or base64 data URL) strictly to Cloudflare R2
  * with automatic WebP compression and AWS SigV4 authorization.
  * 
  * @param {File|Blob|string} file - The raw photo to upload
@@ -170,7 +122,6 @@ async function fallbackUpload(compressed, userId, folder) {
  *   publicUrl: string,
  *   filePath?: string,
  *   sizeKB?: number,
- *   isFallback?: boolean,
  *   error?: string
  * }>}
  */
@@ -194,28 +145,22 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
     });
   } catch (compErr) {
     console.warn('[r2Upload] Compression notice:', compErr);
-    return await fallbackUpload({ dataUrl: file, sizeKB: 0 }, userId, folder);
-  }
-
-  // 2. Check if Cloudflare R2 credentials are fully populated
-  if (!isR2Configured()) {
-    console.info('[r2Upload] Cloudflare R2 credentials not fully populated. Using smart fallback.');
-    return await fallbackUpload(compressed, userId, folder);
+    compressed = { dataUrl: file, sizeKB: 0 };
   }
 
   const { endpoint, accessKeyId, secretAccessKey, bucketName, publicUrl: basePublicUrl, region } = getR2Config();
 
-  // 3. Unique timestamped filename: profile_${userId}_${timestamp}.jpg or family_${userId}_${timestamp}.jpg
+  // 2. Unique timestamped filename conforming to Step-2 paths
   const cleanUserId = String(userId || 'user').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
   const cleanFolder = String(folder || 'profile').trim().toLowerCase();
   const isFamily = cleanFolder.includes('family');
   const timestamp = Date.now();
   const filePath = isFamily
-    ? `family_${cleanUserId}_${timestamp}.jpg`
-    : `profile_${cleanUserId}_${timestamp}.jpg`;
+    ? `family/family_${cleanUserId}_${timestamp}.jpg`
+    : `avatars/profile_${cleanUserId}_${timestamp}.jpg`;
 
   try {
-    // 4. Extract ArrayBuffer from WebP Blob
+    // 3. Extract ArrayBuffer from WebP Blob or DataURL
     let bodyBuffer;
     if (compressed.blob) {
       bodyBuffer = await compressed.blob.arrayBuffer();
@@ -230,26 +175,25 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
     }
 
     if (!bodyBuffer) {
-      throw new Error('Could not convert compressed WebP image to ArrayBuffer');
+      throw new Error('Could not convert compressed image to ArrayBuffer');
     }
 
-    // 5. Build AWS Signature Version 4 PUT Request
+    // 4. Build AWS Signature Version 4 PUT Request
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
     const dateStamp = amzDate.substring(0, 8);
-    const contentType = compressed.blob?.type || 'image/jpeg';
+    const contentType = 'image/jpeg';
 
     const urlObj = new URL(endpoint);
     const host = urlObj.host;
 
-    // Direct PUT upload to ${VITE_R2_ENDPOINT}/${VITE_R2_BUCKET_NAME}/${filePath}
+    // Direct PUT upload to ${endpoint}/${bucketName}/${filePath}
     const uploadUrl = `${endpoint}/${bucketName}/${filePath}`;
     const canonicalUri = `/${encodeURIComponent(bucketName)}/${filePath.split('/').map(encodeURIComponent).join('/')}`;
     const canonicalQuery = '';
 
     const payloadHash = await sha256Hex(bodyBuffer);
 
-    // Canonical headers must be sorted by lowercase header name
     const canonicalHeaders = 
       `content-type:${contentType}\n` +
       `host:${host}\n` +
@@ -284,7 +228,7 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
     const signature = bufferToHex(await hmacSha256(kSigning, stringToSign));
     const authHeader = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
-    // 6. Perform browser fetch PUT to Cloudflare R2
+    // 5. Perform browser fetch PUT strictly to Cloudflare R2
     const res = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
@@ -301,7 +245,7 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
       throw new Error(`Cloudflare R2 PUT failed (${res.status}): ${errText || res.statusText}`);
     }
 
-    // 7. Return the permanent public URL: ${VITE_R2_PUBLIC_URL}/${filePath}
+    // 6. Return the permanent public R2 URL
     const publicUrlBase = basePublicUrl || `${endpoint}/${bucketName}`;
     const rawPublicUrl = `${publicUrlBase}/${filePath}`;
     const publicUrl = addCacheBuster(rawPublicUrl, timestamp);
@@ -317,13 +261,100 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
       isFallback: false
     };
   } catch (err) {
-    console.warn('[r2Upload] Cloudflare R2 upload notice, executing fallback:', err.message);
-    return await fallbackUpload(compressed, userId, folder);
+    console.error('[r2Upload] Cloudflare R2 upload error:', err.message);
+    throw err;
   }
 }
 
 /**
- * Batch upload utility for multiple photos (e.g. Gallery / Family album)
+ * Deletes an object directly from Cloudflare R2 using AWS SigV4 DELETE.
+ * 
+ * @param {string} urlOrKey - Full URL or relative object key
+ * @returns {Promise<{ success: boolean, filePath?: string, error?: string }>}
+ */
+export async function deletePhotoFromR2(urlOrKey) {
+  if (!urlOrKey) return { success: false, error: 'No URL or key provided' };
+
+  let filePath = String(urlOrKey).split('?')[0].trim();
+  if (filePath.includes('r2.dev/')) {
+    filePath = filePath.split('r2.dev/')[1];
+  } else if (filePath.includes('.r2.cloudflarestorage.com/')) {
+    const parts = filePath.split('.r2.cloudflarestorage.com/')[1];
+    const slashIdx = parts.indexOf('/');
+    filePath = slashIdx !== -1 ? parts.substring(slashIdx + 1) : parts;
+  }
+  filePath = filePath.replace(/^\/+/, '');
+  if (!filePath) return { success: false, error: 'Could not extract object key' };
+
+  try {
+    const { endpoint, accessKeyId, secretAccessKey, bucketName, region } = getR2Config();
+    const urlObj = new URL(endpoint);
+    const host = urlObj.host;
+    const deleteUrl = `${endpoint}/${bucketName}/${filePath}`;
+
+    const now = new Date();
+    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+    const dateStamp = amzDate.substring(0, 8);
+    const emptyPayloadHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
+    const canonicalUri = `/${encodeURIComponent(bucketName)}/${filePath.split('/').map(encodeURIComponent).join('/')}`;
+    const canonicalQuery = '';
+
+    const canonicalHeaders = 
+      `host:${host}\n` +
+      `x-amz-content-sha256:${emptyPayloadHash}\n` +
+      `x-amz-date:${amzDate}\n`;
+
+    const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+
+    const canonicalRequest = 
+      `DELETE\n` +
+      `${canonicalUri}\n` +
+      `${canonicalQuery}\n` +
+      `${canonicalHeaders}\n` +
+      `${signedHeaders}\n` +
+      `${emptyPayloadHash}`;
+
+    const canonicalReqHash = await sha256Hex(canonicalRequest);
+    const credentialScope = `${dateStamp}/${region}/s3/aws4_request`;
+    const stringToSign = 
+      `AWS4-HMAC-SHA256\n` +
+      `${amzDate}\n` +
+      `${credentialScope}\n` +
+      `${canonicalReqHash}`;
+
+    const kDate = await hmacSha256(`AWS4${secretAccessKey}`, dateStamp);
+    const kRegion = await hmacSha256(kDate, region);
+    const kService = await hmacSha256(kRegion, 's3');
+    const kSigning = await hmacSha256(kService, 'aws4_request');
+
+    const signature = bufferToHex(await hmacSha256(kSigning, stringToSign));
+    const authHeader = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+    const res = await fetch(deleteUrl, {
+      method: 'DELETE',
+      headers: {
+        'x-amz-date': amzDate,
+        'x-amz-content-sha256': emptyPayloadHash,
+        'Authorization': authHeader
+      }
+    });
+
+    if (res.ok || res.status === 404) {
+      console.info(`[r2Upload] Successfully deleted from Cloudflare R2: ${filePath}`);
+      return { success: true, filePath };
+    } else {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Cloudflare R2 DELETE failed (${res.status}): ${errText}`);
+    }
+  } catch (err) {
+    console.error('[r2Upload] Cloudflare R2 delete error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Batch upload utility for multiple photos
  */
 export async function uploadPhotosBatchToR2(filesArray, userId = 'user', folder = 'profiles') {
   if (!Array.isArray(filesArray) || filesArray.length === 0) return [];

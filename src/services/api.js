@@ -1512,18 +1512,32 @@ export async function updateLivePhotos(photoData) {
     payload.photo = photo;
     payload.photo_url = photo; // CRITICAL: BOTH photo AND photo_url MUST BE UPDATED
     payload.profile_photo_url = photo;
+    payload.avatar_url = photo;
+  } else if (photoData.photo === null) {
+    payload.photo = null;
+    payload.photo_url = null;
+    payload.profile_photo_url = null;
+    payload.avatar_url = null;
   }
+
   if (singlePhotos) payload.single_photos = singlePhotos;
+
   if (familyPhotos) {
     payload.family_photos = familyPhotos;
     if (finalFamilyPhotos && finalFamilyPhotos.length > 0) {
+      payload.family_photo = finalFamilyPhotos[0];
       payload.family_photo_url = finalFamilyPhotos[0];
     }
+  } else if (photoData.family_photo === null || photoData.family_photo_url === null) {
+    payload.family_photo = null;
+    payload.family_photo_url = null;
+    payload.family_photos = '[]';
   }
-  if (photoData.profile_photo_url) {
+
+  if (photoData.profile_photo_url && photo) {
     payload.profile_photo_url = photoData.profile_photo_url;
   }
-  if (photoData.family_photo_url) {
+  if (photoData.family_photo_url && !payload.family_photo_url && payload.family_photo_url !== null) {
     payload.family_photo_url = photoData.family_photo_url;
   }
   if (photoData.hidePhotos !== undefined) {
@@ -1539,13 +1553,12 @@ export async function updateLivePhotos(photoData) {
       const resolvedName = photoData.name || photoData.userName || photoData.fullName || 'Member';
       const upsertPayload = {
         id: cleanId,
-        user_id: cleanId,
         full_name: resolvedName,
         name: resolvedName,
         ...payload,
         ...(photo ? { avatar_url: photo, profile_photo_url: photo, photo_url: photo, photo } : {}),
         ...(singlePhotos ? { photos: singlePhotos } : {}),
-        ...(finalFamilyPhotos && finalFamilyPhotos.length > 0 ? { family_photo_url: finalFamilyPhotos[0] } : {})
+        ...(finalFamilyPhotos && finalFamilyPhotos.length > 0 ? { family_photo: finalFamilyPhotos[0], family_photo_url: finalFamilyPhotos[0] } : {})
       };
 
       let { error } = await supabase

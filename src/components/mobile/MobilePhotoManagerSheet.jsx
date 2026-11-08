@@ -21,7 +21,7 @@ import {
 import { isFakeAvatarUrl } from '../../services/api';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { optimizeImageFile, compressImageToWebP } from '../../utils/imageOptimizer';
-import { uploadPhotoToR2 } from '../../services/r2Storage';
+import { uploadPhotoToR2, deletePhotoFromR2 } from '../../services/r2Storage';
 
 export default function MobilePhotoManagerSheet({
   isOpen,
@@ -90,20 +90,22 @@ export default function MobilePhotoManagerSheet({
 
 
   const handleUpdate = (newSingle, newFamily, extraPrivacy = {}) => {
-    const nextSingle = newSingle || singlePhotos;
-    const nextFamily = newFamily || familyPhotos;
-    const primary = nextSingle[0] || currentUser?.photo;
+    const nextSingle = newSingle !== undefined ? newSingle : singlePhotos;
+    const nextFamily = newFamily !== undefined ? newFamily : familyPhotos;
+    const primary = nextSingle && nextSingle.length > 0 ? nextSingle[0] : null;
+    const familyPrimary = nextFamily && nextFamily.length > 0 ? nextFamily[0] : null;
 
-    setSinglePhotos(nextSingle);
-    setFamilyPhotos(nextFamily);
+    setSinglePhotos(nextSingle || []);
+    setFamilyPhotos(nextFamily || []);
 
     onUpdatePhotos?.({
-      singlePhotos: nextSingle,
-      familyPhotos: nextFamily,
+      singlePhotos: nextSingle || [],
+      familyPhotos: nextFamily || [],
       photo: primary,
       photo_url: primary,
       profile_photo_url: primary,
-      family_photo_url: nextFamily[0] || null,
+      family_photo: familyPrimary,
+      family_photo_url: familyPrimary,
       hidePhotos: extraPrivacy.hidePhotos !== undefined ? extraPrivacy.hidePhotos : hidePhotos,
       photoVisibility: extraPrivacy.photoVisibility !== undefined ? extraPrivacy.photoVisibility : photoVisibility,
       blurPhotosForUnconnected: extraPrivacy.blurPhotosForUnconnected !== undefined ? extraPrivacy.blurPhotosForUnconnected : blurPhotosForUnconnected
@@ -124,14 +126,18 @@ export default function MobilePhotoManagerSheet({
     showFeedback(customMsg || "Photo uploaded! Set as Slot #1 (Main Profile Photo) ⭐");
   };
 
-  const handleRemoveSinglePhoto = (idx) => {
-    if (singlePhotos.length <= 1) {
-      alert("At least 1 single profile photo is required.");
-      return;
-    }
+  const handleRemoveSinglePhoto = async (idx) => {
+    const photoToRemove = singlePhotos[idx];
     const updated = singlePhotos.filter((_, i) => i !== idx);
     handleUpdate(updated, familyPhotos);
-    showFeedback("Photo removed");
+    showFeedback("Photo removed and deleted");
+    if (photoToRemove && (photoToRemove.includes('r2.dev') || photoToRemove.includes('r2.cloudflarestorage.com'))) {
+      try {
+        await deletePhotoFromR2(photoToRemove);
+      } catch (err) {
+        console.warn('R2 deletion notice:', err);
+      }
+    }
   };
 
   const handleSetMainPhoto = (idx) => {
@@ -178,10 +184,18 @@ export default function MobilePhotoManagerSheet({
     showFeedback(customMsg || "Family photo added to album! 👨‍👩‍👧");
   };
 
-  const handleRemoveFamilyPhoto = (idx) => {
+  const handleRemoveFamilyPhoto = async (idx) => {
+    const photoToRemove = familyPhotos[idx];
     const updated = familyPhotos.filter((_, i) => i !== idx);
     handleUpdate(singlePhotos, updated);
-    showFeedback("Family photo removed");
+    showFeedback("Family photo removed and deleted");
+    if (photoToRemove && (photoToRemove.includes('r2.dev') || photoToRemove.includes('r2.cloudflarestorage.com'))) {
+      try {
+        await deletePhotoFromR2(photoToRemove);
+      } catch (err) {
+        console.warn('R2 deletion notice:', err);
+      }
+    }
   };
 
   const handleFamilyFileUpload = async (e) => {

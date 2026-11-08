@@ -3892,8 +3892,12 @@ export default function App() {
   // Centralized robust profile photo updater (syncs state, localStorage, match profiles, Supabase & Storage)
   const handlePhotoUpdateAction = useCallback(async (photosData) => {
     if (!photosData) return;
-    const rawPhoto = photosData.photo || photosData.singlePhotos?.[0] || currentUser?.photo;
-    const primaryPhoto = addCacheBuster(rawPhoto, Date.now());
+    const isProfileDeleted = photosData.photo === null || (Array.isArray(photosData.singlePhotos) && photosData.singlePhotos.length === 0);
+    const rawPhoto = isProfileDeleted ? null : (photosData.photo || photosData.singlePhotos?.[0] || currentUser?.photo || null);
+    const primaryPhoto = rawPhoto ? addCacheBuster(rawPhoto, Date.now()) : null;
+
+    const isFamilyDeleted = photosData.family_photo === null || photosData.family_photo_url === null || (Array.isArray(photosData.familyPhotos) && photosData.familyPhotos.length === 0);
+    const rawFamily = isFamilyDeleted ? null : (photosData.family_photo || photosData.family_photo_url || photosData.familyPhotos?.[0] || currentUser?.family_photo_url || null);
 
     // 1. Immediately update reactive state for currentUser
     let updatedUser;
@@ -3904,7 +3908,8 @@ export default function App() {
         photo: primaryPhoto,
         photo_url: primaryPhoto,
         profile_photo_url: primaryPhoto,
-        family_photo_url: photosData.family_photo_url || photosData.familyPhotos?.[0] || prev?.family_photo_url || null
+        family_photo: rawFamily,
+        family_photo_url: rawFamily
       };
 
       try {
@@ -3937,7 +3942,8 @@ export default function App() {
             profile_photo_url: primaryPhoto,
             singlePhotos: photosData.singlePhotos || p.singlePhotos,
             familyPhotos: photosData.familyPhotos || p.familyPhotos,
-            family_photo_url: photosData.family_photo_url || photosData.familyPhotos?.[0] || p.family_photo_url || null,
+            family_photo: rawFamily,
+            family_photo_url: rawFamily,
             hidePhotos: photosData.hidePhotos !== undefined ? photosData.hidePhotos : p.hidePhotos,
             photoVisibility: photosData.photoVisibility || p.photoVisibility,
             blurPhotosForUnconnected: photosData.blurPhotosForUnconnected !== undefined ? photosData.blurPhotosForUnconnected : p.blurPhotosForUnconnected
@@ -3953,23 +3959,26 @@ export default function App() {
       showToast('Photos set to Accepted Matches only 🔒');
     } else if (photosData.photoVisibility === 'request') {
       showToast('Photos set to Request Approval only 🔑');
+    } else if (isProfileDeleted && isFamilyDeleted) {
+      showToast('Photos removed successfully');
     } else {
       showToast('Profile & Family Photos updated! ⭐');
     }
 
-    // 3. Persist to Supabase and upload image to Supabase Storage bucket
+    // 3. Persist to Supabase and upload image strictly to Cloudflare R2
     try {
       const syncResult = await updateLivePhotos({
         id: currentUser?.id,
         registerId: currentUser?.registerId || currentUser?.register_id,
         phone: currentUser?.mobile || currentUser?.phone,
         name: currentUser?.name || currentUser?.fullName,
-        photo: primaryPhoto,
-        photo_url: primaryPhoto,
-        profile_photo_url: primaryPhoto,
+        photo: isProfileDeleted ? null : primaryPhoto,
+        photo_url: isProfileDeleted ? null : primaryPhoto,
+        profile_photo_url: isProfileDeleted ? null : primaryPhoto,
         singlePhotos: photosData.singlePhotos,
         familyPhotos: photosData.familyPhotos,
-        family_photo_url: photosData.family_photo_url || photosData.familyPhotos?.[0],
+        family_photo: isFamilyDeleted ? null : rawFamily,
+        family_photo_url: isFamilyDeleted ? null : rawFamily,
         hidePhotos: photosData.hidePhotos,
         photoVisibility: photosData.photoVisibility,
         blurPhotosForUnconnected: photosData.blurPhotosForUnconnected
