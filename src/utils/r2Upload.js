@@ -13,6 +13,59 @@
 import { compressImageToWebP } from './imageOptimizer';
 import { addCacheBuster } from './cacheBuster';
 
+export const PUBLIC_R2_DOMAIN = 'https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev';
+
+/**
+ * Formats/sanitizes any photo URL to strictly use the public R2 domain:
+ * https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/<objectKey>
+ *
+ * Rules:
+ * 1. Do NOT save/render private S3 endpoint URLs (https://60ba75772b194956aea9a7080138d7e0.r2.cloudflarestorage.com/i4youmatrimony/...)
+ * 2. Do NOT include /i4youmatrimony in the public .r2.dev URL
+ * 3. Ensure no double slashes
+ */
+export function formatR2PublicUrl(urlOrKey) {
+  if (!urlOrKey || typeof urlOrKey !== 'string') return '';
+  let clean = urlOrKey.trim();
+  if (!clean) return '';
+
+  // Preserve Supabase storage URLs
+  if (clean.includes('supabase.co/storage/')) {
+    return clean;
+  }
+
+  // Preserve data URLs and blob URLs
+  if (clean.startsWith('data:') || clean.startsWith('blob:')) {
+    return clean;
+  }
+
+  // Handle query params e.g. ?t=123
+  const [baseWithoutQuery, query] = clean.split('?');
+  let path = baseWithoutQuery;
+
+  // Replace any private Cloudflare R2 S3 endpoint with public domain
+  if (path.includes('.r2.cloudflarestorage.com/')) {
+    const parts = path.split('.r2.cloudflarestorage.com/');
+    let sub = parts[1] || '';
+    if (sub.startsWith('i4youmatrimony/')) {
+      sub = sub.substring('i4youmatrimony/'.length);
+    }
+    path = `${PUBLIC_R2_DOMAIN}/${sub.replace(/^\/+/, '')}`;
+  } else if (path.includes('pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/')) {
+    // Remove /i4youmatrimony if present
+    path = path.replace('pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/i4youmatrimony/', 'pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/');
+  } else if (!path.startsWith('http://') && !path.startsWith('https://')) {
+    // Relative key e.g. avatars/profile_...jpg or family/family_...jpg
+    let key = path.replace(/^\/+/, '');
+    if (key.startsWith('i4youmatrimony/')) {
+      key = key.substring('i4youmatrimony/'.length);
+    }
+    path = `${PUBLIC_R2_DOMAIN}/${key}`;
+  }
+
+  return query ? `${path}?${query}` : path;
+}
+
 /**
  * Reads environment variables safely in Vite and Node/test environments
  */
@@ -245,9 +298,9 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
       throw new Error(`Cloudflare R2 PUT failed (${res.status}): ${errText || res.statusText}`);
     }
 
-    // 6. Return the permanent public R2 URL
-    const publicUrlBase = basePublicUrl || `${endpoint}/${bucketName}`;
-    const rawPublicUrl = `${publicUrlBase}/${filePath}`;
+    // 6. Return the permanent public R2 URL (strictly public domain: pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/<objectKey>)
+    const cleanObjectKey = filePath.replace(/^\/+/, '').replace(/^i4youmatrimony\//, '');
+    const rawPublicUrl = `${PUBLIC_R2_DOMAIN}/${cleanObjectKey}`;
     const publicUrl = addCacheBuster(rawPublicUrl, timestamp);
 
     console.info(`[r2Upload] Uploaded to Cloudflare R2: ${publicUrl} (${compressed.sizeKB} KB)`);
@@ -256,7 +309,7 @@ export async function uploadPhotoToR2(file, userId = 'user', folder = 'profiles'
       success: true,
       publicUrl,
       rawPublicUrl,
-      filePath,
+      filePath: cleanObjectKey,
       sizeKB: compressed.sizeKB,
       isFallback: false
     };
@@ -282,6 +335,10 @@ export async function deletePhotoFromR2(urlOrKey) {
     const parts = filePath.split('.r2.cloudflarestorage.com/')[1];
     const slashIdx = parts.indexOf('/');
     filePath = slashIdx !== -1 ? parts.substring(slashIdx + 1) : parts;
+  }
+  filePath = filePath.replace(/^\/+/, '');
+  if (filePath.startsWith('i4youmatrimony/')) {
+    filePath = filePath.substring('i4youmatrimony/'.length);
   }
   filePath = filePath.replace(/^\/+/, '');
   if (!filePath) return { success: false, error: 'Could not extract object key' };

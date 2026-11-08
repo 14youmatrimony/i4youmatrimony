@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
+import '../services/cloudflare_r2_photo_service.dart';
 import 'matrimony_photo_manager.dart';
 
 /// Home / Matches Screen for I 4 You Matrimony
@@ -60,13 +63,32 @@ class _HomeMatchesScreenState extends State<HomeMatchesScreen> {
       print('[HomeMatchesScreen] Fetched $_fetchedCount profiles from public.profiles');
       debugPrint('====================================================');
 
-      // 3. Safely parse all fields handling nulls with ?? ''
+      // 3. Safely parse all fields handling nulls with ?? '' and sanitize photo URLs
       final parsedList = rawRows.map((row) {
         final map = (row is Map<String, dynamic>)
             ? row
             : Map<String, dynamic>.from(row as Map);
         return _safeParseProfile(map);
       }).toList();
+
+      // 4. Overwrite local cached user object in SharedPreferences with fresh row
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final currentUserId = prefs.getString('user_id') ?? prefs.getString('cached_user_id') ?? prefs.getString('id');
+        if (currentUserId != null && currentUserId.isNotEmpty) {
+          final matching = parsedList.firstWhere(
+            (p) => p['id'] == currentUserId || p['register_id'] == currentUserId,
+            orElse: () => {},
+          );
+          if (matching.isNotEmpty) {
+            prefs.setString('photo', matching['photo'] as String);
+            prefs.setString('photo_url', matching['photo'] as String);
+            prefs.setString('i4u_auth_user', jsonEncode(matching));
+            prefs.setString('current_user_profile', jsonEncode(matching));
+            debugPrint('[HomeMatchesScreen] Overwrote local cached user object from fresh Supabase query');
+          }
+        }
+      } catch (_) {}
 
       if (mounted) {
         setState(() {
@@ -87,14 +109,22 @@ class _HomeMatchesScreenState extends State<HomeMatchesScreen> {
 
   /// Safely extracts profile attributes, guaranteeing non-null values with ?? ''
   Map<String, dynamic> _safeParseProfile(Map<String, dynamic> row) {
-    // Read photo ?? photo_url ?? '' for the profile image
-    final String photoImage = (row['photo'] ??
+    // Read photo ?? photo_url ?? '' for the profile image and sanitize URL
+    final String rawPhoto = (row['photo'] ??
             row['photo_url'] ??
             row['profile_photo_url'] ??
             row['avatar_url'] ??
             '')
         .toString()
         .trim();
+    final String photoImage = CloudflareR2PhotoService.formatR2PublicUrl(rawPhoto);
+
+    final String rawFamily = (row['family_photo'] ??
+            row['family_photo_url'] ??
+            '')
+        .toString()
+        .trim();
+    final String familyPhotoImage = CloudflareR2PhotoService.formatR2PublicUrl(rawFamily);
 
     final String name = (row['name'] ?? row['full_name'] ?? 'Candidate').toString().trim();
     final String fullName = (row['full_name'] ?? row['name'] ?? '').toString().trim();
@@ -120,6 +150,10 @@ class _HomeMatchesScreenState extends State<HomeMatchesScreen> {
       'name': name.isEmpty ? 'Candidate' : name,
       'full_name': fullName,
       'photo': photoImage,
+      'photo_url': photoImage,
+      'profile_photo_url': photoImage,
+      'family_photo': familyPhotoImage,
+      'family_photo_url': familyPhotoImage,
       'gender': gender,
       'age': age,
       'height': height,
@@ -138,12 +172,14 @@ class _HomeMatchesScreenState extends State<HomeMatchesScreen> {
   }
 
   Widget _buildAvatar(String imageUrl, String name) {
-    if (imageUrl.isNotEmpty &&
-        (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
+    final cleanUrl = CloudflareR2PhotoService.formatR2PublicUrl(imageUrl);
+    if (cleanUrl.isNotEmpty &&
+        (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://'))) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Image.network(
-          imageUrl,
+          cleanUrl,
+          key: ValueKey(cleanUrl),
           width: 80,
           height: 80,
           fit: BoxFit.cover,

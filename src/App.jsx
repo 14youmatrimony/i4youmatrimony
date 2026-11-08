@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
+import { formatR2PublicUrl } from './utils/r2Upload';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { profileSyncService } from './services/profileSyncService';
 import { uploadProfilePhoto } from './services/storageService';
@@ -124,17 +125,29 @@ export const checkStoredUserSession = () => {
       return null;
     }
 
-    // Strictly sanitize and strip any fake/Unsplash placeholder photos or old project URLs
+    // Strictly sanitize photos and format R2 public domain
     if (user.photo && (isFakeAvatarUrl(user.photo) || (typeof user.photo === 'string' && user.photo.includes('kzvdzospvgzlfkkptadl.supabase.co')))) {
       user.photo = null;
       user.photo_url = null;
       user.avatar_url = null;
+    } else if (user.photo) {
+      user.photo = formatR2PublicUrl(user.photo);
+      user.photo_url = user.photo;
+      user.profile_photo_url = user.photo;
+    }
+    if (user.family_photo || user.family_photo_url) {
+      user.family_photo = formatR2PublicUrl(user.family_photo || user.family_photo_url);
+      user.family_photo_url = user.family_photo;
     }
     if (Array.isArray(user.singlePhotos)) {
-      user.singlePhotos = user.singlePhotos.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p) && !p.includes('kzvdzospvgzlfkkptadl.supabase.co'));
+      user.singlePhotos = user.singlePhotos
+        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p) && !p.includes('kzvdzospvgzlfkkptadl.supabase.co'))
+        .map(formatR2PublicUrl);
     }
     if (Array.isArray(user.familyPhotos)) {
-      user.familyPhotos = user.familyPhotos.filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p) && !p.includes('kzvdzospvgzlfkkptadl.supabase.co'));
+      user.familyPhotos = user.familyPhotos
+        .filter(p => p && typeof p === 'string' && !isFakeAvatarUrl(p) && !p.includes('kzvdzospvgzlfkkptadl.supabase.co'))
+        .map(formatR2PublicUrl);
     }
 
     const isAadhaarDone = localStorage.getItem('i4u_aadhaar_verified') === 'true';
@@ -473,6 +486,35 @@ export default function App() {
         try {
           localStorage.setItem('i4u_cached_profiles', JSON.stringify(cleanList));
         } catch (e) {}
+      }
+
+      // Always sync fresh user profile directly from Supabase public.profiles on load/refresh
+      const activeUser = currentUserRef.current || currentUser;
+      const targetUserId = activeUser?.id || activeUser?.registerId || activeUser?.register_id || localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id');
+      if (targetUserId && isSupabaseConfigured() && supabase) {
+        try {
+          const { data: freshUserRow } = await supabase
+            .from('profiles')
+            .select('*')
+            .or(`id.eq.${targetUserId},register_id.eq.${targetUserId}`)
+            .maybeSingle();
+
+          if (freshUserRow) {
+            const mappedUser = mapSupabaseRowToProfile(freshUserRow);
+            if (mappedUser) {
+              setCurrentUser(prev => {
+                const merged = { ...(prev || {}), ...mappedUser };
+                try {
+                  localStorage.setItem('i4u_auth_user', JSON.stringify(merged));
+                  localStorage.setItem('current_user_profile', JSON.stringify(merged));
+                } catch (_) {}
+                return merged;
+              });
+            }
+          }
+        } catch (uErr) {
+          console.warn('[Sync Current User Error]:', uErr);
+        }
       }
     } catch (e) {
       console.warn('[Sync Profiles Error]:', e);
@@ -3893,11 +3935,17 @@ export default function App() {
   const handlePhotoUpdateAction = useCallback(async (photosData) => {
     if (!photosData) return;
     const isProfileDeleted = photosData.photo === null || (Array.isArray(photosData.singlePhotos) && photosData.singlePhotos.length === 0);
-    const rawPhoto = isProfileDeleted ? null : (photosData.photo || photosData.singlePhotos?.[0] || currentUser?.photo || null);
+    let rawPhoto = isProfileDeleted ? null : (photosData.photo || photosData.singlePhotos?.[0] || currentUser?.photo || null);
+    if (rawPhoto) {
+      rawPhoto = formatR2PublicUrl(rawPhoto);
+    }
     const primaryPhoto = rawPhoto ? addCacheBuster(rawPhoto, Date.now()) : null;
 
     const isFamilyDeleted = photosData.family_photo === null || photosData.family_photo_url === null || (Array.isArray(photosData.familyPhotos) && photosData.familyPhotos.length === 0);
-    const rawFamily = isFamilyDeleted ? null : (photosData.family_photo || photosData.family_photo_url || photosData.familyPhotos?.[0] || currentUser?.family_photo_url || null);
+    let rawFamily = isFamilyDeleted ? null : (photosData.family_photo || photosData.family_photo_url || photosData.familyPhotos?.[0] || currentUser?.family_photo_url || null);
+    if (rawFamily) {
+      rawFamily = formatR2PublicUrl(rawFamily);
+    }
 
     // 1. Immediately update reactive state for currentUser
     let updatedUser;

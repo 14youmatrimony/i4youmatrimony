@@ -9,5 +9,7 @@ export {
   uploadPhotoToR2,
   deletePhotoFromR2,
   uploadPhotosBatchToR2,
-  compressImageToWebP
+  compressImageToWebP,
+  PUBLIC_R2_DOMAIN,
+  formatR2PublicUrl
 } from '../utils/r2Upload';

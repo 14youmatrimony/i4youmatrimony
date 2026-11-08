@@ -6,26 +6,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/cloudflare_r2_photo_service.dart';
 
-/// Interactive Photo Manager for Profile Photo and Family Photo
+/// Interactive State-Preserving Photo Manager for Profile Photo and Family Photo
 ///
-/// Features:
-/// 1. Active Screen & Button Wiring:
-///    - Tapping Profile Photo section OR Family Photo section (photo area, badge, or button)
-///      immediately triggers the image picker.
-///    - Shows visible loading spinner AND SnackBar ('Uploading photo...') the moment an image is chosen.
-/// 2. Upload Pipeline (Cloudflare R2 + Automatic Supabase Storage Fallback):
-///    - Pure Uint8List bytes extracted via `await image.readAsBytes()` (Zero dart:io File usage).
-///    - ImagePicker with maxWidth: 1000, maxHeight: 1000, imageQuality: 75.
-///    - First attempts direct AWS SigV4 PUT to Cloudflare R2 (avatars/profile_... or family/family_...).
-///    - If R2 fails (e.g. browser CORS or network issue), immediately logs error and uploads to
-///      Supabase Storage avatars bucket (upsert: true) with filename photo_${userId}_${timestamp}.jpg.
-/// 3. Supabase Database Row Match (id vs register_id):
-///    - Accurately matches user row via .eq('id', ...) or .eq('register_id', ...).
-///    - For Profile Photo: updates BOTH `photo` and `photo_url` columns.
-///    - For Family Photo: updates BOTH `family_photo` and `family_photo_url` columns.
-///    - Prints updated row result and immediately refreshes local UI state with new URL.
-/// 4. Delete Photo Option:
-///    - Removes object from R2 / Storage and sets photo columns to null in Supabase.
+/// Implements 4 critical guarantees:
+/// 1. Formats R2 URLs strictly to public domain: https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/<objectKey>
+///    (No private S3 endpoint, no /i4youmatrimony, no double slashes).
+/// 2. Matches Supabase public.profiles accurately using .or('id.eq.$userId,register_id.eq.$userId')
+///    and updates ALL columns (photo, photo_url, profile_photo_url; family_photo, family_photo_url).
+/// 3. Updates local session cache (SharedPreferences keys + user JSON) immediately after upload
+///    so page refresh keeps the new photo locked.
+/// 4. Syncs fresh row directly from Supabase on initState/refresh, auto-replacing any legacy
+///    private S3 endpoint prefix with the public domain.
 class MatrimonyPhotoManager extends StatefulWidget {
   final CloudflareR2PhotoService? r2Service;
   final String? customUserId;
@@ -74,11 +65,12 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
 
     // Listen for auth state changes
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.session?.user != null && (_profilePhotoUrl == null && _familyPhotoUrl == null)) {
+      if (data.session?.user != null) {
         _loadPhotosFromSupabase();
       }
     });
 
+    // Always fetch fresh profile row directly from Supabase on initialize
     _loadPhotosFromSupabase();
   }
 
@@ -88,7 +80,8 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     super.dispose();
   }
 
-  /// Hydrates active profile and photo URLs directly from Supabase public.profiles
+  /// Always fetches fresh row directly from Supabase public.profiles on load/refresh,
+  /// overwrites local cached user object, and sanitizes legacy private S3 endpoint URLs.
   Future<void> _loadPhotosFromSupabase() async {
     if (!mounted) return;
     setState(() {
@@ -99,7 +92,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     try {
       final supabase = Supabase.instance.client;
 
-      // 1. Fetch available profiles from public.profiles
+      // 1. Fetch fresh profiles directly from public.profiles
       final dynamic rowsResponse = await supabase
           .from('profiles')
           .select('id, register_id, name, phone, email, photo, photo_url, profile_photo_url, avatar_url, family_photo, family_photo_url');
@@ -114,56 +107,56 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
       }
       _allProfiles = loadedList;
 
-      // 2. Resolve target profile
-      Map<String, dynamic>? targetProfile;
+      // 2. Determine target user ID (from widget prop, auth session, or SharedPreferences)
+      String? targetId = widget.customUserId?.trim();
+      String? targetRegId = widget.customRegisterId?.trim();
 
-      // Explicit ID passed via widget
-      if (widget.customUserId != null && widget.customUserId!.trim().isNotEmpty) {
-        final cid = widget.customUserId!.trim();
-        targetProfile = _allProfiles.firstWhere(
-          (p) => p['id']?.toString() == cid || p['register_id']?.toString() == cid,
-          orElse: () => {'id': cid, 'name': 'Member'},
-        );
-      }
-
-      // Check current auth user
-      if (targetProfile == null) {
+      if (targetId == null || targetId.isEmpty) {
         final authUser = supabase.auth.currentUser;
         if (authUser != null) {
-          final authId = authUser.id;
-          final authPhone = authUser.phone ?? authUser.userMetadata?['phone']?.toString();
-          final authEmail = authUser.email;
-          targetProfile = _allProfiles.firstWhere(
-            (p) =>
-                p['id']?.toString() == authId ||
-                (authPhone != null && p['phone']?.toString() == authPhone) ||
-                (authEmail != null && p['email']?.toString() == authEmail),
-            orElse: () => {'id': authId, 'name': authUser.userMetadata?['name']?.toString() ?? 'Member'},
-          );
+          targetId = authUser.id;
         }
       }
 
-      // Check SharedPreferences for saved profile ID
-      if (targetProfile == null) {
+      if (targetId == null || targetId.isEmpty) {
         try {
           final prefs = await SharedPreferences.getInstance();
-          final savedId = prefs.getString('user_id') ?? prefs.getString('cached_user_id') ?? prefs.getString('id');
-          if (savedId != null && savedId.isNotEmpty) {
-            targetProfile = _allProfiles.firstWhere(
-              (p) => p['id']?.toString() == savedId || p['register_id']?.toString() == savedId,
-              orElse: () => {'id': savedId, 'name': 'Member'},
-            );
-          }
+          targetId = prefs.getString('user_id') ?? prefs.getString('cached_user_id') ?? prefs.getString('id');
+          targetRegId = targetRegId ?? prefs.getString('register_id');
         } catch (_) {}
       }
 
-      // Default to first profile in database if available
-      if (targetProfile == null && _allProfiles.isNotEmpty) {
-        targetProfile = _allProfiles.first;
+      Map<String, dynamic>? freshProfileRow;
+
+      // 3. Match user row accurately using .or('id.eq.$userId,register_id.eq.$userId')
+      if (targetId != null && targetId.isNotEmpty) {
+        try {
+          final orFilter = 'id.eq.$targetId,register_id.eq.$targetId';
+          final dynamic directResult = await supabase
+              .from('profiles')
+              .select('id, register_id, name, photo, photo_url, profile_photo_url, avatar_url, family_photo, family_photo_url')
+              .or(orFilter)
+              .maybeSingle();
+
+          if (directResult is Map) {
+            freshProfileRow = Map<String, dynamic>.from(directResult);
+          }
+        } catch (e) {
+          debugPrint('[MatrimonyPhotoManager] Direct fetch notice: $e');
+        }
+
+        if (freshProfileRow == null && _allProfiles.isNotEmpty) {
+          freshProfileRow = _allProfiles.firstWhere(
+            (p) => p['id']?.toString() == targetId || p['register_id']?.toString() == targetId,
+            orElse: () => _allProfiles.first,
+          );
+        }
+      } else if (_allProfiles.isNotEmpty) {
+        freshProfileRow = _allProfiles.first;
       }
 
-      if (targetProfile != null) {
-        _selectActiveProfile(targetProfile);
+      if (freshProfileRow != null) {
+        _applyFreshProfile(freshProfileRow);
       } else {
         if (mounted) {
           setState(() {
@@ -173,7 +166,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         }
       }
     } catch (e) {
-      debugPrint('[MatrimonyPhotoManager] Error loading profiles: $e');
+      debugPrint('[MatrimonyPhotoManager] Error loading fresh profiles from Supabase: $e');
       if (mounted) {
         setState(() {
           _errorMessage = 'Failed to load profile data: ${e.toString()}';
@@ -183,22 +176,63 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     }
   }
 
-  void _selectActiveProfile(Map<String, dynamic> profile) {
+  /// Overwrites local cached user object and applies sanitized public URLs
+  void _applyFreshProfile(Map<String, dynamic> profile) {
     final String uid = (profile['id'] ?? '').toString().trim();
     final String regId = (widget.customRegisterId != null && widget.customRegisterId!.isNotEmpty)
         ? widget.customRegisterId!
-        : (profile['register_id'] ?? '').toString().trim();
+        : (profile['register_id'] ?? uid).toString().trim();
     final String name = (profile['name'] ?? profile['full_name'] ?? 'Member').toString().trim();
 
-    final String? profilePhoto = profile['photo']?.toString() ??
-        profile['photo_url']?.toString() ??
-        profile['profile_photo_url']?.toString() ??
-        profile['avatar_url']?.toString();
+    final String rawProfilePhoto = (profile['photo'] ??
+            profile['photo_url'] ??
+            profile['profile_photo_url'] ??
+            profile['avatar_url'] ??
+            '')
+        .toString()
+        .trim();
 
-    final String? familyPhoto = profile['family_photo']?.toString() ??
-        profile['family_photo_url']?.toString();
+    final String rawFamilyPhoto = (profile['family_photo'] ??
+            profile['family_photo_url'] ??
+            '')
+        .toString()
+        .trim();
 
-    // Evict cached images so previous photo doesn't linger
+    // Automatically replace private S3 endpoint prefix with public domain: https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/
+    final String cleanProfilePhoto = CloudflareR2PhotoService.formatR2PublicUrl(rawProfilePhoto);
+    final String cleanFamilyPhoto = CloudflareR2PhotoService.formatR2PublicUrl(rawFamilyPhoto);
+
+    // Overwrite local cached user object in SharedPreferences immediately
+    try {
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString('user_id', uid);
+        prefs.setString('register_id', regId);
+        if (cleanProfilePhoto.isNotEmpty) {
+          prefs.setString('photo', cleanProfilePhoto);
+          prefs.setString('photo_url', cleanProfilePhoto);
+          prefs.setString('profile_photo_url', cleanProfilePhoto);
+          prefs.setString('avatar_url', cleanProfilePhoto);
+        }
+        if (cleanFamilyPhoto.isNotEmpty) {
+          prefs.setString('family_photo', cleanFamilyPhoto);
+          prefs.setString('family_photo_url', cleanFamilyPhoto);
+        }
+
+        // Update stored user JSON
+        final Map<String, dynamic> freshUserMap = Map<String, dynamic>.from(profile);
+        freshUserMap['photo'] = cleanProfilePhoto;
+        freshUserMap['photo_url'] = cleanProfilePhoto;
+        freshUserMap['profile_photo_url'] = cleanProfilePhoto;
+        freshUserMap['avatar_url'] = cleanProfilePhoto;
+        freshUserMap['family_photo'] = cleanFamilyPhoto;
+        freshUserMap['family_photo_url'] = cleanFamilyPhoto;
+        prefs.setString('i4u_auth_user', jsonEncode(freshUserMap));
+        prefs.setString('current_user_profile', jsonEncode(freshUserMap));
+        debugPrint('[MatrimonyPhotoManager] Overwrote local cached user object in SharedPreferences');
+      });
+    } catch (_) {}
+
+    // Evict cached images so stale images never linger
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
 
@@ -207,8 +241,8 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         _resolvedUserId = uid.isNotEmpty ? uid : 'user';
         _resolvedRegisterId = regId;
         _resolvedName = name;
-        _profilePhotoUrl = (profilePhoto != null && profilePhoto.trim().isNotEmpty) ? profilePhoto.trim() : null;
-        _familyPhotoUrl = (familyPhoto != null && familyPhoto.trim().isNotEmpty) ? familyPhoto.trim() : null;
+        _profilePhotoUrl = cleanProfilePhoto.isNotEmpty ? cleanProfilePhoto : null;
+        _familyPhotoUrl = cleanFamilyPhoto.isNotEmpty ? cleanFamilyPhoto : null;
         _isLoading = false;
       });
     }
@@ -220,7 +254,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     debugPrint('[MatrimonyPhotoManager] Tapped to upload/change $photoLabel');
 
     try {
-      // 1. Image selection with built-in cross-platform compression (maxWidth: 1000, maxHeight: 1000, imageQuality: 75)
+      // 1. Pick image with built-in compression (maxWidth: 1000, maxHeight: 1000, imageQuality: 75)
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1000,
@@ -234,8 +268,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         return;
       }
 
-      // 2. THE MOMENT THE USER SELECTS AN IMAGE:
-      // Immediately activate loading spinner on the card
+      // 2. Show visible loading spinner AND SnackBar ('Uploading photo...') the moment user selects an image
       if (mounted) {
         setState(() {
           if (isProfilePhoto) {
@@ -246,7 +279,6 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
           _errorMessage = null;
         });
 
-        // Immediately show prominent floating SnackBar ('Uploading photo...') as required!
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -274,7 +306,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         );
       }
 
-      // 3. Read picked image as Uint8List bytes (Zero dart:io File usage; safe for Web, Android, iOS)
+      // 3. Read picked image using await pickedFile.readAsBytes() (Uint8List, zero dart:io)
       final bytes = await image.readAsBytes();
       if (bytes.isEmpty) {
         throw Exception('Selected image file is empty.');
@@ -289,9 +321,8 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
           ? 'avatars/profile_${userId}_$timestamp.jpg'
           : 'family/family_${userId}_$timestamp.jpg';
 
-      // 4. Upload Pipeline (Cloudflare R2 + Automatic Supabase Storage Fallback)
-      // First attempts Cloudflare R2 AWS SigV4 PUT; if CORS or keys fail, automatically falls back to Supabase Storage avatars bucket
-      final permanentUrl = await _r2Service.uploadBytesToR2(
+      // 4. Upload to Cloudflare R2 (saves strictly as https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/<objectKey>)
+      final publicUrl = await _r2Service.uploadBytesToR2(
         bytes: bytes,
         filePath: r2Path,
         userId: userId,
@@ -299,40 +330,62 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         contentType: 'image/jpeg',
       );
 
-      // 5. Update Supabase public.profiles table matching id or register_id
-      // For Profile Photo: updates BOTH photo and photo_url (and profile_photo_url)
-      // For Family Photo: updates BOTH family_photo and family_photo_url
+      // 5. Update Supabase public.profiles matching .or('id.eq.$userId,register_id.eq.$userId')
       final updatedRow = await _r2Service.persistPhotoUrlToSupabase(
-        url: permanentUrl,
+        url: publicUrl,
         isProfilePhoto: isProfilePhoto,
         userId: userId,
         registerId: _resolvedRegisterId,
       );
 
-      // Print the updated row result to console as requested
-      debugPrint('====================================================');
-      debugPrint('[Upload Pipeline] Successfully Saved $photoLabel to Supabase:');
-      debugPrint('Permanent URL: $permanentUrl');
-      debugPrint('Updated Row: ${updatedRow != null ? jsonEncode(updatedRow) : "Success"}');
-      // ignore: avoid_print
-      print('[Upload Pipeline] Updated Row Result: ${updatedRow != null ? jsonEncode(updatedRow) : "Success"}');
-      debugPrint('====================================================');
+      // 6. Update local session cache (SharedPreferences / Provider) immediately
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (isProfilePhoto) {
+          await prefs.setString('photo', publicUrl);
+          await prefs.setString('photo_url', publicUrl);
+          await prefs.setString('profile_photo_url', publicUrl);
+          await prefs.setString('avatar_url', publicUrl);
+        } else {
+          await prefs.setString('family_photo', publicUrl);
+          await prefs.setString('family_photo_url', publicUrl);
+        }
 
-      // 6. Evict image caches
+        final jsonKeys = ['i4u_auth_user', 'current_user_profile', 'user_profile', 'cached_user', 'user_data'];
+        for (final key in jsonKeys) {
+          final raw = prefs.getString(key);
+          if (raw != null && raw.isNotEmpty) {
+            try {
+              final Map<String, dynamic> userMap = jsonDecode(raw);
+              if (isProfilePhoto) {
+                userMap['photo'] = publicUrl;
+                userMap['photo_url'] = publicUrl;
+                userMap['profile_photo_url'] = publicUrl;
+                userMap['avatar_url'] = publicUrl;
+              } else {
+                userMap['family_photo'] = publicUrl;
+                userMap['family_photo_url'] = publicUrl;
+              }
+              await prefs.setString(key, jsonEncode(userMap));
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
+      // 7. Evict stale cached images
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
 
-      // 7. Immediately refresh local user state/UI with the new URL
+      // 8. Immediately refresh local user state/UI with the new URL
       if (mounted) {
         setState(() {
           if (isProfilePhoto) {
-            _profilePhotoUrl = permanentUrl;
+            _profilePhotoUrl = publicUrl;
           } else {
-            _familyPhotoUrl = permanentUrl;
+            _familyPhotoUrl = publicUrl;
           }
         });
 
-        // Hide 'Uploading photo...' SnackBar and show completion toast
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -355,7 +408,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         );
 
         widget.onPhotosUpdated?.call();
-        widget.onPhotoCached?.call(permanentUrl, isProfilePhoto);
+        widget.onPhotoCached?.call(publicUrl, isProfilePhoto);
       }
     } catch (e) {
       debugPrint('[MatrimonyPhotoManager] Upload pipeline error: $e');
@@ -670,7 +723,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
                       onChanged: (selectedId) {
                         if (selectedId != null) {
                           final selected = _allProfiles.firstWhere((p) => p['id']?.toString() == selectedId);
-                          _selectActiveProfile(selected);
+                          _applyFreshProfile(selected);
                         }
                       },
                     ),
@@ -926,11 +979,14 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
     );
   }
 
-  /// Network image renderer with ValueKey cache lock
+  /// Network image renderer with ValueKey cache lock and automatic public URL normalization
   Widget _buildNetworkImage(String url) {
+    // Automatically replace private S3 endpoint prefix with public domain: https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/
+    final publicRenderUrl = CloudflareR2PhotoService.formatR2PublicUrl(url);
+
     return Image.network(
-      url,
-      key: ValueKey(url),
+      publicRenderUrl,
+      key: ValueKey(publicRenderUrl),
       fit: BoxFit.cover,
       headers: const {
         'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
@@ -949,7 +1005,7 @@ class _MatrimonyPhotoManagerState extends State<MatrimonyPhotoManager> {
         );
       },
       errorBuilder: (context, error, stackTrace) {
-        debugPrint('[MatrimonyPhotoManager] Image.network load error for $url: $error');
+        debugPrint('[MatrimonyPhotoManager] Image.network load error for $publicRenderUrl: $error');
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(16.0),

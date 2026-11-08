@@ -9,15 +9,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Pure Cross-Platform Cloudflare R2 & Supabase Photo Upload and Deletion Service
 ///
 /// Features:
-/// 1. Zero dart:io File usage and zero external compression libraries (Web, Android, iOS safe).
-/// 2. Reads pure Uint8List bytes via `await image.readAsBytes()`.
-/// 3. Uploads to Cloudflare R2 via AWS Signature Version 4 PUT using http package.
-/// 4. Automatic Fallback to Supabase Storage `avatars` bucket if R2 is blocked by CORS or network,
-///    using timestamped filename `photo_${userId}_${timestamp}.jpg` so uploads never fail silently.
-/// 5. Matches user accurately in `public.profiles` via `.eq('id', ...)` or `.eq('register_id', ...)`.
-/// 6. Updates BOTH `photo` and `photo_url` for Profile Photo; BOTH `family_photo` and `family_photo_url` for Family Photo.
-/// 7. Prints updated row result and refreshes state.
-/// 8. Provides direct deletion from R2/Storage and Supabase.
+/// 1. Saves public R2 URLs strictly using public domain: https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/<objectKey>
+///    (zero private S3 endpoint URLs, zero /i4youmatrimony prefix in public URLs, zero double slashes).
+/// 2. Matches Supabase public.profiles rows via .or('id.eq.$userId,register_id.eq.$userId') and updates ALL columns:
+///    - Profile: `photo`, `photo_url`, `profile_photo_url`, `avatar_url`
+///    - Family: `family_photo`, `family_photo_url`
+/// 3. Immediately updates local session cache in SharedPreferences (keys + stored user JSON) so refreshing
+///    the page never loads stale data.
+/// 4. Pure Uint8List bytes extracted via `await image.readAsBytes()` (Zero dart:io File usage).
+/// 5. Uploads to Cloudflare R2 via AWS Signature Version 4 PUT using http package.
+/// 6. Automatic fallback to Supabase Storage avatars bucket if R2 fails due to CORS or network.
 class CloudflareR2PhotoService {
   static const String defaultSupabaseUrl = 'https://kzvdzospvgzlfkkptadl.supabase.co';
   static const String defaultSupabaseAnonKey =
@@ -29,7 +30,7 @@ class CloudflareR2PhotoService {
   static const String defaultSecretAccessKey =
       'f33f804f8d0858ce476bcc6a72ddd54a1a577a7d3072da11672af6b4edb33486';
   static const String defaultBucketName = 'i4youmatrimony';
-  static const String defaultPublicUrlBase =
+  static const String publicDomain =
       'https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev';
 
   final String endpoint;
@@ -50,7 +51,7 @@ class CloudflareR2PhotoService {
         accessKeyId = accessKeyId ?? defaultAccessKeyId,
         secretAccessKey = secretAccessKey ?? defaultSecretAccessKey,
         bucketName = (bucketName != null && bucketName.isNotEmpty) ? bucketName : defaultBucketName,
-        publicUrlBase = normalizePublicUrl(publicUrlBase ?? defaultPublicUrlBase);
+        publicUrlBase = publicDomain;
 
   static String normalizeEndpoint(String ep) {
     if (ep.isEmpty) return defaultEndpoint;
@@ -62,12 +63,7 @@ class CloudflareR2PhotoService {
   }
 
   static String normalizePublicUrl(String url) {
-    if (url.isEmpty) return defaultPublicUrlBase;
-    final clean = url.trim().replaceAll(RegExp(r'/+$'), '');
-    if (clean.contains('dash.cloudflare.com')) {
-      return defaultPublicUrlBase;
-    }
-    return clean;
+    return publicDomain;
   }
 
   factory CloudflareR2PhotoService.fromEnv({
@@ -81,7 +77,6 @@ class CloudflareR2PhotoService {
     const envAccessKey = String.fromEnvironment('R2_ACCESS_KEY_ID');
     const envSecretKey = String.fromEnvironment('R2_SECRET_ACCESS_KEY');
     const envBucket = String.fromEnvironment('R2_BUCKET_NAME');
-    const envPublicUrl = String.fromEnvironment('R2_PUBLIC_URL');
 
     return CloudflareR2PhotoService(
       endpoint: endpoint?.isNotEmpty == true
@@ -96,16 +91,52 @@ class CloudflareR2PhotoService {
       bucketName: bucketName?.isNotEmpty == true
           ? bucketName!
           : (envBucket.isNotEmpty ? envBucket : defaultBucketName),
-      publicUrlBase: publicUrlBase?.isNotEmpty == true
-          ? publicUrlBase!
-          : (envPublicUrl.isNotEmpty ? envPublicUrl : defaultPublicUrlBase),
+      publicUrlBase: publicDomain,
     );
   }
 
+  /// Converts any R2 URL (private S3 endpoint, malformed URL, or object key)
+  /// into the clean public R2 URL: https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/<objectKey>
+  /// Ensures:
+  /// - NO private S3 endpoint (60ba75772b194956aea9a7080138d7e0.r2.cloudflarestorage.com)
+  /// - NO /i4youmatrimony in the public .r2.dev URL
+  /// - NO double slashes
+  static String formatR2PublicUrl(String? urlOrKey) {
+    if (urlOrKey == null || urlOrKey.trim().isEmpty) return '';
+    var clean = urlOrKey.trim();
+
+    // Preserve Supabase Storage URLs
+    if (clean.contains('supabase.co/storage/')) {
+      return clean;
+    }
+
+    // Replace any private Cloudflare R2 S3 endpoint with public domain
+    if (clean.contains('.r2.cloudflarestorage.com/')) {
+      final parts = clean.split('.r2.cloudflarestorage.com/');
+      var path = parts.length > 1 ? parts[1] : '';
+      if (path.startsWith('i4youmatrimony/')) {
+        path = path.substring('i4youmatrimony/'.length);
+      }
+      clean = '$publicDomain/${path.replaceAll(RegExp(r'^/+'), '')}';
+    } else if (clean.contains('pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/')) {
+      // Remove /i4youmatrimony if present
+      clean = clean.replaceAll('pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/i4youmatrimony/', 'pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/');
+    } else if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      // Relative key e.g. avatars/profile_...jpg or family/family_...jpg
+      var key = clean.replaceAll(RegExp(r'^/+'), '');
+      if (key.startsWith('i4youmatrimony/')) {
+        key = key.substring('i4youmatrimony/'.length);
+      }
+      clean = '$publicDomain/$key';
+    }
+
+    // Eliminate double slashes (except after http: or https:)
+    clean = clean.replaceAll(RegExp(r'(?<!https?:)/{2,}'), '/');
+    return clean;
+  }
+
   /// Uploads Uint8List bytes to Cloudflare R2 with automatic fallback to Supabase Storage avatars bucket.
-  /// If Cloudflare R2 fails (e.g., browser CORS preflight on Web or network issue),
-  /// immediately logs the exact R2 error and automatically uploads to Supabase Storage avatars bucket
-  /// with timestamped filename (photo_${userId}_${timestamp}.jpg) so the upload never fails silently.
+  /// Always returns clean public URL: https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/<objectKey>
   Future<String> uploadBytesToR2({
     required Uint8List bytes,
     required String filePath,
@@ -121,27 +152,31 @@ class CloudflareR2PhotoService {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final cleanUid = (userId != null && userId.trim().isNotEmpty) ? userId.trim() : 'user';
 
-    // 1. Attempt upload to Cloudflare R2 via AWS Signature V4 PUT
+    // 1. Attempt direct AWS SigV4 PUT to Cloudflare R2
     try {
-      debugPrint('[CloudflareR2PhotoService] Attempting AWS SigV4 PUT to Cloudflare R2: $cleanPath');
+      debugPrint('[CloudflareR2PhotoService] Uploading to Cloudflare R2 S3 endpoint: $cleanPath');
       await _putBytesToR2(
         bytes: bytes,
         filePath: cleanPath,
         contentType: contentType,
       );
 
-      final base = publicUrlBase.isNotEmpty ? publicUrlBase : '$endpoint/$bucketName';
-      final r2Url = '$base/$cleanPath';
-      debugPrint('[CloudflareR2PhotoService] Cloudflare R2 upload succeeded: $r2Url');
-      return r2Url;
+      // Strip i4youmatrimony prefix if present in key
+      final cleanKey = cleanPath.startsWith('i4youmatrimony/')
+          ? cleanPath.substring('i4youmatrimony/'.length)
+          : cleanPath;
+
+      // Construct public URL using public domain (never private S3 endpoint)
+      final r2PublicUrl = formatR2PublicUrl(cleanKey);
+      debugPrint('[CloudflareR2PhotoService] Constructed Public R2 URL: $r2PublicUrl');
+      return r2PublicUrl;
     } catch (r2Error) {
-      // 2. Log exact R2 error
       debugPrint('====================================================');
-      debugPrint('[CloudflareR2PhotoService] Cloudflare R2 PUT failed / blocked: $r2Error');
+      debugPrint('[CloudflareR2PhotoService] Cloudflare R2 PUT failed / blocked by CORS: $r2Error');
       debugPrint('[CloudflareR2PhotoService] Executing automatic fallback to Supabase Storage avatars bucket...');
       debugPrint('====================================================');
 
-      // 3. Automatic fallback: Supabase Storage avatars bucket (upsert: true)
+      // 2. Automatic fallback: Supabase Storage avatars bucket (upsert: true)
       try {
         final supabase = Supabase.instance.client;
         final fallbackFileName = isProfilePhoto
@@ -182,7 +217,13 @@ class CloudflareR2PhotoService {
 
     if (noQuery.contains('r2.dev/')) {
       final parts = noQuery.split('r2.dev/');
-      if (parts.length > 1) return parts[1].replaceAll(RegExp(r'^/+'), '');
+      if (parts.length > 1) {
+        var key = parts[1].replaceAll(RegExp(r'^/+'), '');
+        if (key.startsWith('i4youmatrimony/')) {
+          key = key.substring('i4youmatrimony/'.length);
+        }
+        return key;
+      }
     }
 
     if (noQuery.contains('.r2.cloudflarestorage.com/')) {
@@ -210,14 +251,20 @@ class CloudflareR2PhotoService {
       } catch (_) {}
     }
 
-    return noQuery.replaceAll(RegExp(r'^/+'), '');
+    var key = noQuery.replaceAll(RegExp(r'^/+'), '');
+    if (key.startsWith('i4youmatrimony/')) {
+      key = key.substring('i4youmatrimony/'.length);
+    }
+    return key;
   }
 
   /// Persists the returned photo URL into Supabase `public.profiles` table.
-  /// Accurately matches user row via .eq('id', ...) or .eq('register_id', ...).
-  /// For Profile Photo: updates BOTH `photo` and `photo_url` (and `profile_photo_url`, `avatar_url`).
-  /// For Family Photo: updates BOTH `family_photo` and `family_photo_url` (and `family_photos`).
-  /// Prints the updated row result and returns the row.
+  /// 1. Ensures URL is strictly formatted with public domain: https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/<key>
+  /// 2. Matches user row using .or('id.eq.$userId,register_id.eq.$userId')
+  /// 3. Updates ALL photo columns:
+  ///    - Profile Photo: `photo`, `photo_url`, `profile_photo_url`, `avatar_url`
+  ///    - Family Photo: `family_photo`, `family_photo_url`, `family_photos`
+  /// 4. Immediately updates local session cache in SharedPreferences (keys + stored user JSON)
   Future<Map<String, dynamic>?> persistPhotoUrlToSupabase({
     required String url,
     required bool isProfilePhoto,
@@ -225,74 +272,68 @@ class CloudflareR2PhotoService {
     String? registerId,
   }) async {
     final supabase = Supabase.instance.client;
-    final cleanId = userId.trim();
-    final cleanRegId = registerId?.trim();
+    final cleanUid = userId.trim();
+    final cleanRegId = (registerId != null && registerId.trim().isNotEmpty) ? registerId.trim() : cleanUid;
+
+    // 1. Enforce clean public R2 URL format
+    final publicUrl = formatR2PublicUrl(url);
 
     final Map<String, dynamic> updatePayload = {
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
 
     if (isProfilePhoto) {
-      updatePayload['photo'] = url;
-      updatePayload['photo_url'] = url; // CRITICAL: BOTH photo AND photo_url UPDATED
-      updatePayload['profile_photo_url'] = url;
-      updatePayload['avatar_url'] = url;
-      updatePayload['single_photos'] = jsonEncode([url]);
+      updatePayload['photo'] = publicUrl;
+      updatePayload['photo_url'] = publicUrl;
+      updatePayload['profile_photo_url'] = publicUrl;
+      updatePayload['avatar_url'] = publicUrl;
+      updatePayload['single_photos'] = jsonEncode([publicUrl]);
     } else {
-      updatePayload['family_photo'] = url;
-      updatePayload['family_photo_url'] = url; // CRITICAL: BOTH family_photo AND family_photo_url UPDATED
-      updatePayload['family_photos'] = jsonEncode([url]);
+      updatePayload['family_photo'] = publicUrl;
+      updatePayload['family_photo_url'] = publicUrl;
+      updatePayload['family_photos'] = jsonEncode([publicUrl]);
     }
 
     List<dynamic> updatedRows = [];
 
-    // 1. Try matching by id first
+    // 2. Match user row accurately using .or('id.eq.$userId,register_id.eq.$userId')
     try {
+      final orFilter = (cleanUid == cleanRegId)
+          ? 'id.eq.$cleanUid,register_id.eq.$cleanUid'
+          : 'id.eq.$cleanUid,register_id.eq.$cleanUid,id.eq.$cleanRegId,register_id.eq.$cleanRegId';
+
       updatedRows = await supabase
           .from('profiles')
           .update(updatePayload)
-          .eq('id', cleanId)
+          .or(orFilter)
           .select();
     } catch (e) {
-      debugPrint('[CloudflareR2PhotoService] Update by id attempt notice: $e');
+      debugPrint('[CloudflareR2PhotoService] Update with or filter notice: $e');
     }
 
-    // 2. If no row matched by id, try matching by register_id
-    if (updatedRows.isEmpty) {
-      final targetRegId = (cleanRegId != null && cleanRegId.isNotEmpty) ? cleanRegId : cleanId;
-      try {
-        updatedRows = await supabase
-            .from('profiles')
-            .update(updatePayload)
-            .eq('register_id', targetRegId)
-            .select();
-      } catch (e) {
-        debugPrint('[CloudflareR2PhotoService] Update by register_id attempt notice: $e');
-      }
-    }
-
-    // 3. Fallback: match by or condition (id or register_id)
+    // Fallback: match by id directly
     if (updatedRows.isEmpty) {
       try {
         updatedRows = await supabase
             .from('profiles')
             .update(updatePayload)
-            .or('id.eq.$cleanId,register_id.eq.$cleanId')
+            .eq('id', cleanUid)
             .select();
-      } catch (e) {
-        if (e.toString().contains('column') || e.toString().contains('42703')) {
-          final safePayload = Map<String, dynamic>.from(updatePayload);
-          safePayload.remove('profile_photo_url');
-          safePayload.remove('family_photo_url');
-          safePayload.remove('avatar_url');
-          safePayload.remove('single_photos');
-          safePayload.remove('family_photos');
-          updatedRows = await supabase.from('profiles').update(safePayload).eq('id', cleanId).select();
-        }
-      }
+      } catch (_) {}
     }
 
-    // Print the updated row result as requested
+    // Fallback: match by register_id directly
+    if (updatedRows.isEmpty && cleanRegId.isNotEmpty) {
+      try {
+        updatedRows = await supabase
+            .from('profiles')
+            .update(updatePayload)
+            .eq('register_id', cleanRegId)
+            .select();
+      } catch (_) {}
+    }
+
+    // Print updated row result
     debugPrint('====================================================');
     debugPrint('[CloudflareR2PhotoService] Supabase Profile Update Result:');
     if (updatedRows.isNotEmpty) {
@@ -300,11 +341,47 @@ class CloudflareR2PhotoService {
       // ignore: avoid_print
       print('[CloudflareR2PhotoService] Supabase Profile Update Result: ${jsonEncode(updatedRows.first)}');
     } else {
-      debugPrint('No matching row updated in public.profiles for ID: $cleanId');
-      // ignore: avoid_print
-      print('[CloudflareR2PhotoService] Supabase Profile Update: Saved URL: $url');
+      debugPrint('No matching row updated for ID: $cleanUid');
     }
     debugPrint('====================================================');
+
+    // 3. Immediately Update Local Session Cache (SharedPreferences / Provider)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (isProfilePhoto) {
+        await prefs.setString('photo', publicUrl);
+        await prefs.setString('photo_url', publicUrl);
+        await prefs.setString('profile_photo_url', publicUrl);
+        await prefs.setString('avatar_url', publicUrl);
+      } else {
+        await prefs.setString('family_photo', publicUrl);
+        await prefs.setString('family_photo_url', publicUrl);
+      }
+
+      // Update stored user JSON in SharedPreferences so refreshing does not reload stale data
+      final jsonKeys = ['i4u_auth_user', 'current_user_profile', 'user_profile', 'cached_user', 'user_data'];
+      for (final key in jsonKeys) {
+        final raw = prefs.getString(key);
+        if (raw != null && raw.isNotEmpty) {
+          try {
+            final Map<String, dynamic> userMap = jsonDecode(raw);
+            if (isProfilePhoto) {
+              userMap['photo'] = publicUrl;
+              userMap['photo_url'] = publicUrl;
+              userMap['profile_photo_url'] = publicUrl;
+              userMap['avatar_url'] = publicUrl;
+            } else {
+              userMap['family_photo'] = publicUrl;
+              userMap['family_photo_url'] = publicUrl;
+            }
+            await prefs.setString(key, jsonEncode(userMap));
+            debugPrint('[CloudflareR2PhotoService] Updated stored user JSON in SharedPreferences key: $key');
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      debugPrint('[CloudflareR2PhotoService] Local session cache update notice: $e');
+    }
 
     // 4. Synchronize supabase.auth user metadata
     try {
@@ -312,29 +389,15 @@ class CloudflareR2PhotoService {
       if (currentUser != null) {
         final metadata = Map<String, dynamic>.from(currentUser.userMetadata ?? {});
         if (isProfilePhoto) {
-          metadata['profile_photo_url'] = url;
-          metadata['photo_url'] = url;
-          metadata['avatar_url'] = url;
-          metadata['photo'] = url;
+          metadata['profile_photo_url'] = publicUrl;
+          metadata['photo_url'] = publicUrl;
+          metadata['avatar_url'] = publicUrl;
+          metadata['photo'] = publicUrl;
         } else {
-          metadata['family_photo'] = url;
-          metadata['family_photo_url'] = url;
+          metadata['family_photo'] = publicUrl;
+          metadata['family_photo_url'] = publicUrl;
         }
         await supabase.auth.updateUser(UserAttributes(data: metadata));
-      }
-    } catch (_) {}
-
-    // 5. Synchronize local SharedPreferences cache
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (isProfilePhoto) {
-        await prefs.setString('profile_photo_url', url);
-        await prefs.setString('photo_url', url);
-        await prefs.setString('avatar_url', url);
-        await prefs.setString('photo', url);
-      } else {
-        await prefs.setString('family_photo', url);
-        await prefs.setString('family_photo_url', url);
       }
     } catch (_) {}
 
@@ -403,10 +466,11 @@ class CloudflareR2PhotoService {
 
     List<dynamic> updatedRows = [];
     try {
+      final orFilter = 'id.eq.$cleanId,register_id.eq.$cleanId';
       updatedRows = await supabase
           .from('profiles')
           .update(updatePayload)
-          .eq('id', cleanId)
+          .or(orFilter)
           .select();
     } catch (_) {}
 
@@ -422,10 +486,6 @@ class CloudflareR2PhotoService {
     }
 
     debugPrint('[CloudflareR2PhotoService] Reset photo columns to null for: $cleanId');
-    if (updatedRows.isNotEmpty) {
-      // ignore: avoid_print
-      print('[CloudflareR2PhotoService] Supabase Photo Deleted: ${jsonEncode(updatedRows.first)}');
-    }
 
     // 3. Clear auth user metadata
     try {
@@ -445,7 +505,7 @@ class CloudflareR2PhotoService {
       }
     } catch (_) {}
 
-    // 4. Clear SharedPreferences
+    // 4. Clear SharedPreferences and update stored user JSON
     try {
       final prefs = await SharedPreferences.getInstance();
       if (isProfilePhoto) {
@@ -456,6 +516,26 @@ class CloudflareR2PhotoService {
       } else {
         await prefs.remove('family_photo');
         await prefs.remove('family_photo_url');
+      }
+
+      final jsonKeys = ['i4u_auth_user', 'current_user_profile', 'user_profile', 'cached_user', 'user_data'];
+      for (final key in jsonKeys) {
+        final raw = prefs.getString(key);
+        if (raw != null && raw.isNotEmpty) {
+          try {
+            final Map<String, dynamic> userMap = jsonDecode(raw);
+            if (isProfilePhoto) {
+              userMap['photo'] = null;
+              userMap['photo_url'] = null;
+              userMap['profile_photo_url'] = null;
+              userMap['avatar_url'] = null;
+            } else {
+              userMap['family_photo'] = null;
+              userMap['family_photo_url'] = null;
+            }
+            await prefs.setString(key, jsonEncode(userMap));
+          } catch (_) {}
+        }
       }
     } catch (_) {}
   }
