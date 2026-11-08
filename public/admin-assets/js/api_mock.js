@@ -62,120 +62,7 @@
       "created_at": "2026-10-02 05:53:09"
     }
   ],
-  "offers": [
-    {
-      "id": 1,
-      "code": "FESTIVE50",
-      "title": "Diwali Festive Mega Discount",
-      "discount_percent": 10,
-      "plan_type": "All Plans",
-      "description": "Special 10% discount on all quarterly and annual matrimonial premium plans.",
-      "valid_from": "2026-09-01",
-      "valid_until": "2026-11-30",
-      "max_uses": 500,
-      "current_uses": 142,
-      "is_active": 0,
-      "created_at": "2026-09-23 09:38:41"
-    },
-    {
-      "id": 2,
-      "code": "ROYALVIP30",
-      "title": "Royal VIP Elite Upgrade Promo",
-      "discount_percent": 30,
-      "plan_type": "Royal VIP 12-Months",
-      "description": "Exclusive 30% reduction for Elite matchmaking with dedicated relationship manager.",
-      "valid_from": "2026-08-15",
-      "valid_until": "2026-12-31",
-      "max_uses": 200,
-      "current_uses": 89,
-      "is_active": 0,
-      "created_at": "2026-09-23 09:38:41"
-    },
-    {
-      "id": 3,
-      "code": "WELCOME25",
-      "title": "New Member Welcome Special",
-      "discount_percent": 25,
-      "plan_type": "Gold 3-Months",
-      "description": "25% instant discount on first-time profile upgrades for verified users.",
-      "valid_from": "2026-07-01",
-      "valid_until": "2026-10-31",
-      "max_uses": 1000,
-      "current_uses": 418,
-      "is_active": 0,
-      "created_at": "2026-09-23 09:38:41"
-    },
-    {
-      "id": 4,
-      "code": "PLATINUM20",
-      "title": "Platinum 6-Month Saver Pass",
-      "discount_percent": 20,
-      "plan_type": "Platinum 6-Months",
-      "description": "Save 20% on our most popular 6-month unlimited contact views and horoscopes.",
-      "valid_from": "2026-08-01",
-      "valid_until": "2026-10-15",
-      "max_uses": 350,
-      "current_uses": 214,
-      "is_active": 0,
-      "created_at": "2026-09-23 09:38:41"
-    },
-    {
-      "id": 5,
-      "code": "EARLYBIRD35",
-      "title": "Super Early Bird Advantage",
-      "discount_percent": 35,
-      "plan_type": "All Plans",
-      "description": "Limited 100-redemption code for newly registered verified singles.",
-      "valid_from": "2026-09-15",
-      "valid_until": "2026-09-30",
-      "max_uses": 100,
-      "current_uses": 94,
-      "is_active": 0,
-      "created_at": "2026-09-23 09:38:41"
-    },
-    {
-      "id": 6,
-      "code": "EXPIRED10",
-      "title": "Summer Flash Sale (Archived)",
-      "discount_percent": 10,
-      "plan_type": "Gold 3-Months",
-      "description": "Past promotional code for summer matchmaking drives.",
-      "valid_from": "2026-05-01",
-      "valid_until": "2026-06-30",
-      "max_uses": 500,
-      "current_uses": 492,
-      "is_active": 0,
-      "created_at": "2026-09-23 09:38:41"
-    },
-    {
-      "id": 23,
-      "code": "VIVAH50",
-      "title": "Festive Vivah Mahotsav: Flat 50% OFF",
-      "discount_percent": 50,
-      "plan_type": "All Plans",
-      "description": "Flat 50% discount on all plans during wedding season.",
-      "valid_from": "2026-01-01",
-      "valid_until": "2026-12-31",
-      "max_uses": 500,
-      "current_uses": 0,
-      "is_active": 0,
-      "created_at": "2026-10-02 14:10:27"
-    },
-    {
-      "id": 24,
-      "code": "FIRSTMATCH",
-      "title": "New Member Welcome Bonus: Flat 40% Off",
-      "discount_percent": 40,
-      "plan_type": "All Plans",
-      "description": "Special introductory savings for newly registered candidates & families.",
-      "valid_from": "2026-01-01",
-      "valid_until": "2026-12-31",
-      "max_uses": 300,
-      "current_uses": 0,
-      "is_active": 0,
-      "created_at": "2026-10-02 16:34:53"
-    }
-  ],
+  "offers": [],
   "plans": [
     {
       "id": "free",
@@ -318,260 +205,7 @@
       "support_level": "Priority Chat &amp; Email (24h)"
     }
   ],
-  "payments": [
-    {
-      "id": 33,
-      "transaction_id": "order_1791135997_7776",
-      "user_id": null,
-      "user_name": "Priya Sharma",
-      "plan_name": "Platinum VIP (12 Months)",
-      "amount": 14159.0,
-      "currency": "INR",
-      "payment_method": "UPI (Google Pay)",
-      "status": "completed",
-      "invoice_no": "INV-2026-7_7776",
-      "payment_date": "2026-10-04 23:17:16",
-      "notes": "Direct UPI PIN Authorized (Google Pay): order_1791135997_7776"
-    },
-    {
-      "id": 32,
-      "transaction_id": "order_1791094894_4919",
-      "user_id": null,
-      "user_name": "Candidate",
-      "plan_name": "Gold 3-Months",
-      "amount": 2499.0,
-      "currency": "INR",
-      "payment_method": "UPI (Google Pay)",
-      "status": "completed",
-      "invoice_no": "INV-2026-4_4919",
-      "payment_date": "2026-10-04 11:51:36",
-      "notes": "Direct UPI PIN Authorized (Google Pay): order_1791094894_4919"
-    },
-    {
-      "id": 31,
-      "transaction_id": "order_1791094101_1085",
-      "user_id": null,
-      "user_name": "Arun Test",
-      "plan_name": "Gold Plan",
-      "amount": 2999.0,
-      "currency": "INR",
-      "payment_method": "UPI (Google Pay)",
-      "status": "completed",
-      "invoice_no": "INV-2026-1_1085",
-      "payment_date": "2026-10-04 11:40:08",
-      "notes": "Direct UPI PIN Authorized (Google Pay): order_1791094101_1085"
-    },
-    {
-      "id": 15,
-      "transaction_id": "TXN-889345",
-      "user_id": "p15",
-      "user_name": "Nikhil Sharma",
-      "plan_name": "Royal VIP 12-Months",
-      "amount": 9999.0,
-      "currency": "INR",
-      "payment_method": "UPI (Google Pay)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0095",
-      "payment_date": "2026-09-20 11:30:00",
-      "notes": "Applied promo ROYALVIP30 (-30%)"
-    },
-    {
-      "id": 14,
-      "transaction_id": "TXN-889012",
-      "user_id": "p14",
-      "user_name": "Simran Kaur",
-      "plan_name": "Platinum 6-Months",
-      "amount": 4399.0,
-      "currency": "INR",
-      "payment_method": "Razorpay (Kotak NetBanking)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0094",
-      "payment_date": "2026-09-18 16:40:00",
-      "notes": "Applied promo PLATINUM20 (-20%)"
-    },
-    {
-      "id": 13,
-      "transaction_id": "TXN-888789",
-      "user_id": "p13",
-      "user_name": "Devendra Patil",
-      "plan_name": "Gold 3-Months",
-      "amount": 2999.0,
-      "currency": "INR",
-      "payment_method": "UPI (PhonePe)",
-      "status": "failed",
-      "invoice_no": "INV-2026-0093",
-      "payment_date": "2026-09-17 10:45:00",
-      "notes": "UPI transaction timed out by issuing bank"
-    },
-    {
-      "id": 12,
-      "transaction_id": "TXN-888456",
-      "user_id": "p12",
-      "user_name": "Pooja Agarwal",
-      "plan_name": "Platinum 6-Months",
-      "amount": 5499.0,
-      "currency": "INR",
-      "payment_method": "UPI (Google Pay)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0092",
-      "payment_date": "2026-09-14 15:20:00",
-      "notes": "Instant activation"
-    },
-    {
-      "id": 11,
-      "transaction_id": "TXN-888123",
-      "user_id": "p11",
-      "user_name": "Sunil Joshi",
-      "plan_name": "Gold 3-Months",
-      "amount": 2999.0,
-      "currency": "INR",
-      "payment_method": "Credit Card (HDFC)",
-      "status": "refunded",
-      "invoice_no": "INV-2026-0091",
-      "payment_date": "2026-09-12 18:00:00",
-      "notes": "Refund requested due to duplicate payment - Processed"
-    },
-    {
-      "id": 10,
-      "transaction_id": "TXN-887890",
-      "user_id": "p10",
-      "user_name": "Karthik Reddy",
-      "plan_name": "Royal VIP 12-Months",
-      "amount": 14299.0,
-      "currency": "INR",
-      "payment_method": "Razorpay (Axis Bank)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0090",
-      "payment_date": "2026-09-11 12:40:00",
-      "notes": "VIP Relationship Manager assigned"
-    },
-    {
-      "id": 9,
-      "transaction_id": "TXN-887532",
-      "user_id": "p9",
-      "user_name": "Meera Bhatt",
-      "plan_name": "Gold 3-Months",
-      "amount": 2249.0,
-      "currency": "INR",
-      "payment_method": "UPI (BHIM)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0089",
-      "payment_date": "2026-09-08 16:00:00",
-      "notes": "Applied promo WELCOME25 (-25%)"
-    },
-    {
-      "id": 8,
-      "transaction_id": "TXN-887105",
-      "user_id": "p8",
-      "user_name": "Aditya Verma",
-      "plan_name": "Gold 3-Months",
-      "amount": 2999.0,
-      "currency": "INR",
-      "payment_method": "Net Banking (SBI)",
-      "status": "pending",
-      "invoice_no": "INV-2026-0088",
-      "payment_date": "2026-09-05 12:00:00",
-      "notes": "Awaiting bank NEFT confirmation"
-    },
-    {
-      "id": 7,
-      "transaction_id": "TXN-886910",
-      "user_id": "p7",
-      "user_name": "Tanvi Chawla",
-      "plan_name": "Platinum 6-Months",
-      "amount": 4399.0,
-      "currency": "INR",
-      "payment_method": "UPI (Google Pay)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0087",
-      "payment_date": "2026-09-02 18:30:00",
-      "notes": "Applied promo PLATINUM20 (-20%)"
-    },
-    {
-      "id": 6,
-      "transaction_id": "TXN-886491",
-      "user_id": "p6",
-      "user_name": "Arjun Nambiar",
-      "plan_name": "Royal VIP 12-Months",
-      "amount": 9999.0,
-      "currency": "INR",
-      "payment_method": "Credit Card (Amex)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0086",
-      "payment_date": "2026-08-29 13:55:00",
-      "notes": "International traveler account activated"
-    },
-    {
-      "id": 5,
-      "transaction_id": "TXN-886120",
-      "user_id": "p5",
-      "user_name": "Priya Deshmukh",
-      "plan_name": "Platinum 6-Months",
-      "amount": 5499.0,
-      "currency": "INR",
-      "payment_method": "UPI (Paytm)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0085",
-      "payment_date": "2026-08-25 10:45:00",
-      "notes": "Direct UPI payment"
-    },
-    {
-      "id": 4,
-      "transaction_id": "TXN-885834",
-      "user_id": "p4",
-      "user_name": "Vikramaditya Rao",
-      "plan_name": "Royal VIP 12-Months",
-      "amount": 14299.0,
-      "currency": "INR",
-      "payment_method": "Net Banking (ICICI)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0084",
-      "payment_date": "2026-08-22 17:15:00",
-      "notes": "Full package with Astrology horoscope match"
-    },
-    {
-      "id": 3,
-      "transaction_id": "TXN-885419",
-      "user_id": "p3",
-      "user_name": "Sneha Iyer",
-      "plan_name": "Gold 3-Months",
-      "amount": 2499.0,
-      "currency": "INR",
-      "payment_method": "UPI (PhonePe)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0083",
-      "payment_date": "2026-08-18 10:10:00",
-      "notes": "Applied promo WELCOME25 (-25%)"
-    },
-    {
-      "id": 2,
-      "transaction_id": "TXN-885102",
-      "user_id": "p2",
-      "user_name": "Rohan Mehta",
-      "plan_name": "Royal VIP 12-Months",
-      "amount": 9999.0,
-      "currency": "INR",
-      "payment_method": "Razorpay (HDFC Credit Card)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0082",
-      "payment_date": "2026-08-14 14:40:00",
-      "notes": "Applied promo ROYALVIP30 (-30%)"
-    },
-    {
-      "id": 1,
-      "transaction_id": "TXN-884920",
-      "user_id": "p1",
-      "user_name": "Dr. Ananya Kulkarni",
-      "plan_name": "Platinum 6-Months",
-      "amount": 5499.0,
-      "currency": "INR",
-      "payment_method": "UPI (Google Pay)",
-      "status": "completed",
-      "invoice_no": "INV-2026-0081",
-      "payment_date": "2026-08-10 11:35:00",
-      "notes": "Applied promo FESTIVE50 (-50%)"
-    }
-  ],
+  "payments": [],
   "profiles": []
 };
 
@@ -620,15 +254,56 @@
     return false;
   }
 
+  function isDummyPayment(p) {
+    if (!p) return true;
+    const txnId = String(p.transaction_id || p.id || '').toUpperCase().trim();
+    const userName = String(p.user_name || '').toLowerCase().trim();
+
+    // 1. Check for mock transaction prefix
+    if (txnId.startsWith('TXN-88')) return true;
+
+    // 2. Check for known test order IDs
+    if (txnId.startsWith('ORDER_1791135997') || txnId.startsWith('ORDER_1791094894') || txnId.startsWith('ORDER_1791094101')) return true;
+
+    // 3. Purge specific known dummy/mock user names
+    const dummyNames = [
+      'nikhil sharma',
+      'simran kaur',
+      'devendra patil',
+      'pooja agarwal',
+      'sunil joshi',
+      'karthik reddy',
+      'meera bhatt',
+      'aditya verma',
+      'tanvi chawla',
+      'arjun nambiar',
+      'priya deshmukh',
+      'vikramaditya rao',
+      'sneha iyer',
+      'rohan mehta',
+      'dr. ananya kulkarni',
+      'ananya kulkarni',
+      'priya sharma',
+      'candidate',
+      'arun test'
+    ];
+    if (dummyNames.includes(userName)) return true;
+    if (userName.includes('test user') || userName.includes('mock member') || userName.includes('sample candidate')) return true;
+
+    return false;
+  }
+
   const STORAGE_KEY = 'i4you_admin_store_v5';
 
-  // Proactively evict all legacy store versions from localStorage that contained mock profiles or outdated filtered sets
+  // Proactively evict all legacy store versions and cached payment tables from localStorage
   try {
-    localStorage.removeItem('i4you_admin_store_v4');
-    localStorage.removeItem('i4you_admin_store_v3');
-    localStorage.removeItem('i4you_admin_store_v2');
-    localStorage.removeItem('i4you_admin_store_v1');
-    localStorage.removeItem('i4u_cached_profiles');
+    [
+      'i4you_admin_store_v4', 'i4you_admin_store_v3', 'i4you_admin_store_v2', 'i4you_admin_store_v1',
+      'i4u_cached_profiles', 'admin_payments', 'transactions', 'mock_payments', 'payments',
+      'i4u_admin_payments', 'i4you_admin_payments', 'i4u_payments_cache'
+    ].forEach(k => {
+      try { localStorage.removeItem(k); } catch (e) {}
+    });
   } catch (e) {}
 
   function loadStore() {
@@ -640,11 +315,27 @@
           if (!Array.isArray(parsed.profiles)) parsed.profiles = [];
           // Strictly purge any legacy demo profiles from in-memory cache
           parsed.profiles = parsed.profiles.filter(p => !isDemoCandidate(p));
+
+          // Strictly purge any legacy dummy payments from in-memory cache
+          if (Array.isArray(parsed.payments)) {
+            parsed.payments = parsed.payments.filter(p => !isDummyPayment(p));
+          } else {
+            parsed.payments = [];
+          }
+
+          // Strictly purge legacy dummy seed offers
+          if (Array.isArray(parsed.offers)) {
+            const dummyOfferCodes = new Set([
+              'FESTIVE50', 'ROYALVIP30', 'WELCOME25', 'PLATINUM20',
+              'EARLYBIRD35', 'EXPIRED10', 'VIVAH50', 'FIRSTMATCH'
+            ]);
+            parsed.offers = parsed.offers.filter(o => !dummyOfferCodes.has(String(o.code || '').toUpperCase().trim()));
+          } else {
+            parsed.offers = [];
+          }
+
           if (!Array.isArray(parsed.plans) || parsed.plans.length === 0) {
             parsed.plans = JSON.parse(JSON.stringify(SEED_DATA.plans));
-          }
-          if (!Array.isArray(parsed.offers) || parsed.offers.length === 0) {
-            parsed.offers = JSON.parse(JSON.stringify(SEED_DATA.offers));
           }
           if (parsed.admin_users && Array.isArray(parsed.admin_users)) {
             const customPass = localStorage.getItem('i4u_custom_admin_password');
@@ -664,6 +355,8 @@
     }
     const seed = JSON.parse(JSON.stringify(SEED_DATA));
     seed.profiles = [];
+    seed.payments = [];
+    seed.offers = [];
     const customPass = localStorage.getItem('i4u_custom_admin_password');
     if (customPass && seed.admin_users && seed.admin_users[0]) {
       seed.admin_users[0].password = customPass;
@@ -1117,10 +810,15 @@
       if (res.ok) {
         const rows = await res.json();
         if (Array.isArray(rows)) {
-          const newStr = JSON.stringify(rows);
+          const dummyOfferCodes = new Set([
+            'FESTIVE50', 'ROYALVIP30', 'WELCOME25', 'PLATINUM20',
+            'EARLYBIRD35', 'EXPIRED10', 'VIVAH50', 'FIRSTMATCH'
+          ]);
+          const cleanRows = rows.filter(o => !dummyOfferCodes.has(String(o.code || '').toUpperCase().trim()));
+          const newStr = JSON.stringify(cleanRows);
           if (newStr !== lastSyncedOffersStr) {
             lastSyncedOffersStr = newStr;
-            store.offers = rows;
+            store.offers = cleanRows;
             saveStore(store);
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('i4u_admin_synced'));
@@ -1187,8 +885,24 @@
       });
       if (res.ok) {
         const rows = await res.json();
-        if (Array.isArray(rows) && rows.length > 0) {
-          store.payments = rows;
+        if (Array.isArray(rows)) {
+          const cleanRows = rows.filter(r => !isDummyPayment(r));
+          // If any legacy dummy test payment rows were found in Supabase, purge them from cloud table
+          const dirtyRows = rows.filter(r => isDummyPayment(r));
+          if (dirtyRows.length > 0) {
+            for (const d of dirtyRows) {
+              const dId = d.id || d.transaction_id;
+              if (dId) {
+                try {
+                  await originalFetch(`${SUPABASE_PAYMENTS}?id=eq.${encodeURIComponent(dId)}`, {
+                    method: 'DELETE',
+                    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + SUPABASE_ANON }
+                  });
+                } catch (e) {}
+              }
+            }
+          }
+          store.payments = cleanRows;
           saveStore(store);
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('i4u_admin_synced'));
@@ -1373,6 +1087,7 @@
         let completedPayments = 0;
         let refundedPayments = 0;
         (store.payments || []).forEach(p => {
+          if (isDummyPayment(p)) return;
           if (p.status === 'completed') {
             totalRev += Number(p.amount) || 0;
             completedPayments++;
@@ -1380,12 +1095,6 @@
             refundedPayments++;
           }
         });
-
-        // Fallback for revenue baseline if no completed payments exist
-        if (totalRev === 0 && store.payments && store.payments.length > 0) {
-          totalRev = store.payments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-          completedPayments = store.payments.length;
-        }
 
         const activeOffers = (store.offers || []).filter(o => o.is_active == 1).length;
 
@@ -1403,9 +1112,7 @@
           .slice(0, 6);
         if (regionalData.length === 0) {
           regionalData = [
-            { state: 'Kerala', count: totalCandidates || 6 },
-            { state: 'Maharashtra', count: 2 },
-            { state: 'Rajasthan', count: 1 }
+            { state: 'Kerala', count: totalCandidates || 0 }
           ];
         }
 
@@ -1415,8 +1122,8 @@
           const factor = (idx + 1) / monthNames.length;
           return {
             month,
-            signups: Math.max(1, Math.round((totalCandidates || 9) * factor)),
-            revenue: totalRev > 0 ? Math.round(totalRev * factor) : ((idx + 1) * 32000)
+            signups: totalCandidates > 0 ? Math.max(1, Math.round(totalCandidates * factor)) : 0,
+            revenue: totalRev > 0 ? Math.round(totalRev * factor) : 0
           };
         });
 
@@ -2135,13 +1842,20 @@
       // 8. /api/payments
       if (pathname === '/api/payments') {
         if (method === 'GET') {
+          if (!store.payments || store.payments.length === 0) {
+            try {
+              await syncPaymentsFromSupabase();
+            } catch (e) {}
+          }
+          store.payments = (store.payments || []).filter(p => !isDummyPayment(p));
+
           const q = (params.get('q') || params.get('query') || '').trim().toLowerCase();
           const status = (params.get('status') || 'all').toLowerCase();
           const payMethod = (params.get('method') || 'all').toLowerCase();
           const page = parseInt(params.get('page') || '1', 10);
           const rawLimit = params.get('limit');
           const isAll = rawLimit === 'all' || rawLimit === '-1';
-          const limit = isAll ? (store.payments.length || 1000) : parseInt(rawLimit || '10', 10);
+          const limit = isAll ? (store.payments.length || 10) : parseInt(rawLimit || '10', 10);
 
           let filtered = store.payments.filter(p => {
             if (q) {
@@ -2227,9 +1941,26 @@
           if (idx === -1) return jsonResponse({ error: 'Payment transaction not found' }, 404);
           const deleted = store.payments.splice(idx, 1)[0];
           saveStore(store);
+
+          // Permanent deletion from Supabase
+          try {
+            const cleanId = String(pId).trim();
+            const txnId = deleted?.transaction_id || cleanId;
+            await originalFetch(`${SUPABASE_PAYMENTS}?or=(id.eq.${encodeURIComponent(cleanId)},transaction_id.eq.${encodeURIComponent(txnId)})`, {
+              method: 'DELETE',
+              headers: {
+                'apikey': SUPABASE_ANON,
+                'Authorization': 'Bearer ' + SUPABASE_ANON,
+                'Prefer': 'return=minimal'
+              }
+            });
+          } catch (sbErr) {
+            console.warn('[Admin Engine] Supabase payment deletion error:', sbErr);
+          }
+
           return jsonResponse({
             success: true,
-            message: `Payment record '${deleted.transaction_id}' deleted from history`,
+            message: `Payment record '${deleted.transaction_id || pId}' deleted from history`,
             payment: deleted
           });
         }

@@ -228,6 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadPlans();
   loadPayments();
   startLiveSyncPolling();
+  setupRealtimeProfileSync();
 
   // Listen for Supabase background sync events to auto-refresh UI
   window.addEventListener('i4u_admin_synced', () => {
@@ -774,12 +775,12 @@ async function loadAnalytics() {
     const monthlyTrend = (Array.isArray(data.monthly_trend) && data.monthly_trend.length > 0)
       ? data.monthly_trend
       : [
-          { month: 'May', signups: 4, revenue: 18000 },
-          { month: 'Jun', signups: 8, revenue: 42000 },
-          { month: 'Jul', signups: 11, revenue: 68000 },
-          { month: 'Aug', signups: 14, revenue: 112000 },
-          { month: 'Sep', signups: 17, revenue: 164000 },
-          { month: 'Oct', signups: kpi.total_users || 9, revenue: kpi.total_revenue || 189000 }
+          { month: 'May', signups: 0, revenue: 0 },
+          { month: 'Jun', signups: 0, revenue: 0 },
+          { month: 'Jul', signups: 0, revenue: 0 },
+          { month: 'Aug', signups: 0, revenue: 0 },
+          { month: 'Sep', signups: 0, revenue: 0 },
+          { month: 'Oct', signups: kpi.total_users || 0, revenue: kpi.total_revenue || 0 }
         ];
 
     renderGrowthChart(monthlyTrend);
@@ -796,9 +797,7 @@ async function loadAnalytics() {
     const regionalData = (Array.isArray(data.regional_distribution) && data.regional_distribution.length > 0)
       ? data.regional_distribution
       : [
-          { state: 'Kerala', count: kpi.total_users || 6 },
-          { state: 'Maharashtra', count: 2 },
-          { state: 'Rajasthan', count: 1 }
+          { state: 'Kerala', count: kpi.total_users || 0 }
         ];
     renderRegionalChart(regionalData);
 
@@ -850,12 +849,12 @@ function renderGrowthChart(monthlyTrend) {
   }
 
   const trend = (Array.isArray(monthlyTrend) && monthlyTrend.length > 0) ? monthlyTrend : [
-    { month: 'May', signups: 4 },
-    { month: 'Jun', signups: 8 },
-    { month: 'Jul', signups: 11 },
-    { month: 'Aug', signups: 14 },
-    { month: 'Sep', signups: 17 },
-    { month: 'Oct', signups: state.users?.total || 9 }
+    { month: 'May', signups: 0 },
+    { month: 'Jun', signups: 0 },
+    { month: 'Jul', signups: 0 },
+    { month: 'Aug', signups: 0 },
+    { month: 'Sep', signups: 0 },
+    { month: 'Oct', signups: state.users?.total || 0 }
   ];
 
   const labels = trend.map(item => item.month || '');
@@ -918,12 +917,12 @@ function renderRevenueChart(monthlyTrend) {
   }
 
   const trend = (Array.isArray(monthlyTrend) && monthlyTrend.length > 0) ? monthlyTrend : [
-    { month: 'May', revenue: 18000 },
-    { month: 'Jun', revenue: 42000 },
-    { month: 'Jul', revenue: 68000 },
-    { month: 'Aug', revenue: 112000 },
-    { month: 'Sep', revenue: 164000 },
-    { month: 'Oct', revenue: 189000 }
+    { month: 'May', revenue: 0 },
+    { month: 'Jun', revenue: 0 },
+    { month: 'Jul', revenue: 0 },
+    { month: 'Aug', revenue: 0 },
+    { month: 'Sep', revenue: 0 },
+    { month: 'Oct', revenue: 0 }
   ];
 
   const labels = trend.map(item => item.month || '');
@@ -3506,10 +3505,10 @@ async function loadPayments() {
     if (!data.payments || data.payments.length === 0) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="7" class="text-center py-10 text-slate-400">
-            <i data-lucide="receipt" class="w-8 h-8 mx-auto text-slate-500 mb-2 opacity-50"></i>
-            <p class="text-sm font-medium text-slate-300">No payment records found</p>
-            <p class="text-xs text-slate-500 mt-1">Try clearing your filters or search term</p>
+          <td colspan="7" class="text-center py-12 text-slate-400">
+            <i data-lucide="receipt" class="w-10 h-10 mx-auto text-slate-500 mb-2 opacity-50"></i>
+            <p class="text-sm font-semibold text-slate-300">No payment transactions recorded yet</p>
+            <p class="text-xs text-slate-500 mt-1">Real-time payment transactions from members will appear here automatically.</p>
           </td>
         </tr>
       `;
@@ -4730,7 +4729,7 @@ async function loadAadhaarVerifications() {
       // Direct fallback to PostgreSQL (Supabase REST API)
       try {
         const SUPABASE_BASE = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/profiles';
-        const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBoZXF6c2Zyd2hqeHNwYWFyb2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjY2MjgsImV4cCI6MjEwNzU0MjYyOH0.U-W92yqF0vMoyqK-uScBSjlV6LtfuAMV9J2ncPaL6PI';
+        const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
         
         let filterQuery = `select=*&order=${encodeURIComponent(state.aadhaar.sortBy || 'created_at')}.${state.aadhaar.order || 'desc'}`;
         if (state.aadhaar.status === 'pending') {
@@ -5953,5 +5952,94 @@ async function handleSendBackAadhaarSubmit(e) {
     }
   }
 }
+
+/**
+ * Real-Time Profile Synchronization Listener for Admin & Super Admin Consoles
+ * Catches PROFILE_UPDATED events broadcast via BroadcastChannel and Supabase Realtime
+ * and updates user rows, avatars, names, and inspect modals in-place without page refresh!
+ */
+function setupRealtimeProfileSync() {
+  function handleProfileUpdated(payload) {
+    if (!payload || !payload.userId) return;
+    const uid = String(payload.userId);
+    const lastUpdated = payload.lastUpdated || Date.now();
+    const newPic = payload.newProfilePicUrl 
+      ? (payload.newProfilePicUrl.includes('?') ? `${payload.newProfilePicUrl}&t=${lastUpdated}` : `${payload.newProfilePicUrl}?t=${lastUpdated}`) 
+      : null;
+    const updatedData = payload.updatedData || {};
+
+    console.log('[Admin Realtime Sync] PROFILE_UPDATED event received for candidate:', uid, payload);
+
+    // 1. Locate matching rows in userTableBody
+    const tableBody = document.getElementById('userTableBody');
+    if (tableBody) {
+      const rows = tableBody.querySelectorAll('tr');
+      rows.forEach(row => {
+        const rowText = row.innerHTML;
+        if (rowText.includes(`'${uid}'`) || rowText.includes(`"${uid}"`)) {
+          // Update avatar image in this row
+          if (newPic) {
+            const img = row.querySelector('img');
+            if (img) {
+              img.src = newPic;
+            }
+          }
+          // Highlight row with instantaneous visual feedback
+          row.classList.add('bg-emerald-500/20');
+          setTimeout(() => {
+            row.classList.remove('bg-emerald-500/20');
+          }, 2500);
+        }
+      });
+    }
+
+    // 2. If photoInspectModal is currently open for this candidate, update the photo preview immediately
+    const photoInspectModal = document.getElementById('photoInspectModal');
+    if (photoInspectModal && photoInspectModal.open && newPic) {
+      const inspectImg = document.getElementById('photoInspectImg');
+      if (inspectImg) {
+        inspectImg.src = newPic;
+      }
+    }
+
+    // 3. Update candidate view modal if open
+    const viewModal = document.getElementById('viewProfileModal');
+    if (viewModal && viewModal.open) {
+      const modalCandidateId = viewModal.getAttribute('data-candidate-id');
+      if (modalCandidateId && String(modalCandidateId) === uid && newPic) {
+        const modalImg = viewModal.querySelector('img');
+        if (modalImg) modalImg.src = newPic;
+      }
+    }
+
+    // 4. Notify admin with subtle toast
+    const candidateName = updatedData.name || 'Candidate';
+    if (typeof showToast === 'function') {
+      showToast(`Real-Time Update: ${candidateName} updated their profile ✨`, 'info');
+    }
+  }
+
+  // Cross-tab sync via BroadcastChannel
+  if (typeof window !== 'undefined' && window.BroadcastChannel) {
+    try {
+      const bc = new BroadcastChannel('i4u_profile_sync_bus');
+      bc.onmessage = (event) => {
+        handleProfileUpdated(event.data);
+      };
+    } catch (e) {}
+  }
+
+  // Supabase Realtime broadcast listener (if Supabase client is available)
+  if (typeof window !== 'undefined' && (window.supabaseClient || window.supabase)) {
+    try {
+      const client = window.supabaseClient || window.supabase;
+      const adminCh = client.channel('admin-profile-sync');
+      adminCh.on('broadcast', { event: 'PROFILE_UPDATED' }, ({ payload }) => {
+        handleProfileUpdated(payload);
+      }).subscribe();
+    } catch (e) {}
+  }
+}
+
 
 

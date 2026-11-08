@@ -775,12 +775,12 @@ async function loadAnalytics() {
     const monthlyTrend = (Array.isArray(data.monthly_trend) && data.monthly_trend.length > 0)
       ? data.monthly_trend
       : [
-          { month: 'May', signups: 4, revenue: 18000 },
-          { month: 'Jun', signups: 8, revenue: 42000 },
-          { month: 'Jul', signups: 11, revenue: 68000 },
-          { month: 'Aug', signups: 14, revenue: 112000 },
-          { month: 'Sep', signups: 17, revenue: 164000 },
-          { month: 'Oct', signups: kpi.total_users || 9, revenue: kpi.total_revenue || 189000 }
+          { month: 'May', signups: 0, revenue: 0 },
+          { month: 'Jun', signups: 0, revenue: 0 },
+          { month: 'Jul', signups: 0, revenue: 0 },
+          { month: 'Aug', signups: 0, revenue: 0 },
+          { month: 'Sep', signups: 0, revenue: 0 },
+          { month: 'Oct', signups: kpi.total_users || 0, revenue: kpi.total_revenue || 0 }
         ];
 
     renderGrowthChart(monthlyTrend);
@@ -797,9 +797,7 @@ async function loadAnalytics() {
     const regionalData = (Array.isArray(data.regional_distribution) && data.regional_distribution.length > 0)
       ? data.regional_distribution
       : [
-          { state: 'Kerala', count: kpi.total_users || 6 },
-          { state: 'Maharashtra', count: 2 },
-          { state: 'Rajasthan', count: 1 }
+          { state: 'Kerala', count: kpi.total_users || 0 }
         ];
     renderRegionalChart(regionalData);
 
@@ -851,12 +849,12 @@ function renderGrowthChart(monthlyTrend) {
   }
 
   const trend = (Array.isArray(monthlyTrend) && monthlyTrend.length > 0) ? monthlyTrend : [
-    { month: 'May', signups: 4 },
-    { month: 'Jun', signups: 8 },
-    { month: 'Jul', signups: 11 },
-    { month: 'Aug', signups: 14 },
-    { month: 'Sep', signups: 17 },
-    { month: 'Oct', signups: state.users?.total || 9 }
+    { month: 'May', signups: 0 },
+    { month: 'Jun', signups: 0 },
+    { month: 'Jul', signups: 0 },
+    { month: 'Aug', signups: 0 },
+    { month: 'Sep', signups: 0 },
+    { month: 'Oct', signups: state.users?.total || 0 }
   ];
 
   const labels = trend.map(item => item.month || '');
@@ -919,12 +917,12 @@ function renderRevenueChart(monthlyTrend) {
   }
 
   const trend = (Array.isArray(monthlyTrend) && monthlyTrend.length > 0) ? monthlyTrend : [
-    { month: 'May', revenue: 18000 },
-    { month: 'Jun', revenue: 42000 },
-    { month: 'Jul', revenue: 68000 },
-    { month: 'Aug', revenue: 112000 },
-    { month: 'Sep', revenue: 164000 },
-    { month: 'Oct', revenue: 189000 }
+    { month: 'May', revenue: 0 },
+    { month: 'Jun', revenue: 0 },
+    { month: 'Jul', revenue: 0 },
+    { month: 'Aug', revenue: 0 },
+    { month: 'Sep', revenue: 0 },
+    { month: 'Oct', revenue: 0 }
   ];
 
   const labels = trend.map(item => item.month || '');
@@ -3507,10 +3505,10 @@ async function loadPayments() {
     if (!data.payments || data.payments.length === 0) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="7" class="text-center py-10 text-slate-400">
-            <i data-lucide="receipt" class="w-8 h-8 mx-auto text-slate-500 mb-2 opacity-50"></i>
-            <p class="text-sm font-medium text-slate-300">No payment records found</p>
-            <p class="text-xs text-slate-500 mt-1">Try clearing your filters or search term</p>
+          <td colspan="7" class="text-center py-12 text-slate-400">
+            <i data-lucide="receipt" class="w-10 h-10 mx-auto text-slate-500 mb-2 opacity-50"></i>
+            <p class="text-sm font-semibold text-slate-300">No payment transactions recorded yet</p>
+            <p class="text-xs text-slate-500 mt-1">Real-time payment transactions from members will appear here automatically.</p>
           </td>
         </tr>
       `;

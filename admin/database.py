@@ -1083,41 +1083,7 @@ def seed_default_admin_users(conn):
     conn.commit()
 
 
-DEFAULT_OFFERS = [
-    {
-        'code': 'VIVAH50',
-        'title': 'Festive Vivah Mahotsav: Flat 50% Savings',
-        'discount_percent': 50,
-        'plan_type': 'All Plans',
-        'description': 'Flat 50% discount on all quarterly & annual plans during auspicious wedding season.',
-        'valid_from': '2026-01-01',
-        'valid_until': '2026-12-31',
-        'max_uses': 500,
-        'is_active': 1
-    },
-    {
-        'code': 'FIRSTMATCH',
-        'title': 'New Member Welcome Bonus: Flat 40% Off',
-        'discount_percent': 40,
-        'plan_type': 'All Plans',
-        'description': 'Special introductory savings for newly registered candidates & families.',
-        'valid_from': '2026-01-01',
-        'valid_until': '2026-12-31',
-        'max_uses': 300,
-        'is_active': 1
-    },
-    {
-        'code': 'ROYALVIP30',
-        'title': 'Royal VIP Elite Upgrade Promo',
-        'discount_percent': 30,
-        'plan_type': 'Royal VIP 12-Months',
-        'description': 'Exclusive 30% concession on VIP Assisted Matchmaking tier.',
-        'valid_from': '2026-01-01',
-        'valid_until': '2026-12-31',
-        'max_uses': 150,
-        'is_active': 1
-    }
-]
+DEFAULT_OFFERS = []
 
 
 def seed_default_offers(conn):
