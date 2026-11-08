@@ -278,7 +278,16 @@ export default function MobileMatchFeed({
                     <img 
                       src={myStatus?.mediaUrl || currentUser?.photo} 
                       alt="My Status" 
-                      className="w-full h-full object-cover" 
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
+                      onDragStart={(e) => e.preventDefault()}
+                      className="w-full h-full object-cover select-none pointer-events-none" 
+                      style={{
+                        WebkitTouchCallout: 'none',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none',
+                        WebkitUserDrag: 'none'
+                      }}
                       onError={(e) => {
                         e.target.onerror = null;
                         if (currentUser?.photo && e.target.src !== currentUser.photo) {

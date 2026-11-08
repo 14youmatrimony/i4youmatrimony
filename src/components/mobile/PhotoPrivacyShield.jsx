@@ -38,7 +38,7 @@ export function ScreenshotRestrictedBanner() {
                 ? 'Right-click and saving candidate portraits is disabled to prevent unauthorized distribution.'
                 : alertReason === 'print-prohibited'
                 ? 'Printing candidate profiles and photos is restricted by I 4 You security policy.'
-                : 'Capturing screenshots or recording candidate photos is restricted for member privacy & safety.'}
+                : '🔒 Screenshots and screen capture are disabled for member privacy.'}
             </p>
             <div className="mt-1.5 flex items-center justify-between text-[9px] text-slate-400">
               <span className="flex items-center gap-1 text-emerald-400 font-medium">
@@ -136,11 +136,13 @@ export function ProtectedPhoto({
         alt={alt}
         draggable={false}
         onDragStart={(e) => e.preventDefault()}
+        onContextMenu={(e) => e.preventDefault()}
         className={`w-full h-full object-cover select-none pointer-events-none ${imgClassName}`}
         style={{
           WebkitTouchCallout: 'none',
           WebkitUserSelect: 'none',
-          userSelect: 'none'
+          userSelect: 'none',
+          WebkitUserDrag: 'none'
         }}
       />
 

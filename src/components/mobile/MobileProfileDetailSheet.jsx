@@ -1714,8 +1714,15 @@ export default function MobileProfileDetailSheet({
                 src={fullscreenPhoto.url} 
                 alt={fullscreenPhoto.title} 
                 draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
                 onDragStart={(e) => e.preventDefault()}
                 className="max-h-[75vh] w-auto object-contain rounded-xl select-none pointer-events-none"
+                style={{
+                  WebkitTouchCallout: 'none',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  WebkitUserDrag: 'none'
+                }}
               />
             </div>
           </div>

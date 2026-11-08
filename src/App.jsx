@@ -19,6 +19,8 @@ import MobileFilterBottomSheet from './components/mobile/MobileFilterBottomSheet
 import MobilePhotoManagerSheet from './components/mobile/MobilePhotoManagerSheet';
 import { PhotoPrivacyProvider } from './context/PhotoPrivacyContext';
 import { ScreenshotRestrictedBanner, ScreenshotCaptureBlockOverlay } from './components/mobile/PhotoPrivacyShield';
+import DRMProtectionShield from './components/common/DRMProtectionShield';
+import { initNativeDrmProtection } from './utils/drmProtection';
 import SplashScreen from './components/common/SplashScreen';
 import LoginScreen from './components/LoginScreen';
 import RegistrationWizard from './components/RegistrationWizard';
@@ -380,6 +382,11 @@ export default function App() {
       clearTimeout(timer);
     };
   }, [showSplash]);
+
+  // Global Native DRM & Anti-Screenshot Initialization
+  useEffect(() => {
+    initNativeDrmProtection();
+  }, []);
 
   const [activeTab, setActiveTab] = useState(() => {
     const route = parseRouteParams();
@@ -5011,7 +5018,8 @@ export default function App() {
   return (
     <ThemeProvider>
       <PhotoPrivacyProvider>
-        {/* Premium Luxury Splash Screen on initial app launch */}
+        <DRMProtectionShield>
+          {/* Premium Luxury Splash Screen on initial app launch */}
         {showSplash && (
           <SplashScreen onFinish={handleSplashFinish} duration={2800} />
         )}
@@ -6147,7 +6155,8 @@ export default function App() {
       />
     )}
 
-    </PhotoPrivacyProvider>
+        </DRMProtectionShield>
+      </PhotoPrivacyProvider>
     </ThemeProvider>
   );
 }

@@ -158,30 +158,47 @@ body {
   scrollbar-color: rgba(244, 63, 94, 0.4) transparent;
 }
 
-/* Photo Screenshot & Privacy Protection */
-.photo-protected {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -webkit-touch-callout: none !important;
+/* ==========================================================================
+   DIGITAL RIGHTS MANAGEMENT (DRM) & ANTI-CAPTURE / ANTI-PRINT PROTECTION
+   ========================================================================== */
+
+/* Strict anti-print & anti-PDF rule: completely blank page on print */
+@media print {
+  body {
+    display: none !important;
+  }
+  html {
+    display: none !important;
+  }
 }
 
-@media print {
-  /* Hide protected photos and personal candidate data during print / PDF generation */
-  img, .photo-protected {
-    display: none !important;
-    visibility: hidden !important;
-  }
-  body::before {
-    content: "⚠️ CONFIDENTIAL MATRIMONIAL DATA — SCREENSHOT & PRINTING STRICTLY PROHIBITED BY I 4 YOU SECURITY POLICY.";
-    display: block;
-    padding: 20px;
-    font-size: 16pt;
-    font-weight: bold;
-    color: #dc2626;
-    border: 2px solid #dc2626;
-    margin-bottom: 20px;
-    text-align: center;
-  }
+/* Photo & profile anti-download / anti-drag / anti-longpress rules */
+img,
+video,
+canvas,
+.photo-protected,
+.protected-photo,
+[data-drm-protected] {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
+}
+
+/* Enforce non-draggable and suppress mobile long-press image saving globally */
+img {
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
+}
+
+/* Raw images in profile cards & photo protection containers */
+.photo-protected img,
+.profile-card img,
+.protected-photo img,
+[data-drm-protected] img {
+  pointer-events: none !important;
 }
 
 /* Dual Range Slider Thumbs & Track */

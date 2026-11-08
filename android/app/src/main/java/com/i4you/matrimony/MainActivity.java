@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.WindowManager;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
@@ -16,6 +17,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        enableFlagSecure();
         configureAudioRouting();
         requestRuntimePermissions();
     }
@@ -23,7 +25,21 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        enableFlagSecure();
         configureAudioRouting();
+    }
+
+    /**
+     * Enables Android FLAG_SECURE on the application window.
+     * Prevents screenshots, screen recording, and turns recent apps switcher thumbnails completely black.
+     */
+    private void enableFlagSecure() {
+        try {
+            getWindow().setFlags(
+                WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_SECURE
+            );
+        } catch (Exception ignored) {}
     }
 
     private void configureAudioRouting() {

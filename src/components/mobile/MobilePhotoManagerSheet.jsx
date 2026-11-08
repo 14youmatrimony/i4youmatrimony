@@ -421,9 +421,23 @@ export default function MobilePhotoManagerSheet({
               {singlePhotos.map((url, idx) => (
                 <div 
                   key={idx} 
-                  className="relative rounded-2xl overflow-hidden aspect-square border-2 border-[#D4AF37]/50 bg-slate-900 shadow-sm flex flex-col justify-between"
+                  className="relative rounded-2xl overflow-hidden aspect-square border-2 border-[#D4AF37]/50 bg-slate-900 shadow-sm flex flex-col justify-between photo-protected select-none"
+                  onContextMenu={(e) => e.preventDefault()}
                 >
-                  <img src={url} alt={`Single ${idx + 1}`} className="w-full h-full object-cover" />
+                  <img 
+                    src={url} 
+                    alt={`Single ${idx + 1}`} 
+                    draggable={false}
+                    onContextMenu={(e) => e.preventDefault()}
+                    onDragStart={(e) => e.preventDefault()}
+                    className="w-full h-full object-cover select-none pointer-events-none" 
+                    style={{
+                      WebkitTouchCallout: 'none',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none',
+                      WebkitUserDrag: 'none'
+                    }}
+                  />
                   
                   {/* Badge */}
                   <div className="absolute top-1.5 left-1.5 z-10">
@@ -539,9 +553,23 @@ export default function MobilePhotoManagerSheet({
                   return (
                     <div 
                       key={slotIdx}
-                      className="relative rounded-2xl overflow-hidden aspect-[4/3] border-2 border-blue-400/50 bg-slate-900 shadow-sm flex flex-col justify-between"
+                      className="relative rounded-2xl overflow-hidden aspect-[4/3] border-2 border-blue-400/50 bg-slate-900 shadow-sm flex flex-col justify-between photo-protected select-none"
+                      onContextMenu={(e) => e.preventDefault()}
                     >
-                      <img src={url} alt={slotTitle} className="w-full h-full object-cover" />
+                      <img 
+                        src={url} 
+                        alt={slotTitle} 
+                        draggable={false}
+                        onContextMenu={(e) => e.preventDefault()}
+                        onDragStart={(e) => e.preventDefault()}
+                        className="w-full h-full object-cover select-none pointer-events-none" 
+                        style={{
+                          WebkitTouchCallout: 'none',
+                          WebkitUserSelect: 'none',
+                          userSelect: 'none',
+                          WebkitUserDrag: 'none'
+                        }}
+                      />
                       <div className="absolute top-1.5 left-1.5 z-10">
                         <span className="px-1.5 py-0.5 rounded-md bg-[#0B192C]/90 text-white text-[8px] font-bold">
                           Family #{slotIdx + 1}

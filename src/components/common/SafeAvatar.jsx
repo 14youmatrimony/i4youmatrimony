@@ -85,15 +85,25 @@ export default function SafeAvatar({
 
   return (
     <div 
-      className={`relative inline-block shrink-0 rounded-full overflow-hidden bg-slate-800 border border-slate-700 ${sizeClasses} ${className}`}
+      className={`relative inline-block shrink-0 rounded-full overflow-hidden bg-slate-800 border border-slate-700 select-none photo-protected ${sizeClasses} ${className}`}
       onClick={onClick}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <img
         key={imgSrc}
         src={imgSrc}
         alt=""
         onError={handleError}
-        className="w-full h-full object-cover transition-transform duration-200"
+        draggable={false}
+        onDragStart={(e) => e.preventDefault()}
+        onContextMenu={(e) => e.preventDefault()}
+        className="w-full h-full object-cover transition-transform duration-200 select-none pointer-events-none"
+        style={{
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          WebkitUserDrag: 'none'
+        }}
         loading="lazy"
       />
       {showBadge && badgeContent && (

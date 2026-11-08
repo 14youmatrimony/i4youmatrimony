@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { clearClipboard } from '../utils/drmProtection';
 
 const PhotoPrivacyContext = createContext({
   screenshotRestricted: true,
@@ -21,6 +22,9 @@ export function PhotoPrivacyProvider({ children }) {
 
   const triggerScreenshotBlock = useCallback((reason = 'system') => {
     if (!screenshotRestricted) return;
+
+    // Immediately clear clipboard
+    clearClipboard();
 
     // Haptic feedback if supported on mobile devices
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
