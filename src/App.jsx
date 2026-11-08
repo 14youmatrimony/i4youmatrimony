@@ -445,7 +445,7 @@ export default function App() {
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const valid = parsed.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)).map(sanitizeProfilePhotos);
+          const valid = parsed.filter(p => Boolean(p && (p.name || p.fullName || p.id))).map(sanitizeProfilePhotos);
           if (valid.length > 0) return valid;
         }
       }
@@ -1725,8 +1725,8 @@ export default function App() {
   const [selectedDistrict, setSelectedDistrict] = useState('All Districts');
   const [selectedReligion, setSelectedReligion] = useState('All Religions');
   const [selectedCaste, setSelectedCaste] = useState('All Castes & Communities');
-  const [minAge, setMinAge] = useState(21);
-  const [maxAge, setMaxAge] = useState(35);
+  const [minAge, setMinAge] = useState(18);
+  const [maxAge, setMaxAge] = useState(45);
   const [minHeight, setMinHeight] = useState('Any Height (No Preference)');
   const [selectedMaritalStatus, setSelectedMaritalStatus] = useState('All');
   const [selectedEducation, setSelectedEducation] = useState('All Educations');
@@ -4465,7 +4465,7 @@ export default function App() {
     const seenKeys = new Set();
 
     return profiles
-      .filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
+      .filter(p => Boolean(p && (p.name || p.fullName || p.id)))
       .filter(p => {
         if (!p || !p.id) return false;
 
@@ -4748,7 +4748,7 @@ export default function App() {
   // - If user is logged in with gender, strictly filter by opposite gender
   // - If guest / unauthenticated, provide ALL candidates (both Gents and Women) to WebsiteView
   const websiteProfiles = useMemo(() => {
-    const validProfiles = profiles.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p));
+    const validProfiles = profiles.filter(p => Boolean(p && (p.name || p.fullName || p.id)));
     if (currentUser?.gender) {
       const targetGender = getTargetCandidateGender(currentUser);
       return validProfiles.filter(p => {

@@ -53,13 +53,13 @@ export async function ensureProfileRowExists(user) {
   if (isSupabaseConfigured() && supabase) {
     try {
       // 1. Check if row exists in public.profiles
-      const orTokens = [`id.eq.${cleanId}`, `user_id.eq.${cleanId}`];
+      const orTokens = [`id.eq.${cleanId}`];
       if (registerId) orTokens.push(`register_id.eq.${registerId}`);
       if (phone && String(phone).replace(/\D/g, '').length >= 10) orTokens.push(`phone.eq.${phone}`);
 
       const { data: existing, error: checkErr } = await supabase
         .from('profiles')
-        .select('id, user_id, name, full_name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url')
+        .select('id, name, full_name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url')
         .or(orTokens.join(','))
         .limit(1)
         .maybeSingle();
@@ -1094,13 +1094,12 @@ export async function fetchLiveProfiles(currentUserId = null) {
 
       if (currentUserId) {
         const uidStr = String(currentUserId).trim();
-        // Filter out currently authenticated user if specified
-        query = query.neq('id', uidStr).neq('user_id', uidStr);
+        query = query.neq('id', uidStr);
       }
 
       const fetchPromise = query
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       // 8-second timeout guard to prevent UI stalling on slow connections
       const timeoutPromise = new Promise((_, reject) =>
@@ -1108,6 +1107,10 @@ export async function fetchLiveProfiles(currentUserId = null) {
       );
 
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+
+      if (error) {
+        console.error('[Supabase Profiles Fetch Error]:', error);
+      }
 
       if (!error && Array.isArray(data) && data.length > 0) {
         console.log(`[Supabase] Fetched ${data.length} profiles from public.profiles`);
@@ -1117,7 +1120,7 @@ export async function fetchLiveProfiles(currentUserId = null) {
             if (!p) return false;
             if (currentUserId) {
               const uidStr = String(currentUserId).trim();
-              if (String(p.id) === uidStr || (p.user_id && String(p.user_id) === uidStr)) return false;
+              if (String(p.id) === uidStr) return false;
             }
             return true;
           });
@@ -2165,7 +2168,6 @@ export async function fetchLiveUserProfile(userId) {
       // In PostgreSQL profiles table, id is VARCHAR(100), user_id is VARCHAR(100), register_id is VARCHAR(30), phone is VARCHAR(20)
       const orTokens = [
         `id.eq.${cleanId}`,
-        `user_id.eq.${cleanId}`,
         `register_id.ilike.${cleanId}`,
         `register_id.ilike.${regIdToken}`
       ];

@@ -111,8 +111,8 @@ export default function WebsiteMatchShowcase({
   }, [externalCity]);
   const [filterDiet, setFilterDiet] = useState('All');
   const [filterHeight, setFilterHeight] = useState('All');
-  const [filterMinAge, setFilterMinAge] = useState(21);
-  const [filterMaxAge, setFilterMaxAge] = useState(38);
+  const [filterMinAge, setFilterMinAge] = useState(18);
+  const [filterMaxAge, setFilterMaxAge] = useState(45);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
 
   const districts = useMemo(() => {
@@ -130,7 +130,7 @@ export default function WebsiteMatchShowcase({
     if (filterDiet !== 'All') count++;
     if (filterHeight !== 'All') count++;
     if (verifiedOnly) count++;
-    if (filterMinAge !== 21 || filterMaxAge !== 38) count++;
+    if (filterMinAge !== 18 || filterMaxAge !== 45) count++;
     return count;
   }, [searchTerm, filterState, filterDistrict, filterReligion, filterDiet, filterHeight, verifiedOnly, filterMinAge, filterMaxAge]);
 
@@ -144,8 +144,8 @@ export default function WebsiteMatchShowcase({
     onClearExternalCity?.();
     setFilterDiet('All');
     setFilterHeight('All');
-    setFilterMinAge(21);
-    setFilterMaxAge(38);
+    setFilterMinAge(18);
+    setFilterMaxAge(45);
     setVerifiedOnly(false);
   };
 
@@ -155,7 +155,7 @@ export default function WebsiteMatchShowcase({
     const targetGender = isUserLoggedIn ? getTargetCandidateGender(currentUser) : null;
 
     return profiles
-      .filter((p) => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
+      .filter((p) => Boolean(p && (p.name || p.fullName || p.id)))
       .filter((p) => {
         // 0. Exclude own profile (by ID, Name, and Phone)
         if (isSelfProfile(p, currentUser)) return false;
