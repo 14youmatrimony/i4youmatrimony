@@ -76,7 +76,48 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 -- ============================================================================
--- 7. Automated Database Trigger: Dispatch Web Push on New Chat Message
+-- 7. Ensure Target Application Tables Exist (Fail-Safe)
+-- ============================================================================
+
+-- Ensure public.messages exists if not yet initialized
+CREATE TABLE IF NOT EXISTS public.messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id VARCHAR(100),
+  sender_id VARCHAR(100) NOT NULL,
+  receiver_id VARCHAR(100) NOT NULL,
+  text TEXT NOT NULL,
+  status VARCHAR(30) DEFAULT 'delivered',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Ensure public.call_requests exists if not yet initialized
+CREATE TABLE IF NOT EXISTS public.call_requests (
+  id TEXT PRIMARY KEY,
+  caller_id TEXT NOT NULL,
+  callee_id TEXT NOT NULL,
+  caller_name TEXT NOT NULL,
+  caller_photo TEXT,
+  call_type VARCHAR(20) DEFAULT 'audio',
+  channel_name TEXT NOT NULL,
+  status VARCHAR(20) DEFAULT 'ringing',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  ended_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_call_requests_callee ON public.call_requests(callee_id, status);
+CREATE INDEX IF NOT EXISTS idx_call_requests_caller ON public.call_requests(caller_id);
+
+-- Enable RLS on call_requests if table was just created
+DO $$
+BEGIN
+  ALTER TABLE public.call_requests ENABLE ROW LEVEL SECURITY;
+  DROP POLICY IF EXISTS "Allow all access on call_requests" ON public.call_requests;
+  CREATE POLICY "Allow all access on call_requests" ON public.call_requests FOR ALL USING (true) WITH CHECK (true);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- ============================================================================
+-- 8. Automated Database Trigger: Dispatch Web Push on New Chat Message
 -- ============================================================================
 CREATE OR REPLACE FUNCTION public.fn_trigger_push_on_message()
 RETURNS TRIGGER AS $$
@@ -124,14 +165,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Bind trigger to public.messages
-DROP TRIGGER IF EXISTS trg_push_on_message ON public.messages;
-CREATE TRIGGER trg_push_on_message
-AFTER INSERT ON public.messages
-FOR EACH ROW EXECUTE FUNCTION public.fn_trigger_push_on_message();
+-- Bind trigger dynamically to public.messages with existence guard
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'messages'
+  ) THEN
+    EXECUTE 'DROP TRIGGER IF EXISTS trg_push_on_message ON public.messages;';
+    EXECUTE 'CREATE TRIGGER trg_push_on_message AFTER INSERT ON public.messages FOR EACH ROW EXECUTE FUNCTION public.fn_trigger_push_on_message();';
+  END IF;
+END $$;
 
 -- ============================================================================
--- 8. Automated Database Trigger: Dispatch Web Push on New Call Request
+-- 9. Automated Database Trigger: Dispatch Web Push on New Call Request
 -- ============================================================================
 CREATE OR REPLACE FUNCTION public.fn_trigger_push_on_call()
 RETURNS TRIGGER AS $$
@@ -168,8 +215,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Bind trigger to public.call_requests
-DROP TRIGGER IF EXISTS trg_push_on_call ON public.call_requests;
-CREATE TRIGGER trg_push_on_call
-AFTER INSERT ON public.call_requests
-FOR EACH ROW EXECUTE FUNCTION public.fn_trigger_push_on_call();
+-- Bind trigger dynamically to public.call_requests with existence guard
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'call_requests'
+  ) THEN
+    EXECUTE 'DROP TRIGGER IF EXISTS trg_push_on_call ON public.call_requests;';
+    EXECUTE 'CREATE TRIGGER trg_push_on_call AFTER INSERT ON public.call_requests FOR EACH ROW EXECUTE FUNCTION public.fn_trigger_push_on_call();';
+  END IF;
+END $$;
