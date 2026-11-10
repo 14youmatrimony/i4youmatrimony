@@ -114,14 +114,14 @@ export default function MobileChatScreen({
         .channel(chName)
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'messages' },
+          { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${curId}` },
           () => {
             loadLiveConversations();
           }
         )
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'interests' },
+          { event: '*', schema: 'public', table: 'interests', filter: `receiver_id=eq.${curId}` },
           (payload) => {
             if (payload?.new?.status === 'accepted' || payload?.eventType === 'INSERT') {
               loadLiveConversations();

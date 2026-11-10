@@ -9,6 +9,59 @@ import { addCacheBuster } from '../utils/cacheBuster';
 import { uploadPhotoToR2, formatR2PublicUrl } from './r2Storage';
 
 /**
+ * Lean projection for profile feed, cards, search results & match recommendations.
+ * Strictly excludes massive payload columns (aadhaar_front_image, aadhaar_back_image, selfie_photo, etc.)
+ * to minimize Supabase database egress.
+ */
+export const PROFILE_FEED_COLUMNS = [
+  'id',
+  'user_id',
+  'register_id',
+  'name',
+  'full_name',
+  'age',
+  'gender',
+  'height',
+  'skin_colour',
+  'photo',
+  'photo_url',
+  'profile_photo_url',
+  'avatar_url',
+  'family_photo',
+  'family_photo_url',
+  'family_photos',
+  'single_photos',
+  'religion',
+  'caste',
+  'mother_tongue',
+  'country',
+  'work_country',
+  'work_city',
+  'is_nri',
+  'residency_status',
+  'preferred_countries',
+  'state',
+  'city',
+  'district',
+  'education',
+  'education_category',
+  'profession',
+  'company',
+  'annual_income',
+  'diet',
+  'manglik',
+  'marital_status',
+  'body_type',
+  'match_score',
+  'verified',
+  'aadhaar_verified',
+  'govt_id_verified',
+  'status',
+  'created_at',
+  'updated_at'
+].join(', ');
+
+/**
  * Cross-tab & Multi-window BroadcastChannel for instant profile data synchronization
  */
 export const profileSyncChannel = typeof window !== 'undefined' && window.BroadcastChannel
@@ -94,7 +147,7 @@ export async function ensureProfileRowExists(user) {
       let { data: inserted, error: insertErr } = await supabase
         .from('profiles')
         .upsert(upsertPayload, { onConflict: 'id' })
-        .select()
+        .select('id, register_id')
         .maybeSingle();
 
       // Gracefully handle PostgreSQL error 42703 (missing column in custom schemas)
@@ -108,7 +161,7 @@ export async function ensureProfileRowExists(user) {
         const retryRes = await supabase
           .from('profiles')
           .upsert(safePayload, { onConflict: 'id' })
-          .select()
+          .select('id, register_id')
           .maybeSingle();
         inserted = retryRes.data;
       }
@@ -735,8 +788,15 @@ export function mapSupabaseRowToProfile(r) {
     if (!u || typeof u !== 'string') return null;
     let str = u.trim();
     if (!str || str === 'null' || str === 'undefined' || isFakeAvatarUrl(str)) return null;
-    if (str.includes('pheqzsfrwhjxspaaroea.supabase.co') || str.includes('ejtkrilhntdbsiavugta.supabase.co')) {
-      str = str.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://kzvdzospvgzlfkkptadl.supabase.co');
+
+    // Route any legacy/cached Supabase storage URLs directly to Cloudflare R2 public domain
+    if (str.includes('.supabase.co/storage/v1/object/public/')) {
+      const parts = str.split('.supabase.co/storage/v1/object/public/')[1];
+      if (parts) {
+        str = `https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev/${parts.replace(/^\/+/, '')}`;
+      }
+    } else if (str.includes('pheqzsfrwhjxspaaroea.supabase.co') || str.includes('ejtkrilhntdbsiavugta.supabase.co')) {
+      str = str.replace(/https:\/\/[a-z0-9]+\.supabase\.co/g, 'https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev');
     }
     str = formatR2PublicUrl(str);
     return addCacheBuster(str, profileTimestamp);
@@ -1093,22 +1153,27 @@ export function deduplicateProfiles(list) {
  * Excludes all demo profiles - returns only real registered candidates.
  * Explicitly filters out currently authenticated user (WHERE user_id != current_user_id AND id != current_user_id).
  */
-export async function fetchLiveProfiles(currentUserId = null) {
+export async function fetchLiveProfiles(currentUserId = null, { limit = 15, page = 0 } = {}) {
   // 1. Direct Supabase PostgreSQL query (Port 443 HTTPS - Works universally without backend)
   if (isSupabaseConfigured()) {
     try {
       let query = supabase
         .from('profiles')
-        .select('*');
+        .select(PROFILE_FEED_COLUMNS);
 
       if (currentUserId) {
         const uidStr = String(currentUserId).trim();
         query = query.neq('id', uidStr);
       }
 
+      const safeLimit = Math.min(Math.max(Number(limit) || 15, 1), 50);
+      const safePage = Math.max(Number(page) || 0, 0);
+      const from = safePage * safeLimit;
+      const to = from + safeLimit - 1;
+
       const fetchPromise = query
         .order('created_at', { ascending: false })
-        .limit(100);
+        .range(from, to);
 
       // 8-second timeout guard to prevent UI stalling on slow connections
       const timeoutPromise = new Promise((_, reject) =>
@@ -1209,7 +1274,7 @@ export async function fetchLiveOffers() {
     try {
       const { data, error } = await supabase
         .from('offers')
-        .select('*')
+        .select('id, title, discount_pct, code, valid_till, is_active, created_at')
         .order('id', { ascending: false });
       if (!error && Array.isArray(data)) {
         if (data.length > 0) {
@@ -1257,7 +1322,7 @@ export async function fetchLivePlans() {
     try {
       const { data, error } = await supabase
         .from('membership_plans')
-        .select('*')
+        .select('id, name, duration_months, price, original_price, contact_credits, call_credits, features, is_popular, sort_order')
         .order('sort_order', { ascending: true });
       if (!error && Array.isArray(data) && data.length > 0) {
         try { localStorage.setItem('i4u_cached_plans', JSON.stringify(data)); } catch (e) {}
@@ -1661,7 +1726,7 @@ export async function updateLivePhotos(photoData) {
             .from('profiles')
             .update(payload)
             .eq('id', matchedRowId)
-            .select();
+            .select(PROFILE_FEED_COLUMNS);
           updatedRows = directRes.data;
           error = directRes.error;
         }
@@ -1689,7 +1754,7 @@ export async function updateLivePhotos(photoData) {
               .from('profiles')
               .update(payload)
               .or(orTokens.join(','))
-              .select();
+              .select(PROFILE_FEED_COLUMNS);
             if (fallbackRes.data && fallbackRes.data.length > 0) {
               updatedRows = fallbackRes.data;
               error = fallbackRes.error;
@@ -2077,7 +2142,7 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
       }
       const { data: existingRows } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, register_id, name, full_name, age, gender, height, religion, mother_tongue')
         .or(orTokens.join(','))
         .limit(1);
 
@@ -2156,7 +2221,7 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
         query = query.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
       }
 
-      let { data, error } = await query.select();
+      let { data, error } = await query.select(PROFILE_FEED_COLUMNS);
 
       if (error && (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist'))) {
         console.warn('[updateLiveUserProfile] Custom NRI column not yet in Supabase schema, retrying standard fields:', error.message);
@@ -2176,7 +2241,7 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
         } else {
           retryQuery = retryQuery.or(`id.eq.${cleanId},register_id.eq.${cleanId},phone.eq.${cleanId}`);
         }
-        const retryRes = await retryQuery.select();
+        const retryRes = await retryQuery.select(PROFILE_FEED_COLUMNS);
         data = retryRes.data;
         error = retryRes.error;
       }
@@ -2218,6 +2283,7 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
       }
 
       const mappedProfile = updatedRow ? mapSupabaseRowToProfile(updatedRow) : null;
+      invalidateLiveUserProfileCache(cleanId);
 
       // 4. Always notify FastAPI/Flask Backend & PostgreSQL database
       try {
@@ -2372,12 +2438,33 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
 /**
  * Fetch candidate profile with live Aadhaar status & admin rejection reason
  */
-export async function fetchLiveUserProfile(userId) {
+const liveUserProfileCache = new Map();
+
+export function invalidateLiveUserProfileCache(userId = null) {
+  if (userId) {
+    liveUserProfileCache.delete(String(userId).trim().toLowerCase());
+  } else {
+    liveUserProfileCache.clear();
+  }
+}
+
+/**
+ * Fetch a single live profile directly by user ID or register ID with short-lived memory caching
+ * to drastically reduce Supabase Database Egress during frequent in-app navigation.
+ */
+export async function fetchLiveUserProfile(userId, force = false) {
   if (!userId) return null;
 
   const cleanId = String(userId).trim();
   const cleanIdLower = cleanId.toLowerCase();
   const regIdToken = cleanId.includes('_') ? cleanId.split('_')[0] : cleanId;
+
+  if (!force && liveUserProfileCache.has(cleanIdLower)) {
+    const entry = liveUserProfileCache.get(cleanIdLower);
+    if (entry && (Date.now() - entry.timestamp < 60000)) {
+      return entry.data;
+    }
+  }
 
   // 1. Try Supabase direct query (Strict Database Fetch)
   if (isSupabaseConfigured() && supabase) {
@@ -2401,7 +2488,14 @@ export async function fetchLiveUserProfile(userId) {
         .maybeSingle();
 
       if (!error && data) {
-        return mapSupabaseRowToProfile(data);
+        const mapped = mapSupabaseRowToProfile(data);
+        if (mapped) {
+          liveUserProfileCache.set(cleanIdLower, { timestamp: Date.now(), data: mapped });
+          if (mapped.registerId) {
+            liveUserProfileCache.set(String(mapped.registerId).toLowerCase(), { timestamp: Date.now(), data: mapped });
+          }
+        }
+        return mapped;
       }
     } catch (sbErr) {
       console.warn('[Supabase fetchLiveUserProfile Warning]:', sbErr?.message);
@@ -2798,7 +2892,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
       const backendProfilesMap = new Map();
       if (isSupabaseConfigured() && supabase && backendSenderIds.length > 0) {
         try {
-          const { data: liveProfs } = await supabase.from('profiles').select('*').in('id', backendSenderIds);
+          const { data: liveProfs } = await supabase.from('profiles').select(PROFILE_FEED_COLUMNS).in('id', backendSenderIds);
           if (Array.isArray(liveProfs)) {
             liveProfs.forEach(p => {
               const m = mapSupabaseRowToProfile(p);
@@ -2845,29 +2939,29 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
           const idList = cleanUserIds.join(',');
           const { data: rowsWithOr } = await supabase
             .from('notifications')
-            .select('*')
+            .select('id, recipient_id, recipient_email, recipient_register_id, type, title, message, metadata, is_read, email_sent, created_at')
             .or(`recipient_id.in.(${idList}),recipient_register_id.in.(${idList})`)
             .order('created_at', { ascending: false })
-            .limit(40);
+            .limit(30);
           if (Array.isArray(rowsWithOr)) notifRows = rowsWithOr;
         }
       } catch (orErr) {
         const { data: fallbackRows } = await supabase
           .from('notifications')
-          .select('*')
+          .select('id, recipient_id, recipient_email, recipient_register_id, type, title, message, metadata, is_read, email_sent, created_at')
           .in('recipient_id', userIds)
           .order('created_at', { ascending: false })
-          .limit(40);
+          .limit(30);
         if (Array.isArray(fallbackRows)) notifRows = fallbackRows;
       }
 
       // Query interests table
       const { data: interestRows } = await supabase
         .from('interests')
-        .select('*')
+        .select('id, sender_id, receiver_id, status, message, created_at, updated_at')
         .in('receiver_id', userIds)
         .order('updated_at', { ascending: false })
-        .limit(40);
+        .limit(30);
 
       // Collect all sender IDs from interests and notifications
       const rawSenderIds = [];
@@ -2897,7 +2991,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         try {
           const { data: dbSenders, error: sErr } = await supabase
             .from('profiles')
-            .select('*')
+            .select(PROFILE_FEED_COLUMNS)
             .in('id', uniqueSenderIds);
           if (!sErr && Array.isArray(dbSenders)) {
             dbSenders.forEach(row => {
@@ -2918,7 +3012,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
           try {
             const { data: dbRegSenders } = await supabase
               .from('profiles')
-              .select('*')
+              .select(PROFILE_FEED_COLUMNS)
               .in('register_id', missingRegIds);
             if (Array.isArray(dbRegSenders)) {
               dbRegSenders.forEach(row => {
@@ -3305,7 +3399,7 @@ export async function fetchActiveStoriesApi() {
     const nowIso = new Date().toISOString();
     const { data, error } = await supabase
       .from('stories')
-      .select('*')
+      .select('id, user_id, user_name, user_avatar, user_location, media_url, caption, created_at, expires_at')
       .gt('expires_at', nowIso)
       .order('created_at', { ascending: false });
 
@@ -3356,7 +3450,7 @@ export async function insertStoryApi({ userId, userName, userAvatar, userLocatio
     const { data, error } = await supabase
       .from('stories')
       .insert(payload)
-      .select()
+      .select('id, user_id, user_name, user_avatar, user_location, media_url, caption, created_at, expires_at')
       .single();
 
     if (error) {
@@ -3434,7 +3528,7 @@ export async function fetchSuccessStoriesApi() {
   try {
     const { data, error } = await supabase
       .from('success_stories')
-      .select('*')
+      .select('id, couple_names, wedding_date, story, photo_url, location, created_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -3488,7 +3582,7 @@ export async function insertSuccessStoryApi({ coupleNames, location, weddingDate
       const { data, error } = await supabase
         .from('success_stories')
         .insert(payload)
-        .select()
+        .select('id, couple_names, wedding_date, story, photo_url, location, created_at')
         .single();
 
       if (error) {

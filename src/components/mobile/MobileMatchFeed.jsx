@@ -696,6 +696,8 @@ export default function MobileMatchFeed({
                       <img 
                         src={resolveProfilePhoto(profile)} 
                         alt={profile.name}
+                        loading="lazy"
+                        decoding="async"
                         draggable={false}
                         onDragStart={(e) => e.preventDefault()}
                         onError={(e) => {
@@ -945,6 +947,8 @@ export default function MobileMatchFeed({
                       <img 
                         src={resolveProfilePhoto(profile)} 
                         alt={profile.name}
+                        loading="lazy"
+                        decoding="async"
                         draggable={false}
                         onDragStart={(e) => e.preventDefault()}
                         onError={(e) => {

@@ -483,82 +483,55 @@ export default function App() {
         } catch (e) {}
       }
 
-      // Always sync fresh user profile directly from Supabase public.profiles on load/refresh
+      // Always sync fresh user profile directly from Supabase public.profiles on load/refresh (targeted query instead of whole-table scan)
       const activeUser = currentUserRef.current || currentUser;
       const targetUserId = activeUser?.id || activeUser?.registerId || activeUser?.register_id || localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id');
       if (targetUserId && isSupabaseConfigured() && supabase) {
         try {
-          const { data: allSupabaseProfiles } = await supabase
-            .from('profiles')
-            .select('*');
+          const freshUser = await fetchLiveUserProfile(targetUserId);
 
-          if (Array.isArray(allSupabaseProfiles)) {
-            const cleanDigits = (activeUser?.mobile || activeUser?.phone || '').replace(/\D/g, '');
-            const cleanReg = (activeUser?.registerId || activeUser?.register_id || '').trim().toLowerCase();
-            const cleanUid = (activeUser?.id || targetUserId || '').trim().toLowerCase();
-            const cleanEmail = (activeUser?.email || '').trim().toLowerCase();
+          if (freshUser) {
+            // Strictly take photos from fresh Supabase database row!
+            const freshSingles = (Array.isArray(freshUser.singlePhotos) && freshUser.singlePhotos.length > 0)
+              ? freshUser.singlePhotos
+              : (freshUser.photo ? [freshUser.photo] : []);
+            const freshFamilies = (Array.isArray(freshUser.familyPhotos) && freshUser.familyPhotos.length > 0)
+              ? freshUser.familyPhotos
+              : (freshUser.family_photo ? [freshUser.family_photo] : []);
 
-            const freshUserRow = allSupabaseProfiles.find(row => {
-              const rId = String(row.id || '').trim().toLowerCase();
-              const rReg = String(row.register_id || '').trim().toLowerCase();
-              const rPhone = String(row.phone || '').trim();
-              const rEmail = String(row.email || '').trim().toLowerCase();
+            const merged = { 
+              ...(activeUser || {}), 
+              ...freshUser,
+              photo: freshUser.photo || null,
+              photo_url: freshUser.photo_url || freshUser.photo || null,
+              profile_photo_url: freshUser.profile_photo_url || freshUser.photo || null,
+              avatar_url: freshUser.avatar_url || freshUser.photo || null,
+              singlePhotos: freshSingles,
+              photos: freshSingles,
+              single_photos: freshSingles,
+              familyPhotos: freshFamilies,
+              family_photo: freshUser.family_photo || (freshFamilies[0] || null),
+              family_photo_url: freshUser.family_photo_url || (freshFamilies[0] || null),
+              family_photos: freshFamilies
+            };
 
-              if (cleanUid && (rId === cleanUid || rReg === cleanUid)) return true;
-              if (cleanReg && (rReg === cleanReg || rId === cleanReg)) return true;
-              if (cleanReg && rId.startsWith(`${cleanReg}_`)) return true;
-              if (cleanUid && rId.startsWith(`${cleanUid}_`)) return true;
-              if (cleanDigits.length >= 10 && rPhone && rPhone.includes(cleanDigits.slice(-10))) return true;
-              if (cleanEmail && rEmail === cleanEmail) return true;
-              return false;
+            const storageKeys = [
+              'i4u_auth_user',
+              'current_user_profile',
+              'user_profile',
+              'i4u_user',
+              'user',
+              'cached_user',
+              'cached_user_profile',
+              'user_data'
+            ];
+            storageKeys.forEach(k => {
+              try {
+                localStorage.setItem(k, JSON.stringify(merged));
+              } catch (_) {}
             });
 
-            if (freshUserRow) {
-              const mappedUser = mapSupabaseRowToProfile(freshUserRow);
-              if (mappedUser) {
-                // Strictly take photos from fresh Supabase database row!
-                const freshSingles = (Array.isArray(mappedUser.singlePhotos) && mappedUser.singlePhotos.length > 0)
-                  ? mappedUser.singlePhotos
-                  : (mappedUser.photo ? [mappedUser.photo] : []);
-                const freshFamilies = (Array.isArray(mappedUser.familyPhotos) && mappedUser.familyPhotos.length > 0)
-                  ? mappedUser.familyPhotos
-                  : (mappedUser.family_photo ? [mappedUser.family_photo] : []);
-
-                const merged = { 
-                  ...(activeUser || {}), 
-                  ...mappedUser,
-                  photo: mappedUser.photo || null,
-                  photo_url: mappedUser.photo_url || mappedUser.photo || null,
-                  profile_photo_url: mappedUser.profile_photo_url || mappedUser.photo || null,
-                  avatar_url: mappedUser.avatar_url || mappedUser.photo || null,
-                  singlePhotos: freshSingles,
-                  photos: freshSingles,
-                  single_photos: freshSingles,
-                  familyPhotos: freshFamilies,
-                  family_photo: mappedUser.family_photo || (freshFamilies[0] || null),
-                  family_photo_url: mappedUser.family_photo_url || (freshFamilies[0] || null),
-                  family_photos: freshFamilies
-                };
-
-                const storageKeys = [
-                  'i4u_auth_user',
-                  'current_user_profile',
-                  'user_profile',
-                  'i4u_user',
-                  'user',
-                  'cached_user',
-                  'cached_user_profile',
-                  'user_data'
-                ];
-                storageKeys.forEach(k => {
-                  try {
-                    localStorage.setItem(k, JSON.stringify(merged));
-                  } catch (_) {}
-                });
-
-                setCurrentUser(merged);
-              }
-            }
+            setCurrentUser(merged);
           }
         } catch (uErr) {
           console.warn('[Sync Current User Error]:', uErr);
@@ -583,63 +556,16 @@ export default function App() {
     let realtimeInterestsChannel = null;
 
     if (isSupabaseConfigured() && supabase && typeof supabase.channel === 'function') {
+      // 1. Lightweight broadcast listener for profile sync (eliminates whole-table postgres_changes egress)
       try {
         realtimeChannel = supabase
           .channel('realtime_profiles_sync')
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'profiles' },
-            (payload) => {
-              console.log('[Realtime Profiles Event]:', payload?.eventType, payload?.new?.id);
-              if (payload?.new) {
-                const mapped = mapSupabaseRowToProfile(payload.new);
-                if (mapped) {
-                  setProfiles(prev => {
-                    if (!Array.isArray(prev)) return [mapped];
-                    const uid = mapped.id;
-                    const regId = mapped.registerId || mapped.register_id;
-                    const exists = prev.some(p => p.id === uid || (regId && (p.registerId === regId || p.register_id === regId)));
-                    if (exists) {
-                      return prev.map(p => (p.id === uid || (regId && (p.registerId === regId || p.register_id === regId))) ? { ...p, ...mapped } : p);
-                    }
-                    return [mapped, ...prev];
-                  });
-
-                  // If updated profile is current user, keep current user reactive without regressing photos
-                  setCurrentUser(prev => {
-                    if (!prev) return prev;
-                    if (prev.id === mapped.id || (mapped.registerId && prev.registerId === mapped.registerId) || (mapped.phone && prev.phone === mapped.phone)) {
-                      const currentSingles = Array.isArray(prev?.singlePhotos) ? prev.singlePhotos : [];
-                      const incomingSingles = Array.isArray(mapped?.singlePhotos) ? mapped.singlePhotos : [];
-                      const finalSingles = incomingSingles.length >= currentSingles.length ? incomingSingles : currentSingles;
-
-                      const currentFamilies = Array.isArray(prev?.familyPhotos) ? prev.familyPhotos : [];
-                      const incomingFamilies = Array.isArray(mapped?.familyPhotos) ? mapped.familyPhotos : [];
-                      const finalFamilies = incomingFamilies.length >= currentFamilies.length ? incomingFamilies : currentFamilies;
-
-                      const merged = { 
-                        ...prev, 
-                        ...mapped,
-                        singlePhotos: finalSingles,
-                        photos: finalSingles,
-                        familyPhotos: finalFamilies
-                      };
-                      try { localStorage.setItem('i4u_auth_user', JSON.stringify(merged)); } catch (e) {}
-                      return merged;
-                    }
-                    return prev;
-                  });
-                }
-              }
-              syncLiveProfiles(true);
-            }
-          )
           .on(
             'broadcast',
             { event: 'profile_updated' },
             (event) => {
               console.log('[Realtime Broadcast Profile Sync]:', event);
-              syncLiveProfiles(true);
+              syncLiveProfiles(false);
             }
           )
           .subscribe();
@@ -647,69 +573,71 @@ export default function App() {
         console.warn('[Realtime Profiles Init Warning]:', rtErr);
       }
 
-      // Supabase PostgreSQL Realtime changes for Interests table
-      try {
-        realtimeInterestsChannel = supabase
-          .channel('realtime_interests_global_sync')
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'interests' },
-            (payload) => {
-              const row = payload?.new;
-              if (!row) return;
-              console.log('[Realtime Interests Event]:', payload?.eventType, row.status, row.sender_id, row.receiver_id);
-              const sId = String(row.sender_id || '');
-              const rId = String(row.receiver_id || '');
-              const activeUser = currentUserRef.current;
-              const currentIds = activeUser ? interestService.getUserIds(activeUser) : [];
-              if (currentIds.includes(sId) || currentIds.includes(rId)) {
-                const partnerId = currentIds.includes(sId) ? rId : sId;
-                const isAccepted = row.status === 'accepted';
-                if (isAccepted) {
-                  // Cross-resolve partner's profile to extract all identifiers (UUID, register_id, registerId)
-                  const matched = (profilesRef.current || []).find(p => p && (
-                    String(p.id) === partnerId ||
-                    String(p.register_id) === partnerId ||
-                    String(p.registerId) === partnerId
-                  ));
-                  const partnerIds = matched ? interestService.getUserIds(matched) : [partnerId];
+      // 2. Filtered Realtime subscription on interests (strictly scoped to current user, not entire table)
+      const activeUser = currentUserRef.current || currentUser;
+      const curUid = activeUser?.id || activeUser?.user_id || activeUser?.registerId;
+      if (curUid) {
+        try {
+          realtimeInterestsChannel = supabase
+            .channel(`realtime_interests_user_${String(curUid).replace(/[^a-zA-Z0-9_-]/g, '_')}`)
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'interests', filter: `receiver_id=eq.${curUid}` },
+              (payload) => {
+                const row = payload?.new;
+                if (!row) return;
+                console.log('[Realtime User Interests Event]:', payload?.eventType, row.status, row.sender_id, row.receiver_id);
+                const sId = String(row.sender_id || '');
+                const rId = String(row.receiver_id || '');
+                const currentIds = activeUser ? interestService.getUserIds(activeUser) : [];
+                if (currentIds.includes(sId) || currentIds.includes(rId)) {
+                  const partnerId = currentIds.includes(sId) ? rId : sId;
+                  const isAccepted = row.status === 'accepted';
+                  if (isAccepted) {
+                    const matched = (profilesRef.current || []).find(p => p && (
+                      String(p.id) === partnerId ||
+                      String(p.register_id) === partnerId ||
+                      String(p.registerId) === partnerId
+                    ));
+                    const partnerIds = matched ? interestService.getUserIds(matched) : [partnerId];
 
-                  setAcceptedInterests((prev) => {
-                    const arr = Array.isArray(prev) ? prev : [];
-                    return Array.from(new Set([...arr, ...partnerIds]));
-                  });
-                  setNotifications((prev) => (prev || []).map(n => {
-                    if (partnerIds.includes(String(n.profileId)) || partnerIds.includes(String(n.senderId)) || partnerIds.includes(String(n.receiverId))) {
-                      return { ...n, status: 'accepted', isRead: true };
-                    }
-                    return n;
-                  }));
-                }
-                const updatePayload = {
-                  id: row.id,
-                  interest_id: row.id,
-                  interestId: row.id,
-                  userAId: sId,
-                  userBId: rId,
-                  senderId: sId,
-                  receiverId: rId,
-                  responderId: rId,
-                  partnerId: partnerId,
-                  status: row.status,
-                  event: isAccepted ? 'interest-accepted' : 'interest_status_change'
-                };
-                interestService.handleRealtimeStatusUpdate(updatePayload);
-                if (typeof window !== 'undefined') {
-                  try {
-                    window.dispatchEvent(new CustomEvent('i4u_interest_status_change', { detail: updatePayload }));
-                  } catch (e) {}
+                    setAcceptedInterests((prev) => {
+                      const arr = Array.isArray(prev) ? prev : [];
+                      return Array.from(new Set([...arr, ...partnerIds]));
+                    });
+                    setNotifications((prev) => (prev || []).map(n => {
+                      if (partnerIds.includes(String(n.profileId)) || partnerIds.includes(String(n.senderId)) || partnerIds.includes(String(n.receiverId))) {
+                        return { ...n, status: 'accepted', isRead: true };
+                      }
+                      return n;
+                    }));
+                  }
+                  const updatePayload = {
+                    id: row.id,
+                    interest_id: row.id,
+                    interestId: row.id,
+                    userAId: sId,
+                    userBId: rId,
+                    senderId: sId,
+                    receiverId: rId,
+                    responderId: rId,
+                    partnerId: partnerId,
+                    status: row.status,
+                    event: isAccepted ? 'interest-accepted' : 'interest_status_change'
+                  };
+                  interestService.handleRealtimeStatusUpdate(updatePayload);
+                  if (typeof window !== 'undefined') {
+                    try {
+                      window.dispatchEvent(new CustomEvent('i4u_interest_status_change', { detail: updatePayload }));
+                    } catch (e) {}
+                  }
                 }
               }
-            }
-          )
-          .subscribe();
-      } catch (intErr) {
-        console.warn('[Realtime Interests Global Sync Warning]:', intErr);
+            )
+            .subscribe();
+        } catch (intErr) {
+          console.warn('[Realtime Interests Scoped Warning]:', intErr);
+        }
       }
     }
 
@@ -764,17 +692,6 @@ export default function App() {
     };
     window.addEventListener('i4u_profile_updated', handleLocalSync);
 
-    // 4. Auto-refresh when user/admin switches window or tab gains focus (responsive 4s throttle)
-    const handleFocus = () => syncLiveProfiles(false);
-    window.addEventListener('focus', handleFocus);
-    const handleVisibility = () => {
-      if (!document.hidden) syncLiveProfiles(false);
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    // Periodic background sync every 60s
-    const interval = setInterval(() => syncLiveProfiles(true), 60000);
-
     return () => {
       if (realtimeChannel && supabase && typeof supabase.removeChannel === 'function') {
         try { supabase.removeChannel(realtimeChannel); } catch (e) {}
@@ -788,9 +705,6 @@ export default function App() {
         profileSyncChannel.removeEventListener('message', handleBroadcastSync);
       }
       window.removeEventListener('i4u_profile_updated', handleLocalSync);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      clearInterval(interval);
     };
   }, [syncLiveProfiles, isProduction]);
 

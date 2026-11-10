@@ -333,6 +333,8 @@ export default function MobileSearchScreen({
                   <img 
                     src={resolveProfilePhoto(profile)} 
                     alt={profile.name}
+                    loading="lazy"
+                    decoding="async"
                     draggable={false}
                     onDragStart={(e) => e.preventDefault()}
                     onError={(e) => {

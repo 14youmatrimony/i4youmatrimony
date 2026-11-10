@@ -1144,7 +1144,7 @@ class InterestService {
       try {
         const { data, error } = await supabase
           .from('interests')
-          .select('*')
+          .select('id, sender_id, receiver_id, status, message, created_at, updated_at')
           .in('receiver_id', receiverIds)
           .order('updated_at', { ascending: false });
 
@@ -1418,7 +1418,7 @@ class InterestService {
       try {
         const { data, error } = await supabase
           .from('interests')
-          .select('*')
+          .select('id, sender_id, receiver_id, status, message, created_at, updated_at')
           .in('sender_id', senderIds)
           .order('updated_at', { ascending: false });
 
@@ -1664,47 +1664,54 @@ class InterestService {
         } catch (e) {}
       });
 
-      // Single dedicated postgres_changes listener for this subscriber
+      // Dedicated filtered postgres_changes listener for this user (strictly avoids whole-table Realtime egress)
       try {
+        const handleInterestChange = (payload) => {
+          const row = payload?.new;
+          if (!row) return;
+          const sId = String(row.sender_id || '');
+          const rId = String(row.receiver_id || '');
+          if (row.status === 'pending') {
+            if (!targetUserIds.includes(rId)) {
+              return; // Pending interest notification is ONLY for receiver!
+            }
+          } else {
+            if (!targetUserIds.includes(sId) && !targetUserIds.includes(rId)) {
+              return;
+            }
+          }
+          console.log('[InterestService] Real-time filtered postgres_changes event on interests:', row.status, sId, rId);
+          const isAccepted = row.status === 'accepted';
+          const partnerId = targetUserIds.includes(sId) ? rId : sId;
+          const updatePayload = {
+            id: row.id,
+            interest_id: row.id,
+            interestId: row.id,
+            event: isAccepted ? 'interest-accepted' : 'interest_status_change',
+            status: row.status,
+            userAId: sId,
+            userBId: rId,
+            senderId: sId,
+            receiverId: rId,
+            responderId: rId,
+            partnerId: partnerId,
+            timestamp: Date.now()
+          };
+          this.handleRealtimeStatusUpdate(updatePayload);
+          emitEvent(updatePayload);
+        };
+
         const dbChangeChn = supabase
           .channel(`user-interests-db-${primaryId}-${subId}`)
           .on(
             'postgres_changes',
-            { event: '*', schema: 'public', table: 'interests' },
-            (payload) => {
-              const row = payload?.new;
-              if (!row) return;
-              const sId = String(row.sender_id || '');
-              const rId = String(row.receiver_id || '');
-              if (row.status === 'pending') {
-                if (!targetUserIds.includes(rId)) {
-                  return; // Pending interest notification is ONLY for receiver!
-                }
-              } else {
-                if (!targetUserIds.includes(sId) && !targetUserIds.includes(rId)) {
-                  return;
-                }
-              }
-              console.log('[InterestService] Real-time postgres_changes event on interests:', row.status, sId, rId);
-              const isAccepted = row.status === 'accepted';
-              const partnerId = targetUserIds.includes(sId) ? rId : sId;
-              const updatePayload = {
-                id: row.id,
-                interest_id: row.id,
-                interestId: row.id,
-                event: isAccepted ? 'interest-accepted' : 'interest_status_change',
-                status: row.status,
-                userAId: sId,
-                userBId: rId,
-                senderId: sId,
-                receiverId: rId,
-                responderId: rId,
-                partnerId: partnerId,
-                timestamp: Date.now()
-              };
-              this.handleRealtimeStatusUpdate(updatePayload);
-              emitEvent(updatePayload);
-            }
+            { event: '*', schema: 'public', table: 'interests', filter: `receiver_id=eq.${primaryId}` },
+            handleInterestChange
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'interests', filter: `sender_id=eq.${primaryId}` },
+            handleInterestChange
           )
           .subscribe();
 
@@ -1887,7 +1894,7 @@ class InterestService {
           try {
             const { data: dbSenderRows } = await supabase
               .from('profiles')
-              .select('*')
+              .select('id, register_id, name, full_name, photo, photo_url, profile_photo_url, avatar_url, age, profession, occupation, district, city, verified, aadhaar_verified')
               .eq('id', String(senderId))
               .limit(1);
             if (Array.isArray(dbSenderRows) && dbSenderRows.length > 0) {

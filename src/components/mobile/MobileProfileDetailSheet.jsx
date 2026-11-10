@@ -294,6 +294,8 @@ export default function MobileProfileDetailSheet({
               <img 
                 src={activePhoto} 
                 alt={profile.name} 
+                loading="lazy"
+                decoding="async"
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
                 onError={(e) => {
@@ -1363,6 +1365,8 @@ export default function MobileProfileDetailSheet({
                       <img 
                         src={fUrl} 
                         alt={`Family ${fIdx + 1}`} 
+                        loading="lazy"
+                        decoding="async"
                         draggable={false}
                         onDragStart={(e) => e.preventDefault()}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none select-none"

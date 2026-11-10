@@ -171,7 +171,7 @@ export default function MobileNotificationsSheet({
     let isMounted = true;
     supabase
       .from('profiles')
-      .select('*')
+      .select('id, user_id, register_id, name, full_name, photo, photo_url, profile_photo_url, avatar_url, age, gender, city, district, profession, verified, aadhaar_verified')
       .in('id', missingIds)
       .then(({ data, error }) => {
         if (!isMounted || error || !Array.isArray(data)) return;

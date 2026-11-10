@@ -11,7 +11,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { isSelfProfile } from '../utils/genderMatch.js';
-import { sendBackendMessage, mapSupabaseRowToProfile, isPlaceholderOrIncompleteProfile } from './api.js';
+import { sendBackendMessage, mapSupabaseRowToProfile, isPlaceholderOrIncompleteProfile, PROFILE_FEED_COLUMNS } from './api.js';
 import { fcmNotificationService } from './fcmNotificationService.js';
 
 class LiveChatService {
@@ -593,7 +593,9 @@ class LiveChatService {
     // 1. Supabase messages table with strict two-way isolation and active conversationId match
     if (isSupabaseConfigured() && supabase) {
       try {
-        let query = supabase.from('messages').select('*');
+        let query = supabase
+          .from('messages')
+          .select('id, conversation_id, sender_id, receiver_id, text, status, created_at');
         if (conversationId) {
           const cleanConvId = String(conversationId).replace(/["']/g, '');
           query = query.or(`conversation_id.eq.${cleanConvId},and(sender_id.eq.${cId},receiver_id.eq.${pId}),and(sender_id.eq.${pId},receiver_id.eq.${cId})`);
@@ -601,11 +603,16 @@ class LiveChatService {
           query = query.or(`and(sender_id.eq.${cId},receiver_id.eq.${pId}),and(sender_id.eq.${pId},receiver_id.eq.${cId})`);
         }
 
-        const { data, error } = await query.order('created_at', { ascending: true });
+        // Limit initial load to latest 30 messages to conserve Supabase Egress
+        const { data, error } = await query
+          .order('created_at', { ascending: false })
+          .limit(30);
 
         if (!error && Array.isArray(data)) {
+          // Reverse back to chronological order for conversational rendering
+          const chronological = [...data].reverse();
           // Gatekeeper validation: verify strictly belonging to this two-way pair and not self-sent
-          messages = data.filter((msg) => {
+          messages = chronological.filter((msg) => {
             const sid = String(msg.sender_id || '');
             const rid = String(msg.receiver_id || '');
             if (!sid || !rid || sid === rid) return false;
@@ -783,20 +790,22 @@ class LiveChatService {
     if (isSupabaseConfigured() && supabase) {
       const cleanIds = userIds.map((id) => String(id).replace(/["']/g, '')).filter(Boolean);
 
-      // 1. Fetch all messages involving the current user as sender or receiver
+      // 1. Fetch latest messages involving the current user as sender or receiver (paginated/limited)
       if (cleanIds.length > 0) {
         try {
           const [sentRes, recvRes] = await Promise.all([
             supabase
               .from('messages')
-              .select('*')
+              .select('id, conversation_id, sender_id, receiver_id, text, status, created_at')
               .in('sender_id', cleanIds)
-              .order('created_at', { ascending: false }),
+              .order('created_at', { ascending: false })
+              .limit(50),
             supabase
               .from('messages')
-              .select('*')
+              .select('id, conversation_id, sender_id, receiver_id, text, status, created_at')
               .in('receiver_id', cleanIds)
               .order('created_at', { ascending: false })
+              .limit(50)
           ]);
 
           const combined = [...(sentRes?.data || []), ...(recvRes?.data || [])];
@@ -813,19 +822,21 @@ class LiveChatService {
           console.warn('[LiveChat] Notice: Error querying messages table:', msgErr?.message || msgErr);
         }
 
-        // 2. Fetch all accepted matches/interests from interests table
+        // 2. Fetch all accepted matches/interests from interests table (lean projection)
         try {
           const [intSentRes, intRecvRes] = await Promise.all([
             supabase
               .from('interests')
-              .select('*')
+              .select('id, sender_id, receiver_id, status, created_at, updated_at')
               .in('sender_id', cleanIds)
-              .eq('status', 'accepted'),
+              .eq('status', 'accepted')
+              .limit(50),
             supabase
               .from('interests')
-              .select('*')
+              .select('id, sender_id, receiver_id, status, created_at, updated_at')
               .in('receiver_id', cleanIds)
               .eq('status', 'accepted')
+              .limit(50)
           ]);
 
           const combinedInt = [...(intSentRes?.data || []), ...(intRecvRes?.data || [])];
@@ -1017,8 +1028,8 @@ class LiveChatService {
       try {
         const cleanPartnerTokens = partnersNeedingFetch.map((id) => String(id).replace(/["']/g, '')).filter(Boolean);
         const [byIdsRes, byRegRes] = await Promise.all([
-          supabase.from('profiles').select('*').in('id', cleanPartnerTokens),
-          supabase.from('profiles').select('*').in('register_id', cleanPartnerTokens)
+          supabase.from('profiles').select(PROFILE_FEED_COLUMNS).in('id', cleanPartnerTokens),
+          supabase.from('profiles').select(PROFILE_FEED_COLUMNS).in('register_id', cleanPartnerTokens)
         ]);
         const fetchedRows = [...(byIdsRes.data || []), ...(byRegRes.data || [])];
         fetchedRows.forEach((row) => {

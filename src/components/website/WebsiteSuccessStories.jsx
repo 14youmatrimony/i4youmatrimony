@@ -65,25 +65,6 @@ export default function WebsiteSuccessStories() {
 
     loadLiveStories();
 
-    // Supabase Realtime Listener for immediate live updates without refresh
-    if (isSupabaseConfigured() && supabase) {
-      const channel = supabase
-        .channel('public:success_stories')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'success_stories' },
-          () => {
-            loadLiveStories();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        isMounted = false;
-        supabase.removeChannel(channel);
-      };
-    }
-
     return () => {
       isMounted = false;
     };
