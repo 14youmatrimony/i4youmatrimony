@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import { webrtcCallService, AudioRoutingHelper, RTCVideoRenderer } from '../../services/webrtcCallService';
 import SafeAvatar from '../common/SafeAvatar';
-import { resolveProfilePhoto } from '../../services/api';
+import { resolveProfilePhoto, fetchLiveUserProfile } from '../../services/api';
+import { formatR2PublicUrl } from '../../utils/r2Upload';
 
 export default function VideoCallModal({
   isOpen,
@@ -30,6 +31,10 @@ export default function VideoCallModal({
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [cameraNotice, setCameraNotice] = useState(null);
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [candidateProfile, setCandidateProfile] = useState(candidate);
+  const [candidateImgFailed, setCandidateImgFailed] = useState(false);
 
   // Renderers instantiated via RTCVideoRenderer
   const localRendererRef = useRef(new RTCVideoRenderer('localVideo'));
@@ -120,25 +125,102 @@ export default function VideoCallModal({
     } catch (e) {}
   };
 
+  // Dedicated helper to reliably bind local stream to DOM video element with iOS/mobile compliance
+  const bindLocalVideoElement = (videoEl, stream) => {
+    if (!videoEl) return;
+    try {
+      videoEl.muted = true;
+      videoEl.defaultMuted = true;
+      videoEl.volume = 0;
+      videoEl.playsInline = true;
+      videoEl.setAttribute('playsinline', 'true');
+      videoEl.setAttribute('webkit-playsinline', 'true');
+      videoEl.autoplay = true;
+
+      if (stream && videoEl.srcObject !== stream) {
+        videoEl.srcObject = stream;
+      }
+      if (videoEl.srcObject) {
+        const playPromise = videoEl.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn('[VideoCall] localVideo autoplay catch:', err?.message);
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[VideoCall] bindLocalVideoElement notice:', e?.message);
+    }
+  };
+
+  const setLocalVideoRef = (el) => {
+    localVideoRef.current = el;
+    const stream = localStream || webrtcCallService.localStream;
+    if (el && stream) {
+      bindLocalVideoElement(el, stream);
+    }
+  };
+
+  // Keep local video element bound across callStatus transitions, facingMode switch, or camera toggle
+  useEffect(() => {
+    const stream = localStream || webrtcCallService.localStream;
+    if (localVideoRef.current && stream) {
+      bindLocalVideoElement(localVideoRef.current, stream);
+    }
+  }, [localStream, callStatus, facingMode, isCameraOff]);
+
+  // Hydrate candidate full profile from Supabase if photo or details are missing
+  useEffect(() => {
+    setCandidateProfile(candidate);
+    setCandidateImgFailed(false);
+    const candidateId =
+      candidate?.id ||
+      candidate?.user_id ||
+      candidate?.caller_id ||
+      candidate?.callerId ||
+      candidate?.register_id ||
+      candidate?.registerId;
+
+    if (candidateId && !resolveProfilePhoto(candidate)) {
+      let isMounted = true;
+      fetchLiveUserProfile(candidateId)
+        .then((fullUser) => {
+          if (isMounted && fullUser) {
+            setCandidateProfile((prev) => ({ ...prev, ...fullUser }));
+          }
+        })
+        .catch(() => {});
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [candidate?.id, candidate?.caller_id, candidate?.user_id]);
+
   // Attach local stream to localRenderer and local video DOM element
   const attachLocalStream = (customStream = null) => {
     const stream = customStream || webrtcCallService.localStream;
     if (stream) {
       stream.getTracks().forEach((track) => {
-        track.enabled = true;
+        if (!isCameraOff && track.kind === 'video') {
+          track.enabled = true;
+        } else if (track.kind === 'audio') {
+          track.enabled = !isMicMuted;
+        }
       });
 
       setLocalStream(stream);
       setHasCameraPermission(true);
 
       // Set srcObject on localRenderer
-      localRendererRef.current.srcObject = stream;
-      webrtcCallService.localRenderer.srcObject = stream;
+      if (localRendererRef.current) {
+        localRendererRef.current.srcObject = stream;
+      }
+      if (webrtcCallService.localRenderer) {
+        webrtcCallService.localRenderer.srcObject = stream;
+      }
 
       if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.muted = true;
-        safePlayMedia(localVideoRef.current, 'localVideo');
+        bindLocalVideoElement(localVideoRef.current, stream);
       }
     }
   };
@@ -240,8 +322,8 @@ export default function VideoCallModal({
 
       // Attach elements to renderers
       if (localVideoRef.current) {
-        localRendererRef.current.attachElement(localVideoRef.current, { muted: true, mirror: facingMode === 'user' });
-        webrtcCallService.localRenderer.attachElement(localVideoRef.current, { muted: true, mirror: facingMode === 'user' });
+        localRendererRef.current.attachElement(localVideoRef.current, { muted: true, mirror: false });
+        webrtcCallService.localRenderer.attachElement(localVideoRef.current, { muted: true, mirror: false });
       }
       if (remoteVideoRef.current) {
         remoteRendererRef.current.attachElement(remoteVideoRef.current, { muted: false, mirror: false });
@@ -413,14 +495,27 @@ export default function VideoCallModal({
     const nextCameraOff = !isCameraOff;
     setIsCameraOff(nextCameraOff);
     webrtcCallService.toggleVideo(!nextCameraOff);
+    if (!nextCameraOff) {
+      const stream = localStream || webrtcCallService.localStream;
+      if (stream && localVideoRef.current) {
+        bindLocalVideoElement(localVideoRef.current, stream);
+      }
+    }
   };
 
   const handleFlipCamera = async () => {
     const nextMode = facingMode === 'user' ? 'environment' : 'user';
     setFacingMode(nextMode);
-    const updatedStream = await webrtcCallService.switchCamera(nextMode);
-    if (updatedStream) {
-      attachLocalStream(updatedStream);
+    try {
+      const updatedStream = await webrtcCallService.switchCamera(nextMode);
+      if (updatedStream) {
+        attachLocalStream(updatedStream);
+        if (localVideoRef.current) {
+          bindLocalVideoElement(localVideoRef.current, updatedStream);
+        }
+      }
+    } catch (e) {
+      console.warn('[VideoCall] handleFlipCamera notice:', e?.message);
     }
   };
 
@@ -432,6 +527,9 @@ export default function VideoCallModal({
       onClose();
     }, 700);
   };
+
+  const candidatePhoto = formatR2PublicUrl(resolveProfilePhoto(candidateProfile || candidate));
+  const currentUserPhoto = formatR2PublicUrl(resolveProfilePhoto(currentUser));
 
   return (
     <div
@@ -516,20 +614,21 @@ export default function VideoCallModal({
         {/* Candidate Placeholder shown when remote video is connecting */}
         {!hasRemoteVideo && (
           <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-slate-950">
-            {resolveProfilePhoto(candidate) ? (
+            {candidatePhoto && !candidateImgFailed ? (
               <img
-                src={resolveProfilePhoto(candidate)}
-                alt={candidate.name}
-                className="w-full h-full object-cover filter brightness-75 animate-subtle-scale"
+                src={candidatePhoto}
+                alt={candidateProfile?.name || candidate?.name || 'Candidate'}
+                onError={() => setCandidateImgFailed(true)}
+                className="w-full h-full object-cover filter brightness-90 animate-subtle-scale"
               />
             ) : (
               <div className="flex flex-col items-center justify-center space-y-3">
                 <SafeAvatar
-                  src={null}
-                  alt={candidate.name}
-                  gender={candidate.gender}
+                  src={candidatePhoto}
+                  alt={candidateProfile?.name || candidate?.name || 'Candidate'}
+                  gender={candidateProfile?.gender || candidate?.gender}
                   size="2xl"
-                  className="w-24 h-24"
+                  className="w-28 h-28 shadow-2xl"
                 />
               </div>
             )}
@@ -547,8 +646,8 @@ export default function VideoCallModal({
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <div>
               <h4 className="font-serif font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
-                <span>{candidate.name}</span>
-                {candidate.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
+                <span>{candidateProfile?.name || candidate?.name || 'Candidate'}</span>
+                {(candidateProfile?.verified || candidate?.verified) && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
               </h4>
               <p className="text-[10px] sm:text-xs text-slate-300">
                 {callStatus === 'connected'
@@ -563,13 +662,13 @@ export default function VideoCallModal({
 
         {/* Connecting Ringing State Center Graphic */}
         {callStatus !== 'connected' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/50 backdrop-blur-xs px-4">
+          <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/40 backdrop-blur-xs px-4">
             <div className="relative">
-              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-[#D4AF37] overflow-hidden shadow-2xl">
+              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-[#D4AF37] overflow-hidden shadow-2xl bg-slate-900">
                 <SafeAvatar
-                  src={resolveProfilePhoto(candidate)}
-                  alt={candidate.name}
-                  gender={candidate.gender}
+                  src={candidatePhoto}
+                  alt={candidateProfile?.name || candidate?.name || 'Candidate'}
+                  gender={candidateProfile?.gender || candidate?.gender}
                   size="2xl"
                   className="w-full h-full object-cover"
                 />
@@ -578,7 +677,7 @@ export default function VideoCallModal({
             </div>
 
             <div className="text-center text-white space-y-1">
-              <h3 className="font-serif font-bold text-base sm:text-xl">{candidate.name}</h3>
+              <h3 className="font-serif font-bold text-base sm:text-xl">{candidateProfile?.name || candidate?.name || 'Candidate'}</h3>
               <p className="text-xs sm:text-sm text-[#DFB76C] font-semibold animate-pulse">
                 {callStatus === 'calling' && 'Calling...'}
                 {callStatus === 'ringing' && 'Ringing...'}
@@ -589,31 +688,39 @@ export default function VideoCallModal({
         )}
 
         {/* Local User Picture-in-Picture (PIP) Window */}
-        <div className="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 w-24 h-32 sm:w-32 sm:h-44 md:w-36 md:h-48 max-h-[35%] rounded-2xl overflow-hidden bg-black/80 border-2 border-[#D4AF37] shadow-2xl z-30 group">
+        <div className="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 w-24 h-32 sm:w-32 sm:h-44 md:w-36 md:h-48 max-h-[35%] rounded-2xl overflow-hidden bg-slate-950 border-2 border-[#D4AF37] shadow-2xl z-30 group relative">
           <video
-            ref={localVideoRef}
+            ref={setLocalVideoRef}
             autoPlay={true}
             playsInline={true}
             webkit-playsinline="true"
             controls={false}
-            muted
-            className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-200 ${
+            muted={true}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 ${
+              facingMode === 'user' ? 'scale-x-[-1]' : 'scale-x-100'
+            } ${
               hasCameraPermission && !isCameraOff ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
           />
           {(!hasCameraPermission || isCameraOff) && (
-            <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900 text-slate-300 space-y-1">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-800 flex items-center justify-center text-[#DFB76C] font-bold text-xs sm:text-sm">
-                {currentUser?.name?.[0] || 'You'}
+            <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900 text-slate-300 space-y-1.5 z-10">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border border-[#D4AF37]/50 shadow-md flex items-center justify-center bg-slate-800">
+                <SafeAvatar
+                  src={currentUserPhoto}
+                  alt={currentUser?.name || 'You'}
+                  gender={currentUser?.gender}
+                  size="md"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <span className="text-[9px] sm:text-[10px] text-slate-400">
-                {isCameraOff ? 'Camera Off' : 'Starting...'}
+              <span className="text-[9px] sm:text-[10px] text-slate-400 font-medium">
+                {isCameraOff ? 'Camera Off' : 'Starting camera...'}
               </span>
             </div>
           )}
 
-          <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white backdrop-blur-xs flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-bold text-white backdrop-blur-xs flex items-center gap-1 z-20 pointer-events-none">
+            <span className={`w-1.5 h-1.5 rounded-full ${hasCameraPermission && !isCameraOff ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
             <span>You</span>
           </div>
         </div>

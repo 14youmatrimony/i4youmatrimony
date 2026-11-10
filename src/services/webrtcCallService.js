@@ -132,6 +132,10 @@ export class RTCVideoRenderer {
       element.autoplay = true;
       element.controls = false;
       element.muted = muted;
+      element.defaultMuted = muted;
+      if (muted) {
+        element.volume = 0;
+      }
       if (mirror) {
         element.style.transform = 'scaleX(-1)';
       }
@@ -161,6 +165,11 @@ export class RTCVideoRenderer {
         this._element.setAttribute('webkit-playsinline', 'true');
         this._element.autoplay = true;
         this._element.controls = false;
+        if (this.muted) {
+          this._element.muted = true;
+          this._element.defaultMuted = true;
+          this._element.volume = 0;
+        }
         this._element.srcObject = stream;
         if (stream) {
           this._element.play().catch(() => {});
@@ -261,21 +270,55 @@ export async function getSafeMediaStream(isVideoCall, facingMode = 'user') {
     return new MediaStream();
   }
 
-  try {
-    const videoConstraint = isVideoCall ? { facingMode: { ideal: facingMode } } : false;
-    return await navigator.mediaDevices.getUserMedia({
-      audio: AUDIO_CONSTRAINTS,
-      video: videoConstraint
-    });
-  } catch (err1) {
-    console.warn('[WebRTC] Primary media request failed, attempting audio-only fallback:', err1?.name, err1?.message);
+  if (isVideoCall) {
+    const targetMode = typeof facingMode === 'string' ? facingMode : 'user';
     try {
       return await navigator.mediaDevices.getUserMedia({
         audio: AUDIO_CONSTRAINTS,
+        video: { facingMode: targetMode }
+      });
+    } catch (err1) {
+      console.warn('[WebRTC] Primary video request failed, attempting standard video+audio fallback:', err1?.name, err1?.message);
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: { facingMode: targetMode }
+        });
+      } catch (err2) {
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: true
+          });
+        } catch (err3) {
+          console.warn('[WebRTC] Video media request failed, attempting audio-only fallback:', err3?.name, err3?.message);
+          try {
+            return await navigator.mediaDevices.getUserMedia({
+              audio: AUDIO_CONSTRAINTS,
+              video: false
+            });
+          } catch (err4) {
+            console.warn('[WebRTC] Audio-only fallback failed, returning empty MediaStream to keep signaling alive:', err4?.name, err4?.message);
+            return new MediaStream();
+          }
+        }
+      }
+    }
+  }
+
+  // Audio-only call
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      audio: AUDIO_CONSTRAINTS,
+      video: false
+    });
+  } catch (err) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: true,
         video: false
       });
     } catch (err2) {
-      console.warn('[WebRTC] Audio-only fallback failed, returning empty MediaStream to keep signaling alive:', err2?.name, err2?.message);
       return new MediaStream();
     }
   }
@@ -926,28 +969,55 @@ class WebRTCCallService {
 
   async switchCamera(facingMode = 'user') {
     if (!navigator?.mediaDevices?.getUserMedia) return this.localStream;
+    let stream = null;
+    const targetMode = typeof facingMode === 'string' ? facingMode : 'user';
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: { exact: facingMode } }
+        video: { facingMode: { exact: targetMode } }
       });
-      const newTrack = stream.getVideoTracks()[0];
-      if (newTrack && this.localStream) {
-        newTrack.enabled = true;
-        const oldTrack = this.localStream.getVideoTracks()[0];
-        if (oldTrack) {
-          this.localStream.removeTrack(oldTrack);
-          oldTrack.stop();
+    } catch (exactErr) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: targetMode }
+        });
+      } catch (fallbackErr) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: true
+          });
+        } catch (err3) {
+          console.warn('[WebRTC] switchCamera failed completely:', err3?.message);
+          return this.localStream;
         }
-        this.localStream.addTrack(newTrack);
-        const senders = this.peerConnection?.getSenders ? this.peerConnection.getSenders() : [];
-        const s = senders.find((sn) => sn.track?.kind === 'video');
-        if (s) await s.replaceTrack(newTrack);
       }
-      return this.localStream;
-    } catch (e) {
-      return this.localStream;
     }
+
+    const newTrack = stream?.getVideoTracks?.()[0];
+    if (newTrack && this.localStream) {
+      newTrack.enabled = true;
+      const oldTrack = this.localStream.getVideoTracks()[0];
+      if (oldTrack) {
+        this.localStream.removeTrack(oldTrack);
+        try {
+          oldTrack.stop();
+        } catch (e) {}
+      }
+      this.localStream.addTrack(newTrack);
+
+      if (this.localRenderer) {
+        this.localRenderer.srcObject = this.localStream;
+      }
+
+      const senders = this.peerConnection?.getSenders ? this.peerConnection.getSenders() : [];
+      const s = senders.find((sn) => sn.track?.kind === 'video');
+      if (s) {
+        await s.replaceTrack(newTrack);
+      }
+    }
+    return this.localStream;
   }
 
   toggleAudio(enabled) {
@@ -960,6 +1030,9 @@ class WebRTCCallService {
     this.localStream?.getVideoTracks().forEach((t) => {
       t.enabled = enabled;
     });
+    if (this.localRenderer && this.localStream) {
+      this.localRenderer.srcObject = this.localStream;
+    }
   }
 
   primeAudioPlayback() {
