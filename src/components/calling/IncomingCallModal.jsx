@@ -122,8 +122,9 @@ export default function IncomingCallModal({
 
   if (!incomingCall) return null;
 
-  const { caller, callType = 'audio', callerName, callerPhoto } = incomingCall;
+  const { caller, callType, callerName, callerPhoto } = incomingCall;
   const isVideo = (callType || incomingCall.call_type) === 'video';
+  const effectiveCallType = isVideo ? 'video' : 'audio';
   const displayName = caller?.name || callerName || incomingCall.caller_name || 'Candidate';
   const displayPhoto = resolveProfilePhoto(caller) || callerPhoto || incomingCall.caller_photo || null;
 
@@ -143,11 +144,16 @@ export default function IncomingCallModal({
       if (webrtcCallService.remoteRenderer?._element) {
         webrtcCallService.remoteRenderer._element.play().catch(() => {});
       }
-      await webrtcCallService.requestMediaPermissions(callType);
+      await webrtcCallService.requestMediaPermissions(effectiveCallType);
     } catch (err) {
       console.warn('[IncomingCall] Non-blocking media acquisition notice on accept:', err);
     }
-    if (onAccept) onAccept(incomingCall);
+    const resolvedCallData = {
+      ...incomingCall,
+      callType: effectiveCallType,
+      call_type: effectiveCallType
+    };
+    if (onAccept) onAccept(resolvedCallData);
   };
 
   const handleDeclineClick = () => {

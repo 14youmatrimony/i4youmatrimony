@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Video,
   VideoOff,
@@ -7,7 +7,9 @@ import {
   PhoneOff,
   SwitchCamera,
   ShieldCheck,
-  Volume2
+  Volume2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { webrtcCallService, AudioRoutingHelper, RTCVideoRenderer } from '../../services/webrtcCallService';
 import SafeAvatar from '../common/SafeAvatar';
@@ -35,6 +37,15 @@ export default function VideoCallModal({
   const [remoteStream, setRemoteStream] = useState(null);
   const [candidateProfile, setCandidateProfile] = useState(candidate);
   const [candidateImgFailed, setCandidateImgFailed] = useState(false);
+
+  // Picture-in-Picture ("You" box) WhatsApp-style docking and drag state: null | 'right' | 'left'
+  const [dockedSide, setDockedSide] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  const pipContainerRef = useRef(null);
+  const dragStartRef = useRef({ x: 0, y: 0, time: 0, initialDocked: null });
+  const isDraggingRef = useRef(false);
 
   // Renderers instantiated via RTCVideoRenderer
   const localRendererRef = useRef(new RTCVideoRenderer('localVideo'));
@@ -125,8 +136,161 @@ export default function VideoCallModal({
     } catch (e) {}
   };
 
+  // Measure dock offsets dynamically based on screen width and box width
+  const calculateDockOffsets = useCallback(() => {
+    if (typeof window === 'undefined') return { rightDockX: 84, leftDockX: -300, tabWidth: 32 };
+    const el = pipContainerRef.current;
+    const boxWidth = el?.offsetWidth || 112;
+    const screenWidth = window.innerWidth;
+    const isSm = screenWidth >= 640;
+    const marginRight = isSm ? 20 : 12;
+    const tabWidth = 32;
+
+    const rightDockX = boxWidth + marginRight - tabWidth;
+    const leftDockX = -(screenWidth - marginRight - tabWidth);
+
+    return { rightDockX, leftDockX, tabWidth };
+  }, []);
+
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    dragStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+      initialDocked: dockedSide
+    };
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    setDragOffset(0);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDraggingRef.current) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - dragStartRef.current.x;
+    setDragOffset(deltaX);
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+
+    const touch = e.changedTouches?.[0];
+    const endX = touch ? touch.clientX : dragStartRef.current.x + dragOffset;
+    const deltaX = endX - dragStartRef.current.x;
+    const dt = Math.max(1, Date.now() - dragStartRef.current.time);
+    const velocityX = deltaX / dt;
+    const initial = dragStartRef.current.initialDocked;
+
+    const isTap = Math.abs(deltaX) < 8 && dt < 280;
+    if (isTap) {
+      if (initial !== null) {
+        setDockedSide(null);
+      }
+      setDragOffset(0);
+      return;
+    }
+
+    if (initial === null) {
+      if (deltaX > 40 || velocityX > 0.3) {
+        setDockedSide('right');
+      } else if (deltaX < -40 || velocityX < -0.3) {
+        setDockedSide('left');
+      } else {
+        setDockedSide(null);
+      }
+    } else if (initial === 'right') {
+      if (deltaX < -20 || velocityX < -0.2) {
+        setDockedSide(null);
+      } else {
+        setDockedSide('right');
+      }
+    } else if (initial === 'left') {
+      if (deltaX > 20 || velocityX > 0.2) {
+        setDockedSide(null);
+      } else {
+        setDockedSide('left');
+      }
+    }
+
+    setDragOffset(0);
+  };
+
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return;
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      time: Date.now(),
+      initialDocked: dockedSide
+    };
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    setDragOffset(0);
+
+    const onMouseMove = (moveEvent) => {
+      if (!isDraggingRef.current) return;
+      const deltaX = moveEvent.clientX - dragStartRef.current.x;
+      setDragOffset(deltaX);
+    };
+
+    const onMouseUp = (upEvent) => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      setIsDragging(false);
+
+      const deltaX = upEvent.clientX - dragStartRef.current.x;
+      const dt = Math.max(1, Date.now() - dragStartRef.current.time);
+      const velocityX = deltaX / dt;
+      const initial = dragStartRef.current.initialDocked;
+
+      const isTap = Math.abs(deltaX) < 6 && dt < 250;
+      if (isTap) {
+        if (initial !== null) {
+          setDockedSide(null);
+        }
+        setDragOffset(0);
+        return;
+      }
+
+      if (initial === null) {
+        if (deltaX > 40 || velocityX > 0.3) {
+          setDockedSide('right');
+        } else if (deltaX < -40 || velocityX < -0.3) {
+          setDockedSide('left');
+        } else {
+          setDockedSide(null);
+        }
+      } else if (initial === 'right') {
+        if (deltaX < -20 || velocityX < -0.2) {
+          setDockedSide(null);
+        } else {
+          setDockedSide('right');
+        }
+      } else if (initial === 'left') {
+        if (deltaX > 20 || velocityX > 0.2) {
+          setDockedSide(null);
+        } else {
+          setDockedSide('left');
+        }
+      }
+
+      setDragOffset(0);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
   // Dedicated helper to reliably bind local stream to DOM video element with iOS/mobile compliance
-  const bindLocalVideoElement = (videoEl, stream) => {
+  const bindLocalVideoElement = useCallback((videoEl, stream) => {
     if (!videoEl) return;
     try {
       videoEl.muted = true;
@@ -137,10 +301,11 @@ export default function VideoCallModal({
       videoEl.setAttribute('webkit-playsinline', 'true');
       videoEl.autoplay = true;
 
-      if (stream && videoEl.srcObject !== stream) {
-        videoEl.srcObject = stream;
-      }
-      if (videoEl.srcObject) {
+      const activeStream = stream || localStream || webrtcCallService.localStream;
+      if (activeStream) {
+        if (videoEl.srcObject !== activeStream) {
+          videoEl.srcObject = activeStream;
+        }
         const playPromise = videoEl.play();
         if (playPromise !== undefined) {
           playPromise.catch((err) => {
@@ -151,15 +316,15 @@ export default function VideoCallModal({
     } catch (e) {
       console.warn('[VideoCall] bindLocalVideoElement notice:', e?.message);
     }
-  };
+  }, [localStream]);
 
-  const setLocalVideoRef = (el) => {
+  const setLocalVideoRef = useCallback((el) => {
     localVideoRef.current = el;
-    const stream = localStream || webrtcCallService.localStream;
-    if (el && stream) {
+    if (el) {
+      const stream = localStream || webrtcCallService.localStream;
       bindLocalVideoElement(el, stream);
     }
-  };
+  }, [localStream, bindLocalVideoElement]);
 
   // Keep local video element bound across callStatus transitions, facingMode switch, or camera toggle
   useEffect(() => {
@@ -167,7 +332,7 @@ export default function VideoCallModal({
     if (localVideoRef.current && stream) {
       bindLocalVideoElement(localVideoRef.current, stream);
     }
-  }, [localStream, callStatus, facingMode, isCameraOff]);
+  }, [localStream, callStatus, facingMode, isCameraOff, bindLocalVideoElement]);
 
   // Hydrate candidate full profile from Supabase if photo or details are missing
   useEffect(() => {
@@ -197,9 +362,12 @@ export default function VideoCallModal({
   }, [candidate?.id, candidate?.caller_id, candidate?.user_id]);
 
   // Attach local stream to localRenderer and local video DOM element
-  const attachLocalStream = (customStream = null) => {
+  const attachLocalStream = useCallback((customStream = null) => {
     const stream = customStream || webrtcCallService.localStream;
     if (stream) {
+      if (customStream && webrtcCallService.localStream !== customStream) {
+        webrtcCallService.localStream = customStream;
+      }
       stream.getTracks().forEach((track) => {
         if (!isCameraOff && track.kind === 'video') {
           track.enabled = true;
@@ -223,7 +391,7 @@ export default function VideoCallModal({
         bindLocalVideoElement(localVideoRef.current, stream);
       }
     }
-  };
+  }, [isCameraOff, isMicMuted, bindLocalVideoElement]);
 
   // Manual camera permission re-prompt handler
   const handleRequestCameraPermission = async () => {
@@ -333,9 +501,25 @@ export default function VideoCallModal({
       // Configure speakerphone by default for video calls
       AudioRoutingHelper.setSpeakerphoneOn(true, remoteAudioRef.current || remoteVideoRef.current);
 
-      // 2. Strict Runtime Permission Flow: verify local media stream
+      // 2. Strict Runtime Permission Flow: verify local media stream immediately
       try {
-        const stream = await webrtcCallService.initLocalMedia('video', facingMode);
+        let stream = webrtcCallService.localStream;
+        const hasLiveVideo = stream && stream.getVideoTracks && stream.getVideoTracks().some((t) => t.readyState === 'live');
+        if (!hasLiveVideo) {
+          if (navigator?.mediaDevices?.getUserMedia) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: facingMode || 'user' },
+                audio: true
+              });
+            } catch (gumErr) {
+              console.warn('[VideoCall] Standard getUserMedia fallback:', gumErr?.message);
+              stream = await webrtcCallService.initLocalMedia('video', facingMode);
+            }
+          } else {
+            stream = await webrtcCallService.initLocalMedia('video', facingMode);
+          }
+        }
         if (isSubscribed && stream) {
           attachLocalStream(stream);
         }
@@ -357,7 +541,7 @@ export default function VideoCallModal({
           if (!isAlreadyConnectedRef.current) {
             isAlreadyConnectedRef.current = true;
             setCallStatus('connected');
-            attachLocalStream();
+            attachLocalStream(webrtcCallService.localStream);
             playVideoChime();
           }
         } else if (status === 'declined' || status === 'ended' || status === 'rejected') {
@@ -387,7 +571,7 @@ export default function VideoCallModal({
               setTimeout(() => onClose(), 1000);
               return;
             }
-            attachLocalStream();
+            attachLocalStream(webrtcCallService.localStream);
             setCallStatus((prev) => (prev === 'connected' || prev === 'ended' || isAlreadyConnectedRef.current ? prev : 'ringing'));
             if (webrtcCallService.hardwareError === 'permission_denied') {
               setCameraNotice('Camera permission required. Please allow access.');
@@ -419,7 +603,11 @@ export default function VideoCallModal({
 
         webrtcCallService
           .acceptCall({
-            callData: callSession,
+            callData: {
+              ...callSession,
+              callType: 'video',
+              call_type: 'video'
+            },
             currentUser,
             onRemoteStream: handleRemoteStream,
             onStatusChange: handleStatusChange
@@ -433,7 +621,7 @@ export default function VideoCallModal({
             if (remoteVideoRef.current) {
               remoteVideoRef.current.play().catch(() => {});
             }
-            attachLocalStream();
+            attachLocalStream(webrtcCallService.localStream);
             if (webrtcCallService.hardwareError === 'permission_denied') {
               setCameraNotice('Camera permission required. Please allow access.');
             }
@@ -530,6 +718,26 @@ export default function VideoCallModal({
 
   const candidatePhoto = formatR2PublicUrl(resolveProfilePhoto(candidateProfile || candidate));
   const currentUserPhoto = formatR2PublicUrl(resolveProfilePhoto(currentUser));
+
+  const activeLocalStream = localStream || webrtcCallService.localStream;
+  const hasLiveVideoTrack = Boolean(
+    activeLocalStream &&
+    activeLocalStream.getVideoTracks &&
+    activeLocalStream.getVideoTracks().some((t) => t.readyState === 'live')
+  );
+  const showCameraFeed = (hasCameraPermission || hasLiveVideoTrack) && !isCameraOff;
+
+  const { rightDockX, leftDockX } = calculateDockOffsets();
+  let currentTranslateX = 0;
+  if (isDragging) {
+    const baseX = dockedSide === 'right' ? rightDockX : dockedSide === 'left' ? leftDockX : 0;
+    const targetX = baseX + dragOffset;
+    currentTranslateX = Math.max(leftDockX - 25, Math.min(rightDockX + 25, targetX));
+  } else {
+    if (dockedSide === 'right') currentTranslateX = rightDockX;
+    else if (dockedSide === 'left') currentTranslateX = leftDockX;
+    else currentTranslateX = 0;
+  }
 
   return (
     <div
@@ -687,8 +895,33 @@ export default function VideoCallModal({
           </div>
         )}
 
-        {/* Local User Picture-in-Picture (PIP) Window */}
-        <div className="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 w-24 h-32 sm:w-32 sm:h-44 md:w-36 md:h-48 max-h-[35%] rounded-2xl overflow-hidden bg-slate-950 border-2 border-[#D4AF37] shadow-2xl z-30 group relative">
+        {/* Local User Picture-in-Picture (PIP) Window with WhatsApp-Style Swipe-to-Dock */}
+        <div
+          ref={pipContainerRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+          onMouseDown={handleMouseDown}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (dockedSide !== null) {
+              setDockedSide(null);
+            }
+          }}
+          style={{
+            transform: `translateX(${currentTranslateX}px)`,
+            transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            touchAction: 'none'
+          }}
+          className={`absolute bottom-3 right-3 sm:bottom-5 sm:right-5 w-24 h-32 sm:w-32 sm:h-44 md:w-36 md:h-48 max-h-[35%] rounded-2xl overflow-hidden bg-slate-950 border-2 border-[#D4AF37] shadow-2xl z-30 group select-none ${
+            dockedSide
+              ? 'cursor-pointer ring-2 ring-[#D4AF37]/80 ring-offset-2 ring-offset-slate-950 shadow-[0_0_20px_rgba(212,175,55,0.4)]'
+              : 'cursor-grab active:cursor-grabbing hover:border-[#DFB76C]'
+          }`}
+          title={dockedSide ? 'Tap or swipe to restore camera preview' : 'Swipe left or right to dock to edge'}
+        >
+          {/* Main Local Video Feed - Always mounted to avoid black screen on restore */}
           <video
             ref={setLocalVideoRef}
             autoPlay={true}
@@ -696,14 +929,16 @@ export default function VideoCallModal({
             webkit-playsinline="true"
             controls={false}
             muted={true}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 ${
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 z-10 ${
               facingMode === 'user' ? 'scale-x-[-1]' : 'scale-x-100'
             } ${
-              hasCameraPermission && !isCameraOff ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+              showCameraFeed ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           />
-          {(!hasCameraPermission || isCameraOff) && (
-            <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900 text-slate-300 space-y-1.5 z-10">
+
+          {/* Fallback Display: Shown strictly when camera is off or initializing */}
+          {!showCameraFeed && (
+            <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900 text-slate-300 space-y-1.5 z-20 pointer-events-none">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border border-[#D4AF37]/50 shadow-md flex items-center justify-center bg-slate-800">
                 <SafeAvatar
                   src={currentUserPhoto}
@@ -719,9 +954,66 @@ export default function VideoCallModal({
             </div>
           )}
 
-          <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-bold text-white backdrop-blur-xs flex items-center gap-1 z-20 pointer-events-none">
-            <span className={`w-1.5 h-1.5 rounded-full ${hasCameraPermission && !isCameraOff ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
-            <span>You</span>
+          {/* Standard "You" Badge & Indicators (Shown when NOT docked) */}
+          <div
+            className={`absolute inset-0 pointer-events-none transition-opacity duration-200 z-30 ${
+              dockedSide === null ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {/* Top drag hint bar */}
+            <div className="absolute top-1.5 inset-x-0 flex justify-center">
+              <div className="w-6 h-1 rounded-full bg-white/40 group-hover:bg-[#DFB76C] transition-colors" />
+            </div>
+
+            {/* Bottom-left You label with active status dot */}
+            <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/75 text-[9px] font-bold text-white backdrop-blur-xs flex items-center gap-1 shadow-sm border border-white/10">
+              <span className={`w-1.5 h-1.5 rounded-full ${showCameraFeed ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+              <span>You</span>
+            </div>
+
+            {/* Subtle swipe direction hints on hover */}
+            <div className="absolute inset-y-0 right-1 flex items-center opacity-0 group-hover:opacity-60 transition-opacity">
+              <ChevronRight className="w-3.5 h-3.5 text-white" />
+            </div>
+            <div className="absolute inset-y-0 left-1 flex items-center opacity-0 group-hover:opacity-60 transition-opacity">
+              <ChevronLeft className="w-3.5 h-3.5 text-white" />
+            </div>
+          </div>
+
+          {/* Right-Edge Dock Pull-Tab Handle (Visible on screen's right edge when docked to right) */}
+          <div
+            className={`absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#0B192C] via-[#0B192C]/95 to-slate-950/80 border-r border-[#D4AF37]/70 flex flex-col items-center justify-center cursor-pointer transition-opacity z-40 ${
+              dockedSide === 'right' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setDockedSide(null);
+            }}
+            title="Restore camera preview"
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mb-1" />
+            <ChevronLeft className="w-4 h-4 text-[#DFB76C] animate-pulse" />
+            <span className="text-[8px] font-bold text-[#DFB76C] tracking-tighter mt-1 [writing-mode:vertical-rl] rotate-180">
+              YOU
+            </span>
+          </div>
+
+          {/* Left-Edge Dock Pull-Tab Handle (Visible on screen's left edge when docked to left) */}
+          <div
+            className={`absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0B192C] via-[#0B192C]/95 to-slate-950/80 border-l border-[#D4AF37]/70 flex flex-col items-center justify-center cursor-pointer transition-opacity z-40 ${
+              dockedSide === 'left' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setDockedSide(null);
+            }}
+            title="Restore camera preview"
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mb-1" />
+            <ChevronRight className="w-4 h-4 text-[#DFB76C] animate-pulse" />
+            <span className="text-[8px] font-bold text-[#DFB76C] tracking-tighter mt-1 [writing-mode:vertical-rl] rotate-180">
+              YOU
+            </span>
           </div>
         </div>
       </div>

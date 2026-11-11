@@ -273,28 +273,29 @@ export async function getSafeMediaStream(isVideoCall, facingMode = 'user') {
   if (isVideoCall) {
     const targetMode = typeof facingMode === 'string' ? facingMode : 'user';
     try {
+      // Standard getUserMedia request with user facing camera and audio
       return await navigator.mediaDevices.getUserMedia({
-        audio: AUDIO_CONSTRAINTS,
-        video: { facingMode: targetMode }
+        video: { facingMode: targetMode },
+        audio: true
       });
     } catch (err1) {
       console.warn('[WebRTC] Primary video request failed, attempting standard video+audio fallback:', err1?.name, err1?.message);
       try {
         return await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: { facingMode: targetMode }
+          video: true,
+          audio: true
         });
       } catch (err2) {
+        console.warn('[WebRTC] Video media request failed, attempting audio-only fallback:', err2?.name, err2?.message);
         try {
           return await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: true
+            audio: AUDIO_CONSTRAINTS,
+            video: false
           });
         } catch (err3) {
-          console.warn('[WebRTC] Video media request failed, attempting audio-only fallback:', err3?.name, err3?.message);
           try {
             return await navigator.mediaDevices.getUserMedia({
-              audio: AUDIO_CONSTRAINTS,
+              audio: true,
               video: false
             });
           } catch (err4) {
@@ -1302,7 +1303,8 @@ class WebRTCCallService {
     this.setSelfUser(currentUser);
     this.currentCallId = callData?.callId || callData?.id;
     this.remoteUserId = String(callData?.callerId || callData?.caller_id || callData?.caller?.id || '');
-    this.callType = callData?.callType || callData?.call_type || 'audio';
+    const isVideoIncoming = (callData?.callType || callData?.call_type) === 'video';
+    this.callType = isVideoIncoming ? 'video' : (callData?.callType || callData?.call_type || 'audio');
     this.isCaller = false;
     this.onRemoteStreamCallback = onRemoteStream;
     this.onCallStatusChangeCallback = onStatusChange;
