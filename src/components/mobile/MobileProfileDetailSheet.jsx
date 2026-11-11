@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ChevronLeft, 
   ShieldCheck, 
@@ -36,6 +36,7 @@ import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { isKundaliApplicableReligion } from '../../data/religionData';
 import { useInterestStatus, interestService } from '../../services/interestService';
 import { resolveProfilePhoto, isFakeAvatarUrl } from '../../services/api';
+import { formatR2PublicUrl } from '../../utils/r2Upload';
 
 export default function MobileProfileDetailSheet({
   profile,
@@ -62,6 +63,7 @@ export default function MobileProfileDetailSheet({
   const [copiedLink, setCopiedLink] = useState(false);
   const [currentSinglePhotoIdx, setCurrentSinglePhotoIdx] = useState(0);
   const [fullscreenPhoto, setFullscreenPhoto] = useState(null); // { url, title, isFamily }
+  const touchStartXRef = useRef(null);
   const hasPaidPlan = Boolean(currentUser?.membership && currentUser?.membership !== 'free');
   const isContactUnlocked = Boolean(currentUser?.unlockedContacts?.includes(profile?.id));
   const contactCredits = currentUser?.contactCredits ?? 0;
@@ -144,14 +146,103 @@ export default function MobileProfileDetailSheet({
 
   if (!profile) return null;
 
-  const resolvedPhoto = resolveProfilePhoto(profile);
-  const singlePhotos = (Array.isArray(profile.singlePhotos) && profile.singlePhotos.length > 0)
-    ? profile.singlePhotos.filter(p => !isFakeAvatarUrl(p))
-    : (resolvedPhoto ? [resolvedPhoto] : []);
-  const activePhoto = singlePhotos[currentSinglePhotoIdx] || resolvedPhoto || null;
-  const familyPhotos = (Array.isArray(profile.familyPhotos) && profile.familyPhotos.length > 0)
-    ? profile.familyPhotos.filter(p => !isFakeAvatarUrl(p))
-    : [];
+  // Extract clean array of valid photo URLs from string, array, or JSON string
+  const extractPhotoList = (input) => {
+    if (!input) return [];
+    let items = [];
+    if (Array.isArray(input)) {
+      items = input;
+    } else if (typeof input === 'string') {
+      const trimmed = input.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) items = parsed;
+        } catch {
+          items = [trimmed];
+        }
+      } else if (trimmed) {
+        items = [trimmed];
+      }
+    }
+    return items
+      .map(item => (typeof item === 'string' ? item.trim() : (item?.url || item?.photo || '')))
+      .map(url => formatR2PublicUrl(url))
+      .filter(url => url && typeof url === 'string' && url.length > 5 && !isFakeAvatarUrl(url));
+  };
+
+  const resolvedPhoto = resolveProfilePhoto(profile) ? formatR2PublicUrl(resolveProfilePhoto(profile)) : null;
+
+  // 1. Gather all profile portrait photos (up to 5)
+  const rawSingleList = [
+    ...(resolvedPhoto ? [resolvedPhoto] : []),
+    ...extractPhotoList(profile.singlePhotos),
+    ...extractPhotoList(profile.single_photos),
+    ...extractPhotoList(profile.photos),
+    ...extractPhotoList(profile.gallery),
+    ...extractPhotoList(profile.photo),
+    ...extractPhotoList(profile.photo_url),
+    ...extractPhotoList(profile.profile_photo),
+    ...extractPhotoList(profile.profile_photo_url),
+    ...extractPhotoList(profile.avatar_url),
+    ...extractPhotoList(profile.avatar)
+  ];
+
+  const deduplicatedProfilePhotos = [];
+  const seenUrls = new Set();
+  for (const url of rawSingleList) {
+    if (url && !seenUrls.has(url)) {
+      seenUrls.add(url);
+      deduplicatedProfilePhotos.push(url);
+    }
+  }
+  const finalProfilePhotos = deduplicatedProfilePhotos.slice(0, 5);
+
+  // 2. Gather all family photos
+  const rawFamilyList = [
+    ...extractPhotoList(profile.familyPhotos),
+    ...extractPhotoList(profile.family_photos),
+    ...extractPhotoList(profile.familyPhoto),
+    ...extractPhotoList(profile.family_photo),
+    ...extractPhotoList(profile.familyPhotoUrl),
+    ...extractPhotoList(profile.family_photo_url)
+  ];
+
+  const deduplicatedFamilyPhotos = [];
+  for (const url of rawFamilyList) {
+    if (url && !seenUrls.has(url)) {
+      seenUrls.add(url);
+      deduplicatedFamilyPhotos.push(url);
+    }
+  }
+
+  // Unified slider slides: Profile photos (up to 5) followed immediately by Family photo(s)
+  const allSlides = [
+    ...finalProfilePhotos.map((url, idx) => ({
+      url,
+      isFamily: false,
+      title: `Photo ${idx + 1} of ${finalProfilePhotos.length + deduplicatedFamilyPhotos.length}`,
+      badgeLabel: null
+    })),
+    ...deduplicatedFamilyPhotos.map((url, idx) => ({
+      url,
+      isFamily: true,
+      title: deduplicatedFamilyPhotos.length > 1 
+        ? `Family Photo ${idx + 1} of ${deduplicatedFamilyPhotos.length}` 
+        : 'Family Photo',
+      badgeLabel: deduplicatedFamilyPhotos.length > 1 ? `Family Photo #${idx + 1}` : 'Family Photo'
+    }))
+  ];
+
+  const sliderSlides = allSlides.length > 0 
+    ? allSlides 
+    : (resolvedPhoto ? [{ url: resolvedPhoto, isFamily: false, title: 'Profile Photo', badgeLabel: null }] : []);
+  const safePhotoIdx = sliderSlides.length > 0 ? Math.min(currentSinglePhotoIdx, sliderSlides.length - 1) : 0;
+  const currentSlide = sliderSlides[safePhotoIdx] || null;
+  const activePhoto = currentSlide?.url || resolvedPhoto || null;
+  const isCurrentSlideFamily = Boolean(currentSlide?.isFamily);
+  const singlePhotos = finalProfilePhotos.length > 0 ? finalProfilePhotos : (resolvedPhoto ? [resolvedPhoto] : []);
+  const familyPhotos = deduplicatedFamilyPhotos;
 
   const locMatch = calculateLocationMatch(currentUser, profile);
 
@@ -285,6 +376,22 @@ export default function MobileProfileDetailSheet({
         <div className="relative">
           <div 
             className="h-80 sm:h-96 w-full relative overflow-hidden bg-slate-900 group select-none photo-protected"
+            onTouchStart={(e) => {
+              touchStartXRef.current = e.touches[0]?.clientX ?? null;
+            }}
+            onTouchEnd={(e) => {
+              if (touchStartXRef.current === null) return;
+              const touchEndX = e.changedTouches[0]?.clientX ?? 0;
+              const diff = touchEndX - touchStartXRef.current;
+              if (diff > 45 && sliderSlides.length > 1) {
+                // Swiped right -> go to previous photo
+                setCurrentSinglePhotoIdx(prev => (prev === 0 ? sliderSlides.length - 1 : prev - 1));
+              } else if (diff < -45 && sliderSlides.length > 1) {
+                // Swiped left -> go to next photo
+                setCurrentSinglePhotoIdx(prev => (prev === sliderSlides.length - 1 ? 0 : prev + 1));
+              }
+              touchStartXRef.current = null;
+            }}
             onContextMenu={(e) => {
               e.preventDefault();
               if (screenshotRestricted) triggerScreenshotBlock('right-click');
@@ -304,11 +411,13 @@ export default function MobileProfileDetailSheet({
                   if (fb) fb.classList.remove('hidden');
                 }}
                 onClick={() => {
-                  if (!profile.hidePhotos && profile.photoVisibility !== 'request') {
+                  if (!profile.hidePhotos && profile.photoVisibility !== 'request' && activePhoto) {
                     setFullscreenPhoto({
                       url: activePhoto,
-                      title: `Single Photo ${currentSinglePhotoIdx + 1} of ${singlePhotos.length || 1}`,
-                      isFamily: false
+                      title: isCurrentSlideFamily 
+                        ? `Family Photo (${safePhotoIdx + 1} of ${sliderSlides.length})` 
+                        : `Photo ${safePhotoIdx + 1} of ${sliderSlides.length}`,
+                      isFamily: isCurrentSlideFamily
                     });
                   }
                 }}
@@ -355,31 +464,45 @@ export default function MobileProfileDetailSheet({
               </div>
             )}
 
-            {/* Top Right: Single Photo Counter */}
+            {/* Top Right: Photo Counter & Family Badge */}
             <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
 
-              {/* Single Photos Counter Pill */}
+              {/* Photos Counter Pill */}
               <span 
-                onClick={() => setFullscreenPhoto({
-                  url: singlePhotos[currentSinglePhotoIdx] || profile.photo,
-                  title: `Single Photo ${currentSinglePhotoIdx + 1} of ${singlePhotos.length}`,
-                  isFamily: false
-                })}
+                onClick={() => {
+                  if (!profile.hidePhotos && profile.photoVisibility !== 'request' && activePhoto) {
+                    setFullscreenPhoto({
+                      url: activePhoto,
+                      title: isCurrentSlideFamily 
+                        ? `Family Photo (${safePhotoIdx + 1} of ${sliderSlides.length})` 
+                        : `Photo ${safePhotoIdx + 1} of ${sliderSlides.length}`,
+                      isFamily: isCurrentSlideFamily
+                    });
+                  }
+                }}
                 className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
               >
                 <Camera className="w-3 h-3 text-[#DFB76C]" />
-                <span>{currentSinglePhotoIdx + 1}/{singlePhotos.length} Single Photos</span>
+                <span>{safePhotoIdx + 1} / {sliderSlides.length} Photos</span>
               </span>
+
+              {/* Subtle Family Photo Badge if current slide is Family */}
+              {isCurrentSlideFamily && (
+                <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-blue-600/90 text-white backdrop-blur-md border border-blue-400/40 shadow-xs flex items-center gap-1 animate-in fade-in">
+                  <HeartHandshake className="w-2.5 h-2.5 text-blue-200" />
+                  <span>Family Photo</span>
+                </span>
+              )}
             </div>
 
-            {/* Left / Right Photo Switcher Navigation (if multiple single photos) */}
-            {singlePhotos.length > 1 && (
+            {/* Left / Right Photo Switcher Navigation (if multiple photos) */}
+            {sliderSlides.length > 1 && (
               <>
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setCurrentSinglePhotoIdx(prev => (prev === 0 ? singlePhotos.length - 1 : prev - 1));
+                    setCurrentSinglePhotoIdx(prev => (prev === 0 ? sliderSlides.length - 1 : prev - 1));
                   }}
                   className="absolute left-2.5 top-1/2 -translate-y-1/2 z-15 w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
                   title="Previous Photo"
@@ -390,7 +513,7 @@ export default function MobileProfileDetailSheet({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setCurrentSinglePhotoIdx(prev => (prev === singlePhotos.length - 1 ? 0 : prev + 1));
+                    setCurrentSinglePhotoIdx(prev => (prev === sliderSlides.length - 1 ? 0 : prev + 1));
                   }}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 z-15 w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
                   title="Next Photo"
@@ -400,12 +523,14 @@ export default function MobileProfileDetailSheet({
 
                 {/* Dot Indicators */}
                 <div className="absolute bottom-24 inset-x-0 flex items-center justify-center gap-1.5 z-10 pointer-events-none">
-                  {singlePhotos.map((_, dotIdx) => (
+                  {sliderSlides.map((slide, dotIdx) => (
                     <span 
                       key={dotIdx}
                       className={`h-1.5 rounded-full transition-all ${
-                        dotIdx === currentSinglePhotoIdx 
-                          ? 'w-5 bg-[#DFB76C]' 
+                        dotIdx === safePhotoIdx 
+                          ? slide.isFamily 
+                            ? 'w-5 bg-blue-400' 
+                            : 'w-5 bg-[#DFB76C]' 
                           : 'w-1.5 bg-white/50'
                       }`}
                     />
