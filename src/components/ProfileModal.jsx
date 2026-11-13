@@ -20,7 +20,9 @@ import {
   Send
 } from 'lucide-react';
 import SafeAvatar from './common/SafeAvatar';
-import { resolveProfilePhoto } from '../services/api';
+import { resolveProfilePhoto, isFakeAvatarUrl } from '../services/api';
+import { formatR2PublicUrl } from '../utils/r2Upload';
+import FullScreenPhotoLightbox from './common/FullScreenPhotoLightbox';
 import { isKundaliApplicableReligion } from '../data/religionData';
 import { useInterestStatus, interestService } from '../services/interestService';
 import { isNriProfile, getProfileCountry, isSameAbroadCountry } from '../data/locationData';
@@ -80,11 +82,14 @@ export default function ProfileModal({
     return false;
   }, [hookIsCallingUnlocked, isConnected, interestStatus, currentUser, profile, acceptedInterests]);
   const [callAuthAlert, setCallAuthAlert] = useState(null);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
 
   // Clean slate on profile change to eliminate lingering state from previous profile sessions
   useEffect(() => {
     setActiveTab('about');
     setCallAuthAlert(null);
+    setIsLightboxOpen(false);
   }, [profile?.id, profile?.registerId, profile?.register_id]);
 
   const handleAttemptCall = (type = 'audio') => {
@@ -119,6 +124,96 @@ export default function ProfileModal({
   };
 
   if (!profile) return null;
+
+  // Extract clean array of valid photo URLs from string, array, or JSON string
+  const extractPhotoList = (input) => {
+    if (!input) return [];
+    let items = [];
+    if (Array.isArray(input)) {
+      items = input;
+    } else if (typeof input === 'string') {
+      const trimmed = input.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) items = parsed;
+        } catch {
+          items = [trimmed];
+        }
+      } else if (trimmed) {
+        items = [trimmed];
+      }
+    }
+    return items
+      .map(item => (typeof item === 'string' ? item.trim() : (item?.url || item?.photo || '')))
+      .map(url => formatR2PublicUrl(url))
+      .filter(url => url && typeof url === 'string' && url.length > 5 && !isFakeAvatarUrl(url));
+  };
+
+  const resolvedPhoto = resolveProfilePhoto(profile) ? formatR2PublicUrl(resolveProfilePhoto(profile)) : null;
+
+  // 1. Gather all profile portrait photos (up to 5)
+  const rawSingleList = [
+    ...(resolvedPhoto ? [resolvedPhoto] : []),
+    ...extractPhotoList(profile.singlePhotos),
+    ...extractPhotoList(profile.single_photos),
+    ...extractPhotoList(profile.photos),
+    ...extractPhotoList(profile.gallery),
+    ...extractPhotoList(profile.photo),
+    ...extractPhotoList(profile.photo_url),
+    ...extractPhotoList(profile.profile_photo),
+    ...extractPhotoList(profile.profile_photo_url),
+    ...extractPhotoList(profile.avatar_url),
+    ...extractPhotoList(profile.avatar)
+  ];
+
+  const deduplicatedProfilePhotos = [];
+  const seenUrls = new Set();
+  for (const url of rawSingleList) {
+    if (url && !seenUrls.has(url)) {
+      seenUrls.add(url);
+      deduplicatedProfilePhotos.push(url);
+    }
+  }
+  const finalProfilePhotos = deduplicatedProfilePhotos.slice(0, 5);
+
+  // 2. Gather all family photos
+  const rawFamilyList = [
+    ...extractPhotoList(profile.familyPhotos),
+    ...extractPhotoList(profile.family_photos),
+    ...extractPhotoList(profile.familyPhoto),
+    ...extractPhotoList(profile.family_photo),
+    ...extractPhotoList(profile.familyPhotoUrl),
+    ...extractPhotoList(profile.family_photo_url)
+  ];
+
+  const deduplicatedFamilyPhotos = [];
+  for (const url of rawFamilyList) {
+    if (url && !seenUrls.has(url)) {
+      seenUrls.add(url);
+      deduplicatedFamilyPhotos.push(url);
+    }
+  }
+
+  // Unified slides: Profile photos (up to 5) followed immediately by Family photo(s)
+  const combinedPhotos = [
+    ...finalProfilePhotos.map((url, idx) => ({
+      url,
+      isFamily: false,
+      title: `Photo ${idx + 1} of ${finalProfilePhotos.length + deduplicatedFamilyPhotos.length}`
+    })),
+    ...deduplicatedFamilyPhotos.map((url, idx) => ({
+      url,
+      isFamily: true,
+      title: deduplicatedFamilyPhotos.length > 1 
+        ? `Family Photo ${idx + 1} of ${deduplicatedFamilyPhotos.length}` 
+        : 'Family Photo'
+    }))
+  ];
+
+  const modalPhotos = combinedPhotos.length > 0 
+    ? combinedPhotos 
+    : (resolvedPhoto ? [{ url: resolvedPhoto, isFamily: false }] : []);
 
   const candidateCountry = getProfileCountry(profile);
   const isNri = isNriProfile(profile);
@@ -213,13 +308,22 @@ export default function ProfileModal({
 
           {/* Avatar and Basic Header Bar */}
           <div className="absolute -bottom-6 left-6 flex items-end space-x-4">
-            <div className="relative">
+            <div 
+              className="relative cursor-pointer group"
+              onClick={() => {
+                if (!profile.hidePhotos && profile.photoVisibility !== 'request' && modalPhotos.length > 0) {
+                  setLightboxInitialIndex(0);
+                  setIsLightboxOpen(true);
+                }
+              }}
+              title="Click to view full screen photo"
+            >
               <SafeAvatar
                 src={resolveProfilePhoto(profile)}
                 alt={profile.name || "Member"}
                 gender={profile.gender}
                 size="2xl"
-                className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl ring-4 ring-white shadow-xl bg-slate-900"
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl ring-4 ring-white shadow-xl bg-slate-900 group-hover:brightness-105 transition-all"
               />
               {profile.verified && (
                 <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full ring-2 ring-white shadow-sm" title="Verified Profile">
@@ -1193,6 +1297,14 @@ export default function ProfileModal({
           </div>
         </div>
       )}
+
+      {/* Clean Full-Screen Photo Lightbox Viewer */}
+      <FullScreenPhotoLightbox 
+        isOpen={isLightboxOpen}
+        photos={modalPhotos}
+        initialIndex={lightboxInitialIndex}
+        onClose={() => setIsLightboxOpen(false)}
+      />
 
     </div>
   );

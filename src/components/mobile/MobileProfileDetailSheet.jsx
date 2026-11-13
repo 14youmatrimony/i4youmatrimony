@@ -37,6 +37,7 @@ import { isKundaliApplicableReligion } from '../../data/religionData';
 import { useInterestStatus, interestService } from '../../services/interestService';
 import { resolveProfilePhoto, isFakeAvatarUrl } from '../../services/api';
 import { formatR2PublicUrl } from '../../utils/r2Upload';
+import FullScreenPhotoLightbox from '../common/FullScreenPhotoLightbox';
 
 export default function MobileProfileDetailSheet({
   profile,
@@ -62,7 +63,8 @@ export default function MobileProfileDetailSheet({
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [currentSinglePhotoIdx, setCurrentSinglePhotoIdx] = useState(0);
-  const [fullscreenPhoto, setFullscreenPhoto] = useState(null); // { url, title, isFamily }
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
   const touchStartXRef = useRef(null);
   const hasPaidPlan = Boolean(currentUser?.membership && currentUser?.membership !== 'free');
   const isContactUnlocked = Boolean(currentUser?.unlockedContacts?.includes(profile?.id));
@@ -109,7 +111,7 @@ export default function MobileProfileDetailSheet({
     setShowShareSheet(false);
     setCopiedLink(false);
     setCurrentSinglePhotoIdx(0);
-    setFullscreenPhoto(null);
+    setIsLightboxOpen(false);
     setCallAuthAlert(null);
   }, [profile?.id, profile?.registerId, profile?.register_id]);
 
@@ -412,13 +414,8 @@ export default function MobileProfileDetailSheet({
                 }}
                 onClick={() => {
                   if (!profile.hidePhotos && profile.photoVisibility !== 'request' && activePhoto) {
-                    setFullscreenPhoto({
-                      url: activePhoto,
-                      title: isCurrentSlideFamily 
-                        ? `Family Photo (${safePhotoIdx + 1} of ${sliderSlides.length})` 
-                        : `Photo ${safePhotoIdx + 1} of ${sliderSlides.length}`,
-                      isFamily: isCurrentSlideFamily
-                    });
+                    setLightboxInitialIndex(safePhotoIdx);
+                    setIsLightboxOpen(true);
                   }
                 }}
                 className={`w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-102 select-none ${
@@ -471,13 +468,8 @@ export default function MobileProfileDetailSheet({
               <span 
                 onClick={() => {
                   if (!profile.hidePhotos && profile.photoVisibility !== 'request' && activePhoto) {
-                    setFullscreenPhoto({
-                      url: activePhoto,
-                      title: isCurrentSlideFamily 
-                        ? `Family Photo (${safePhotoIdx + 1} of ${sliderSlides.length})` 
-                        : `Photo ${safePhotoIdx + 1} of ${sliderSlides.length}`,
-                      isFamily: isCurrentSlideFamily
-                    });
+                    setLightboxInitialIndex(safePhotoIdx);
+                    setIsLightboxOpen(true);
                   }
                 }}
                 className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
@@ -1476,11 +1468,11 @@ export default function MobileProfileDetailSheet({
                   {familyPhotos.map((fUrl, fIdx) => (
                     <div 
                       key={fIdx}
-                      onClick={() => setFullscreenPhoto({
-                        url: fUrl,
-                        title: fIdx === 0 ? 'Family Portrait with Parents' : 'Family Occasion & Gathering',
-                        isFamily: true
-                      })}
+                      onClick={() => {
+                        const targetIdx = sliderSlides.findIndex(s => s.url === fUrl);
+                        setLightboxInitialIndex(targetIdx !== -1 ? targetIdx : (finalProfilePhotos.length + fIdx));
+                        setIsLightboxOpen(true);
+                      }}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         if (screenshotRestricted) triggerScreenshotBlock('right-click');
@@ -1804,65 +1796,13 @@ export default function MobileProfileDetailSheet({
 
       </footer>
  
-      {/* Fullscreen Photo Lightbox Modal with UIDAI & Matrimony Watermark */}
-      {fullscreenPhoto && (
-        <div 
-          className="absolute inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between p-4 animate-in fade-in"
-          onClick={() => setFullscreenPhoto(null)}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between text-white shrink-0 z-10" onClick={e => e.stopPropagation()}>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-[#DFB76C]">
-                  {profile.name} • {fullscreenPhoto.isFamily ? 'Family Album' : 'Single Portrait'}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-300 mt-0.5">{fullscreenPhoto.title}</p>
-            </div>
-            <button
-              onClick={() => setFullscreenPhoto(null)}
-              className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white cursor-pointer transition-colors"
-              title="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Centered Image with Security Watermark */}
-          <div 
-            className="relative flex-1 flex items-center justify-center p-2 select-none photo-protected" 
-            onClick={e => e.stopPropagation()}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              if (screenshotRestricted) triggerScreenshotBlock('right-click');
-            }}
-          >
-            <div className="relative max-h-[75vh] max-w-full rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-black">
-              <img 
-                src={fullscreenPhoto.url} 
-                alt={fullscreenPhoto.title} 
-                draggable={false}
-                onContextMenu={(e) => e.preventDefault()}
-                onDragStart={(e) => e.preventDefault()}
-                className="max-h-[75vh] w-auto object-contain rounded-xl select-none pointer-events-none"
-                style={{
-                  WebkitTouchCallout: 'none',
-                  WebkitUserSelect: 'none',
-                  userSelect: 'none',
-                  WebkitUserDrag: 'none'
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center text-[10px] text-slate-300 py-1.5 px-3 bg-black/60 rounded-xl border border-white/10 shrink-0 flex items-center justify-center gap-1.5" onClick={e => e.stopPropagation()}>
-            <Lock className="w-3 h-3 text-rose-400 shrink-0" />
-            <span>Protected Matrimonial Photograph • Capturing screenshots or screen recording is restricted under I 4 You Security Policy</span>
-          </div>
-        </div>
-      )}
+      {/* Clean Full-Screen Photo Lightbox Viewer */}
+      <FullScreenPhotoLightbox 
+        isOpen={isLightboxOpen}
+        photos={sliderSlides}
+        initialIndex={lightboxInitialIndex}
+        onClose={() => setIsLightboxOpen(false)}
+      />
 
       {/* Calling Authorization Required Alert Modal */}
       {callAuthAlert && (

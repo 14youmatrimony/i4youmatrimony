@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Lock, ShieldAlert, X } from 'lucide-react';
 import { 
   clearClipboard, 
@@ -240,7 +241,7 @@ export default function DRMProtectionShield({ children }) {
       {children}
 
       {/* 100% Solid Black Curtain on App Switcher, Window Blur, Snipping Tool, or Screenshot Attempt */}
-      {isCovered && (
+      {isCovered && (typeof document !== 'undefined' ? createPortal(
         <div 
           className="fixed inset-0 bg-black z-[99999] flex flex-col items-center justify-center p-6 text-center select-none pointer-events-auto transition-opacity duration-150"
           style={{ backgroundColor: '#000000' }}
@@ -260,11 +261,12 @@ export default function DRMProtectionShield({ children }) {
               Screenshots, recordings, and background previews are disabled for member privacy.
             </p>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      ) : null)}
 
       {/* Prominent High-Z-Index Security Warning Toast */}
-      {showToast && (
+      {showToast && (typeof document !== 'undefined' ? createPortal(
         <div 
           className="fixed top-5 left-1/2 -translate-x-1/2 z-[100000] max-w-md w-[92%] sm:w-auto px-4 py-3 rounded-2xl bg-slate-950/95 border border-rose-500/60 text-white shadow-2xl backdrop-blur-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-auto"
           role="alert"
@@ -283,8 +285,9 @@ export default function DRMProtectionShield({ children }) {
           >
             <X className="w-4 h-4" />
           </button>
-        </div>
-      )}
+        </div>,
+        document.body
+      ) : null)}
     </>
   );
 }
