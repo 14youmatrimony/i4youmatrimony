@@ -66,6 +66,14 @@ body {
   min-height: 100dvh;
 }
 
+/* iOS WebKit viewport height resilience */
+@supports (-webkit-touch-callout: none) {
+  .main-layout-wrapper {
+    min-height: -webkit-fill-available;
+    min-height: 100dvh;
+  }
+}
+
 /* Explicit mobile bottom navigation bar anchoring */
 .mobile-bottom-nav {
   position: fixed !important;

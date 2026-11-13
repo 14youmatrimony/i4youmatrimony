@@ -8,6 +8,7 @@ import { uploadProfilePhoto } from './storageService';
 import { sanitizeInput, hashPasswordSha256 } from '../utils/security';
 import { sendRegistrationEmail } from './emailNotificationService';
 import { resolveProfilePhoto, isFakeAvatarUrl, ensureProfileRowExists } from './api';
+import { safeCalculateAge } from '../utils/dateUtils';
 
 // Built-in Demo Credentials permanently disabled (strictly real verified accounts only)
 export const DEMO_CREDENTIALS = [];
@@ -700,12 +701,5 @@ function mapSupabaseToSession(row) {
 }
 
 function calculateAge(dobString) {
-  try {
-    const dob = new Date(dobString);
-    const diffMs = Date.now() - dob.getTime();
-    const ageDate = new Date(diffMs);
-    return Math.abs(ageDate.getUTCFullYear() - 1970);
-  } catch {
-    return 26;
-  }
+  return safeCalculateAge(dobString, 26);
 }

@@ -13,6 +13,7 @@ import { supabase, isSupabaseConfigured } from './supabase.js';
 import { isSelfProfile } from '../utils/genderMatch.js';
 import { sendBackendMessage, mapSupabaseRowToProfile, isPlaceholderOrIncompleteProfile, PROFILE_FEED_COLUMNS } from './api.js';
 import { fcmNotificationService } from './fcmNotificationService.js';
+import { safeGetTime } from '../utils/dateUtils.js';
 
 class LiveChatService {
   constructor() {
@@ -1107,8 +1108,8 @@ class LiveChatService {
 
     // Sort conversations descending by latest activity / timestamp
     result.sort((a, b) => {
-      const timeA = new Date(a.messages?.[a.messages.length - 1]?.created_at || a.messages?.[a.messages.length - 1]?.timestamp || a.updated_at || 0).getTime();
-      const timeB = new Date(b.messages?.[b.messages.length - 1]?.created_at || b.messages?.[b.messages.length - 1]?.timestamp || b.updated_at || 0).getTime();
+      const timeA = safeGetTime(a.messages?.[a.messages.length - 1]?.created_at || a.messages?.[a.messages.length - 1]?.timestamp || a.updated_at || 0);
+      const timeB = safeGetTime(b.messages?.[b.messages.length - 1]?.created_at || b.messages?.[b.messages.length - 1]?.timestamp || b.updated_at || 0);
       return timeB - timeA;
     });
 
@@ -1337,8 +1338,8 @@ export function deduplicateMessageList(messages) {
     // 2. Check by content signature (sender_id + normalized text + approx timestamp or time)
     const normText = (m.text || '').trim();
     if (normText) {
-      const timeSignature = m.created_at || m.timestamp
-        ? Math.floor(new Date(m.created_at || m.timestamp).getTime() / 2000)
+      const timeSignature = (m.created_at || m.timestamp)
+        ? Math.floor(safeGetTime(m.created_at || m.timestamp) / 2000)
         : (m.time || '');
       const sId = m.sender_id || m.senderId || m.sender || '';
       const signature = `${sId}__${timeSignature}__${normText}`;

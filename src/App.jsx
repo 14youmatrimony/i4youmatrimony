@@ -61,6 +61,7 @@ import {
   normalizeGender, 
   isSelfProfile 
 } from './utils/genderMatch';
+import { safeStorage } from './utils/safeStorage';
 import { Sparkles, AlertCircle } from 'lucide-react';
 
 // Candidate status stories: No hardcoded or mock dummy statuses
@@ -449,13 +450,10 @@ export default function App() {
     };
 
     try {
-      const cached = localStorage.getItem('i4u_cached_profiles');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const valid = parsed.filter(p => Boolean(p && (p.name || p.fullName || p.id))).map(sanitizeProfilePhotos);
-          if (valid.length > 0) return valid;
-        }
+      const cached = safeStorage.getJSON('i4u_cached_profiles', null);
+      if (Array.isArray(cached) && cached.length > 0) {
+        const valid = cached.filter(p => Boolean(p && (p.name || p.fullName || p.id))).map(sanitizeProfilePhotos);
+        if (valid.length > 0) return valid;
       }
     } catch (e) {}
     return [];
@@ -468,7 +466,8 @@ export default function App() {
   const lastProfilesSyncRef = useRef(0);
   const syncLiveProfiles = useCallback(async (force = false) => {
     const now = Date.now();
-    if (!force && now - lastProfilesSyncRef.current < 4000) {
+    // If profiles is currently empty, always bypass cooldown to ensure iOS loads profiles immediately
+    if (!force && profilesRef.current && profilesRef.current.length > 0 && now - lastProfilesSyncRef.current < 4000) {
       return; // Cooldown: skip redundant fetch within 4 seconds
     }
     lastProfilesSyncRef.current = now;
@@ -478,9 +477,7 @@ export default function App() {
       if (Array.isArray(liveList) && liveList.length > 0) {
         const cleanList = liveList.filter(p => Boolean(p && (p.name || p.fullName || p.id)));
         setProfiles(cleanList);
-        try {
-          localStorage.setItem('i4u_cached_profiles', JSON.stringify(cleanList));
-        } catch (e) {}
+        safeStorage.setJSON('i4u_cached_profiles', cleanList);
       }
 
       // Always sync fresh user profile directly from Supabase public.profiles on load/refresh (targeted query instead of whole-table scan)
@@ -4738,8 +4735,11 @@ export default function App() {
         if (!isMatch) return false;
       }
 
-      // 5. Age Range
-      if (p.age < minAge || p.age > maxAge) return false;
+      // 5. Age Range (Only filter if candidate's age is a valid positive number)
+      const candAge = Number(p.age);
+      if (!isNaN(candAge) && candAge > 0) {
+        if (candAge < minAge || candAge > maxAge) return false;
+      }
 
       // 6. Height (Supports range e.g. "5'0\" to 5'5\"" or "5'10\"+" or "5'5\"")
       if (minHeight && minHeight !== 'Any Height' && minHeight !== 'Any Height (No Preference)') {

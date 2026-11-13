@@ -221,8 +221,11 @@ export default function WebsiteMatchShowcase({
         }
       }
 
-      // 6. Age
-      if (p.age < filterMinAge || p.age > filterMaxAge) return false;
+      // 6. Age (Only filter if candidate's age is a valid positive number)
+      const candAge = Number(p.age);
+      if (!isNaN(candAge) && candAge > 0) {
+        if (candAge < filterMinAge || candAge > filterMaxAge) return false;
+      }
 
       // 7. Verified Only
       if (verifiedOnly && !p.verified && !p.aadhaarVerified) return false;

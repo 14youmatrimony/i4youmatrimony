@@ -7,6 +7,8 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { optimizeBase64String } from '../utils/imageOptimizer';
 import { addCacheBuster } from '../utils/cacheBuster';
 import { uploadPhotoToR2, formatR2PublicUrl } from './r2Storage';
+import { safeParseDate, safeGetTime, safeCalculateAge } from '../utils/dateUtils';
+import { safeStorage } from '../utils/safeStorage';
 
 /**
  * Lean projection for profile feed, cards, search results & match recommendations.
@@ -15,10 +17,10 @@ import { uploadPhotoToR2, formatR2PublicUrl } from './r2Storage';
  */
 export const PROFILE_FEED_COLUMNS = [
   'id',
-  'user_id',
   'register_id',
   'name',
-  'full_name',
+  'email',
+  'phone',
   'age',
   'gender',
   'height',
@@ -43,6 +45,7 @@ export const PROFILE_FEED_COLUMNS = [
   'state',
   'city',
   'district',
+  'native_address',
   'education',
   'education_category',
   'profession',
@@ -51,11 +54,18 @@ export const PROFILE_FEED_COLUMNS = [
   'diet',
   'manglik',
   'marital_status',
+  'partner_expectations',
+  'family_details',
   'body_type',
+  'smoking',
+  'drinking',
+  'hobbies',
+  'about',
   'match_score',
   'verified',
   'aadhaar_verified',
   'govt_id_verified',
+  'selfie_verified',
   'status',
   'created_at',
   'updated_at'
@@ -878,7 +888,9 @@ export function mapSupabaseRowToProfile(r) {
     email: r.email || null,
     name: resolvedName,
     fullName: resolvedName,
-    age: r.age,
+    age: (r.age !== null && r.age !== undefined && !isNaN(Number(r.age)) && Number(r.age) > 0)
+      ? Number(r.age)
+      : (r.dob ? safeCalculateAge(r.dob, 26) : 26),
     gender: r.gender,
     height: r.height || "5'6\"",
     skinColour: r.skin_colour || 'Fair',
@@ -1153,10 +1165,15 @@ export function deduplicateProfiles(list) {
  * Excludes all demo profiles - returns only real registered candidates.
  * Explicitly filters out currently authenticated user (WHERE user_id != current_user_id AND id != current_user_id).
  */
-export async function fetchLiveProfiles(currentUserId = null, { limit = 15, page = 0 } = {}) {
+export async function fetchLiveProfiles(currentUserId = null, { limit = 100, page = 0 } = {}) {
   // 1. Direct Supabase PostgreSQL query (Port 443 HTTPS - Works universally without backend)
   if (isSupabaseConfigured()) {
     try {
+      const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 200);
+      const safePage = Math.max(Number(page) || 0, 0);
+      const from = safePage * safeLimit;
+      const to = from + safeLimit - 1;
+
       let query = supabase
         .from('profiles')
         .select(PROFILE_FEED_COLUMNS);
@@ -1165,11 +1182,6 @@ export async function fetchLiveProfiles(currentUserId = null, { limit = 15, page
         const uidStr = String(currentUserId).trim();
         query = query.neq('id', uidStr);
       }
-
-      const safeLimit = Math.min(Math.max(Number(limit) || 15, 1), 50);
-      const safePage = Math.max(Number(page) || 0, 0);
-      const from = safePage * safeLimit;
-      const to = from + safeLimit - 1;
 
       const fetchPromise = query
         .order('created_at', { ascending: false })
@@ -1180,7 +1192,24 @@ export async function fetchLiveProfiles(currentUserId = null, { limit = 15, page
         setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
       );
 
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+      let { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+
+      // Resilient fallback: if column error or code 42703, immediately retry with select('*')
+      if (error && (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist'))) {
+        console.warn('[fetchLiveProfiles] Column error, falling back to select("*"):', error.message);
+        let fallbackQuery = supabase
+          .from('profiles')
+          .select('*');
+        if (currentUserId) {
+          const uidStr = String(currentUserId).trim();
+          fallbackQuery = fallbackQuery.neq('id', uidStr);
+        }
+        const retryRes = await fallbackQuery
+          .order('created_at', { ascending: false })
+          .range(from, to);
+        data = retryRes.data;
+        error = retryRes.error;
+      }
 
       if (error) {
         console.error('[Supabase Profiles Fetch Error]:', error);
@@ -1193,17 +1222,17 @@ export async function fetchLiveProfiles(currentUserId = null, { limit = 15, page
           .filter(p => {
             if (!p) return false;
             if (currentUserId) {
-              const uidStr = String(currentUserId).trim();
-              if (String(p.id) === uidStr) return false;
+              const uidStr = String(currentUserId).trim().toLowerCase();
+              const pId = String(p.id || '').toLowerCase();
+              const pRegId = String(p.register_id || p.registerId || '').toLowerCase();
+              if (pId === uidStr || pRegId === uidStr || (pRegId && uidStr.includes(pRegId)) || (pId && uidStr.includes(pId))) return false;
             }
             return true;
           });
         const liveList = deduplicateProfiles(rawList);
 
         if (liveList.length > 0) {
-          try {
-            localStorage.setItem('i4u_cached_profiles', JSON.stringify(liveList));
-          } catch (e) {}
+          safeStorage.setJSON('i4u_cached_profiles', liveList);
           return liveList;
         }
       }
@@ -1221,8 +1250,10 @@ export async function fetchLiveProfiles(currentUserId = null, { limit = 15, page
         .filter(p => {
           if (!p || isDemoProfile(p) || isPlaceholderOrIncompleteProfile(p)) return false;
           if (currentUserId) {
-            const uidStr = String(currentUserId).trim();
-            if (String(p.id) === uidStr || (p.user_id && String(p.user_id) === uidStr)) return false;
+            const uidStr = String(currentUserId).trim().toLowerCase();
+            const pId = String(p.id || '').toLowerCase();
+            const pRegId = String(p.register_id || p.registerId || '').toLowerCase();
+            if (pId === uidStr || pRegId === uidStr) return false;
           }
           return true;
         })
@@ -1239,9 +1270,7 @@ export async function fetchLiveProfiles(currentUserId = null, { limit = 15, page
         }));
       const liveList = deduplicateProfiles(rawList);
       if (liveList.length > 0) {
-        try {
-          localStorage.setItem('i4u_cached_profiles', JSON.stringify(liveList));
-        } catch (e) {}
+        safeStorage.setJSON('i4u_cached_profiles', liveList);
         return liveList;
       }
     }
@@ -1249,15 +1278,12 @@ export async function fetchLiveProfiles(currentUserId = null, { limit = 15, page
     console.warn('[API] Could not connect to backend, fallback:', err.message);
   }
 
-  // 3. Fallback to cached verified profiles from localStorage
+  // 3. Fallback to cached verified profiles from safeStorage
   try {
-    const cached = localStorage.getItem('i4u_cached_profiles');
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const validCached = deduplicateProfiles(parsed.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)));
-        if (validCached.length > 0) return validCached;
-      }
+    const cached = safeStorage.getJSON('i4u_cached_profiles', []);
+    if (Array.isArray(cached) && cached.length > 0) {
+      const validCached = deduplicateProfiles(cached.filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)));
+      if (validCached.length > 0) return validCached;
     }
   } catch (e) {}
 
@@ -3145,7 +3171,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
 
         const cleanMsg = sanitizeText(row.message, sName) || `${sName} expressed matrimonial interest in connecting with you.`;
 
-        const createdAtTime = new Date(row.created_at || row.updated_at || 0).getTime();
+        const createdAtTime = safeGetTime(row.created_at || row.updated_at || 0);
         const isReadState = Boolean(
           row.is_read || 
           viewedIds.has(intId) || 
@@ -3188,7 +3214,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         const isPaymentRow = row.type === 'payment_success' || row.type === 'payment' || row.type === 'payment_failed';
 
         if (isPaymentRow) {
-          const createdAtTime = new Date(row.created_at || 0).getTime();
+          const createdAtTime = safeGetTime(row.created_at || 0);
           const isReadState = Boolean(row.is_read || viewedIds.has(notifId) || viewedIds.has(rawRowId) || (lastOpened > 0 && createdAtTime <= lastOpened));
           combined.push({
             notification_id: notifId,
@@ -3281,7 +3307,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         const cleanTitle = sanitizeText(row.title, sName) || defaultTitle;
         const cleanMsg = sanitizeText(row.message, sName) || '';
 
-        const createdAtTime = new Date(row.created_at || 0).getTime();
+        const createdAtTime = safeGetTime(row.created_at || 0);
         const isReadState = Boolean(
           row.is_read || 
           viewedIds.has(notifId) || 
@@ -3313,7 +3339,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
         });
       });
 
-      return combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      return combined.sort((a, b) => safeGetTime(b.created_at) - safeGetTime(a.created_at));
     } catch (e) {
       console.warn('[fetchUserNotifications] Supabase fallback error:', e);
     }

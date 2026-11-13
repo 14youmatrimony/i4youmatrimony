@@ -12,6 +12,7 @@
 import { deduplicateMessageList } from '../services/liveChatService';
 import { isSelfProfile } from './genderMatch';
 import { isPlaceholderOrIncompleteProfile } from '../services/api';
+import { safeGetTime } from './dateUtils';
 
 /**
  * Validates if a conversation thread is active, verified, and renderable.
@@ -145,7 +146,7 @@ export function getActiveConversations(conversations = [], currentUser, profiles
       if (isFromMe) return false;
       if (m.status === 'read' || m.is_read === true || m.isRead === true) return false;
       if (lastReadTime > 0) {
-        const msgTime = new Date(m.created_at || m.timestamp || 0).getTime();
+        const msgTime = safeGetTime(m.created_at || m.timestamp || 0);
         if (msgTime <= lastReadTime) return false;
       }
       return true;
@@ -163,8 +164,8 @@ export function getActiveConversations(conversations = [], currentUser, profiles
   activeList.sort((a, b) => {
     const lastA = a.messages?.[a.messages.length - 1];
     const lastB = b.messages?.[b.messages.length - 1];
-    const timeA = new Date(lastA?.created_at || lastA?.timestamp || a.updated_at || a.created_at || 0).getTime();
-    const timeB = new Date(lastB?.created_at || lastB?.timestamp || b.updated_at || b.created_at || 0).getTime();
+    const timeA = safeGetTime(lastA?.created_at || lastA?.timestamp || a.updated_at || a.created_at || 0);
+    const timeB = safeGetTime(lastB?.created_at || lastB?.timestamp || b.updated_at || b.created_at || 0);
     return timeB - timeA;
   });
 

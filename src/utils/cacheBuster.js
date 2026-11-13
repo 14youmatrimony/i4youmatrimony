@@ -7,6 +7,8 @@
  * updates their profile picture or name.
  */
 
+import { safeGetTime } from './dateUtils';
+
 /**
  * Appends or updates a cache-busting timestamp on an image URL.
  * 
@@ -37,8 +39,7 @@ export function addCacheBuster(url, timestamp = null) {
   } else if (timestamp instanceof Date) {
     tsValue = timestamp.getTime();
   } else {
-    const parsed = new Date(timestamp).getTime();
-    tsValue = isNaN(parsed) ? Date.now() : parsed;
+    tsValue = safeGetTime(timestamp, Date.now());
   }
 
   try {
