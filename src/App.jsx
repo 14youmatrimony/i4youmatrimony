@@ -46,6 +46,7 @@ import IncomingCallModal from './components/calling/IncomingCallModal';
 import PermissionOnboardingModal, { checkPermissionsGranted } from './components/common/PermissionOnboardingModal';
 import { webrtcCallService } from './services/webrtcCallService';
 import { liveChatService, deduplicateMessageList } from './services/liveChatService';
+import { presenceService } from './services/presenceService';
 import { formatChatTime12Hour } from './utils/dateUtils';
 import { interestService } from './services/interestService';
 import { computeUnreadMessagesCount } from './utils/conversationUtils';
@@ -2327,6 +2328,15 @@ export default function App() {
     };
   }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
 
+  // Real-time Supabase Presence & Online/Offline status tracking
+  useEffect(() => {
+    if (!currentUser) {
+      presenceService.untrackUser();
+      return;
+    }
+    presenceService.trackUser(currentUser);
+  }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
+
   // Maintain latest refs for tab and chat selection so realtime subscription does not churn
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
@@ -2618,6 +2628,7 @@ export default function App() {
         localStorage.removeItem(`i4u_conversations_${uid}`);
       }
     } catch (e) {}
+    presenceService.untrackUser();
     setCurrentUser(null);
     setSelectedProfile(null);
     setActiveChatProfileId(null);
@@ -3390,7 +3401,7 @@ export default function App() {
       photo: resolvedPhoto,
       photo_url: resolvedPhoto,
       avatar_url: resolvedPhoto,
-      onlineStatus: 'Online'
+      onlineStatus: presenceService.isUserOnline(profile || passedProfile || targetId) ? 'Online' : 'Offline'
     };
 
     const convId = explicitChatId || [String(currentUser.id), targetId].sort().join(':::');

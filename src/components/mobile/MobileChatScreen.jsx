@@ -25,6 +25,7 @@ import { getActiveConversations } from '../../utils/conversationUtils';
 import { fcmNotificationService } from '../../services/fcmNotificationService';
 import { fetchLiveUserProfile, isPlaceholderOrIncompleteProfile } from '../../services/api';
 import { supabase, isSupabaseConfigured } from '../../services/supabase';
+import { presenceService, usePresenceSync } from '../../services/presenceService';
 
 const POPULAR_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '😊', '🌺', '🌟', '💫', '🕊️', '❤️', '🌹'];
 
@@ -53,6 +54,7 @@ export default function MobileChatScreen({
   notifications = []
 }) {
   const { accent, isDarkMode } = useTheme();
+  const presenceTick = usePresenceSync();
   const [inConversation, setInConversation] = useState(isDirectChatOpen);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -433,6 +435,8 @@ export default function MobileChatScreen({
       extractPhoto(mergedUser) ||
       `https://ui-avatars.com/api/?name=${encodeURIComponent(resolvedName)}&background=0B192C&color=DFB76C&bold=true`;
 
+    const isOnline = presenceService.isUserOnline(targetId) || presenceService.isUserOnline(mergedUser);
+
     return {
       ...mergedUser,
       id: targetId,
@@ -440,15 +444,16 @@ export default function MobileChatScreen({
       photo: resolvedPhoto,
       photo_url: resolvedPhoto,
       avatar_url: resolvedPhoto,
-      onlineStatus: mergedUser.onlineStatus || 'Online',
+      onlineStatus: isOnline ? 'Online' : 'Offline',
       verified: mergedUser.verified !== undefined ? Boolean(mergedUser.verified) : true,
       city: mergedUser.city || mergedUser.district || '',
       district: mergedUser.district || mergedUser.city || '',
       profession: mergedUser.profession || ''
     };
-  }, [profiles, currentUser, resolvedTargetId, conversations, activeChatId, livePartnerUser, propActiveConv]);
+  }, [profiles, currentUser, resolvedTargetId, conversations, activeChatId, livePartnerUser, propActiveConv, presenceTick]);
 
   const activeProfile = partnerUser;
+  const isPartnerOnline = presenceService.isUserOnline(partnerUser);
 
   const activeConversationId = useMemo(() => {
     if (activeChatId) return String(activeChatId);
@@ -1042,7 +1047,12 @@ export default function MobileChatScreen({
                 }}
                 className="w-9 h-9 rounded-full object-cover ring-1 ring-[#DFB76C]" 
               />
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-1.5 ring-[#0B192C]"></span>
+              <span 
+                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-1.5 ring-[#0B192C] ${
+                  isPartnerOnline ? 'bg-emerald-500' : 'bg-rose-500'
+                }`}
+                title={isPartnerOnline ? 'Online' : 'Offline'}
+              ></span>
             </div>
 
             <div className="min-w-0" onClick={() => onSelectProfile(partnerUser)}>
@@ -1053,16 +1063,25 @@ export default function MobileChatScreen({
                 {partnerUser.verified && (
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 )}
-                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.2 rounded-full border border-emerald-500/30 shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Live
-                </span>
+                {isPartnerOnline ? (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.2 rounded-full border border-emerald-500/30 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Online
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-400 bg-rose-950/80 px-1.5 py-0.2 rounded-full border border-rose-500/30 shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                    Offline
+                  </span>
+                )}
               </div>
               <p className="text-[10px] text-slate-300 truncate">
                 {isTyping ? (
                   <span className="text-emerald-400 font-medium animate-pulse">typing...</span>
                 ) : (
-                  partnerUser.onlineStatus || `Online • ${partnerUser.district || partnerUser.city || 'India'}`
+                  isPartnerOnline
+                    ? `Online • ${partnerUser.district || partnerUser.city || 'India'}`
+                    : `Offline • ${partnerUser.district || partnerUser.city || 'India'}`
                 )}
               </p>
             </div>
@@ -1389,7 +1408,11 @@ export default function MobileChatScreen({
                     }}
                     className="w-12 h-12 rounded-full object-cover ring-2 ring-[#DFB76C]/50" 
                   />
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+                  {presenceService.isUserOnline(profile) ? (
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" title="Online"></span>
+                  ) : (
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-900" title="Offline"></span>
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">

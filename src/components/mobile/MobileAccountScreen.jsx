@@ -39,6 +39,7 @@ import MobilePhotoManagerSheet from './MobilePhotoManagerSheet';
 import EditProfileModal from '../EditProfileModal';
 import SelfieVerificationSection from '../SelfieVerificationSection';
 import { updateLiveUserProfile, syncProfileToSupabase, resolveProfilePhoto, isFakeAvatarUrl } from '../../services/api';
+import { presenceService, usePresenceSync } from '../../services/presenceService';
 import SafeAvatar from '../common/SafeAvatar';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -75,6 +76,7 @@ export default function MobileAccountScreen({
   onLogout
 }) {
   const { themeMode, accent, bottomBarStyle } = useTheme();
+  const presenceTick = usePresenceSync();
   const [subView, setSubView] = useState('profile'); // 'profile' | 'edit_reg' | 'switch_login' | 'verify_mobile' | 'verify_aadhaar' | 'privacy_settings' | 'invoices'
   const [pendingVerificationData, setPendingVerificationData] = useState(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -100,9 +102,9 @@ export default function MobileAccountScreen({
     return pool.slice(0, 12).map((p, idx) => ({
       ...p,
       viewTime: timeLabels[idx] || `${idx + 1}d ago`,
-      isOnline: idx < 3
+      isOnline: presenceService.isUserOnline(p)
     }));
-  }, [profiles, currentUser]);
+  }, [profiles, currentUser, presenceTick]);
 
   // Personal Account Deletion & Marriage Success Story State
   const MARRIAGE_FIXED_REASON = '💍 Marriage Fixed / Found Partner on I 4 You Matrimony';
@@ -2083,9 +2085,12 @@ export default function MobileAccountScreen({
                             size="md"
                             className="w-12 h-12 border-2 border-slate-200 group-hover:border-[#D4AF37] transition-colors shadow-xs"
                           />
-                          {visitor.isOnline && (
-                            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" title="Online now" />
-                          )}
+                          <span 
+                            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                              visitor.isOnline ? 'bg-emerald-500' : 'bg-rose-500'
+                            }`} 
+                            title={visitor.isOnline ? 'Online now' : 'Offline'} 
+                          />
                         </div>
 
                         <div className="min-w-0 flex-1">
