@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ZoomIn, ZoomOut, HeartHandshake } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, HeartHandshake, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 
 /**
  * FullScreenPhotoLightbox
  *
- * Dedicated, distraction-free full-screen photo viewer for member profiles.
- * - Rendered directly into document.body via ReactDOM.createPortal at z-[9990].
+ * Unified Full-Screen Photo Gallery for the currently viewed user.
+ * - Combines the currently viewed user's profile photos (up to 5) and family photos (up to 2) in a single continuous list.
+ * - Renders directly into document.body via ReactDOM.createPortal at z-[9990].
  * - Protected by "I 4 YOU SECURITY SHIELD" at z-[99999] so any capture attempt or blur activates black curtain.
  * - Shows ONLY the full-size photo with object-contain (no profile text or clutter).
  * - Full zoom support: Double-click / Double-tap zoom (1x <-> 2x), pinch-to-zoom (mobile), and mouse wheel zoom.
  * - Panning when zoomed in.
+ * - Next/Previous navigation (swipe for mobile, left/right arrow buttons for web, keyboard arrow keys) exclusively cycling photos of the current user.
+ * - Strict User Isolation: NEVER switches to any other user's profile.
  * - Top-right Close button and Escape key dismiss.
  * - Right-click, drag, and mobile long-press disabled for privacy protection.
  */
@@ -81,6 +84,29 @@ export default function FullScreenPhotoLightbox({
     };
   }, [isOpen]);
 
+  // Next / Previous navigation within current user's photos only
+  const goToNext = useCallback(
+    (e) => {
+      e?.stopPropagation();
+      if (slides.length <= 1) return;
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+      setCurrentIndex((prev) => (prev + 1) % slides.length);
+    },
+    [slides.length]
+  );
+
+  const goToPrev = useCallback(
+    (e) => {
+      e?.stopPropagation();
+      if (slides.length <= 1) return;
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+      setCurrentIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
+    },
+    [slides.length]
+  );
+
   // Toggle Zoom: 1x <-> 2x
   const toggleZoom = useCallback((e) => {
     e?.stopPropagation();
@@ -93,7 +119,7 @@ export default function FullScreenPhotoLightbox({
     });
   }, []);
 
-  // Keyboard navigation (Escape closes photo viewer)
+  // Keyboard navigation (Escape closes photo viewer, Left/Right arrows navigate)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -101,12 +127,18 @@ export default function FullScreenPhotoLightbox({
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose?.();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goToNext();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goToPrev();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, goToNext, goToPrev, onClose]);
 
   // DRM Protection Context Menu and Drag Handlers
   const handleContextMenu = (e) => {
@@ -206,9 +238,18 @@ export default function FullScreenPhotoLightbox({
       } else if (touchStartRef.current) {
         const deltaX = (e.changedTouches[0]?.clientX || 0) - touchStartRef.current.x;
         const deltaY = (e.changedTouches[0]?.clientY || 0) - touchStartRef.current.y;
+        const absX = Math.abs(deltaX);
+        const absY = Math.abs(deltaY);
 
-        // Double-tap zoom check
-        if (Math.abs(deltaX) < 15 && Math.abs(deltaY) < 15) {
+        // Mobile swipe navigation when not zoomed in (swipe left -> next, swipe right -> prev)
+        if (scale <= 1 && slides.length > 1 && absX > 40 && absX > absY * 1.3) {
+          if (deltaX < 0) {
+            goToNext();
+          } else {
+            goToPrev();
+          }
+        } else if (absX < 15 && absY < 15) {
+          // Double-tap zoom check
           const now = Date.now();
           if (now - lastTapRef.current < 320) {
             toggleZoom();
@@ -317,6 +358,32 @@ export default function FullScreenPhotoLightbox({
         </button>
       </div>
 
+      {/* Web Left Chevron Navigation Button (Exclusively navigates photos of currently viewed user) */}
+      {slides.length > 1 && (
+        <button
+          type="button"
+          onClick={goToPrev}
+          className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-95 shadow-xl hover:border-white/40"
+          title="Previous Photo"
+          aria-label="Previous Photo"
+        >
+          <ChevronLeft className="w-6 h-6 text-white" />
+        </button>
+      )}
+
+      {/* Web Right Chevron Navigation Button (Exclusively navigates photos of currently viewed user) */}
+      {slides.length > 1 && (
+        <button
+          type="button"
+          onClick={goToNext}
+          className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-95 shadow-xl hover:border-white/40"
+          title="Next Photo"
+          aria-label="Next Photo"
+        >
+          <ChevronRight className="w-6 h-6 text-white" />
+        </button>
+      )}
+
       {/* Main Full-Size Image Container (Clean distraction-free full photo) */}
       <div
         className="w-full h-full flex items-center justify-center p-0 sm:p-2 select-none photo-protected overflow-hidden"
@@ -344,6 +411,14 @@ export default function FullScreenPhotoLightbox({
           />
         ) : null}
       </div>
+
+      {/* Photo Counter at Bottom Center (Current user's photo list) */}
+      {slides.length > 1 && (
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-black/60 text-white/90 text-xs font-semibold backdrop-blur-md border border-white/10 pointer-events-none select-none tracking-wider shadow-lg flex items-center gap-2">
+          {isFamily && <HeartHandshake className="w-3.5 h-3.5 text-blue-300" />}
+          <span>{currentIndex + 1} / {slides.length}</span>
+        </div>
+      )}
     </div>
   );
 

@@ -176,7 +176,7 @@ export default function ProfileModal({
   }
   const finalProfilePhotos = deduplicatedProfilePhotos.slice(0, 5);
 
-  // 2. Gather all family photos
+  // 2. Gather all family photos (up to 2)
   const rawFamilyList = [
     ...extractPhotoList(profile.familyPhotos),
     ...extractPhotoList(profile.family_photos),
@@ -193,19 +193,20 @@ export default function ProfileModal({
       deduplicatedFamilyPhotos.push(url);
     }
   }
+  const finalFamilyPhotos = deduplicatedFamilyPhotos.slice(0, 2);
 
-  // Unified slides: Profile photos (up to 5) followed immediately by Family photo(s)
+  // Unified slides: Profile photos (up to 5) followed immediately by Family photo(s) (up to 2)
   const combinedPhotos = [
     ...finalProfilePhotos.map((url, idx) => ({
       url,
       isFamily: false,
-      title: `Photo ${idx + 1} of ${finalProfilePhotos.length + deduplicatedFamilyPhotos.length}`
+      title: `Photo ${idx + 1} of ${finalProfilePhotos.length + finalFamilyPhotos.length}`
     })),
-    ...deduplicatedFamilyPhotos.map((url, idx) => ({
+    ...finalFamilyPhotos.map((url, idx) => ({
       url,
       isFamily: true,
-      title: deduplicatedFamilyPhotos.length > 1 
-        ? `Family Photo ${idx + 1} of ${deduplicatedFamilyPhotos.length}` 
+      title: finalFamilyPhotos.length > 1 
+        ? `Family Photo ${idx + 1} of ${finalFamilyPhotos.length}` 
         : 'Family Photo'
     }))
   ];
@@ -699,18 +700,18 @@ export default function ProfileModal({
                 </div>
               </div>
 
-              {deduplicatedFamilyPhotos.length > 0 && (
+              {finalFamilyPhotos.length > 0 && (
                 <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      Family Album ({deduplicatedFamilyPhotos.length} {deduplicatedFamilyPhotos.length === 1 ? 'Photo' : 'Photos'})
+                      Family Album ({finalFamilyPhotos.length} {finalFamilyPhotos.length === 1 ? 'Photo' : 'Photos'})
                     </span>
                     <span className="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 font-semibold">
                       Verified Family
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {deduplicatedFamilyPhotos.map((fUrl, fIdx) => (
+                    {finalFamilyPhotos.map((fUrl, fIdx) => (
                       <div
                         key={fIdx}
                         onClick={() => {

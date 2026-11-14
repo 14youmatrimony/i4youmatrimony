@@ -202,7 +202,7 @@ export default function MobileProfileDetailSheet({
   }
   const finalProfilePhotos = deduplicatedProfilePhotos.slice(0, 5);
 
-  // 2. Gather all family photos
+  // 2. Gather all family photos (up to 2)
   const rawFamilyList = [
     ...extractPhotoList(profile.familyPhotos),
     ...extractPhotoList(profile.family_photos),
@@ -219,22 +219,23 @@ export default function MobileProfileDetailSheet({
       deduplicatedFamilyPhotos.push(url);
     }
   }
+  const finalFamilyPhotos = deduplicatedFamilyPhotos.slice(0, 2);
 
-  // Unified slider slides: Profile photos (up to 5) followed immediately by Family photo(s)
+  // Unified gallery slides: Profile photos (up to 5) followed immediately by Family photo(s) (up to 2)
   const allSlides = [
     ...finalProfilePhotos.map((url, idx) => ({
       url,
       isFamily: false,
-      title: `Photo ${idx + 1} of ${finalProfilePhotos.length + deduplicatedFamilyPhotos.length}`,
+      title: `Photo ${idx + 1} of ${finalProfilePhotos.length + finalFamilyPhotos.length}`,
       badgeLabel: null
     })),
-    ...deduplicatedFamilyPhotos.map((url, idx) => ({
+    ...finalFamilyPhotos.map((url, idx) => ({
       url,
       isFamily: true,
-      title: deduplicatedFamilyPhotos.length > 1 
-        ? `Family Photo ${idx + 1} of ${deduplicatedFamilyPhotos.length}` 
+      title: finalFamilyPhotos.length > 1 
+        ? `Family Photo ${idx + 1} of ${finalFamilyPhotos.length}` 
         : 'Family Photo',
-      badgeLabel: deduplicatedFamilyPhotos.length > 1 ? `Family Photo #${idx + 1}` : 'Family Photo'
+      badgeLabel: finalFamilyPhotos.length > 1 ? `Family Photo #${idx + 1}` : 'Family Photo'
     }))
   ];
 
@@ -246,7 +247,7 @@ export default function MobileProfileDetailSheet({
   const activePhoto = currentSlide?.url || resolvedPhoto || null;
   const isCurrentSlideFamily = Boolean(currentSlide?.isFamily);
   const singlePhotos = finalProfilePhotos.length > 0 ? finalProfilePhotos : (resolvedPhoto ? [resolvedPhoto] : []);
-  const familyPhotos = deduplicatedFamilyPhotos;
+  const familyPhotos = finalFamilyPhotos;
 
   const locMatch = calculateLocationMatch(currentUser, profile);
 
