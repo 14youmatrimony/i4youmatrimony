@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/notification_service.dart';
 import 'services/supabase_service.dart';
 import 'widgets/home_matches_screen.dart';
 import 'widgets/matrimony_photo_manager.dart';
@@ -30,7 +32,15 @@ void main() async {
     anonKey: SupabaseService.defaultAnonKey,
   );
 
-  // 3. Launch Application
+  // 3. Safely initialize Firebase Cloud Messaging for Android
+  try {
+    await Firebase.initializeApp();
+    await NotificationService.initialize();
+  } catch (e) {
+    debugPrint('[Main] Firebase initialization error: $e');
+  }
+
+  // 4. Launch Application
   runApp(const I4YouMatrimonyApp());
 }
 
