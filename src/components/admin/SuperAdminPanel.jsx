@@ -3,9 +3,13 @@ import {
   ShieldCheck, 
   LogOut, 
   ExternalLink, 
-  RefreshCw 
+  RefreshCw,
+  Eye,
+  Save,
+  Check
 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
+import { dailyContactLimitService } from '../../services/dailyContactLimitService';
 
 /**
  * SuperAdminPanel
@@ -16,6 +20,9 @@ import { supabase } from '../../services/supabase';
 export default function SuperAdminPanel({ onLogout, onBackToSite }) {
   const [adminEmail, setAdminEmail] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [dailyLimitInput, setDailyLimitInput] = useState('5');
+  const [isSavingLimit, setIsSavingLimit] = useState(false);
+  const [limitSaved, setLimitSaved] = useState(false);
 
   useEffect(() => {
     try {
@@ -32,7 +39,38 @@ export default function SuperAdminPanel({ onLogout, onBackToSite }) {
         setAdminEmail(data.user.email);
       }
     }).catch(() => {});
+
+    // Fetch current daily contact view limit
+    dailyContactLimitService.getDailyContactLimit().then(lim => {
+      setDailyLimitInput(String(lim));
+    }).catch(() => {});
+
+    // Subscribe to live limit updates
+    const unsub = dailyContactLimitService.subscribeToDailyLimitChanges((newLimit) => {
+      setDailyLimitInput(String(newLimit));
+    });
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
   }, []);
+
+  const handleSaveDailyLimit = async () => {
+    const parsed = parseInt(dailyLimitInput, 10);
+    if (isNaN(parsed) || parsed < 1) {
+      alert('Please enter a valid daily contact view limit (at least 1).');
+      return;
+    }
+    setIsSavingLimit(true);
+    try {
+      await dailyContactLimitService.updateDailyContactLimit(parsed, adminEmail);
+      setLimitSaved(true);
+      setTimeout(() => setLimitSaved(false), 3000);
+    } catch (err) {
+      console.error('Failed to save daily limit:', err);
+    } finally {
+      setIsSavingLimit(false);
+    }
+  };
 
   const handleAdminLogout = async () => {
     setIsLoggingOut(true);
@@ -81,6 +119,44 @@ export default function SuperAdminPanel({ onLogout, onBackToSite }) {
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-3">
+          {/* Dynamic Daily Contact Limit Control */}
+          <div className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg bg-black/40 border border-[#DFB76C]/30 shadow-inner">
+            <Eye className="w-3.5 h-3.5 text-[#DFB76C]" />
+            <span className="text-[11px] text-slate-300 font-semibold hidden md:inline">
+              Daily Limit:
+            </span>
+            <input
+              type="number"
+              min="1"
+              max="1000"
+              value={dailyLimitInput}
+              onChange={(e) => setDailyLimitInput(e.target.value)}
+              className="w-12 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-amber-300 font-mono text-xs text-center focus:outline-none focus:border-[#DFB76C]"
+              title="Daily contact view limit per user"
+            />
+            <button
+              type="button"
+              onClick={handleSaveDailyLimit}
+              disabled={isSavingLimit}
+              className="px-2 py-0.5 rounded bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Save daily contact limit"
+            >
+              {isSavingLimit ? (
+                <RefreshCw className="w-3 h-3 animate-spin" />
+              ) : limitSaved ? (
+                <>
+                  <Check className="w-3 h-3 text-slate-950 stroke-[3]" />
+                  <span>Saved!</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3 h-3" />
+                  <span>Save</span>
+                </>
+              )}
+            </button>
+          </div>
+
           {adminEmail && (
             <span className="hidden md:inline-block text-xs text-slate-300 font-mono">
               {adminEmail}

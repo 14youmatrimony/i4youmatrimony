@@ -49,6 +49,7 @@ import PermissionOnboardingModal, { checkPermissionsGranted } from './components
 import { webrtcCallService } from './services/webrtcCallService';
 import { liveChatService, deduplicateMessageList } from './services/liveChatService';
 import { presenceService } from './services/presenceService';
+import { dailyContactLimitService } from './services/dailyContactLimitService';
 import { formatChatTime12Hour } from './utils/dateUtils';
 import { interestService } from './services/interestService';
 import { computeUnreadMessagesCount } from './utils/conversationUtils';
@@ -2334,6 +2335,17 @@ export default function App() {
     presenceService.trackUser(currentUser);
   }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId]);
 
+  // Subscribe to dynamic daily contact limit updates
+  useEffect(() => {
+    dailyContactLimitService.getDailyContactLimit().catch(() => {});
+    const unsub = dailyContactLimitService.subscribeToDailyLimitChanges((newLimit) => {
+      console.log('[App] Daily contact view limit synchronized:', newLimit);
+    });
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, []);
+
   // Maintain latest refs for tab and chat selection so realtime subscription does not churn
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
@@ -2732,7 +2744,7 @@ export default function App() {
     setActiveInvoice(inv);
   };
 
-  const handleUnlockContact = (profileId) => {
+  const handleUnlockContact = async (profileId) => {
     const profile = profiles.find(p => p.id === profileId);
     if (!currentUser) {
       showToast('🔒 Please sign in first to unlock contacts');
@@ -2759,11 +2771,30 @@ export default function App() {
       return;
     }
 
+    // Intercept contact view: enforce dynamic daily contact view limit
+    try {
+      const limitCheck = await dailyContactLimitService.canViewContactToday(currentUser.id, currentUser);
+      if (!limitCheck.allowed) {
+        showToast('Daily contact view limit reached. Please come back tomorrow.');
+        return;
+      }
+    } catch (limitErr) {
+      console.warn('[handleUnlockContact] Daily limit check error:', limitErr);
+    }
+
     const currentCredits = currentUser.contactCredits ?? 0;
     if (currentCredits <= 0 && currentUser.membership !== 'vip') {
       showToast(`⚠️ You have used all contact view credits on your ${currentUser.membershipPlan || 'subscription'}! Upgrade for more contacts.`);
       handleOpenOffers();
       return;
+    }
+
+    // Record the contact view in daily_contact_views log and increment daily count
+    let viewLogResult = { viewsToday: (currentUser.views_today || 0) + 1, last_view_date: dailyContactLimitService.getTodayDateString() };
+    try {
+      viewLogResult = await dailyContactLimitService.recordContactView(currentUser.id, profileId, currentUser);
+    } catch (recErr) {
+      console.warn('[handleUnlockContact] Record contact view notice:', recErr);
     }
 
     const remainingCredits = currentUser.membership === 'vip' ? 999 : Math.max(0, currentCredits - 1);
@@ -2772,7 +2803,9 @@ export default function App() {
       const updated = {
         ...prev,
         contactCredits: remainingCredits,
-        unlockedContacts: [...(prev?.unlockedContacts || []), profileId]
+        unlockedContacts: [...(prev?.unlockedContacts || []), profileId],
+        views_today: viewLogResult.viewsToday,
+        last_view_date: viewLogResult.last_view_date
       };
       try {
         localStorage.setItem('i4u_auth_user', JSON.stringify(updated));

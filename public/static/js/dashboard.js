@@ -382,6 +382,7 @@ async function handleAdminLoginSubmit(e) {
       hideAdminLoginScreen();
       showToast('Welcome back, ' + (loggedAdmin?.full_name || 'Admin') + '!', 'success');
       updateAdminProfileUI();
+  loadDailyContactLimit();
       if (typeof loadAnalytics === 'function') loadAnalytics();
       if (typeof loadUsers === 'function') loadUsers();
     } else {
@@ -6046,3 +6047,133 @@ function setupRealtimeProfileSync() {
 
 
 
+
+
+// ========================================================
+// DYNAMIC DAILY CONTACT VIEW LIMIT MANAGEMENT
+// ========================================================
+
+function getSupabaseAdminClient() {
+  if (window.supabaseClient) return window.supabaseClient;
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    const sbUrl = 'https://kzvdzospvgzlfkkptadl.supabase.co';
+    const sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
+    window.supabaseClient = window.supabase.createClient(sbUrl, sbKey);
+    return window.supabaseClient;
+  }
+  return null;
+}
+
+async function loadDailyContactLimit() {
+  const inputEl = document.getElementById('dailyContactLimitInput');
+  const displayEl = document.getElementById('currentDailyLimitDisplay');
+  let limit = 5;
+
+  try {
+    const cached = localStorage.getItem('i4u_daily_contact_limit');
+    if (cached) {
+      const parsed = parseInt(cached, 10);
+      if (!isNaN(parsed) && parsed > 0) limit = parsed;
+    }
+
+    const sb = getSupabaseAdminClient();
+    if (sb) {
+      const { data, error } = await sb
+        .from('admin_settings')
+        .select('value')
+        .eq('key', 'daily_contact_limit')
+        .maybeSingle();
+
+      if (!error && data && data.value !== undefined && data.value !== null) {
+        let dbLimit = 5;
+        if (typeof data.value === 'number') {
+          dbLimit = data.value;
+        } else if (typeof data.value === 'string') {
+          dbLimit = parseInt(data.value, 10) || 5;
+        } else if (typeof data.value === 'object') {
+          dbLimit = parseInt(data.value.limit ?? data.value.daily_contact_limit, 10) || 5;
+        }
+        if (dbLimit > 0) {
+          limit = dbLimit;
+          localStorage.setItem('i4u_daily_contact_limit', String(limit));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Admin Settings] Could not fetch daily contact limit:', err);
+  }
+
+  if (inputEl) inputEl.value = limit;
+  if (displayEl) displayEl.textContent = limit;
+}
+
+async function handleSaveDailyContactLimit() {
+  const inputEl = document.getElementById('dailyContactLimitInput');
+  const displayEl = document.getElementById('currentDailyLimitDisplay');
+  const saveBtn = document.getElementById('saveDailyLimitBtn');
+  const statusMsg = document.getElementById('dailyLimitStatusMessage');
+
+  if (!inputEl) return;
+  const rawVal = parseInt(inputEl.value, 10);
+  if (isNaN(rawVal) || rawVal < 1) {
+    showToast('Please enter a valid daily contact view limit (at least 1).', 'error');
+    return;
+  }
+
+  const limit = Math.min(Math.max(1, rawVal), 1000);
+  inputEl.value = limit;
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Saving...';
+  }
+
+  try {
+    localStorage.setItem('i4u_daily_contact_limit', String(limit));
+
+    const sb = getSupabaseAdminClient();
+    if (sb) {
+      const adminEmail = state.admin?.email || 'admin@i4you.com';
+      const { error } = await sb
+        .from('admin_settings')
+        .upsert({
+          key: 'daily_contact_limit',
+          value: limit,
+          updated_at: new Date().toISOString(),
+          updated_by: adminEmail
+        }, { onConflict: 'key' });
+
+      if (error) {
+        console.warn('[Admin Settings] Supabase update warning:', error);
+      }
+    }
+
+    try {
+      window.dispatchEvent(new CustomEvent('i4u-daily-limit-updated', { detail: limit }));
+    } catch (e) {}
+
+    if (displayEl) displayEl.textContent = limit;
+    showToast(`Daily contact view limit updated to ${limit} per day.`, 'success');
+
+    if (statusMsg) {
+      statusMsg.className = 'text-xs font-semibold text-emerald-400 flex items-center gap-1 mt-1';
+      statusMsg.innerHTML = `✓ Daily limit successfully updated to ${limit} contacts/day`;
+      statusMsg.classList.remove('hidden');
+      setTimeout(() => statusMsg?.classList.add('hidden'), 4000);
+    }
+  } catch (err) {
+    console.error('Failed to save daily contact limit:', err);
+    showToast('Failed to save daily contact limit. Saved locally.', 'warning');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i><span>Save</span>';
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+      }
+    }
+  }
+}
+
+window.loadDailyContactLimit = loadDailyContactLimit;
+window.handleSaveDailyContactLimit = handleSaveDailyContactLimit;

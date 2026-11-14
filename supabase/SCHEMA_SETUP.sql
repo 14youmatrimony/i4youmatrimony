@@ -370,3 +370,51 @@ CREATE TRIGGER trigger_sync_r2_photos
 BEFORE UPDATE OR INSERT ON public.profiles
 FOR EACH ROW EXECUTE FUNCTION sync_r2_photo_columns();
 
+-- 15. Dynamic Daily Contact View Limit & Tracking Setup
+CREATE TABLE IF NOT EXISTS public.admin_settings (
+    key TEXT PRIMARY KEY,
+    value JSONB NOT NULL DEFAULT '5'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_by TEXT
+);
+
+INSERT INTO public.admin_settings (key, value, updated_at, updated_by)
+VALUES ('daily_contact_limit', '5'::jsonb, NOW(), 'system_init')
+ON CONFLICT (key) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS public.daily_contact_views (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    viewed_profile_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_contact_views_user_created 
+ON public.daily_contact_views (user_id, created_at DESC);
+
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS views_today INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS last_view_date DATE DEFAULT CURRENT_DATE;
+
+ALTER TABLE public.admin_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.daily_contact_views ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can read admin_settings" ON public.admin_settings;
+CREATE POLICY "Public can read admin_settings" ON public.admin_settings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admins can update admin_settings" ON public.admin_settings;
+CREATE POLICY "Admins can update admin_settings" ON public.admin_settings FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Users can insert daily_contact_views" ON public.daily_contact_views;
+CREATE POLICY "Users can insert daily_contact_views" ON public.daily_contact_views FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Users can read daily_contact_views" ON public.daily_contact_views;
+CREATE POLICY "Users can read daily_contact_views" ON public.daily_contact_views FOR SELECT USING (true);
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.admin_settings;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+
