@@ -31,9 +31,13 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // 1. Retrieve environment variables
-    const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
-    const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
+    // 1. Retrieve environment variables with project default VAPID keys
+    const vapidPublicKey =
+      Deno.env.get("VAPID_PUBLIC_KEY") ||
+      "BIkSQCoyw-J2gPIo_V84wnTtvWUjp78bblj2GvuH7t4i4aVbKfwF6bezusVrwCvIJBGcAtUtHo5mP3rGLZuItL8";
+    const vapidPrivateKey =
+      Deno.env.get("VAPID_PRIVATE_KEY") ||
+      "a6NFuvO3CbwW-WbqJaF5Ws0TJnK9tGjetU9FbW4Vyzo";
     const vapidSubject = Deno.env.get("VAPID_SUBJECT") || "mailto:admin@i4you.in";
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

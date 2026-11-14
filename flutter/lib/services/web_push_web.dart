@@ -14,13 +14,17 @@ Uint8List _urlBase64ToUint8List(String base64String) {
   return Uint8List.fromList(base64Decode(base64));
 }
 
+/// Default VAPID Public Key for Web Push Notifications
+const String defaultVapidPublicKey =
+    'BIkSQCoyw-J2gPIo_V84wnTtvWUjp78bblj2GvuH7t4i4aVbKfwF6bezusVrwCvIJBGcAtUtHo5mP3rGLZuItL8';
+
 /// Requests notification permission and subscribes the user to Web Push
-/// notifications using the provided public VAPID key.
+/// notifications using the provided public VAPID key (or [defaultVapidPublicKey]).
 ///
 /// Returns the JSON push subscription containing `endpoint`, `keys.p256dh`,
 /// and `keys.auth`, or null if permission was denied or an error occurred.
 Future<Map<String, dynamic>?> subscribeToWebPush({
-  required String vapidPublicKey,
+  String vapidPublicKey = defaultVapidPublicKey,
   String? userId,
 }) async {
   try {

@@ -135,7 +135,7 @@ export async function registerAndSubscribePush(userId) {
   const vapidPublicKey = 
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VAPID_PUBLIC_KEY) ||
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_VAPID_PUBLIC_KEY) ||
-    '';
+    'BIkSQCoyw-J2gPIo_V84wnTtvWUjp78bblj2GvuH7t4i4aVbKfwF6bezusVrwCvIJBGcAtUtHo5mP3rGLZuItL8';
 
   if (!vapidPublicKey || !vapidPublicKey.trim()) {
     console.warn('[WebPush] VITE_VAPID_PUBLIC_KEY is not defined in environment variables.');

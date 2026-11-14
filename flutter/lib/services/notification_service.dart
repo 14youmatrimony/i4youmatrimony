@@ -171,7 +171,7 @@ class NotificationService {
   // Web Push (VAPID) Integration
   /// Requests notification permission and subscribes the user to Web Push notifications using VAPID key.
   static Future<Map<String, dynamic>?> subscribeWebPush({
-    required String vapidPublicKey,
+    String vapidPublicKey = web_push.defaultVapidPublicKey,
     String? userId,
   }) =>
       web_push.subscribeToWebPush(
@@ -196,7 +196,7 @@ class NotificationService {
   Future<bool> saveDeviceToken({String? userId, String? token}) =>
       saveTokenToSupabase(userId: userId, token: token);
   Future<Map<String, dynamic>?> subscribeToWebPushNotification({
-    required String vapidPublicKey,
+    String vapidPublicKey = web_push.defaultVapidPublicKey,
     String? userId,
   }) =>
       subscribeWebPush(vapidPublicKey: vapidPublicKey, userId: userId);
