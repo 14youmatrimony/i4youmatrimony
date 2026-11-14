@@ -270,46 +270,25 @@ export default function MobileProfileDetailSheet({
   return (
     <div className="absolute inset-0 z-50 bg-slate-50 flex flex-col h-full w-full overflow-hidden animate-in slide-in-from-right-4 duration-200">
       
-      {/* Top Mobile Full-Screen App Bar */}
+      {/* Top Mobile Full-Screen App Bar (Cleaned up: Only Back and Share buttons) */}
       <header className="bg-[#0B192C] text-white px-3 py-2.5 flex items-center justify-between border-b border-[#D4AF37]/30 shadow-md shrink-0 z-30">
-        <div className="flex items-center space-x-2 min-w-0">
-          <button
-            onClick={onClose}
-            className="p-1.5 -ml-1 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-            aria-label="Back"
-          >
-            <ChevronLeft className="w-6 h-6 text-[#DFB76C]" />
-          </button>
+        <button
+          onClick={onClose}
+          className="p-1.5 -ml-1 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          aria-label="Back"
+          title="Back"
+        >
+          <ChevronLeft className="w-6 h-6 text-[#DFB76C]" />
+        </button>
 
-          <div className="min-w-0">
-            <div className="flex items-center space-x-1.5">
-              <h2 className="font-serif font-bold text-sm sm:text-base text-white truncate">
-                {profile.name}
-              </h2>
-              {profile.aadhaarVerified ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[9px] font-bold bg-emerald-600 text-white border border-emerald-400 shrink-0">
-                  <CheckCircle2 className="w-2.5 h-2.5 text-white stroke-[2.5]" />
-                  <span>Aadhaar Verified</span>
-                </span>
-              ) : profile.verified ? (
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" title="Verified Member" />
-              ) : null}
-            </div>
-            <p className="text-[10px] text-slate-300 truncate">
-              {profile.age} yrs • {isNriProfile(profile) ? `✈️ ${profile.work_city ? profile.work_city + ', ' : ''}${getProfileCountry(profile)}` : `${profile.district || profile.city}${profile.state ? `, ${profile.state}` : ''}`}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-1 shrink-0">
-          <button
-            onClick={() => setShowShareSheet(true)}
-            className="p-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-            title="Share Profile"
-          >
-            <Share2 className="w-4 h-4 text-[#DFB76C]" />
-          </button>
-        </div>
+        <button
+          onClick={() => setShowShareSheet(true)}
+          className="p-2 -mr-1 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          title="Share Profile"
+          aria-label="Share Profile"
+        >
+          <Share2 className="w-4 h-4 text-[#DFB76C]" />
+        </button>
       </header>
 
       {/* In-App Mobile Share Sheet (Stays inside the app, avoids OS modal) */}
@@ -558,18 +537,8 @@ export default function MobileProfileDetailSheet({
         )}
 
         {/* Live Active Communication Suite (Direct 1-Tap Access) */}
-        <div className="mx-3 my-2 p-2.5 rounded-2xl bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C] border border-[#D4AF37]/40 shadow-sm text-white">
-          <div className="flex items-center justify-between mb-1.5 px-0.5">
-            <span className="text-[10px] font-extrabold text-[#DFB76C] uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-[#DFB76C] fill-current" />
-              <span>Live Matrimonial Suite • Active</span>
-            </span>
-            <span className="text-[9px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">
-              ● All Features Active
-            </span>
-          </div>
-
-          <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+        <div className="mx-3 my-2 p-2 rounded-2xl bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C] border border-[#D4AF37]/40 shadow-sm text-white">
+          <div className="grid grid-cols-4 gap-1.5">
             {/* 1. Live Audio Call */}
             <button
               type="button"
@@ -831,7 +800,7 @@ export default function MobileProfileDetailSheet({
                     {isContactUnlocked ? <Phone className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                   </div>
                   <div className="min-w-0">
-                    <h4 className="font-bold text-xs text-slate-900 truncate">Contact & Family Reach</h4>
+                    <h4 className="font-bold text-xs text-slate-900 truncate">Contact Details</h4>
                     <p className="text-[10px] text-slate-500 truncate">
                       {isContactUnlocked 
                         ? 'Phone numbers unlocked ✓' 
@@ -860,20 +829,6 @@ export default function MobileProfileDetailSheet({
           {/* TAB: Contact Details with Aadhaar Protection & Subscription Gate */}
           {activeTab === 'contact' && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              
-              {/* Trust Badge Header */}
-              <div className="bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#1E3A8A] rounded-2xl p-4 text-white shadow-sm border border-[#D4AF37]/30 space-y-1.5">
-                <div className="flex items-center space-x-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                  <h3 className="font-serif font-bold text-sm text-white">
-                    Verified Contact & Family Reach
-                  </h3>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Strict UIDAI privacy guidelines and matrimonial verification protocols protect prospective brides & grooms. Direct contact numbers and native residences are secured.
-                </p>
-              </div>
-
               {!(currentUser?.aadhaarVerified || currentUser?.aadhaar_verified === 1 || currentUser?.aadhaar_verified === true || currentUser?.aadhaar_status === 'approved' || currentUser?.aadhaarStatus === 'approved') ? (
                 /* Locked State 1: Requires Aadhaar Verification */
                 <div className="bg-white rounded-2xl p-5 border border-amber-200 shadow-sm space-y-4">
