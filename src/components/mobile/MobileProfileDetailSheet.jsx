@@ -66,6 +66,8 @@ export default function MobileProfileDetailSheet({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
   const touchStartXRef = useRef(null);
+  const touchStartYRef = useRef(null);
+  const touchStartTimeRef = useRef(null);
   const hasPaidPlan = Boolean(currentUser?.membership && currentUser?.membership !== 'free');
   const isContactUnlocked = Boolean(currentUser?.unlockedContacts?.includes(profile?.id));
   const contactCredits = currentUser?.contactCredits ?? 0;
@@ -248,6 +250,13 @@ export default function MobileProfileDetailSheet({
 
   const locMatch = calculateLocationMatch(currentUser, profile);
 
+  const handleOpenLightbox = (index = safePhotoIdx) => {
+    if (!profile.hidePhotos && profile.photoVisibility !== 'request' && activePhoto) {
+      setLightboxInitialIndex(index);
+      setIsLightboxOpen(true);
+    }
+  };
+
   const handleCopyLink = () => {
     navigator.clipboard?.writeText(window.location.href);
     setCopiedLink(true);
@@ -377,22 +386,27 @@ export default function MobileProfileDetailSheet({
         {/* Hero Full-Width Cover & Portrait Section */}
         <div className="relative">
           <div 
-            className="h-80 sm:h-96 w-full relative overflow-hidden bg-slate-900 group select-none photo-protected"
+            className="h-80 sm:h-96 w-full relative overflow-hidden bg-slate-900 group select-none photo-protected cursor-pointer"
+            onClick={() => {
+              handleOpenLightbox(0);
+            }}
             onTouchStart={(e) => {
               touchStartXRef.current = e.touches[0]?.clientX ?? null;
+              touchStartYRef.current = e.touches[0]?.clientY ?? null;
             }}
             onTouchEnd={(e) => {
               if (touchStartXRef.current === null) return;
               const touchEndX = e.changedTouches[0]?.clientX ?? 0;
-              const diff = touchEndX - touchStartXRef.current;
-              if (diff > 45 && sliderSlides.length > 1) {
-                // Swiped right -> go to previous photo
-                setCurrentSinglePhotoIdx(prev => (prev === 0 ? sliderSlides.length - 1 : prev - 1));
-              } else if (diff < -45 && sliderSlides.length > 1) {
-                // Swiped left -> go to next photo
-                setCurrentSinglePhotoIdx(prev => (prev === sliderSlides.length - 1 ? 0 : prev + 1));
+              const touchEndY = e.changedTouches[0]?.clientY ?? 0;
+              const diffX = Math.abs(touchEndX - touchStartXRef.current);
+              const diffY = Math.abs(touchEndY - (touchStartYRef.current ?? touchEndY));
+
+              // Clean tap detection: single tap opens full-screen immediately
+              if (diffX < 15 && diffY < 15) {
+                handleOpenLightbox(0);
               }
               touchStartXRef.current = null;
+              touchStartYRef.current = null;
             }}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -412,13 +426,7 @@ export default function MobileProfileDetailSheet({
                   const fb = e.currentTarget.parentElement?.querySelector('.detail-avatar-fallback');
                   if (fb) fb.classList.remove('hidden');
                 }}
-                onClick={() => {
-                  if (!profile.hidePhotos && profile.photoVisibility !== 'request' && activePhoto) {
-                    setLightboxInitialIndex(safePhotoIdx);
-                    setIsLightboxOpen(true);
-                  }
-                }}
-                className={`w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-102 select-none ${
+                className={`w-full h-full object-cover pointer-events-none transition-transform duration-300 group-hover:scale-102 select-none ${
                   profile.hidePhotos
                     ? 'blur-2xl scale-125 opacity-30 grayscale'
                     : profile.photoVisibility === 'request'
@@ -461,78 +469,18 @@ export default function MobileProfileDetailSheet({
               </div>
             )}
 
-            {/* Top Right: Photo Counter & Family Badge */}
-            <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
-
-              {/* Photos Counter Pill */}
-              <span 
-                onClick={() => {
-                  if (!profile.hidePhotos && profile.photoVisibility !== 'request' && activePhoto) {
-                    setLightboxInitialIndex(safePhotoIdx);
-                    setIsLightboxOpen(true);
-                  }
-                }}
-                className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
-              >
-                <Camera className="w-3 h-3 text-[#DFB76C]" />
-                <span>{safePhotoIdx + 1} / {sliderSlides.length} Photos</span>
-              </span>
-
-              {/* Subtle Family Photo Badge if current slide is Family */}
-              {isCurrentSlideFamily && (
+            {/* Top Right: Family Badge if applicable */}
+            {isCurrentSlideFamily && (
+              <div className="absolute top-3 right-3 z-10">
                 <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-blue-600/90 text-white backdrop-blur-md border border-blue-400/40 shadow-xs flex items-center gap-1 animate-in fade-in">
                   <HeartHandshake className="w-2.5 h-2.5 text-blue-200" />
                   <span>Family Photo</span>
                 </span>
-              )}
-            </div>
-
-            {/* Left / Right Photo Switcher Navigation (if multiple photos) */}
-            {sliderSlides.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentSinglePhotoIdx(prev => (prev === 0 ? sliderSlides.length - 1 : prev - 1));
-                  }}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 z-15 w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
-                  title="Previous Photo"
-                >
-                  <ChevronLeft className="w-5 h-5 text-white" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentSinglePhotoIdx(prev => (prev === sliderSlides.length - 1 ? 0 : prev + 1));
-                  }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 z-15 w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-xs transition-colors cursor-pointer"
-                  title="Next Photo"
-                >
-                  <ChevronRight className="w-5 h-5 text-white" />
-                </button>
-
-                {/* Dot Indicators */}
-                <div className="absolute bottom-24 inset-x-0 flex items-center justify-center gap-1.5 z-10 pointer-events-none">
-                  {sliderSlides.map((slide, dotIdx) => (
-                    <span 
-                      key={dotIdx}
-                      className={`h-1.5 rounded-full transition-all ${
-                        dotIdx === safePhotoIdx 
-                          ? slide.isFamily 
-                            ? 'w-5 bg-blue-400' 
-                            : 'w-5 bg-[#DFB76C]' 
-                          : 'w-1.5 bg-white/50'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </>
+              </div>
             )}
 
             {/* Bottom Hero Info on Photo */}
-            <div className="absolute bottom-4 left-4 right-4 text-white z-10">
+            <div className="absolute bottom-4 left-4 right-4 text-white z-10 pointer-events-none">
               <div className="flex items-center space-x-2">
                 <h1 className="font-serif font-bold text-2xl drop-shadow-md text-white">
                   {profile.name}
@@ -1470,14 +1418,14 @@ export default function MobileProfileDetailSheet({
                       key={fIdx}
                       onClick={() => {
                         const targetIdx = sliderSlides.findIndex(s => s.url === fUrl);
-                        setLightboxInitialIndex(targetIdx !== -1 ? targetIdx : (finalProfilePhotos.length + fIdx));
-                        setIsLightboxOpen(true);
+                        handleOpenLightbox(targetIdx !== -1 ? targetIdx : (finalProfilePhotos.length + fIdx));
                       }}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         if (screenshotRestricted) triggerScreenshotBlock('right-click');
                       }}
                       className="group relative rounded-xl overflow-hidden aspect-[4/3] bg-slate-900 border border-slate-200 shadow-xs cursor-pointer select-none photo-protected"
+                      title="Click to view full-screen photo"
                     >
                       <img 
                         src={fUrl} 

@@ -9,6 +9,7 @@ import { addCacheBuster } from '../utils/cacheBuster';
 import { uploadPhotoToR2, formatR2PublicUrl } from './r2Storage';
 import { safeParseDate, safeGetTime, safeCalculateAge } from '../utils/dateUtils';
 import { safeStorage } from '../utils/safeStorage';
+import { normalizeGender, resolveProfileGender, isCandidateMatchingTarget } from '../utils/genderMatch';
 
 /**
  * Lean projection for profile feed, cards, search results & match recommendations.
@@ -1165,7 +1166,42 @@ export function deduplicateProfiles(list) {
  * Excludes all demo profiles - returns only real registered candidates.
  * Explicitly filters out currently authenticated user (WHERE user_id != current_user_id AND id != current_user_id).
  */
-export async function fetchLiveProfiles(currentUserId = null, { limit = 100, page = 0 } = {}) {
+export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, page = 0, gender = null, targetGender = null } = {}) {
+  // Determine current logged-in user ID & gender
+  let cleanId = null;
+  let rawUserGender = gender || null;
+
+  if (currentUserOrId) {
+    if (typeof currentUserOrId === 'object') {
+      cleanId = currentUserOrId.id || currentUserOrId.user_id || currentUserOrId.register_id || null;
+      rawUserGender = rawUserGender || currentUserOrId.gender;
+    } else {
+      cleanId = String(currentUserOrId).trim();
+    }
+  }
+
+  // Fallback to localStorage if gender is not yet determined
+  if (!rawUserGender && typeof localStorage !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('i4u_auth_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed) {
+          if (!cleanId) cleanId = parsed.id || parsed.user_id || parsed.register_id || null;
+          rawUserGender = parsed.gender || null;
+        }
+      }
+    } catch (_) {}
+  }
+
+  const normalizedUserGender = normalizeGender(rawUserGender);
+  // Strict opposite gender matchmaking rule:
+  // If user is Male -> fetch ONLY Female profiles, strictly filtering out Male
+  // If user is Female -> fetch ONLY Male profiles, strictly filtering out Female
+  const targetOppositeGender = targetGender 
+    ? normalizeGender(targetGender) 
+    : (normalizedUserGender === 'male' ? 'female' : (normalizedUserGender === 'female' ? 'male' : null));
+
   // 1. Direct Supabase PostgreSQL query (Port 443 HTTPS - Works universally without backend)
   if (isSupabaseConfigured()) {
     try {
@@ -1178,9 +1214,18 @@ export async function fetchLiveProfiles(currentUserId = null, { limit = 100, pag
         .from('profiles')
         .select(PROFILE_FEED_COLUMNS);
 
-      if (currentUserId) {
-        const uidStr = String(currentUserId).trim();
+      if (cleanId) {
+        const uidStr = String(cleanId).trim();
         query = query.neq('id', uidStr);
+      }
+
+      // Globally enforce opposite gender filtering directly in Supabase query
+      if (targetOppositeGender === 'female') {
+        query = query.in('gender', ['Female', 'female', 'F', 'f', 'Bride', 'bride', 'Female / Bride', 'woman', 'women', 'girl'])
+                     .not('gender', 'ilike', 'male%');
+      } else if (targetOppositeGender === 'male') {
+        query = query.in('gender', ['Male', 'male', 'M', 'm', 'Groom', 'groom', 'Male / Groom', 'man', 'men', 'boy'])
+                     .not('gender', 'ilike', 'female%');
       }
 
       const fetchPromise = query
@@ -1200,9 +1245,16 @@ export async function fetchLiveProfiles(currentUserId = null, { limit = 100, pag
         let fallbackQuery = supabase
           .from('profiles')
           .select('*');
-        if (currentUserId) {
-          const uidStr = String(currentUserId).trim();
+        if (cleanId) {
+          const uidStr = String(cleanId).trim();
           fallbackQuery = fallbackQuery.neq('id', uidStr);
+        }
+        if (targetOppositeGender === 'female') {
+          fallbackQuery = fallbackQuery.in('gender', ['Female', 'female', 'F', 'f', 'Bride', 'bride', 'Female / Bride', 'woman', 'women', 'girl'])
+                                       .not('gender', 'ilike', 'male%');
+        } else if (targetOppositeGender === 'male') {
+          fallbackQuery = fallbackQuery.in('gender', ['Male', 'male', 'M', 'm', 'Groom', 'groom', 'Male / Groom', 'man', 'men', 'boy'])
+                                       .not('gender', 'ilike', 'female%');
         }
         const retryRes = await fallbackQuery
           .order('created_at', { ascending: false })
@@ -1221,11 +1273,17 @@ export async function fetchLiveProfiles(currentUserId = null, { limit = 100, pag
           .map(mapSupabaseRowToProfile)
           .filter(p => {
             if (!p) return false;
-            if (currentUserId) {
-              const uidStr = String(currentUserId).trim().toLowerCase();
+            if (cleanId) {
+              const uidStr = String(cleanId).trim().toLowerCase();
               const pId = String(p.id || '').toLowerCase();
               const pRegId = String(p.register_id || p.registerId || '').toLowerCase();
               if (pId === uidStr || pRegId === uidStr || (pRegId && uidStr.includes(pRegId)) || (pId && uidStr.includes(pId))) return false;
+            }
+            // Strict Opposite Gender Filter: same-gender profiles must never appear in feed or search
+            if (targetOppositeGender) {
+              const pGender = resolveProfileGender(p);
+              if (pGender !== targetOppositeGender) return false;
+              if (normalizedUserGender && isCandidateMatchingTarget(p, normalizedUserGender)) return false;
             }
             return true;
           });
@@ -1243,17 +1301,25 @@ export async function fetchLiveProfiles(currentUserId = null, { limit = 100, pag
 
   // 2. Fallback to Python backend (local dev only)
   try {
-    const queryParam = currentUserId ? `?exclude_user_id=${encodeURIComponent(currentUserId)}` : '';
+    const params = [];
+    if (cleanId) params.push(`exclude_user_id=${encodeURIComponent(cleanId)}`);
+    if (targetOppositeGender) params.push(`target_gender=${encodeURIComponent(targetOppositeGender === 'male' ? 'Male' : 'Female')}`);
+    const queryParam = params.length > 0 ? `?${params.join('&')}` : '';
     const data = await safeFetchJson(`${API_BASE}/public/profiles${queryParam}`, {}, 1500);
     if (data && data.success && Array.isArray(data.profiles) && data.profiles.length > 0) {
       const rawList = data.profiles
         .filter(p => {
           if (!p || isDemoProfile(p) || isPlaceholderOrIncompleteProfile(p)) return false;
-          if (currentUserId) {
-            const uidStr = String(currentUserId).trim().toLowerCase();
+          if (cleanId) {
+            const uidStr = String(cleanId).trim().toLowerCase();
             const pId = String(p.id || '').toLowerCase();
             const pRegId = String(p.register_id || p.registerId || '').toLowerCase();
             if (pId === uidStr || pRegId === uidStr) return false;
+          }
+          if (targetOppositeGender) {
+            const pGender = resolveProfileGender(p);
+            if (pGender !== targetOppositeGender) return false;
+            if (normalizedUserGender && isCandidateMatchingTarget(p, normalizedUserGender)) return false;
           }
           return true;
         })

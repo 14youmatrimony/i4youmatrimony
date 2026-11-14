@@ -452,7 +452,16 @@ export default function App() {
     try {
       const cached = safeStorage.getJSON('i4u_cached_profiles', null);
       if (Array.isArray(cached) && cached.length > 0) {
-        const valid = cached.filter(p => Boolean(p && (p.name || p.fullName || p.id))).map(sanitizeProfilePhotos);
+        const savedAuth = safeStorage.getJSON('i4u_auth_user', null);
+        const targetGender = savedAuth ? getTargetCandidateGender(savedAuth) : null;
+        const valid = cached
+          .filter(p => Boolean(p && (p.name || p.fullName || p.id)))
+          .filter(p => {
+            if (savedAuth && isSelfProfile(p, savedAuth)) return false;
+            if (targetGender && !isCandidateMatchingTarget(p, targetGender)) return false;
+            return true;
+          })
+          .map(sanitizeProfilePhotos);
         if (valid.length > 0) return valid;
       }
     } catch (e) {}
@@ -472,8 +481,9 @@ export default function App() {
     }
     lastProfilesSyncRef.current = now;
     try {
-      const currentAuthId = currentUser?.id || currentUser?.user_id || currentUserRef.current?.id || currentUserRef.current?.user_id;
-      const liveList = await fetchLiveProfiles(currentAuthId);
+      const activeUser = currentUser || currentUserRef.current;
+      const currentAuthId = activeUser?.id || activeUser?.user_id;
+      const liveList = await fetchLiveProfiles(activeUser || currentAuthId);
       if (Array.isArray(liveList) && liveList.length > 0) {
         const cleanList = liveList.filter(p => Boolean(p && (p.name || p.fullName || p.id)));
         setProfiles(cleanList);
@@ -481,7 +491,6 @@ export default function App() {
       }
 
       // Always sync fresh user profile directly from Supabase public.profiles on load/refresh (targeted query instead of whole-table scan)
-      const activeUser = currentUserRef.current || currentUser;
       const targetUserId = activeUser?.id || activeUser?.registerId || activeUser?.register_id || localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id');
       if (targetUserId && isSupabaseConfigured() && supabase) {
         try {
@@ -537,7 +546,7 @@ export default function App() {
     } catch (e) {
       console.warn('[Sync Profiles Error]:', e);
     }
-  }, [currentUser?.id, currentUser?.user_id]);
+  }, [currentUser?.id, currentUser?.user_id, currentUser?.gender]);
 
   // Ensure any legacy demo profiles in Supabase are completely purged
   useEffect(() => {
@@ -2572,6 +2581,7 @@ export default function App() {
     try {
       localStorage.removeItem('i4u_auth_token');
       localStorage.removeItem('i4u_refresh_token');
+      localStorage.removeItem('i4u_cached_profiles');
       localStorage.removeItem('i4u_interests_sent');
       localStorage.removeItem('i4u_shortlisted');
       localStorage.removeItem('i4u_declined_received_ids');
@@ -2593,6 +2603,9 @@ export default function App() {
     setActiveTab('feed');
     setCurrentScreen('login');
     showToast('Logged out successfully');
+    setTimeout(() => {
+      syncLiveProfiles(true);
+    }, 100);
   };
 
   const handleOpenOffers = () => {
@@ -4499,6 +4512,11 @@ export default function App() {
     setIsDirectChatOpen(false);
     setCurrentScreen('app');
     setActiveTab('feed');
+
+    // Re-sync live profiles from Supabase immediately using strict opposite-gender filtering
+    setTimeout(() => {
+      syncLiveProfiles(true);
+    }, 50);
 
     // WhatsApp / Instagram-style permission check on login
     checkPermissionsGranted().then((granted) => {

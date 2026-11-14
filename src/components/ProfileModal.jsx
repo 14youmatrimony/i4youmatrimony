@@ -8,16 +8,15 @@ import {
   Heart, 
   MessageCircle, 
   Sparkles, 
-  CheckCircle2,
-  Check,
-  Lock,
-  Phone,
-  Video,
-  ChevronLeft,
-  ChevronRight,
-  Crown,
-  AlertCircle,
-  Send
+  CheckCircle2, 
+  Check, 
+  Lock, 
+  Phone, 
+  Video, 
+  Crown, 
+  AlertCircle, 
+  Send,
+  Camera
 } from 'lucide-react';
 import SafeAvatar from './common/SafeAvatar';
 import { resolveProfilePhoto, isFakeAvatarUrl } from '../services/api';
@@ -223,72 +222,32 @@ export default function ProfileModal({
   const isContactUnlocked = Boolean(currentUser?.unlockedContacts && currentUser.unlockedContacts.includes(profile.id));
   const contactCredits = currentUser?.contactCredits ?? 0;
 
-  const currentIndex = allProfiles && Array.isArray(allProfiles)
-    ? allProfiles.findIndex(p => p.id === profile.id)
-    : -1;
-  const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex !== -1 && currentIndex < allProfiles.length - 1;
-
-  const handlePrev = (e) => {
-    e?.stopPropagation();
-    if (hasPrev && onSelectProfile) {
-      onSelectProfile(allProfiles[currentIndex - 1]);
-    }
-  };
-
-  const handleNext = (e) => {
-    e?.stopPropagation();
-    if (hasNext && onSelectProfile) {
-      onSelectProfile(allProfiles[currentIndex + 1]);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
       <div 
         className="bg-white rounded-2xl max-w-3xl lg:max-w-4xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col relative"
         onClick={(e) => e.stopPropagation()}
       >
-        
-        {/* Profile Switcher Controls */}
-        {allProfiles && allProfiles.length > 1 && currentIndex !== -1 && (
-          <div className="absolute top-4 right-14 z-20 flex items-center space-x-1 bg-black/60 backdrop-blur-md rounded-full px-2 py-1 border border-white/20 shadow-md">
-            <button
-              type="button"
-              onClick={handlePrev}
-              disabled={!hasPrev}
-              className="p-1 rounded-full text-white hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
-              title="Previous Profile (Switch Profile)"
-              aria-label="Previous Profile"
-            >
-              <ChevronLeft className="w-4 h-4 text-[#DFB76C]" />
-            </button>
-            <span className="text-[10px] font-bold text-white px-1 tracking-wider">
-              {currentIndex + 1} / {allProfiles.length}
-            </span>
-            <button
-              type="button"
-              onClick={handleNext}
-              disabled={!hasNext}
-              className="p-1 rounded-full text-white hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
-              title="Next Profile (Switch Profile)"
-              aria-label="Next Profile"
-            >
-              <ChevronRight className="w-4 h-4 text-[#DFB76C]" />
-            </button>
-          </div>
-        )}
-
         {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/50 text-white hover:bg-black/70 flex items-center justify-center transition-colors cursor-pointer"
+          title="Close Modal"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Modal Top Header with Cover and Avatar */}
-        <div className="relative h-44 sm:h-52 shrink-0 bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C]">
+        <div 
+          className="relative h-44 sm:h-52 shrink-0 bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C] cursor-pointer select-none photo-protected"
+          onClick={() => {
+            if (!profile.hidePhotos && profile.photoVisibility !== 'request' && modalPhotos.length > 0) {
+              setLightboxInitialIndex(0);
+              setIsLightboxOpen(true);
+            }
+          }}
+          title="Click to view full-screen photo"
+        >
           {profile.coverPhoto && !profile.coverPhoto.includes('unsplash.com') && (
             <img 
               src={profile.coverPhoto} 
@@ -296,7 +255,7 @@ export default function ProfileModal({
               className="w-full h-full object-cover opacity-60"
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-transparent to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-transparent to-transparent pointer-events-none"></div>
 
           {/* Profile Quick Pill in Header */}
           <div className="absolute top-4 left-4 flex items-center space-x-2">
@@ -306,27 +265,53 @@ export default function ProfileModal({
             </span>
           </div>
 
+          {/* Photos Button */}
+          {modalPhotos.length > 0 && !profile.hidePhotos && profile.photoVisibility !== 'request' && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightboxInitialIndex(0);
+                setIsLightboxOpen(true);
+              }}
+              className="absolute top-4 right-14 z-20 px-3 py-1 rounded-full text-xs font-bold bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 flex items-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-95"
+              title="Click to view full-screen photos"
+            >
+              <Camera className="w-3.5 h-3.5 text-[#DFB76C]" />
+              <span>{modalPhotos.length} {modalPhotos.length === 1 ? 'Photo' : 'Photos'}</span>
+            </button>
+          )}
+
           {/* Avatar and Basic Header Bar */}
-          <div className="absolute -bottom-6 left-6 flex items-end space-x-4">
+          <div 
+            className="absolute -bottom-6 left-6 flex items-end space-x-4 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div 
-              className="relative cursor-pointer group"
+              className="relative cursor-pointer group select-none"
               onClick={() => {
                 if (!profile.hidePhotos && profile.photoVisibility !== 'request' && modalPhotos.length > 0) {
                   setLightboxInitialIndex(0);
                   setIsLightboxOpen(true);
                 }
               }}
-              title="Click to view full screen photo"
+              title="Click to view full-screen photo"
             >
               <SafeAvatar
                 src={resolveProfilePhoto(profile)}
                 alt={profile.name || "Member"}
                 gender={profile.gender}
                 size="2xl"
-                className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl ring-4 ring-white shadow-xl bg-slate-900 group-hover:brightness-105 transition-all"
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl ring-4 ring-white shadow-xl bg-slate-900 group-hover:brightness-105 transition-all cursor-pointer"
+                onClick={() => {
+                  if (!profile.hidePhotos && profile.photoVisibility !== 'request' && modalPhotos.length > 0) {
+                    setLightboxInitialIndex(0);
+                    setIsLightboxOpen(true);
+                  }
+                }}
               />
               {profile.verified && (
-                <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full ring-2 ring-white shadow-sm" title="Verified Profile">
+                <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full ring-2 ring-white shadow-sm pointer-events-none" title="Verified Profile">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
               )}
@@ -713,6 +698,44 @@ export default function ProfileModal({
                   <span className="font-bold text-slate-800 text-right">{profile?.familyDetails?.siblings || profile?.siblingsDetails || '1 Sibling'}</span>
                 </div>
               </div>
+
+              {deduplicatedFamilyPhotos.length > 0 && (
+                <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Family Album ({deduplicatedFamilyPhotos.length} {deduplicatedFamilyPhotos.length === 1 ? 'Photo' : 'Photos'})
+                    </span>
+                    <span className="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 font-semibold">
+                      Verified Family
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {deduplicatedFamilyPhotos.map((fUrl, fIdx) => (
+                      <div
+                        key={fIdx}
+                        onClick={() => {
+                          const targetIdx = modalPhotos.findIndex(p => p.url === fUrl);
+                          setLightboxInitialIndex(targetIdx !== -1 ? targetIdx : (finalProfilePhotos.length + fIdx));
+                          setIsLightboxOpen(true);
+                        }}
+                        className="relative rounded-xl overflow-hidden aspect-[4/3] bg-slate-900 border border-slate-200 cursor-pointer group shadow-2xs hover:shadow-md transition-all select-none photo-protected"
+                        title="Click to view full-screen photo"
+                      >
+                        <img 
+                          src={fUrl} 
+                          alt={`Family Photo ${fIdx + 1}`}
+                          draggable={false}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none select-none"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
+                        <span className="absolute bottom-1.5 left-2 text-[10px] font-bold text-white drop-shadow">
+                          Family #{fIdx + 1}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

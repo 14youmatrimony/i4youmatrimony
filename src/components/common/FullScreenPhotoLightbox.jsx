@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, HeartHandshake } from 'lucide-react';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
 
 /**
  * FullScreenPhotoLightbox
  *
  * Dedicated, distraction-free full-screen photo viewer for member profiles.
- * - Shows ONLY the full-size photo without any profile text or details cluttering the view.
- * - Fitted cleanly via object-contain across mobile and desktop viewports.
- * - Supports pinch-to-zoom (mobile), double-tap / double-click zoom, and panning when zoomed.
- * - Swipe left/right and Next/Previous navigation buttons cycle through the exact combined photo list.
- * - Protected by the "I 4 YOU SECURITY SHIELD":
- *   - Security Shield sits at z-[99999], strictly above this lightbox (z-50).
- *   - Suppresses context menu (right-click), dragging, and mobile long-press image saving.
+ * - Rendered directly into document.body via ReactDOM.createPortal at z-[9990].
+ * - Protected by "I 4 YOU SECURITY SHIELD" at z-[99999] so any capture attempt or blur activates black curtain.
+ * - Shows ONLY the full-size photo with object-contain (no profile text or clutter).
+ * - Full zoom support: Double-click / Double-tap zoom (1x <-> 2x), pinch-to-zoom (mobile), and mouse wheel zoom.
+ * - Panning when zoomed in.
+ * - Top-right Close button and Escape key dismiss.
+ * - Right-click, drag, and mobile long-press disabled for privacy protection.
  */
 export default function FullScreenPhotoLightbox({
   isOpen,
@@ -47,8 +47,14 @@ export default function FullScreenPhotoLightbox({
     return photos
       .map((p) => {
         if (!p) return null;
-        if (typeof p === 'string') return { url: p };
-        if (typeof p === 'object' && p.url) return p;
+        if (typeof p === 'string') return { url: p, isFamily: false };
+        if (typeof p === 'object' && p.url) {
+          return {
+            url: p.url,
+            isFamily: Boolean(p.isFamily),
+            title: p.title || null
+          };
+        }
         return null;
       })
       .filter((p) => p && typeof p.url === 'string' && p.url.trim().length > 0);
@@ -75,29 +81,19 @@ export default function FullScreenPhotoLightbox({
     };
   }, [isOpen]);
 
-  const goToNext = useCallback(
-    (e) => {
-      e?.stopPropagation();
-      if (slides.length <= 1) return;
-      setScale(1);
-      setPosition({ x: 0, y: 0 });
-      setCurrentIndex((prev) => (prev + 1) % slides.length);
-    },
-    [slides.length]
-  );
+  // Toggle Zoom: 1x <-> 2x
+  const toggleZoom = useCallback((e) => {
+    e?.stopPropagation();
+    setScale((prev) => {
+      if (prev > 1.1) {
+        setPosition({ x: 0, y: 0 });
+        return 1;
+      }
+      return 2;
+    });
+  }, []);
 
-  const goToPrev = useCallback(
-    (e) => {
-      e?.stopPropagation();
-      if (slides.length <= 1) return;
-      setScale(1);
-      setPosition({ x: 0, y: 0 });
-      setCurrentIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
-    },
-    [slides.length]
-  );
-
-  // Keyboard navigation (Escape, ArrowLeft, ArrowRight)
+  // Keyboard navigation (Escape closes photo viewer)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -105,18 +101,12 @@ export default function FullScreenPhotoLightbox({
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose?.();
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        goToNext();
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        goToPrev();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, goToNext, goToPrev, onClose]);
+  }, [isOpen, onClose]);
 
   // DRM Protection Context Menu and Drag Handlers
   const handleContextMenu = (e) => {
@@ -132,6 +122,20 @@ export default function FullScreenPhotoLightbox({
     e.preventDefault();
     e.stopPropagation();
     return false;
+  };
+
+  // Mouse wheel zoom on desktop
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY < 0 ? 1.25 : 0.8;
+    setScale((prev) => {
+      const next = Math.min(Math.max(prev * zoomFactor, 1), 3.5);
+      if (next <= 1.05) {
+        setPosition({ x: 0, y: 0 });
+        return 1;
+      }
+      return next;
+    });
   };
 
   // Touch Gesture Handlers (Swipe, Pinch-to-Zoom, Double-Tap)
@@ -202,25 +206,12 @@ export default function FullScreenPhotoLightbox({
       } else if (touchStartRef.current) {
         const deltaX = (e.changedTouches[0]?.clientX || 0) - touchStartRef.current.x;
         const deltaY = (e.changedTouches[0]?.clientY || 0) - touchStartRef.current.y;
-        const duration = Date.now() - touchStartRef.current.time;
 
-        // Check horizontal swipe if scale is 1
-        if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3 && duration < 450) {
-          if (deltaX > 0) {
-            goToPrev();
-          } else {
-            goToNext();
-          }
-        } else if (Math.abs(deltaX) < 12 && Math.abs(deltaY) < 12) {
-          // Double-tap zoom check
+        // Double-tap zoom check
+        if (Math.abs(deltaX) < 15 && Math.abs(deltaY) < 15) {
           const now = Date.now();
           if (now - lastTapRef.current < 320) {
-            if (scale > 1) {
-              setScale(1);
-              setPosition({ x: 0, y: 0 });
-            } else {
-              setScale(2.2);
-            }
+            toggleZoom();
             lastTapRef.current = 0;
           } else {
             lastTapRef.current = now;
@@ -234,13 +225,7 @@ export default function FullScreenPhotoLightbox({
 
   // Desktop Mouse Handlers (Double-click zoom, drag to pan when zoomed)
   const handleDoubleClick = (e) => {
-    e.stopPropagation();
-    if (scale > 1) {
-      setScale(1);
-      setPosition({ x: 0, y: 0 });
-    } else {
-      setScale(2.2);
-    }
+    toggleZoom(e);
   };
 
   const handleMouseDown = (e) => {
@@ -270,66 +255,72 @@ export default function FullScreenPhotoLightbox({
 
   const currentSlide = slides[currentIndex] || slides[0];
   const currentUrl = currentSlide?.url || null;
+  const isFamily = Boolean(currentSlide?.isFamily);
 
   const lightboxContent = (
     <div
-      className="fixed inset-0 bg-black z-50 flex items-center justify-center select-none overflow-hidden touch-none photo-protected animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9990] bg-black/95 flex items-center justify-center select-none overflow-hidden touch-none photo-protected animate-in fade-in duration-200"
       data-drm-protected="true"
       onContextMenu={handleContextMenu}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
+      onWheel={handleWheel}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={{ backgroundColor: '#000000' }}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.96)' }}
       role="dialog"
       aria-modal="true"
       aria-label="Full-Screen Photo Viewer"
-    >
-      {/* Top Right Close Button */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
+      onClick={(e) => {
+        // Clicking backdrop directly closes the viewer
+        if (e.target === e.currentTarget && scale <= 1) {
           onClose?.();
-        }}
-        className="absolute top-4 right-4 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-95 shadow-xl hover:border-white/40"
-        title="Close (Esc)"
-        aria-label="Close photo viewer"
-      >
-        <X className="w-6 h-6 text-white" />
-      </button>
+        }
+      }}
+    >
+      {/* Top Bar Controls */}
+      <div className="absolute top-4 inset-x-4 z-20 flex items-center justify-between pointer-events-none">
+        {/* Left: Zoom Controls & Family Badge */}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <button
+            type="button"
+            onClick={toggleZoom}
+            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-95 shadow-xl hover:border-white/40"
+            title={scale > 1 ? "Zoom Out (1x)" : "Zoom In (2x)"}
+            aria-label={scale > 1 ? "Zoom Out" : "Zoom In"}
+          >
+            {scale > 1 ? <ZoomOut className="w-5 h-5 text-white" /> : <ZoomIn className="w-5 h-5 text-white" />}
+          </button>
 
-      {/* Left Chevron Button */}
-      {slides.length > 1 && (
+          {isFamily && (
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-600/90 text-white border border-blue-400/40 backdrop-blur-md flex items-center gap-1.5 shadow-md">
+              <HeartHandshake className="w-3.5 h-3.5 text-blue-200" />
+              <span>Family Photo</span>
+            </span>
+          )}
+        </div>
+
+        {/* Right: Prominent Top-Right Close Button */}
         <button
           type="button"
-          onClick={goToPrev}
-          className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-95 shadow-xl hover:border-white/40"
-          title="Previous Photo"
-          aria-label="Previous Photo"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose?.();
+          }}
+          className="pointer-events-auto w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-95 shadow-xl hover:border-white/40"
+          title="Close (Esc)"
+          aria-label="Close photo viewer"
         >
-          <ChevronLeft className="w-6 h-6 text-white" />
+          <X className="w-6 h-6 text-white" />
         </button>
-      )}
+      </div>
 
-      {/* Right Chevron Button */}
-      {slides.length > 1 && (
-        <button
-          type="button"
-          onClick={goToNext}
-          className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-95 shadow-xl hover:border-white/40"
-          title="Next Photo"
-          aria-label="Next Photo"
-        >
-          <ChevronRight className="w-6 h-6 text-white" />
-        </button>
-      )}
-
-      {/* Main Full-Size Image Container (Clean view showing ONLY the photo) */}
+      {/* Main Full-Size Image Container (Clean distraction-free full photo) */}
       <div
         className="w-full h-full flex items-center justify-center p-0 sm:p-2 select-none photo-protected overflow-hidden"
+        style={{ cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in' }}
         onDoubleClick={handleDoubleClick}
       >
         {currentUrl ? (
@@ -340,7 +331,7 @@ export default function FullScreenPhotoLightbox({
             draggable={false}
             onDragStart={handleDragStart}
             onContextMenu={handleContextMenu}
-            className="w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none transition-transform duration-150 ease-out animate-in fade-in duration-200"
+            className="w-full h-full max-w-full max-h-full object-contain pointer-events-none select-none transition-transform duration-150 ease-out"
             style={{
               transform: `translate3d(${position.x}px, ${position.y}px, 0) scale(${scale})`,
               transition: isDragging ? 'none' : 'transform 150ms ease-out',
@@ -353,13 +344,6 @@ export default function FullScreenPhotoLightbox({
           />
         ) : null}
       </div>
-
-      {/* Subtle Slide Counter at Bottom Center */}
-      {slides.length > 1 && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1 rounded-full bg-black/60 text-white/90 text-xs font-semibold backdrop-blur-md border border-white/10 pointer-events-none select-none tracking-wider shadow-lg">
-          {currentIndex + 1} / {slides.length}
-        </div>
-      )}
     </div>
   );
 

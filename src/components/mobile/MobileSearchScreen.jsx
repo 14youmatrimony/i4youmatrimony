@@ -27,7 +27,7 @@ import SearchableSelect from '../common/SearchableSelect';
 import CountryNriFilterBar from '../common/CountryNriFilterBar';
 import { isCountryMatch } from '../../data/worldCountries';
 import { sanitizeSearchTerm } from '../../utils/security';
-import { getTargetCandidateGender, isCandidateMatchingTarget } from '../../utils/genderMatch';
+import { getTargetCandidateGender, isCandidateMatchingTarget, isSelfProfile } from '../../utils/genderMatch';
 import { isDemoProfile, resolveProfilePhoto, isPlaceholderOrIncompleteProfile } from '../../services/api';
 import { interestService } from '../../services/interestService';
 
@@ -73,11 +73,12 @@ export default function MobileSearchScreen({
       .filter(p => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
       .filter(p => {
         // 0. Exclude own profile
+        if (isSelfProfile(p, currentUser)) return false;
         if (currentUser?.id && p.id === currentUser.id) return false;
         if (currentUser?.mobile && (p.mobile === currentUser.mobile || p.phone === currentUser.mobile)) return false;
 
-        // 0.1 Strict Opposite Gender Matchmaking Rule
-        if (!isCandidateMatchingTarget(p.gender, targetCandidateGender)) return false;
+        // 0.1 Strict Opposite Gender Matchmaking Rule: never show same-gender profiles
+        if (targetCandidateGender && !isCandidateMatchingTarget(p, targetCandidateGender)) return false;
 
         if (cleanSearch) {
           const q = cleanSearch.toLowerCase();
