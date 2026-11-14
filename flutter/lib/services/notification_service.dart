@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'web_push_service.dart' as web_push;
 
 /// Top-level background message handler for Firebase Cloud Messaging.
 ///
@@ -167,9 +168,44 @@ class NotificationService {
     }
   }
 
+  // Web Push (VAPID) Integration
+  /// Requests notification permission and subscribes the user to Web Push notifications using VAPID key.
+  static Future<Map<String, dynamic>?> subscribeWebPush({
+    required String vapidPublicKey,
+    String? userId,
+  }) =>
+      web_push.subscribeToWebPush(
+        vapidPublicKey: vapidPublicKey,
+        userId: userId,
+      );
+
+  /// Saves the resulting JSON push subscription (endpoint, keys.p256dh, keys.auth)
+  /// into the Supabase `user_devices` table with platform set to 'web'.
+  static Future<bool> saveWebSubscriptionToSupabase({
+    required Map<String, dynamic> subscriptionJson,
+    String? userId,
+  }) =>
+      web_push.saveWebPushSubscriptionToSupabase(
+        subscriptionJson: subscriptionJson,
+        userId: userId,
+      );
+
   // Instance method delegates for flexibility
   Future<NotificationSettings> requestUserPermission() => requestPermission();
   Future<String?> retrieveDeviceToken() => getDeviceToken();
   Future<bool> saveDeviceToken({String? userId, String? token}) =>
       saveTokenToSupabase(userId: userId, token: token);
+  Future<Map<String, dynamic>?> subscribeToWebPushNotification({
+    required String vapidPublicKey,
+    String? userId,
+  }) =>
+      subscribeWebPush(vapidPublicKey: vapidPublicKey, userId: userId);
+  Future<bool> saveWebPushSubscription({
+    required Map<String, dynamic> subscriptionJson,
+    String? userId,
+  }) =>
+      saveWebSubscriptionToSupabase(
+        subscriptionJson: subscriptionJson,
+        userId: userId,
+      );
 }
