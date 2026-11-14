@@ -36,6 +36,8 @@ import MobileThemeSettingsSheet from './components/mobile/MobileThemeSettingsShe
 import { ThemeProvider } from './context/ThemeContext';
 import { MEMBERSHIP_PLANS, formatBackendPlan } from './data/plansData';
 import WebsiteView from './components/website/WebsiteView';
+import AdminRouteGuard from './components/admin/AdminRouteGuard';
+import SuperAdminPanel from './components/admin/SuperAdminPanel';
 import MobileAppModal from './components/mobile/MobileAppModal';
 import ProfileModal from './components/ProfileModal';
 import EditProfileModal from './components/EditProfileModal';
@@ -172,9 +174,9 @@ export const parseRouteParams = (urlString = (typeof window !== 'undefined' ? wi
     const segments = rawPath.split('/').filter(Boolean);
     const params = url.searchParams;
 
-    // 1. Admin redirect detection
+    // 1. Admin route detection (Strictly guarded by Supabase Auth)
     if (segments.length > 0 && ['admin', 'super-admin', 'superadmin', 'admin-console', 'admin-portal'].includes(segments[0])) {
-      return { isAdmin: true, viewMode: 'website' };
+      return { isAdmin: true, viewMode: 'admin', adminSubRoute: segments.slice(1).join('/') };
     }
 
     let viewMode = null;
@@ -275,9 +277,8 @@ export default function App() {
       }
 
       const route = parseRouteParams();
-      if (route.isAdmin) {
-        window.location.href = '/super-admin.html';
-        return 'website';
+      if (route.isAdmin || route.viewMode === 'admin') {
+        return 'admin';
       }
       if (route.viewMode) {
         return route.viewMode;
@@ -285,11 +286,7 @@ export default function App() {
 
       // Check localStorage
       const saved = localStorage.getItem('i4u_view_mode');
-      if (saved === 'admin') {
-        localStorage.removeItem('i4u_view_mode');
-        return 'website';
-      }
-      if (saved === 'app' || saved === 'website') {
+      if (saved === 'admin' || saved === 'app' || saved === 'website') {
         return saved;
       }
     } catch (e) {}
@@ -3527,8 +3524,8 @@ export default function App() {
   useEffect(() => {
     const applyRouteFromUrl = () => {
       const parsed = parseRouteParams();
-      if (parsed.isAdmin) {
-        window.location.href = '/super-admin.html';
+      if (parsed.isAdmin || parsed.viewMode === 'admin') {
+        setViewModeState('admin');
         return;
       }
       if (parsed.viewMode) {
@@ -5116,7 +5113,14 @@ export default function App() {
         {showSplash && (
           <SplashScreen onFinish={handleSplashFinish} duration={2800} />
         )}
-        {viewMode === 'website' ? (
+        {viewMode === 'admin' ? (
+          <AdminRouteGuard onBack={() => { setViewModeState('website'); setCurrentScreen('app'); }}>
+            <SuperAdminPanel 
+              onLogout={() => { setViewModeState('admin'); }}
+              onBackToSite={() => { setViewModeState('website'); setCurrentScreen('app'); }}
+            />
+          </AdminRouteGuard>
+        ) : viewMode === 'website' ? (
           <>
             {/* 1. Website View */}
             <WebsiteView 

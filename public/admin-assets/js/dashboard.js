@@ -309,17 +309,17 @@ async function handleAdminLoginSubmit(e) {
   const errorMsg = document.getElementById('adminLoginErrorMessage');
   const btn = document.getElementById('adminLoginBtn');
 
-  const email = emailInput ? emailInput.value.trim() : 'admin@i4you.com';
+  const email = emailInput ? emailInput.value.trim() : '';
   const password = passwordInput ? passwordInput.value : '';
 
   if (errorAlert) errorAlert.classList.add('hidden');
 
   if (!email) {
     if (errorAlert && errorMsg) {
-      errorMsg.textContent = 'Please enter administrator email or username.';
+      errorMsg.textContent = 'Please enter administrator email.';
       errorAlert.classList.remove('hidden');
     }
-    showToast('Please enter administrator email or username', 'warning');
+    showToast('Please enter administrator email', 'warning');
     return;
   }
   if (!password) {
@@ -338,66 +338,47 @@ async function handleAdminLoginSubmit(e) {
     let loggedAdmin = null;
     let errorMessage = 'Invalid email or password.';
 
+    // Authenticate with Supabase Auth
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        authSuccess = true;
-        loggedAdmin = data.user;
-      } else {
-        errorMessage = data.error || data.message || 'Invalid email or password.';
-      }
-    } catch (netErr) {
-      console.warn('Network login notice, checking local credentials:', netErr);
-      const customPass = localStorage.getItem('i4u_custom_admin_password');
-      let storedUser = null;
-      try {
-        const rawStore = localStorage.getItem('i4you_admin_store_v3');
-        if (rawStore) {
-          const parsed = JSON.parse(rawStore);
-          storedUser = parsed.admin_users && parsed.admin_users.find(u => 
-            (u.email && u.email.toLowerCase() === email.toLowerCase()) || 
-            (u.username && u.username.toLowerCase() === email.toLowerCase())
-          );
+      if (window.supabase && typeof window.supabase.createClient === 'function') {
+        const sbUrl = 'https://kzvdzospvgzlfkkptadl.supabase.co';
+        const sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
+        if (!window.supabaseClient) {
+          window.supabaseClient = window.supabase.createClient(sbUrl, sbKey);
         }
-      } catch (err) {}
+        const { data, error: sbError } = await window.supabaseClient.auth.signInWithPassword({
+          email: email,
+          password: password
+        });
 
-      const expectedPassword = (storedUser && storedUser.password) || customPass || 'admin123';
-      if (password === expectedPassword || 
-          (customPass && password === customPass) ||
-          (!customPass && !storedUser?.password && (password === 'admin123' || password === 'Admin@12345')) ||
-          (password === 'admin123' || password === 'Admin@12345')) {
-        authSuccess = true;
-        loggedAdmin = storedUser || {
-          id: 1,
-          username: email.split('@')[0] || 'admin',
-          full_name: 'Arun Thomas',
-          name: 'Arun Thomas',
-          email: email.includes('@') ? email : 'admin@i4you.com',
-          role: 'Super Admin',
-          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
-          permissions: ['*']
-        };
-      } else {
-        errorMessage = 'Incorrect password. Access denied.';
+        if (!sbError && data?.session && data?.user) {
+          authSuccess = true;
+          loggedAdmin = {
+            id: data.user.id,
+            email: data.user.email,
+            username: data.user.email ? data.user.email.split('@')[0] : 'admin',
+            full_name: data.user.user_metadata?.full_name || 'Super Admin',
+            role: data.user.user_metadata?.role || 'Super Admin',
+            avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
+            permissions: ['*']
+          };
+          localStorage.setItem('i4u_admin_token', data.session.access_token);
+          localStorage.setItem('i4u_admin_session', JSON.stringify(data.session));
+          localStorage.setItem('i4u_admin_user', JSON.stringify(loggedAdmin));
+        } else if (sbError) {
+          errorMessage = sbError.message || 'Invalid administrator email or password.';
+        }
       }
+    } catch (sbErr) {
+      console.warn('[Admin Auth] Supabase signIn error:', sbErr);
+      errorMessage = sbErr.message || 'Supabase authentication failed.';
     }
 
     if (authSuccess) {
       localStorage.removeItem('i4u_admin_logged_out');
       sessionStorage.removeItem('i4u_admin_logged_out');
-      const adminToken = (typeof data !== 'undefined' && data?.token) || 'i4u-super-admin-token-2026';
-      localStorage.setItem('i4u_admin_token', adminToken);
-      sessionStorage.setItem('i4u_admin_token', adminToken);
-      if (loggedAdmin) {
-        localStorage.setItem('i4u_admin_user', JSON.stringify(loggedAdmin));
-        state.admin = loggedAdmin;
-        state.authenticated = true;
-      }
+      state.admin = loggedAdmin;
+      state.authenticated = true;
       hideAdminLoginScreen();
       showToast('Welcome back, ' + (loggedAdmin?.full_name || 'Admin') + '!', 'success');
       updateAdminProfileUI();
@@ -428,50 +409,68 @@ async function checkAuth() {
     return;
   }
 
-  let storedUser = null;
+  // 1. Verify Supabase Auth active session
   try {
-    const raw = localStorage.getItem('i4u_admin_user');
-    if (raw) storedUser = JSON.parse(raw);
-  } catch (e) {}
-
-  if (!localStorage.getItem('i4u_admin_token')) {
-    localStorage.setItem('i4u_admin_token', 'i4u-super-admin-token-2026');
-  }
-
-  try {
-    const res = await fetch('/api/auth/me', {
-      headers: getAdminAuthHeaders(),
-      credentials: 'include'
-    });
-    if (res.ok) {
-      const data = await res.json();
-      state.admin = data.user || data;
-      if (data.token) {
-        localStorage.setItem('i4u_admin_token', data.token);
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+      const sbUrl = 'https://kzvdzospvgzlfkkptadl.supabase.co';
+      const sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
+      if (!window.supabaseClient) {
+        window.supabaseClient = window.supabase.createClient(sbUrl, sbKey);
       }
-      if (storedUser && storedUser.id === state.admin.id) {
-        state.admin = { ...state.admin, ...storedUser };
+      const { data: { session }, error: sessionErr } = await window.supabaseClient.auth.getSession();
+      if (session && session.user && !sessionErr) {
+        state.admin = {
+          id: session.user.id,
+          email: session.user.email,
+          username: session.user.email ? session.user.email.split('@')[0] : 'admin',
+          full_name: session.user.user_metadata?.full_name || 'Super Admin',
+          role: session.user.user_metadata?.role || 'Super Admin',
+          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
+          permissions: ['*']
+        };
+        state.authenticated = true;
+        localStorage.setItem('i4u_admin_token', session.access_token);
+        localStorage.setItem('i4u_admin_user', JSON.stringify(state.admin));
+        localStorage.removeItem('i4u_admin_logged_out');
+        sessionStorage.removeItem('i4u_admin_logged_out');
+        hideAdminLoginScreen();
+        updateAdminProfileUI();
+        return;
       }
-      hideAdminLoginScreen();
-      updateAdminProfileUI();
-      return;
     }
-  } catch (err) {
-    console.warn('Auth check notice:', err);
+  } catch (sbErr) {
+    console.warn('[Admin Auth] Supabase session check notice:', sbErr);
   }
 
-  state.admin = storedUser || {
-    id: 1,
-    username: 'admin',
-    name: 'Arun Thomas',
-    full_name: 'Arun Thomas',
-    email: 'admin@i4you.com',
-    role: 'Super Admin',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
-    permissions: ['*']
-  };
-  hideAdminLoginScreen();
-  updateAdminProfileUI();
+  // 2. Verify stored token with Supabase getUser
+  const storedToken = localStorage.getItem('i4u_admin_token') || sessionStorage.getItem('i4u_admin_token');
+  if (storedToken && storedToken.length > 20 && storedToken !== 'i4u-super-admin-token-2026') {
+    try {
+      if (window.supabaseClient?.auth) {
+        const { data: { user }, error: userErr } = await window.supabaseClient.auth.getUser(storedToken);
+        if (user && !userErr) {
+          state.admin = {
+            id: user.id,
+            email: user.email,
+            username: user.email ? user.email.split('@')[0] : 'admin',
+            full_name: user.user_metadata?.full_name || 'Super Admin',
+            role: user.user_metadata?.role || 'Super Admin',
+            avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
+            permissions: ['*']
+          };
+          state.authenticated = true;
+          hideAdminLoginScreen();
+          updateAdminProfileUI();
+          return;
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 3. Unauthenticated -> show login screen and deny access
+  state.admin = null;
+  state.authenticated = false;
+  showAdminLoginScreen();
 }
 
 function canAccessTab(tabId) {
@@ -576,24 +575,28 @@ function applyRbacToUI() {
 
 async function handleLogout() {
   try {
-    localStorage.setItem('i4u_admin_logged_out', 'true');
-    sessionStorage.setItem('i4u_admin_logged_out', 'true');
-    localStorage.removeItem('i4u_admin_user');
-    sessionStorage.removeItem('i4u_admin_user');
-    state.admin = null;
-    state.authenticated = false;
+    if (window.supabaseClient?.auth) {
+      await window.supabaseClient.auth.signOut().catch(() => {});
+    }
+  } catch (e) {}
 
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (e) {}
+  localStorage.setItem('i4u_admin_logged_out', 'true');
+  sessionStorage.setItem('i4u_admin_logged_out', 'true');
+  localStorage.removeItem('i4u_admin_user');
+  localStorage.removeItem('i4u_admin_token');
+  localStorage.removeItem('i4u_admin_session');
+  sessionStorage.removeItem('i4u_admin_user');
+  sessionStorage.removeItem('i4u_admin_token');
+  sessionStorage.removeItem('i4u_admin_session');
+  state.admin = null;
+  state.authenticated = false;
 
-    showToast('Signed out successfully', 'info');
-    showAdminLoginScreen();
-  } catch (err) {
-    localStorage.setItem('i4u_admin_logged_out', 'true');
-    sessionStorage.setItem('i4u_admin_logged_out', 'true');
-    showAdminLoginScreen();
-  }
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  } catch (e) {}
+
+  showToast('Signed out successfully', 'info');
+  showAdminLoginScreen();
 }
 
 function setupNavigation() {
