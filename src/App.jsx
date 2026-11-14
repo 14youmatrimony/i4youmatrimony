@@ -2377,13 +2377,13 @@ export default function App() {
 
       setConversations(prev => {
         const senderIdStr = senderId;
-        const exists = prev.find(c => String(c.profileId) === senderIdStr);
+        const exists = prev.find(c => String(c.profileId || c.partner_id || c.partnerUser?.id) === senderIdStr);
         const isCurrentlyInThisChat = activeTabRef.current === 'chat' && String(activeChatProfileIdRef.current) === senderIdStr;
 
         let nextConvs;
         if (exists) {
           nextConvs = prev.map(c => {
-            if (String(c.profileId) === senderIdStr) {
+            if (String(c.profileId || c.partner_id || c.partnerUser?.id) === senderIdStr) {
               const currentMsgs = Array.isArray(c.messages) ? c.messages : [];
               const alreadyExists = currentMsgs.some(m =>
                 m && (
@@ -2398,21 +2398,45 @@ export default function App() {
                   : c;
               }
 
+              const partnerObj = c.partnerUser || (profiles || []).find(p => String(p?.id) === senderIdStr) || { id: senderIdStr, name: senderName, photo: incoming.senderPhoto };
+
               return {
                 ...c,
+                profileId: senderIdStr,
+                partner_id: senderIdStr,
+                partnerUser: partnerObj,
+                isAccepted: true,
+                status: 'accepted',
                 unreadCount: isCurrentlyInThisChat ? 0 : (c.unreadCount || 0) + 1,
-                messages: deduplicateMessageList([...currentMsgs, incomingMsg])
+                messages: deduplicateMessageList([...currentMsgs, incomingMsg]),
+                lastMessage: incomingMsg,
+                updated_at: incomingMsg.created_at
               };
             }
             return c;
           });
         } else {
+          const partnerProfile = (profiles || []).find(p => String(p?.id) === senderIdStr || String(p?.register_id) === senderIdStr) || {
+            id: senderIdStr,
+            name: senderName || 'Member',
+            photo: incoming.senderPhoto || incoming.photo || null
+          };
           nextConvs = [
             ...prev,
             {
+              id: convId || `conv_${senderIdStr}_${myIds[0]}`,
+              conversation_id: convId || [myIds[0], senderIdStr].sort().join(':::'),
+              conversationId: convId || [myIds[0], senderIdStr].sort().join(':::'),
               profileId: senderIdStr,
+              partner_id: senderIdStr,
+              partnerUser: partnerProfile,
+              isAccepted: true,
+              status: 'accepted',
               unreadCount: isCurrentlyInThisChat ? 0 : 1,
               messages: [incomingMsg],
+              lastMessage: incomingMsg,
+              created_at: incomingMsg.created_at,
+              updated_at: incomingMsg.created_at,
               autoReplies: []
             }
           ];

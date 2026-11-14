@@ -11,7 +11,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase.js';
 import { isSelfProfile } from '../utils/genderMatch.js';
-import { sendBackendMessage, mapSupabaseRowToProfile, isPlaceholderOrIncompleteProfile, PROFILE_FEED_COLUMNS } from './api.js';
+import { sendBackendMessage, mapSupabaseRowToProfile, isPlaceholderOrIncompleteProfile, PROFILE_FEED_COLUMNS, API_BASE, safeFetchJson } from './api.js';
 import { fcmNotificationService } from './fcmNotificationService.js';
 import { safeGetTime, formatChatTime12Hour } from '../utils/dateUtils.js';
 
@@ -190,6 +190,36 @@ class LiveChatService {
           .on('broadcast', { event: 'new-chat-message' }, handleIncoming)
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${targetId}` }, (p) => {
             if (p?.new) handleIncoming({ payload: p.new });
+          })
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${targetId}` }, (p) => {
+            if (p?.new) {
+              const row = p.new;
+              const meta = row.metadata || {};
+              const type = String(row.type || '').toLowerCase();
+              const title = String(row.title || '').toLowerCase();
+              const isMsg = type.includes('message') || type.includes('chat') || title.includes('💬') || title.includes('message') || meta.conversation_id;
+              if (isMsg) {
+                const sid = String(meta.sender_id || meta.senderId || row.sender_id || '');
+                const text = meta.text || meta.message || row.message || '';
+                if (sid && text) {
+                  handleIncoming({
+                    payload: {
+                      id: meta.message_id || `notif_${row.id}`,
+                      conversation_id: meta.conversation_id || meta.chatId || [this.currentUserId, sid].sort().join(':::'),
+                      sender_id: sid,
+                      senderId: sid,
+                      receiver_id: targetId,
+                      recipientId: targetId,
+                      text: text,
+                      senderName: meta.senderName || row.title,
+                      senderPhoto: meta.senderPhoto || null,
+                      created_at: row.created_at || new Date().toISOString(),
+                      time: row.created_at || new Date().toISOString()
+                    }
+                  });
+                }
+              }
+            }
           })
           .on('broadcast', { event: 'chat-status-ack' }, ({ payload }) => {
             if (!payload) return;
@@ -797,31 +827,63 @@ class LiveChatService {
       if (cleanIds.length > 0) {
         // 1. Fetch latest messages involving the current user as sender or receiver
         try {
-          const [sentRes, recvRes] = await Promise.all([
+          const [sentRes, recvRes, recipRes] = await Promise.all([
             supabase
               .from('messages')
               .select('id, conversation_id, sender_id, receiver_id, text, status, created_at')
               .in('sender_id', cleanIds)
               .order('created_at', { ascending: false })
-              .limit(100),
+              .limit(200),
             supabase
               .from('messages')
               .select('id, conversation_id, sender_id, receiver_id, text, status, created_at')
               .in('receiver_id', cleanIds)
               .order('created_at', { ascending: false })
-              .limit(100)
+              .limit(200),
+            supabase
+              .from('messages')
+              .select('id, conversation_id, sender_id, receiver_id, text, status, created_at')
+              .in('recipient_id', cleanIds)
+              .order('created_at', { ascending: false })
+              .limit(200)
+              .catch(() => ({ data: [] }))
           ]);
 
-          const combined = [...(sentRes?.data || []), ...(recvRes?.data || [])];
+          const combined = [...(sentRes?.data || []), ...(recvRes?.data || []), ...(recipRes?.data || [])];
           const seenMsgIds = new Set();
           combined.forEach((m) => {
             if (m && m.id && !seenMsgIds.has(m.id)) {
-              if (String(m.sender_id) !== String(m.receiver_id)) {
+              const sId = String(m.sender_id || '');
+              const rId = String(m.receiver_id || m.recipient_id || '');
+              if (sId !== rId) {
                 seenMsgIds.add(m.id);
                 remoteMessages.push(m);
               }
             }
           });
+
+          // Also check by conversation_id pattern
+          try {
+            const orFilters = cleanIds.map(id => `conversation_id.ilike.%${id}%`).join(',');
+            const { data: convIdRows } = await supabase
+              .from('messages')
+              .select('id, conversation_id, sender_id, receiver_id, text, status, created_at')
+              .or(orFilters)
+              .order('created_at', { ascending: false })
+              .limit(200);
+            if (Array.isArray(convIdRows)) {
+              convIdRows.forEach((m) => {
+                if (m && m.id && !seenMsgIds.has(m.id)) {
+                  const sId = String(m.sender_id || '');
+                  const rId = String(m.receiver_id || m.recipient_id || '');
+                  if (sId !== rId) {
+                    seenMsgIds.add(m.id);
+                    remoteMessages.push(m);
+                  }
+                }
+              });
+            }
+          } catch (e) {}
         } catch (msgErr) {
           console.warn('[LiveChat] Notice: Error querying messages table:', msgErr?.message || msgErr);
         }
@@ -834,27 +896,30 @@ class LiveChatService {
             const { data: rowsWithOr } = await supabase
               .from('notifications')
               .select('id, recipient_id, recipient_register_id, type, title, message, metadata, is_read, created_at')
-              .in('type', ['chat_message', 'message', 'message_received', 'chat'])
               .or(`recipient_id.in.(${idList}),recipient_register_id.in.(${idList})`)
               .order('created_at', { ascending: false })
-              .limit(100);
+              .limit(200);
             if (Array.isArray(rowsWithOr)) notifRows = rowsWithOr;
           } catch (e) {
             const { data: fallbackNotifs } = await supabase
               .from('notifications')
               .select('id, recipient_id, recipient_register_id, type, title, message, metadata, is_read, created_at')
-              .in('type', ['chat_message', 'message', 'message_received', 'chat'])
               .in('recipient_id', cleanIds)
               .order('created_at', { ascending: false })
-              .limit(100);
+              .limit(200);
             if (Array.isArray(fallbackNotifs)) notifRows = fallbackNotifs;
           }
 
           (notifRows || []).forEach((row) => {
             if (!row) return;
             const meta = row.metadata || {};
-            const sId = String(meta.sender_id || meta.senderId || meta.from_user_id || row.sender_id || '');
-            const text = meta.text || row.message || '';
+            const type = String(row.type || '').toLowerCase();
+            const title = String(row.title || '').toLowerCase();
+            const isMsg = type.includes('message') || type.includes('chat') || title.includes('💬') || title.includes('message') || meta.conversation_id;
+            if (!isMsg) return;
+
+            const sId = String(meta.sender_id || meta.senderId || meta.from_user_id || row.sender_id || row.profileId || '');
+            const text = meta.text || meta.message || row.message || '';
             const msgId = meta.message_id || meta.messageId || `notif_msg_${row.id}`;
             if (sId && text && !cleanIds.includes(sId)) {
               remoteMessages.push({
@@ -866,8 +931,8 @@ class LiveChatService {
                 status: row.is_read ? 'read' : 'delivered',
                 created_at: row.created_at || new Date().toISOString(),
                 _fromNotification: true,
-                _senderName: meta.senderName || row.title,
-                _senderPhoto: meta.senderPhoto || null
+                _senderName: meta.senderName || row.sender_name || row.title,
+                _senderPhoto: meta.senderPhoto || row.sender_photo || null
               });
             }
           });
@@ -875,14 +940,47 @@ class LiveChatService {
           console.warn('[LiveChat] Notice: Error syncing from notifications table:', notifErr?.message || notifErr);
         }
 
-        // 3. Also ingest any in-memory or passed notifications
+        // 3. Fetch from backend notifications API directly
+        try {
+          const notifApiUrl = `${API_BASE}/public/notifications?userId=${encodeURIComponent(cleanIds[0])}`;
+          const backendRes = await safeFetchJson(notifApiUrl, { method: 'GET', headers: { 'Accept': 'application/json' } }, 2000);
+          if (backendRes?.success && Array.isArray(backendRes.data)) {
+            backendRes.data.forEach(item => {
+              if (!item) return;
+              const type = String(item.type || '').toLowerCase();
+              const title = String(item.title || '').toLowerCase();
+              const isMsg = type.includes('message') || type.includes('chat') || title.includes('💬') || title.includes('message') || item.metadata?.conversation_id;
+              if (!isMsg) return;
+              const sId = String(item.sender_id || item.senderId || item.profileId || item.metadata?.sender_id || '');
+              const text = item.message || item.text || item.metadata?.text || '';
+              if (sId && text && !cleanIds.includes(sId)) {
+                remoteMessages.push({
+                  id: `backend_notif_${item.id || item.notification_id || Date.now()}`,
+                  conversation_id: item.conversation_id || item.metadata?.conversation_id || [cleanIds[0], sId].sort().join(':::'),
+                  sender_id: sId,
+                  receiver_id: cleanIds[0],
+                  text: text,
+                  status: item.is_read ? 'read' : 'delivered',
+                  created_at: item.created_at || new Date().toISOString(),
+                  _fromNotification: true,
+                  _senderName: item.sender_name || item.senderName || item.title,
+                  _senderPhoto: item.sender_photo || item.senderPhoto || null
+                });
+              }
+            });
+          }
+        } catch (e) {}
+
+        // 4. Also ingest any in-memory or passed notifications
         if (Array.isArray(syncNotifications) && syncNotifications.length > 0) {
           syncNotifications.forEach((n) => {
             if (!n) return;
-            const isMsg = n.type === 'chat_message' || n.type === 'message' || n.type === 'message_received' || n.type === 'chat';
+            const type = String(n.type || '').toLowerCase();
+            const title = String(n.title || '').toLowerCase();
+            const isMsg = type.includes('message') || type.includes('chat') || title.includes('💬') || title.includes('message') || n.metadata?.conversation_id;
             if (!isMsg) return;
             const sId = String(n.senderId || n.sender_id || n.profileId || n.metadata?.senderId || n.metadata?.sender_id || '');
-            const text = n.metadata?.text || n.message || '';
+            const text = n.metadata?.text || n.message || n.body || n.content || '';
             const msgId = n.id ? `notif_msg_${n.id}` : `notif_msg_${sId}_${safeGetTime(n.created_at || 0)}`;
             if (sId && text && !cleanIds.includes(sId)) {
               remoteMessages.push({
@@ -1230,12 +1328,18 @@ class LiveChatService {
     const currentUserId = String(currentUser?.id || currentUser?.user_id || currentUser?.userId || '').trim();
     if (!currentUserId) return null;
 
-    const messageNotifications = notifications.filter(n => {
+    const isMessageNotification = (n) => {
       if (!n) return false;
       const type = String(n.type || '').toLowerCase();
-      return type.includes('message') || type.includes('chat');
-    });
+      if (type.includes('message') || type.includes('chat') || type.includes('msg')) return true;
+      const title = String(n.title || '').toLowerCase();
+      if (title.includes('💬') || title.includes('message') || title.includes('chat')) return true;
+      const meta = n.metadata || n.data || {};
+      if (meta.conversation_id || meta.conversationId || meta.chatId || meta.chat_id) return true;
+      return false;
+    };
 
+    const messageNotifications = notifications.filter(isMessageNotification);
     if (messageNotifications.length === 0) return null;
 
     const updateFn = (prevConversations = []) => {
@@ -1246,44 +1350,51 @@ class LiveChatService {
         const senderId = String(
           notif.sender_id ||
           notif.senderId ||
+          notif.profileId ||
           metadata.sender_id ||
           metadata.senderId ||
           metadata.from_user_id ||
           metadata.from ||
+          metadata.actor_id ||
           ''
         ).trim();
 
         // If no sender id or sender is current user, skip
         if (!senderId || senderId === currentUserId) return;
 
-        const partnerUser = (profiles || []).find(p => String(p?.id || p?.user_id || '') === senderId) || {
+        const rawPartner = (profiles || []).find(p => String(p?.id || p?.user_id || p?.register_id || '') === senderId);
+        const partnerUser = rawPartner || {
           id: senderId,
-          name: notif.sender_name || metadata.sender_name || notif.title || 'User',
-          photo: notif.sender_photo || metadata.sender_photo || notif.avatar || null
+          name: notif.sender_name || notif.senderName || metadata.sender_name || metadata.senderName || String(notif.title || '').replace(/^💬\s*/, '') || 'Member',
+          photo: notif.sender_photo || notif.senderPhoto || metadata.sender_photo || metadata.senderPhoto || notif.avatar || null
         };
 
-        const msgText = notif.message || notif.body || notif.content || metadata.text || metadata.message || 'Sent a message';
-        const rawCreatedAt = notif.created_at || notif.timestamp || new Date().toISOString();
+        const msgText = metadata.text || metadata.message || notif.message || notif.body || notif.content || 'Sent a message';
+        const rawCreatedAt = notif.created_at || notif.timestamp || metadata.created_at || new Date().toISOString();
         const msgTime = formatChatTime12Hour(rawCreatedAt);
+        const convId = metadata.conversation_id || metadata.conversationId || metadata.chatId || [currentUserId, senderId].sort().join(':::');
 
         const notifMsg = {
-          id: String(notif.id || `notif-msg-${Date.now()}-${senderId}`),
+          id: String(metadata.message_id || notif.id || `notif-msg-${Date.now()}-${senderId}`),
+          conversation_id: convId,
           sender_id: senderId,
           senderId: senderId,
           receiver_id: currentUserId,
           receiverId: currentUserId,
           content: msgText,
           message: msgText,
+          text: msgText,
           created_at: rawCreatedAt,
           timestamp: rawCreatedAt,
           time: msgTime,
-          is_read: Boolean(notif.is_read || notif.read),
+          is_read: Boolean(notif.is_read || notif.read || notif.isRead),
+          status: Boolean(notif.is_read || notif.read || notif.isRead) ? 'read' : 'delivered',
           source: 'notification'
         };
 
         // Find existing conversation with this sender
         let existingIndex = convs.findIndex(c => {
-          const pid = String(c?.partnerUser?.id || c?.partnerUser?.user_id || c?.partner_id || c?.partnerId || c?.id || '');
+          const pid = String(c?.profileId || c?.partner_id || c?.partnerId || c?.partnerUser?.id || c?.partnerUser?.user_id || c?.id || '');
           return pid === senderId;
         });
 
@@ -1294,7 +1405,7 @@ class LiveChatService {
           // Check if message is already in conversation
           const alreadyExists = msgs.some(m => {
             if (m.id && notifMsg.id && String(m.id) === String(notifMsg.id)) return true;
-            if (m.content === msgText && Math.abs(new Date(m.created_at || m.timestamp || 0) - new Date(rawCreatedAt)) < 60000) return true;
+            if (m.text === msgText && Math.abs(new Date(m.created_at || m.timestamp || 0) - new Date(rawCreatedAt)) < 60000) return true;
             return false;
           });
 
@@ -1302,6 +1413,16 @@ class LiveChatService {
             msgs.push(notifMsg);
           }
 
+          existingConv.id = existingConv.id || convId;
+          existingConv.conversation_id = existingConv.conversation_id || convId;
+          existingConv.conversationId = existingConv.conversationId || convId;
+          existingConv.profileId = senderId;
+          existingConv.partner_id = senderId;
+          if (!existingConv.partnerUser || !existingConv.partnerUser.name) {
+            existingConv.partnerUser = partnerUser;
+          }
+          existingConv.isAccepted = true;
+          existingConv.status = 'accepted';
           existingConv.messages = msgs;
           existingConv.lastMessage = notifMsg;
           existingConv.updated_at = rawCreatedAt;
@@ -1312,9 +1433,14 @@ class LiveChatService {
         } else {
           // Create new conversation
           const newConv = {
-            id: `conv_${senderId}_${currentUserId}`,
-            partnerUser,
+            id: convId,
+            conversation_id: convId,
+            conversationId: convId,
+            profileId: senderId,
             partner_id: senderId,
+            partnerUser,
+            isAccepted: true,
+            status: 'accepted',
             unreadCount: notifMsg.is_read ? 0 : 1,
             messages: [notifMsg],
             lastMessage: notifMsg,
@@ -1331,6 +1457,10 @@ class LiveChatService {
         const timeB = new Date(b.updated_at || b.lastMessage?.created_at || 0).getTime();
         return timeB - timeA;
       });
+
+      try {
+        localStorage.setItem(`i4u_conversations_${currentUserId}`, JSON.stringify(convs));
+      } catch (e) {}
 
       return convs;
     };

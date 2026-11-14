@@ -114,30 +114,80 @@ export default function MobileChatScreen({
       loadLiveConversations();
     });
 
-    // 3. Supabase Realtime subscription on messages and interests table for immediate cross-device sync
+    // 3. Supabase Realtime subscription on messages, notifications, and interests table for immediate cross-device inbox sync
     let realtimeChannel = null;
     if (isSupabaseConfigured() && supabase) {
       const curId = String(currentUser.id);
+      const regId = currentUser.register_id || currentUser.registerId ? String(currentUser.register_id || currentUser.registerId) : null;
+      const targetIds = [curId, regId].filter(Boolean);
       const chName = `messages-list-realtime-${curId}-${Math.random().toString(36).slice(2, 7)}`;
-      realtimeChannel = supabase
-        .channel(chName)
-        .on(
+      realtimeChannel = supabase.channel(chName);
+
+      targetIds.forEach((targetId) => {
+        realtimeChannel
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${targetId}` },
+            (payload) => {
+              loadLiveConversations();
+              if (payload?.new) {
+                liveChatService.syncNotificationMessages([{
+                  type: 'chat_message',
+                  sender_id: payload.new.sender_id,
+                  message: payload.new.text,
+                  created_at: payload.new.created_at,
+                  metadata: {
+                    conversation_id: payload.new.conversation_id,
+                    sender_id: payload.new.sender_id,
+                    text: payload.new.text
+                  }
+                }], currentUser, profiles, setConversations);
+              }
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'messages', filter: `sender_id=eq.${targetId}` },
+            () => {
+              loadLiveConversations();
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${targetId}` },
+            (payload) => {
+              loadLiveConversations();
+              if (payload?.new) {
+                liveChatService.syncNotificationMessages([payload.new], currentUser, profiles, setConversations);
+              }
+            }
+          );
+
+        if (regId) {
+          realtimeChannel.on(
+            'postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_register_id=eq.${regId}` },
+            (payload) => {
+              loadLiveConversations();
+              if (payload?.new) {
+                liveChatService.syncNotificationMessages([payload.new], currentUser, profiles, setConversations);
+              }
+            }
+          );
+        }
+
+        realtimeChannel.on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${curId}` },
-          () => {
-            loadLiveConversations();
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'interests', filter: `receiver_id=eq.${curId}` },
+          { event: '*', schema: 'public', table: 'interests', filter: `receiver_id=eq.${targetId}` },
           (payload) => {
             if (payload?.new?.status === 'accepted' || payload?.eventType === 'INSERT') {
               loadLiveConversations();
             }
           }
-        )
-        .subscribe();
+        );
+      });
+
+      realtimeChannel.subscribe();
     }
 
     return () => {
@@ -147,7 +197,7 @@ export default function MobileChatScreen({
         try { supabase.removeChannel(realtimeChannel); } catch (e) {}
       }
     };
-  }, [currentUser?.id, loadLiveConversations]);
+  }, [currentUser?.id, currentUser?.register_id, currentUser?.registerId, loadLiveConversations, profiles, setConversations]);
 
   // Active, verified conversations with valid messages (Strictly aligned with badge count)
   const activeConversationsList = useMemo(() => {
@@ -160,12 +210,14 @@ export default function MobileChatScreen({
   const filteredChatConversations = useMemo(() => {
     return activeConversationsList.filter(conv => {
       const partner = conv.partnerUser;
-      if (!partner || isSelfProfile(partner, currentUser) || isPlaceholderOrIncompleteProfile(partner)) return false;
+      if (!partner || isSelfProfile(partner, currentUser)) return false;
+      const hasMsgs = (Array.isArray(conv.messages) && conv.messages.length > 0) || Boolean(conv.lastMessage);
+      if (!hasMsgs && isPlaceholderOrIncompleteProfile(partner)) return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
       const nameMatch = partner.name?.toLowerCase().includes(q);
-      const lastMsg = conv?.messages?.[conv.messages.length - 1];
-      const msgMatch = lastMsg?.text?.toLowerCase().includes(q);
+      const lastMsg = conv?.messages?.[conv.messages.length - 1] || conv.lastMessage;
+      const msgMatch = (lastMsg?.text || lastMsg?.content || lastMsg?.message)?.toLowerCase().includes(q);
       return nameMatch || msgMatch;
     });
   }, [activeConversationsList, currentUser, searchQuery]);
@@ -641,14 +693,21 @@ export default function MobileChatScreen({
       // Keep parent conversation list updated
       setConversations(prev => {
         const targetId = matchId;
-        const exists = prev.find(c => String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId));
+        const exists = prev.find(c => String(c.profileId || c.partner_id || c.partnerUser?.id) === matchId || (matchRegId && String(c.profileId || c.partner_id || c.partnerUser?.id) === matchRegId));
         if (exists) {
           return prev.map(c => {
-            if (String(c.profileId) === matchId || (matchRegId && String(c.profileId) === matchRegId)) {
+            if (String(c.profileId || c.partner_id || c.partnerUser?.id) === matchId || (matchRegId && String(c.profileId || c.partner_id || c.partnerUser?.id) === matchRegId)) {
               return {
                 ...c,
+                profileId: targetId,
+                partner_id: targetId,
+                partnerUser: c.partnerUser || partnerUser,
+                isAccepted: true,
+                status: 'accepted',
                 unreadCount: 0,
-                messages: deduplicateMessageList([...(c.messages || []), incomingMsg])
+                messages: deduplicateMessageList([...(c.messages || []), incomingMsg]),
+                lastMessage: incomingMsg,
+                updated_at: incomingMsg.created_at
               };
             }
             return c;
@@ -657,10 +716,19 @@ export default function MobileChatScreen({
           return [
             ...prev,
             {
+              id: activeConversationId || `conv_${targetId}_${currentUserId}`,
+              conversation_id: activeConversationId || `conv_${targetId}_${currentUserId}`,
+              conversationId: activeConversationId || `conv_${targetId}_${currentUserId}`,
               profileId: targetId,
+              partner_id: targetId,
               partnerUser: partnerUser,
+              isAccepted: true,
+              status: 'accepted',
               unreadCount: 0,
               messages: [incomingMsg],
+              lastMessage: incomingMsg,
+              created_at: incomingMsg.created_at,
+              updated_at: incomingMsg.created_at,
               autoReplies: []
             }
           ];
@@ -802,18 +870,25 @@ export default function MobileChatScreen({
     setConversations(prev => {
       const targetId = String(partnerUser.id);
       const targetRegId = partnerUser.register_id || partnerUser.registerId ? String(partnerUser.register_id || partnerUser.registerId) : null;
-      const exists = prev.find(c => String(c.profileId) === targetId || (targetRegId && String(c.profileId) === targetRegId));
+      const exists = prev.find(c => String(c.profileId || c.partner_id || c.partnerUser?.id) === targetId || (targetRegId && String(c.profileId || c.partner_id || c.partnerUser?.id) === targetRegId));
       if (exists) {
         return prev.map(c => {
-          if (String(c.profileId) === targetId || (targetRegId && String(c.profileId) === targetRegId)) {
+          if (String(c.profileId || c.partner_id || c.partnerUser?.id) === targetId || (targetRegId && String(c.profileId || c.partner_id || c.partnerUser?.id) === targetRegId)) {
             const currentMsgs = c.messages || [];
             if (currentMsgs.some(m => m.id === msgId || m.tempId === msgId)) {
               return c;
             }
             return {
               ...c,
+              profileId: targetId,
+              partner_id: targetId,
+              partnerUser: c.partnerUser || partnerUser,
+              isAccepted: true,
+              status: 'accepted',
               unreadCount: 0,
-              messages: deduplicateMessageList([...currentMsgs, newMsg])
+              messages: deduplicateMessageList([...currentMsgs, newMsg]),
+              lastMessage: newMsg,
+              updated_at: nowIso
             };
           }
           return c;
@@ -822,10 +897,19 @@ export default function MobileChatScreen({
         return [
           ...prev,
           {
+            id: activeConversationId || `conv_${targetId}_${currentUser.id}`,
+            conversation_id: activeConversationId || `conv_${targetId}_${currentUser.id}`,
+            conversationId: activeConversationId || `conv_${targetId}_${currentUser.id}`,
             profileId: targetId,
+            partner_id: targetId,
             partnerUser: partnerUser,
+            isAccepted: true,
+            status: 'accepted',
             unreadCount: 0,
             messages: [newMsg],
+            lastMessage: newMsg,
+            created_at: nowIso,
+            updated_at: nowIso,
             autoReplies: []
           }
         ];
@@ -1256,8 +1340,10 @@ export default function MobileChatScreen({
           isDarkMode ? 'bg-slate-900/90 border-slate-800 divide-slate-800' : 'bg-white border-slate-200 divide-slate-100'
         }`}>
           {filteredChatConversations.map(conv => {
-            const profile = conv.partnerUser;
-            if (!profile || isSelfProfile(profile, currentUser) || isPlaceholderOrIncompleteProfile(profile)) return null;
+            const profile = conv.partnerUser || { id: conv.profileId, name: 'Member' };
+            if (!profile || isSelfProfile(profile, currentUser)) return null;
+            const hasMsgs = (Array.isArray(conv.messages) && conv.messages.length > 0) || Boolean(conv.lastMessage);
+            if (!hasMsgs && isPlaceholderOrIncompleteProfile(profile)) return null;
 
             const lastMsg = conv?.messages?.[conv.messages.length - 1];
             const isLastMsgFromMe = lastMsg && (lastMsg.sender === 'me' || String(lastMsg.sender_id) === String(currentUser?.id));

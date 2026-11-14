@@ -20,21 +20,22 @@ import { safeGetTime } from './dateUtils';
  * so their own profile does not appear in active chats.
  */
 export function isConversationActiveAndRenderable(c, currentUser, profiles = [], declinedReceivedIds = []) {
-  if (!c || !c.profileId || !currentUser) return false;
+  if (!c || !currentUser) return false;
 
   const currentUserId = String(currentUser.id || '');
   const currentAuthId = String(currentUser.user_id || currentUser.userId || '');
   const currentUserRegId = currentUser.register_id || currentUser.registerId ? String(currentUser.register_id || currentUser.registerId) : null;
   const userIds = [currentUserId, currentAuthId, currentUserRegId].filter(Boolean);
 
-  const pid = String(c.profileId);
+  const pid = String(c.profileId || c.partner_id || c.partnerId || c.partnerUser?.id || c.partnerUser?.user_id || c.id || '');
+  if (!pid) return false;
 
   // Strictly exclude self-conversations by profile ID
   if (userIds.includes(pid)) return false;
   if (isSelfProfile({ id: pid }, currentUser)) return false;
 
   // Require at least one real message OR an accepted match
-  const hasMessages = Array.isArray(c.messages) && c.messages.length > 0;
+  const hasMessages = (Array.isArray(c.messages) && c.messages.length > 0) || Boolean(c.lastMessage);
   const isAccepted = c.isAccepted === true || c.status === 'accepted' || c.isMatch === true;
   if (!hasMessages && !isAccepted) return false;
 
@@ -55,7 +56,7 @@ export function isConversationActiveAndRenderable(c, currentUser, profiles = [],
     )
   );
 
-  const partner = matchedProfile || c.partnerUser;
+  const partner = matchedProfile || c.partnerUser || (pid ? { id: pid, name: `Member ${pid.slice(0, 8)}` } : null);
   if (!partner || !partner.id) return false;
 
   const partnerIdStr = String(partner.id);
@@ -92,7 +93,7 @@ export function getActiveConversations(conversations = [], currentUser, profiles
       continue;
     }
 
-    const pid = String(c.profileId);
+    const pid = String(c.profileId || c.partner_id || c.partnerId || c.partnerUser?.id || c.partnerUser?.user_id || c.id || '');
     const matchedProfile = (profiles || []).find(p => 
       p && (
         String(p.id) === pid || 
@@ -123,17 +124,26 @@ export function getActiveConversations(conversations = [], currentUser, profiles
       } catch (e) {}
     }
 
-    const hasMessages = Array.isArray(c.messages) && c.messages.length > 0;
+    if (!partner || !partner.id) {
+      partner = {
+        id: pid,
+        name: c.partnerUser?.name || `Member ${pid.slice(0, 8)}`,
+        photo: c.partnerUser?.photo || null,
+        ...(c.partnerUser || {})
+      };
+    }
+
+    const hasMessages = (Array.isArray(c.messages) && c.messages.length > 0) || Boolean(c.lastMessage);
     if (!partner || isSelfProfile(partner, currentUser)) continue;
     if (!hasMessages && isPlaceholderOrIncompleteProfile(partner)) continue;
 
-    const partnerIdStr = String(partner.id);
+    const partnerIdStr = String(partner.id || pid);
     if (seenIds.has(partnerIdStr)) continue;
     seenIds.add(partnerIdStr);
 
     const cleanMessages = deduplicateMessageList(c.messages || []);
     const isAccepted = c.isAccepted === true || c.status === 'accepted' || c.isMatch === true;
-    if (cleanMessages.length === 0 && !isAccepted) continue;
+    if (cleanMessages.length === 0 && !isAccepted && !c.lastMessage) continue;
 
     // Read receipt timestamp per chat partner in localStorage
     const lastReadTime = Number(
@@ -154,11 +164,20 @@ export function getActiveConversations(conversations = [], currentUser, profiles
       return true;
     }).length;
 
+    const finalLastMsg = cleanMessages.length > 0 ? cleanMessages[cleanMessages.length - 1] : (c.lastMessage || null);
+
     activeList.push({
       ...c,
+      id: c.id || c.conversation_id || c.conversationId || `conv_${partnerIdStr}_${currentUserId}`,
+      conversation_id: c.conversation_id || c.conversationId || `conv_${partnerIdStr}_${currentUserId}`,
+      profileId: partnerIdStr,
+      partner_id: partnerIdStr,
       messages: cleanMessages,
       partnerUser: partner,
-      unreadCount: actualUnread
+      unreadCount: actualUnread,
+      lastMessage: finalLastMsg,
+      isAccepted: true,
+      status: 'accepted'
     });
   }
 
