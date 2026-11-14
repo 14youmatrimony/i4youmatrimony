@@ -94,3 +94,80 @@ export function safeCalculateAge(dobVal, fallback = 26) {
   }
   return age;
 }
+
+/**
+ * Formats a message timestamp into strict 12-hour format with AM/PM (e.g., "10:30 AM", "2:15 PM").
+ * Guarantees uniform 12-hour display for both sender and receiver across all operating systems.
+ */
+export function formatChatTime12Hour(timestampOrDate, fallbackTime = null) {
+  if (!timestampOrDate && !fallbackTime) {
+    const now = new Date();
+    let h = now.getHours();
+    const m = now.getMinutes().toString().padStart(2, '0');
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${m} ${ampm}`;
+  }
+
+  // Handle strings that may already be formatted
+  if (typeof timestampOrDate === 'string') {
+    const trimmed = timestampOrDate.trim();
+    // 12-hour string (e.g., "10:30 AM", "02:15 pm")
+    const match12 = trimmed.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(AM|PM|am|pm)$/i);
+    if (match12) {
+      const h = parseInt(match12[1], 10);
+      const m = match12[2];
+      const ampm = match12[3].toUpperCase();
+      return `${h}:${m} ${ampm}`;
+    }
+    // 24-hour string (e.g., "14:30", "09:05", "14:30:00")
+    const match24 = trimmed.match(/^([01]?[0-9]|2[0-3]):([0-5][0-9])(:[0-5][0-9])?$/);
+    if (match24) {
+      let h = parseInt(match24[1], 10);
+      const m = match24[2];
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return `${h}:${m} ${ampm}`;
+    }
+  }
+
+  let d = safeParseDate(timestampOrDate);
+  if (!d && fallbackTime) {
+    return formatChatTime12Hour(fallbackTime, null);
+  }
+  if (!d) {
+    d = new Date();
+  }
+
+  let h = d.getHours();
+  const m = d.getMinutes().toString().padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
+}
+
+/**
+ * Returns center-aligned date divider label for chat view in English (e.g., "25 November 2026").
+ */
+export function formatChatDateDivider(timestampOrDate) {
+  const d = safeParseDate(timestampOrDate) || new Date();
+  const day = d.getDate();
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const month = monthNames[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
+/**
+ * Returns a standardized date grouping key (YYYY-MM-DD) for grouping chat messages by day.
+ */
+export function getMessageDateKey(timestampOrDate) {
+  const d = safeParseDate(timestampOrDate) || new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}

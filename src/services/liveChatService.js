@@ -13,7 +13,7 @@ import { supabase, isSupabaseConfigured } from './supabase.js';
 import { isSelfProfile } from '../utils/genderMatch.js';
 import { sendBackendMessage, mapSupabaseRowToProfile, isPlaceholderOrIncompleteProfile, PROFILE_FEED_COLUMNS } from './api.js';
 import { fcmNotificationService } from './fcmNotificationService.js';
-import { safeGetTime } from '../utils/dateUtils.js';
+import { safeGetTime, formatChatTime12Hour } from '../utils/dateUtils.js';
 
 class LiveChatService {
   constructor() {
@@ -357,7 +357,7 @@ class LiveChatService {
       text: message.text || '',
       timestamp: message.timestamp || nowIso,
       created_at: message.created_at || nowIso,
-      time: message.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: formatChatTime12Hour(message.time || message.created_at || message.timestamp || nowIso),
       status: 'delivered'
     };
 
@@ -450,6 +450,7 @@ class LiveChatService {
         sender_id: senderId,
         receiver_id: recipientId,
         text: payload.text,
+        time: formatChatTime12Hour(payload.time || nowIso),
         status: 'delivered',
         timestamp: nowIso,
         created_at: nowIso,
@@ -560,7 +561,7 @@ class LiveChatService {
           receiver_id: String(msg.receiver_id || (isSentByOwner ? partnerId : ownerId)),
           sender: isSentByOwner ? 'me' : 'them',
           text: msg.text,
-          time: new Date(msg.created_at || msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          time: formatChatTime12Hour(msg.created_at || msg.timestamp || Date.now()),
           timestamp: msg.timestamp || msg.created_at || new Date().toISOString(),
           status: msg.status || 'delivered',
           created_at: msg.created_at || msg.timestamp || new Date().toISOString()
@@ -776,11 +777,13 @@ class LiveChatService {
 
   /**
    * Fetch conversations and message history for a user directly from Supabase & local storage.
+   * Fetch conversations and message history for a user directly from Supabase & local storage.
    * Lists conversations where currentUser is EITHER sender_id OR receiver_id in messages table,
+   * OR where a message notification exists in notifications table,
    * OR where an accepted match exists in interests table.
    * Dynamically loads partner profiles and latest message previews.
    */
-  async fetchConversationsForUser(userOrId, allProfiles = []) {
+  async fetchConversationsForUser(userOrId, allProfiles = [], syncNotifications = []) {
     if (!userOrId) return [];
     const userIds = await this.resolveAllUserIdentifiers(userOrId);
     if (!userIds.length) return [];
@@ -791,8 +794,8 @@ class LiveChatService {
     if (isSupabaseConfigured() && supabase) {
       const cleanIds = userIds.map((id) => String(id).replace(/["']/g, '')).filter(Boolean);
 
-      // 1. Fetch latest messages involving the current user as sender or receiver (paginated/limited)
       if (cleanIds.length > 0) {
+        // 1. Fetch latest messages involving the current user as sender or receiver
         try {
           const [sentRes, recvRes] = await Promise.all([
             supabase
@@ -800,13 +803,13 @@ class LiveChatService {
               .select('id, conversation_id, sender_id, receiver_id, text, status, created_at')
               .in('sender_id', cleanIds)
               .order('created_at', { ascending: false })
-              .limit(50),
+              .limit(100),
             supabase
               .from('messages')
               .select('id, conversation_id, sender_id, receiver_id, text, status, created_at')
               .in('receiver_id', cleanIds)
               .order('created_at', { ascending: false })
-              .limit(50)
+              .limit(100)
           ]);
 
           const combined = [...(sentRes?.data || []), ...(recvRes?.data || [])];
@@ -823,7 +826,82 @@ class LiveChatService {
           console.warn('[LiveChat] Notice: Error querying messages table:', msgErr?.message || msgErr);
         }
 
-        // 2. Fetch all accepted matches/interests from interests table (lean projection)
+        // 2. Fetch and strictly sync all chat messages from notifications table
+        try {
+          const idList = cleanIds.join(',');
+          let notifRows = [];
+          try {
+            const { data: rowsWithOr } = await supabase
+              .from('notifications')
+              .select('id, recipient_id, recipient_register_id, type, title, message, metadata, is_read, created_at')
+              .in('type', ['chat_message', 'message', 'message_received', 'chat'])
+              .or(`recipient_id.in.(${idList}),recipient_register_id.in.(${idList})`)
+              .order('created_at', { ascending: false })
+              .limit(100);
+            if (Array.isArray(rowsWithOr)) notifRows = rowsWithOr;
+          } catch (e) {
+            const { data: fallbackNotifs } = await supabase
+              .from('notifications')
+              .select('id, recipient_id, recipient_register_id, type, title, message, metadata, is_read, created_at')
+              .in('type', ['chat_message', 'message', 'message_received', 'chat'])
+              .in('recipient_id', cleanIds)
+              .order('created_at', { ascending: false })
+              .limit(100);
+            if (Array.isArray(fallbackNotifs)) notifRows = fallbackNotifs;
+          }
+
+          (notifRows || []).forEach((row) => {
+            if (!row) return;
+            const meta = row.metadata || {};
+            const sId = String(meta.sender_id || meta.senderId || meta.from_user_id || row.sender_id || '');
+            const text = meta.text || row.message || '';
+            const msgId = meta.message_id || meta.messageId || `notif_msg_${row.id}`;
+            if (sId && text && !cleanIds.includes(sId)) {
+              remoteMessages.push({
+                id: msgId,
+                conversation_id: meta.conversation_id || meta.chatId || [cleanIds[0], sId].sort().join(':::'),
+                sender_id: sId,
+                receiver_id: row.recipient_id || cleanIds[0],
+                text: text,
+                status: row.is_read ? 'read' : 'delivered',
+                created_at: row.created_at || new Date().toISOString(),
+                _fromNotification: true,
+                _senderName: meta.senderName || row.title,
+                _senderPhoto: meta.senderPhoto || null
+              });
+            }
+          });
+        } catch (notifErr) {
+          console.warn('[LiveChat] Notice: Error syncing from notifications table:', notifErr?.message || notifErr);
+        }
+
+        // 3. Also ingest any in-memory or passed notifications
+        if (Array.isArray(syncNotifications) && syncNotifications.length > 0) {
+          syncNotifications.forEach((n) => {
+            if (!n) return;
+            const isMsg = n.type === 'chat_message' || n.type === 'message' || n.type === 'message_received' || n.type === 'chat';
+            if (!isMsg) return;
+            const sId = String(n.senderId || n.sender_id || n.profileId || n.metadata?.senderId || n.metadata?.sender_id || '');
+            const text = n.metadata?.text || n.message || '';
+            const msgId = n.id ? `notif_msg_${n.id}` : `notif_msg_${sId}_${safeGetTime(n.created_at || 0)}`;
+            if (sId && text && !cleanIds.includes(sId)) {
+              remoteMessages.push({
+                id: msgId,
+                conversation_id: n.conversationId || n.chat_id || n.chatId || n.metadata?.conversation_id || [cleanIds[0], sId].sort().join(':::'),
+                sender_id: sId,
+                receiver_id: cleanIds[0],
+                text: text,
+                status: n.isRead || n.is_read ? 'read' : 'delivered',
+                created_at: n.created_at || n.timestamp || new Date().toISOString(),
+                _fromNotification: true,
+                _senderName: n.senderName || n.sender_name || n.sender?.name || n.title,
+                _senderPhoto: n.senderPhoto || n.sender_photo || n.sender?.photo || null
+              });
+            }
+          });
+        }
+
+        // 4. Fetch all accepted matches/interests from interests table (lean projection)
         try {
           const [intSentRes, intRecvRes] = await Promise.all([
             supabase
@@ -867,13 +945,20 @@ class LiveChatService {
       if (!partnerId || userIds.includes(partnerId) || isSelfProfile({ id: partnerId }, userOrId)) return;
 
       if (!convMap.has(partnerId)) {
+        const partnerName = msg._senderName ? String(msg._senderName).replace(/^💬\s*/, '') : null;
+        const initialPartner = partnerName
+          ? { id: partnerId, name: partnerName, photo: msg._senderPhoto || null }
+          : null;
+
         convMap.set(partnerId, {
           profileId: partnerId,
           conversation_id: msg.conversation_id || [userIds[0], partnerId].sort().join(':::'),
           conversationId: msg.conversation_id || [userIds[0], partnerId].sort().join(':::'),
           unreadCount: 0,
           messages: [],
-          isAccepted: false,
+          partnerUser: initialPartner,
+          isAccepted: true,
+          status: 'accepted',
           updated_at: msg.created_at
         });
       }
@@ -894,7 +979,7 @@ class LiveChatService {
           sender: isSentByMe ? 'me' : 'them',
           text: msg.text,
           content: msg.text,
-          time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          time: formatChatTime12Hour(msg.created_at),
           timestamp: msg.created_at,
           status: msg.status || 'read',
           created_at: msg.created_at
@@ -1053,11 +1138,21 @@ class LiveChatService {
       }
     }
 
-    // Strictly discard any unresolved or placeholder partner profiles
+    // Ensure partner profile is resolved; for conversations with messages, guarantee fallback partner so they are never lost
     allPartnerIds.forEach((pid) => {
       const conv = convMap.get(pid);
-      if (!conv.partnerUser || isGenericName(conv.partnerUser.name || conv.partnerUser.full_name || conv.partnerUser.fullName) || isPlaceholderOrIncompleteProfile(conv.partnerUser)) {
-        conv.partnerUser = null;
+      if (!conv.partnerUser || isGenericName(conv.partnerUser.name || conv.partnerUser.full_name || conv.partnerUser.fullName)) {
+        if (conv.messages && conv.messages.length > 0) {
+          const fallbackName = conv.partnerUser?.name || `Member ${pid.slice(0, 8)}`;
+          conv.partnerUser = {
+            id: pid,
+            name: fallbackName,
+            photo: conv.partnerUser?.photo || null,
+            ...(conv.partnerUser || {})
+          };
+        } else {
+          conv.partnerUser = null;
+        }
       }
     });
 
@@ -1071,8 +1166,8 @@ class LiveChatService {
 
       const partnerObj = conv.partnerUser;
       if (!partnerObj || isSelfProfile(partnerObj, userOrId)) continue;
-      // Strictly exclude incomplete or placeholder profiles (e.g. "Member usr_...", "User...", missing valid names)
-      if (isPlaceholderOrIncompleteProfile(partnerObj)) continue;
+      // If conversation has no messages, exclude placeholder profiles; if it has real messages, preserve it in the inbox
+      if (cleanMsgs.length === 0 && isPlaceholderOrIncompleteProfile(partnerObj)) continue;
 
       const partnerIdStr = String(partnerObj.id || conv.profileId || '');
       const lastReadTime = Number(
@@ -1121,6 +1216,130 @@ class LiveChatService {
     } catch (e) {}
 
     return result;
+  }
+
+  /**
+   * Synchronizes incoming/existing notification messages directly into the conversation inbox list.
+   * Ensures that EVERY message that triggers a notification is strictly synced and visible in the Message Inbox.
+   */
+  syncNotificationMessages(notifications, currentUser, profiles = [], setConversations = null) {
+    if (!notifications || !Array.isArray(notifications) || notifications.length === 0 || !currentUser) {
+      return null;
+    }
+
+    const currentUserId = String(currentUser?.id || currentUser?.user_id || currentUser?.userId || '').trim();
+    if (!currentUserId) return null;
+
+    const messageNotifications = notifications.filter(n => {
+      if (!n) return false;
+      const type = String(n.type || '').toLowerCase();
+      return type.includes('message') || type.includes('chat');
+    });
+
+    if (messageNotifications.length === 0) return null;
+
+    const updateFn = (prevConversations = []) => {
+      const convs = Array.isArray(prevConversations) ? [...prevConversations] : [];
+
+      messageNotifications.forEach(notif => {
+        const metadata = notif.metadata || notif.data || {};
+        const senderId = String(
+          notif.sender_id ||
+          notif.senderId ||
+          metadata.sender_id ||
+          metadata.senderId ||
+          metadata.from_user_id ||
+          metadata.from ||
+          ''
+        ).trim();
+
+        // If no sender id or sender is current user, skip
+        if (!senderId || senderId === currentUserId) return;
+
+        const partnerUser = (profiles || []).find(p => String(p?.id || p?.user_id || '') === senderId) || {
+          id: senderId,
+          name: notif.sender_name || metadata.sender_name || notif.title || 'User',
+          photo: notif.sender_photo || metadata.sender_photo || notif.avatar || null
+        };
+
+        const msgText = notif.message || notif.body || notif.content || metadata.text || metadata.message || 'Sent a message';
+        const rawCreatedAt = notif.created_at || notif.timestamp || new Date().toISOString();
+        const msgTime = formatChatTime12Hour(rawCreatedAt);
+
+        const notifMsg = {
+          id: String(notif.id || `notif-msg-${Date.now()}-${senderId}`),
+          sender_id: senderId,
+          senderId: senderId,
+          receiver_id: currentUserId,
+          receiverId: currentUserId,
+          content: msgText,
+          message: msgText,
+          created_at: rawCreatedAt,
+          timestamp: rawCreatedAt,
+          time: msgTime,
+          is_read: Boolean(notif.is_read || notif.read),
+          source: 'notification'
+        };
+
+        // Find existing conversation with this sender
+        let existingIndex = convs.findIndex(c => {
+          const pid = String(c?.partnerUser?.id || c?.partnerUser?.user_id || c?.partner_id || c?.partnerId || c?.id || '');
+          return pid === senderId;
+        });
+
+        if (existingIndex >= 0) {
+          const existingConv = { ...convs[existingIndex] };
+          const msgs = Array.isArray(existingConv.messages) ? [...existingConv.messages] : [];
+
+          // Check if message is already in conversation
+          const alreadyExists = msgs.some(m => {
+            if (m.id && notifMsg.id && String(m.id) === String(notifMsg.id)) return true;
+            if (m.content === msgText && Math.abs(new Date(m.created_at || m.timestamp || 0) - new Date(rawCreatedAt)) < 60000) return true;
+            return false;
+          });
+
+          if (!alreadyExists) {
+            msgs.push(notifMsg);
+          }
+
+          existingConv.messages = msgs;
+          existingConv.lastMessage = notifMsg;
+          existingConv.updated_at = rawCreatedAt;
+          if (!notifMsg.is_read) {
+            existingConv.unreadCount = (existingConv.unreadCount || 0) + (alreadyExists ? 0 : 1);
+          }
+          convs[existingIndex] = existingConv;
+        } else {
+          // Create new conversation
+          const newConv = {
+            id: `conv_${senderId}_${currentUserId}`,
+            partnerUser,
+            partner_id: senderId,
+            unreadCount: notifMsg.is_read ? 0 : 1,
+            messages: [notifMsg],
+            lastMessage: notifMsg,
+            created_at: rawCreatedAt,
+            updated_at: rawCreatedAt
+          };
+          convs.unshift(newConv);
+        }
+      });
+
+      // Sort by updated_at descending
+      convs.sort((a, b) => {
+        const timeA = new Date(a.updated_at || a.lastMessage?.created_at || 0).getTime();
+        const timeB = new Date(b.updated_at || b.lastMessage?.created_at || 0).getTime();
+        return timeB - timeA;
+      });
+
+      return convs;
+    };
+
+    if (typeof setConversations === 'function') {
+      setConversations(updateFn);
+    }
+
+    return updateFn;
   }
 
   /**

@@ -65,8 +65,8 @@ export function isConversationActiveAndRenderable(c, currentUser, profiles = [],
   // Explicitly filter out current user so their own profile never appears in active chats
   if (isSelfProfile(partner, currentUser)) return false;
 
-  // Strictly filter out incomplete or placeholder partner profiles (e.g. "Member usr_...", "User...", etc.)
-  if (isPlaceholderOrIncompleteProfile(partner)) return false;
+  // For empty matches without messages, filter out incomplete or placeholder partner profiles
+  if (!hasMessages && isPlaceholderOrIncompleteProfile(partner)) return false;
 
   return true;
 }
@@ -123,7 +123,9 @@ export function getActiveConversations(conversations = [], currentUser, profiles
       } catch (e) {}
     }
 
-    if (!partner || isSelfProfile(partner, currentUser) || isPlaceholderOrIncompleteProfile(partner)) continue;
+    const hasMessages = Array.isArray(c.messages) && c.messages.length > 0;
+    if (!partner || isSelfProfile(partner, currentUser)) continue;
+    if (!hasMessages && isPlaceholderOrIncompleteProfile(partner)) continue;
 
     const partnerIdStr = String(partner.id);
     if (seenIds.has(partnerIdStr)) continue;

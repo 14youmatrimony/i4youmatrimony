@@ -19,6 +19,7 @@ import { sanitizeChatMessage } from '../../utils/security';
 import { useTheme } from '../../context/ThemeContext';
 import { isSelfProfile } from '../../utils/genderMatch';
 import { liveChatService, deduplicateMessageList } from '../../services/liveChatService';
+import { formatChatTime12Hour, formatChatDateDivider, getMessageDateKey } from '../../utils/dateUtils';
 import { useInterestStatus, interestService } from '../../services/interestService';
 import { getActiveConversations } from '../../utils/conversationUtils';
 import { fcmNotificationService } from '../../services/fcmNotificationService';
@@ -48,7 +49,8 @@ export default function MobileChatScreen({
   declinedReceivedIds = [],
   acceptedInterests = [],
   isConnected = false,
-  activeConv: propActiveConv = null
+  activeConv: propActiveConv = null,
+  notifications = []
 }) {
   const { accent, isDarkMode } = useTheme();
   const [inConversation, setInConversation] = useState(isDirectChatOpen);
@@ -71,11 +73,11 @@ export default function MobileChatScreen({
     }
   }, [inConversation, isDirectChatOpen, setIsDirectChatOpen]);
 
-  // Dedicated live conversation fetcher: queries Supabase directly for active chats & accepted matches
+  // Dedicated live conversation fetcher: queries Supabase directly for active chats, accepted matches & notifications
   const loadLiveConversations = useCallback(async () => {
     if (!currentUser) return;
     try {
-      const freshConvs = await liveChatService.fetchConversationsForUser(currentUser, profiles);
+      const freshConvs = await liveChatService.fetchConversationsForUser(currentUser, profiles, notifications);
       if (Array.isArray(freshConvs)) {
         setConversations(freshConvs);
       }
@@ -84,12 +86,19 @@ export default function MobileChatScreen({
     } finally {
       setIsLoadingConversations(false);
     }
-  }, [currentUser, profiles, setConversations]);
+  }, [currentUser, profiles, notifications, setConversations]);
 
   // Always fetch live conversations directly from Supabase on mount or when user changes
   useEffect(() => {
     loadLiveConversations();
   }, [loadLiveConversations]);
+
+  // Synchronize incoming notifications with message inbox
+  useEffect(() => {
+    if (notifications && notifications.length > 0 && currentUser) {
+      liveChatService.syncNotificationMessages(notifications, currentUser, profiles, setConversations);
+    }
+  }, [notifications, currentUser, profiles, setConversations]);
 
   // Real-time foreground FCM push notification, Live Chat service events & Supabase Realtime channel
   useEffect(() => {
@@ -621,7 +630,7 @@ export default function MobileChatScreen({
         receiver_id: rId || (isIncomingFromMe ? matchId : currentUserId),
         sender: isIncomingFromMe ? 'me' : 'them',
         text: incoming.text,
-        time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: formatChatTime12Hour(incoming.time || incoming.timestamp || incoming.created_at || Date.now()),
         status: isIncomingFromMe ? (incoming.status || 'delivered') : 'read',
         timestamp: incoming.timestamp || new Date().toISOString(),
         created_at: incoming.created_at || incoming.timestamp || new Date().toISOString()
@@ -781,7 +790,7 @@ export default function MobileChatScreen({
       receiver_id: String(partnerUser.id),
       sender: 'me',
       text: cleanText,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: formatChatTime12Hour(nowIso),
       status: 'sending',
       timestamp: nowIso,
       created_at: nowIso
@@ -1044,27 +1053,46 @@ export default function MobileChatScreen({
             displayMessages.map((m, index) => {
               const isMe = String(m.sender_id) === String(currentUser.id) || (!m.sender_id && m.sender === 'me');
               const uniqueKey = m.id || m.tempId || `msg_${isMe ? 'me' : 'them'}_${index}_${m.time || ''}`;
+              
+              // WhatsApp-style date divider grouping by date
+              const msgTimestamp = m.created_at || m.timestamp || m.time;
+              const currentDateKey = getMessageDateKey(msgTimestamp);
+              const prevMsg = index > 0 ? displayMessages[index - 1] : null;
+              const prevDateKey = prevMsg ? getMessageDateKey(prevMsg.created_at || prevMsg.timestamp || prevMsg.time) : null;
+              const isNewDate = index === 0 || currentDateKey !== prevDateKey;
+              const dateDividerLabel = formatChatDateDivider(msgTimestamp);
+              const formattedTime = formatChatTime12Hour(m.created_at || m.timestamp || m.time);
+
               return (
-                <div key={uniqueKey} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                  <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-sm ${
-                    isMe 
-                      ? 'bg-[#0B192C] text-white rounded-br-none' 
-                      : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
-                  }`}>
-                    {m.text}
-                  </div>
-                  <div className="flex items-center space-x-1 mt-1 text-[9px] text-slate-400 px-1">
-                    <span>{m.time}</span>
-                    {isMe && (
-                      <span className="inline-flex items-center ml-0.5" title={m.status || 'read'}>
-                        {m.status === 'sending' && <Clock className="w-3 h-3 text-slate-400 animate-spin" />}
-                        {m.status === 'sent' && <Check className="w-3 h-3 text-slate-400" />}
-                        {m.status === 'delivered' && <CheckCheck className="w-3 h-3 text-slate-400" />}
-                        {(m.status === 'read' || !m.status) && <CheckCheck className="w-3 h-3 text-blue-500" />}
+                <React.Fragment key={`date_group_${uniqueKey}`}>
+                  {isNewDate && (
+                    <div className="flex justify-center my-3.5 w-full select-none">
+                      <span className="px-3.5 py-1 rounded-full text-[11px] font-medium bg-slate-200/90 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-2xs border border-slate-300/60 dark:border-slate-700 tracking-wide">
+                        {dateDividerLabel}
                       </span>
-                    )}
+                    </div>
+                  )}
+                  <div key={uniqueKey} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                    <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                      isMe 
+                        ? 'bg-[#0B192C] text-white rounded-br-none' 
+                        : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
+                    }`}>
+                      {m.text}
+                    </div>
+                    <div className="flex items-center space-x-1 mt-1 text-[9px] text-slate-400 px-1">
+                      <span>{formattedTime}</span>
+                      {isMe && (
+                        <span className="inline-flex items-center ml-0.5" title={m.status || 'read'}>
+                          {m.status === 'sending' && <Clock className="w-3 h-3 text-slate-400 animate-spin" />}
+                          {m.status === 'sent' && <Check className="w-3 h-3 text-slate-400" />}
+                          {m.status === 'delivered' && <CheckCheck className="w-3 h-3 text-slate-400" />}
+                          {(m.status === 'read' || !m.status) && <CheckCheck className="w-3 h-3 text-blue-500" />}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </React.Fragment>
               );
             })
           )}
@@ -1289,7 +1317,7 @@ export default function MobileChatScreen({
                       )}
                     </div>
                     <span className="text-[10px] text-slate-400 shrink-0 ml-2">
-                      {lastMsg?.time || (conv.updated_at ? new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')}
+                      {formatChatTime12Hour(lastMsg?.created_at || lastMsg?.timestamp || lastMsg?.time || conv.updated_at)}
                     </span>
                   </div>
 

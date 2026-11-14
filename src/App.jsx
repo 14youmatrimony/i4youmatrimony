@@ -46,6 +46,7 @@ import IncomingCallModal from './components/calling/IncomingCallModal';
 import PermissionOnboardingModal, { checkPermissionsGranted } from './components/common/PermissionOnboardingModal';
 import { webrtcCallService } from './services/webrtcCallService';
 import { liveChatService, deduplicateMessageList } from './services/liveChatService';
+import { formatChatTime12Hour } from './utils/dateUtils';
 import { interestService } from './services/interestService';
 import { computeUnreadMessagesCount } from './utils/conversationUtils';
 import { fcmNotificationService } from './services/fcmNotificationService';
@@ -1922,6 +1923,8 @@ export default function App() {
     fetchUserNotifications(currentUser, profiles)
       .then((records) => {
         if (!isMounted || !Array.isArray(records)) return;
+        // Strictly sync every notification message directly into the Message Inbox
+        liveChatService.syncNotificationMessages(records, currentUser, profiles, setConversations);
         setNotifications((prev) => {
           const map = new Map();
           const curUid = currentUser?.id || currentUser?.register_id || currentUser?.registerId;
@@ -2366,7 +2369,7 @@ export default function App() {
         receiver_id: receiverId,
         sender: 'them',
         text,
-        time: incoming.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: formatChatTime12Hour(incoming.time || incoming.timestamp || incoming.created_at || Date.now()),
         status: 'read',
         timestamp: incoming.timestamp || new Date().toISOString(),
         created_at: new Date(incoming.timestamp || incoming.created_at || Date.now()).toISOString()
@@ -3573,7 +3576,9 @@ export default function App() {
           id: 'msg_' + Date.now(),
           sender: 'me',
           text: cleanMsg,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          timestamp: formatChatTime12Hour(new Date()),
+          time: formatChatTime12Hour(new Date()),
+          created_at: new Date().toISOString()
         };
         if (existing) {
           return arr.map(c => c && (c.profileId === targetId || (targetRegId && c.profileId === targetRegId))
@@ -3633,7 +3638,7 @@ export default function App() {
         id: 'interest-' + Date.now(),
         sender: 'me',
         text: customMessage || `Namaste! I reviewed your profile and would love to connect.`,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: formatChatTime12Hour(new Date()),
         status: 'delivered'
       };
 
@@ -6081,6 +6086,7 @@ export default function App() {
               declinedReceivedIds={declinedReceivedIds}
               acceptedInterests={acceptedInterests}
               isConnected={isProfileConnected(activeChatProfileId)}
+              notifications={notifications}
             />
           )}
 
