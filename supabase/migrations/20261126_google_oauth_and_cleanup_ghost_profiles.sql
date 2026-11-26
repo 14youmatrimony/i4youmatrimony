@@ -8,7 +8,10 @@
 
 -- 1. Create or replace the handle_new_user() trigger function on auth.users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $func$
 DECLARE
   v_raw_name TEXT;
   v_clean_name TEXT;
@@ -98,7 +101,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$func$;
 
 -- Reattach trigger on auth.users table
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
