@@ -2,8 +2,8 @@
 -- Migration: 20261126_google_oauth_and_cleanup_ghost_profiles.sql
 -- Description:
 -- 1. Updates handle_new_user() trigger on auth.users to use real Google account metadata
---    (full_name, avatar_url, email) and completely removes 'Google User' hardcoded fallback.
--- 2. Clean up legacy 'Google User' ghost rows and orphaned incomplete profiles.
+--    (full_name/name, avatar_url, email) and completely removes 'Google User' hardcoded fallback.
+-- 2. Cleans up legacy 'Google User' ghost rows and orphaned incomplete profiles.
 -- ==============================================================================
 
 -- 1. Create or replace the handle_new_user() trigger function on auth.users
@@ -57,10 +57,8 @@ BEGIN
   -- Insert new profile using authentic details
   INSERT INTO public.profiles (
     id,
-    user_id,
     register_id,
     name,
-    full_name,
     email,
     photo,
     photo_url,
@@ -73,9 +71,7 @@ BEGIN
   )
   VALUES (
     NEW.id::text,
-    NEW.id::text,
     v_reg_id,
-    v_clean_name,
     v_clean_name,
     NULLIF(v_email, ''),
     v_avatar_url,
@@ -94,11 +90,6 @@ BEGIN
       THEN EXCLUDED.name 
       ELSE public.profiles.name 
     END,
-    full_name = CASE 
-      WHEN public.profiles.full_name IS NULL OR public.profiles.full_name = '' OR LOWER(TRIM(public.profiles.full_name)) = 'google user' 
-      THEN EXCLUDED.full_name 
-      ELSE public.profiles.full_name 
-    END,
     avatar_url = COALESCE(public.profiles.avatar_url, EXCLUDED.avatar_url),
     photo = COALESCE(public.profiles.photo, EXCLUDED.photo),
     photo_url = COALESCE(public.profiles.photo_url, EXCLUDED.photo_url),
@@ -116,11 +107,10 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- 2. Cleanup orphaned, incomplete, and 'Google User' ghost profiles
--- Fix any existing profiles named 'Google User' if they have an email address
+-- Convert existing profiles named 'Google User' that have an email to their real name
 UPDATE public.profiles p
 SET 
-  name = INITCAP(REPLACE(REPLACE(SPLIT_PART(p.email, '@', 1), '.', ' '), '_', ' ')),
-  full_name = INITCAP(REPLACE(REPLACE(SPLIT_PART(p.email, '@', 1), '.', ' '), '_', ' '))
+  name = INITCAP(REPLACE(REPLACE(SPLIT_PART(p.email, '@', 1), '.', ' '), '_', ' '))
 WHERE LOWER(TRIM(p.name)) = 'google user'
   AND p.email IS NOT NULL 
   AND p.email LIKE '%@%';
