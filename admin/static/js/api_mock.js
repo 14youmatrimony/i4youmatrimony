@@ -1174,7 +1174,7 @@
               datasets: [{
                 label: 'Candidate Registrations',
                 data: monthlyTrend.map(m => m.signups),
-                borderColor: '#D4AF37',
+                borderColor: '#C58B76',
                 backgroundColor: 'rgba(212, 175, 55, 0.1)',
                 fill: true,
                 tension: 0.4
@@ -1195,7 +1195,7 @@
               labels: ['Aadhaar Approved', 'Govt ID', 'Basic', 'Pending'],
               datasets: [{
                 data: [aadhaarApprovedCount, govtIdOnlyCount, basicVerifiedCount, pendingCount],
-                backgroundColor: ['#10B981', '#3B82F6', '#DFB76C', '#EF4444'],
+                backgroundColor: ['#10B981', '#3B82F6', '#E6B8A2', '#EF4444'],
                 borderWidth: 0
               }]
             },
@@ -1203,7 +1203,7 @@
               labels: regionalData.map(r => r.state),
               datasets: [{
                 data: regionalData.map(r => r.count),
-                backgroundColor: ['#D4AF37', '#DFB76C', '#8C6D1F', '#3B82F6', '#8B5CF6', '#64748B']
+                backgroundColor: ['#C58B76', '#E6B8A2', '#7A2E43', '#3B82F6', '#8B5CF6', '#64748B']
               }]
             }
           }

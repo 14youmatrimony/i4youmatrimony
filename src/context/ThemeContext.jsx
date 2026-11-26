@@ -3,19 +3,19 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 export const ACCENT_PALETTES = {
   gold: {
     id: 'gold',
-    name: 'Royal Gold',
-    desc: 'Traditional Gold & Royal Navy',
-    primary: '#D4AF37',
-    primaryLight: '#DFB76C',
-    primaryDark: '#8C6D1F',
-    bgGradient: 'from-[#D4AF37] to-[#DFB76C]',
-    textClass: 'text-[#DFB76C]',
-    borderClass: 'border-[#D4AF37]',
-    bgClass: 'bg-[#D4AF37]',
-    ringClass: 'ring-[#DFB76C]',
-    glowColor: 'rgba(212, 175, 55, 0.4)',
-    badgeBg: 'bg-gradient-to-tr from-[#D4AF37] to-[#DFB76C]',
-    badgeText: 'text-[#0B192C]'
+    name: 'Blush Peach & Rose Gold',
+    desc: 'Soft Blush Peach & Rose Gold (Modern Light Pastel)',
+    primary: '#7A2E43',
+    primaryLight: '#C58B76',
+    primaryDark: '#612234',
+    bgGradient: 'from-[#7A2E43] to-[#C58B76]',
+    textClass: 'text-[#7A2E43]',
+    borderClass: 'border-[#E5D0C6]',
+    bgClass: 'bg-[#7A2E43]',
+    ringClass: 'ring-[#C58B76]',
+    glowColor: 'rgba(122, 46, 67, 0.2)',
+    badgeBg: 'bg-gradient-to-tr from-[#7A2E43] to-[#C58B76]',
+    badgeText: 'text-white'
   },
   rose: {
     id: 'rose',
@@ -63,7 +63,7 @@ export const ACCENT_PALETTES = {
     ringClass: 'ring-amber-400',
     glowColor: 'rgba(217, 119, 6, 0.4)',
     badgeBg: 'bg-gradient-to-tr from-[#D97706] to-[#FBBF24]',
-    badgeText: 'text-[#0B192C]'
+    badgeText: 'text-[#2C1A1D]'
   },
   sapphire: {
     id: 'sapphire',
@@ -92,9 +92,9 @@ export const BOTTOM_BAR_STYLES = {
   },
   classic: {
     id: 'classic',
-    name: 'Classic Solid Navy',
+    name: 'Classic Soft Ivory',
     badge: '🏛️ Traditional',
-    desc: 'Solid midnight navy tab bar with gold accents & safe bottom fill.'
+    desc: 'Soft warm ivory tab bar with rose gold accents & safe bottom fill.'
   },
   dock: {
     id: 'dock',

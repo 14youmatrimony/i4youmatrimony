@@ -80,17 +80,17 @@ export default function WebsiteStoriesReel({
   }, [activeStories, profiles, candidateStatuses, currentUser, targetCandidateGender]);
 
   return (
-    <section id="stories-section" className="py-7 sm:py-9 bg-[#07111E] border-b border-white/10 text-white select-none">
+    <section id="stories-section" className="py-7 sm:py-9 bg-[#FFFBF9] border-b border-[#E5D0C6] text-[#5A4649] select-none">
       <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4">
         
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4 sm:mb-5">
           <div>
-            <div className="inline-flex items-center space-x-1.5 text-[10px] sm:text-xs font-semibold text-[#DFB76C] uppercase tracking-wider mb-0.5">
-              <Sparkles className="w-3 h-3" />
+            <div className="inline-flex items-center space-x-1.5 text-[10px] sm:text-xs font-semibold text-[#7A2E43] uppercase tracking-wider mb-0.5">
+              <Sparkles className="w-3 h-3 text-[#C58B76]" />
               <span>Authentic Video & Photo Status Updates</span>
             </div>
-            <h2 className="text-base sm:text-xl md:text-2xl font-serif font-bold text-white">
+            <h2 className="text-base sm:text-xl md:text-2xl font-serif font-bold text-[#2C1A1D]">
               Glimpses into Real Lives & Family Values
             </h2>
           </div>
@@ -119,7 +119,7 @@ export default function WebsiteStoriesReel({
               }}
               className="flex flex-col items-center space-y-1.5 shrink-0 cursor-pointer group"
             >
-              <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-0.5 sm:p-1 bg-gradient-to-tr from-[#D4AF37] via-[#DFB76C] to-emerald-400 shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300">
+              <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-0.5 sm:p-1 bg-gradient-to-tr from-[#7A2E43] via-[#C58B76] to-[#E6B8A2] shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300">
                 {myStatus?.mediaUrl || currentUser?.photo ? (
                   <img 
                     src={myStatus?.mediaUrl || currentUser?.photo} 
@@ -133,39 +133,39 @@ export default function WebsiteStoriesReel({
                     }}
                   />
                 ) : myStatus?.type === 'text' ? (
-                  <div className={`w-full h-full flex items-center justify-center p-3 text-center text-xs font-semibold text-white rounded-xl sm:rounded-2xl bg-gradient-to-br ${myStatus?.bgGradient || 'from-[#0B192C] to-[#1E3A8A]'}`}>
+                  <div className={`w-full h-full flex items-center justify-center p-3 text-center text-xs font-semibold text-white rounded-xl sm:rounded-2xl bg-gradient-to-br ${myStatus?.bgGradient || 'from-[#7A2E43] to-[#612234]'}`}>
                     "{myStatus?.caption || myStatus?.text || 'My Status'}"
                   </div>
                 ) : (
-                  <div className="w-full h-full rounded-xl sm:rounded-2xl bg-gradient-to-b from-[#152E52] to-[#0B192C] flex flex-col items-center justify-center text-amber-200/70 p-2">
-                    <Camera className="w-7 h-7 mb-1" />
+                  <div className="w-full h-full rounded-xl sm:rounded-2xl bg-gradient-to-b from-[#FFF9F6] to-[#FDECE4] flex flex-col items-center justify-center text-[#7A2E43] p-2">
+                    <Camera className="w-7 h-7 mb-1 text-[#7A2E43]" />
                     <span className="text-[10px]">Add Status</span>
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent rounded-xl sm:rounded-2xl"></div>
                 
                 <div className="absolute bottom-2.5 left-2 right-2 sm:bottom-3 flex flex-col items-center text-center">
-                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#D4AF37] text-[#0B192C] flex items-center justify-center font-bold shadow-md group-hover:scale-110 transition-transform">
+                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#7A2E43] text-white flex items-center justify-center font-bold shadow-md group-hover:scale-110 transition-transform">
                     <Plus className="w-3.5 h-3.5 stroke-[3]" />
                   </span>
                   <span className="text-[10px] sm:text-[11px] font-semibold text-white mt-1 drop-shadow">My Story</span>
                 </div>
               </div>
-              <span className="text-[10px] sm:text-[11px] font-medium text-slate-400">Your Status</span>
+              <span className="text-[10px] sm:text-[11px] font-medium text-[#5A4649]">Your Status</span>
             </div>
           ) : (
             <div 
               onClick={() => onOpenLogin?.()}
               className="flex flex-col items-center space-y-1.5 shrink-0 cursor-pointer group"
             >
-              <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-1 bg-gradient-to-tr from-[#D4AF37]/50 via-white/10 to-[#DFB76C]/30 shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300 border border-[#D4AF37]/40 flex flex-col items-center justify-center text-center bg-[#0B192C]">
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#DFB76C] mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform">
+              <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-1 bg-gradient-to-tr from-[#7A2E43]/40 via-white/10 to-[#C58B76]/30 shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300 border border-[#E5D0C6] flex flex-col items-center justify-center text-center bg-white">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#FDECE4] border border-[#E5D0C6] flex items-center justify-center text-[#7A2E43] mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform">
                   <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
-                <span className="text-[11px] sm:text-xs font-semibold text-white leading-tight px-1">Share Intro</span>
-                <span className="text-[8.5px] sm:text-[9.5px] text-[#DFB76C] font-mono mt-0.5">60s Video</span>
+                <span className="text-[11px] sm:text-xs font-semibold text-[#2C1A1D] leading-tight px-1">Share Intro</span>
+                <span className="text-[8.5px] sm:text-[9.5px] text-[#7A2E43] font-mono mt-0.5">60s Video</span>
               </div>
-              <span className="text-[10px] sm:text-[11px] font-medium text-[#DFB76C]">Post Story</span>
+              <span className="text-[10px] sm:text-[11px] font-medium text-[#7A2E43]">Post Story</span>
             </div>
           )}
 
@@ -183,7 +183,7 @@ export default function WebsiteStoriesReel({
                 }}
                 className="flex flex-col items-center space-y-1.5 shrink-0 cursor-pointer group"
               >
-                <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-0.5 sm:p-1 bg-gradient-to-tr from-[#D4AF37] via-[#DFB76C] to-[#8C6D1F] shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300">
+                <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-0.5 sm:p-1 bg-gradient-to-tr from-[#7A2E43] via-[#C58B76] to-[#E6B8A2] shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300">
                   
                   {status?.type === 'video' ? (
                     <div className="w-full h-full rounded-xl sm:rounded-2xl overflow-hidden relative bg-slate-900">
@@ -193,7 +193,7 @@ export default function WebsiteStoriesReel({
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                       />
                       <div className="absolute inset-0 bg-black/35 flex items-center justify-center">
-                        <span className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-rose-600/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform backdrop-blur-xs">
+                        <span className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#7A2E43]/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform backdrop-blur-xs">
                           <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white translate-x-0.5" />
                         </span>
                       </div>
@@ -207,7 +207,7 @@ export default function WebsiteStoriesReel({
                       />
                     </div>
                   ) : (
-                    <div className={`w-full h-full rounded-xl sm:rounded-2xl bg-gradient-to-br ${status?.bgGradient || 'from-emerald-900 to-teal-950'} p-3 sm:p-3.5 flex items-center justify-center text-center`}>
+                    <div className={`w-full h-full rounded-xl sm:rounded-2xl bg-gradient-to-br ${status?.bgGradient || 'from-[#7A2E43] to-[#612234]'} p-3 sm:p-3.5 flex items-center justify-center text-center`}>
                       <p className="text-[10px] sm:text-[11px] md:text-xs text-white/90 italic font-serif line-clamp-4 leading-normal px-1">
                         "{status?.text}"
                       </p>
@@ -221,7 +221,7 @@ export default function WebsiteStoriesReel({
                         <Video className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {status?.duration ? `${status.duration}s` : 'Video'}
                       </span>
                     ) : status?.type === 'photo' ? (
-                      <span className="px-1.5 py-0.5 rounded-full bg-blue-600/90 text-white text-[8px] sm:text-[9px] font-semibold flex items-center gap-1 shadow-xs backdrop-blur-xs">
+                      <span className="px-1.5 py-0.5 rounded-full bg-[#7A2E43]/90 text-white text-[8px] sm:text-[9px] font-semibold flex items-center gap-1 shadow-xs backdrop-blur-xs">
                         <Camera className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> Photo
                       </span>
                     ) : (
@@ -232,7 +232,7 @@ export default function WebsiteStoriesReel({
                   </div>
 
                   {/* Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#07111E] via-[#07111E]/30 to-transparent rounded-xl sm:rounded-2xl pointer-events-none"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#2C1A1D] via-[#2C1A1D]/30 to-transparent rounded-xl sm:rounded-2xl pointer-events-none"></div>
 
                   {/* Candidate Name & Timestamp */}
                   <div className="absolute bottom-2 left-2 right-2 sm:bottom-2.5 sm:left-2.5 sm:right-2.5 text-left pointer-events-none">
@@ -241,10 +241,10 @@ export default function WebsiteStoriesReel({
                         {profile.name.split(' ')[0]}
                       </p>
                       {profile.verified && (
-                        <ShieldCheck className="w-3 h-3 text-[#DFB76C] shrink-0" />
+                        <ShieldCheck className="w-3 h-3 text-[#E6B8A2] shrink-0" />
                       )}
                     </div>
-                    <p className="text-[8.5px] sm:text-[9.5px] text-[#DFB76C]/85 font-mono leading-tight mt-0.5">
+                    <p className="text-[8.5px] sm:text-[9.5px] text-[#FDECE4]/85 font-mono leading-tight mt-0.5">
                       {status.timestamp || 'Today'}
                     </p>
                   </div>
@@ -252,7 +252,7 @@ export default function WebsiteStoriesReel({
                 </div>
 
                 {/* Location text under card */}
-                <span className="text-[10px] sm:text-[11px] text-slate-400 max-w-[120px] sm:max-w-[150px] md:max-w-[180px] truncate text-center font-normal">
+                <span className="text-[10px] sm:text-[11px] text-[#5A4649] max-w-[120px] sm:max-w-[150px] md:max-w-[180px] truncate text-center font-normal">
                   {profile.district || profile.city}
                 </span>
 

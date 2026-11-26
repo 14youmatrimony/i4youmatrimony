@@ -181,12 +181,12 @@ export default function WorldCountrySearchSelect({
       {label && (
         <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
           <span className="flex items-center gap-1">
-            <Globe className="w-3.5 h-3.5 text-[#8C6D1F]" />
+            <Globe className="w-3.5 h-3.5 text-[#7A2E43]" />
             <span>{label}</span>
             {required && <span className="text-rose-500">*</span>}
           </span>
           {selectedCountryObj && (
-            <span className="text-[10px] font-bold text-[#8C6D1F] bg-amber-50 px-2 py-0.2 rounded-full border border-amber-200">
+            <span className="text-[10px] font-bold text-[#7A2E43] bg-[#FFF9F6] px-2 py-0.2 rounded-full border border-[#E5D0C6]">
               {selectedCountryObj.code}
             </span>
           )}
@@ -201,7 +201,7 @@ export default function WorldCountrySearchSelect({
         }}
         className={`w-full min-h-[38px] px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 bg-white ${
           isOpen 
-            ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/20 shadow-xs' 
+            ? 'border-[#C58B76] ring-2 ring-[#C58B76]/20 shadow-xs' 
             : error 
             ? 'border-rose-400 bg-rose-50/20' 
             : 'border-slate-300 hover:border-slate-400'
@@ -242,7 +242,7 @@ export default function WorldCountrySearchSelect({
               <X className="w-3.5 h-3.5" />
             </button>
           )}
-          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#8C6D1F]' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#7A2E43]' : ''}`} />
         </div>
       </div>
 
@@ -260,7 +260,7 @@ export default function WorldCountrySearchSelect({
           {/* Quick Header */}
           <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-500 select-none">
             <span>Top 100 World Countries</span>
-            <span className="text-[#8C6D1F]">
+            <span className="text-[#7A2E43]">
               {filteredCountries.length} countries
             </span>
           </div>
@@ -284,9 +284,9 @@ export default function WorldCountrySearchSelect({
                 onMouseEnter={() => setHighlightIndex(0)}
                 className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
                   highlightIndex === 0
-                    ? 'bg-amber-100/80 text-[#8C6D1F]'
+                    ? 'bg-[#FDF2EE] text-[#7A2E43]'
                     : value === 'Any' || value === 'Working Abroad (NRI)'
-                    ? 'bg-[#0B192C] text-[#DFB76C]'
+                    ? 'bg-[#7A2E43] text-white'
                     : 'hover:bg-slate-100 text-slate-800'
                 }`}
               >
@@ -297,7 +297,7 @@ export default function WorldCountrySearchSelect({
                   </span>
                 </div>
                 {(value === 'Any' || value === 'Working Abroad (NRI)') && (
-                  <Check className="w-3.5 h-3.5 text-[#DFB76C] shrink-0 ml-2" />
+                  <Check className="w-3.5 h-3.5 text-white shrink-0 ml-2" />
                 )}
               </button>
             )}
@@ -326,9 +326,9 @@ export default function WorldCountrySearchSelect({
                     onMouseEnter={() => setHighlightIndex(navIndex)}
                     className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${
                       isSelected
-                        ? 'bg-[#0B192C] text-[#DFB76C] font-bold shadow-2xs'
+                        ? 'bg-[#7A2E43] text-white font-bold shadow-2xs'
                         : isHighlighted
-                        ? 'bg-amber-50 text-[#8C6D1F]'
+                        ? 'bg-[#FDF2EE] text-[#7A2E43]'
                         : 'hover:bg-slate-100 text-slate-800'
                     }`}
                   >
@@ -336,13 +336,13 @@ export default function WorldCountrySearchSelect({
                       <span className="text-base leading-none shrink-0">{c.flag}</span>
                       <span className="truncate">{c.name}</span>
                       {c.popular && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-[#7A2E43] shrink-0">
                           NRI Top
                         </span>
                       )}
                     </div>
                     {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-[#DFB76C] shrink-0 ml-2" />
+                      <Check className="w-3.5 h-3.5 text-white shrink-0 ml-2" />
                     )}
                   </button>
                 );

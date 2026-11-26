@@ -102,11 +102,11 @@ export default function SuperAdminPanel({ onLogout, onBackToSite }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#070F1E] text-slate-100 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#1A1012] text-slate-100 overflow-hidden">
       {/* Top Admin Security Control Bar */}
-      <header className="h-12 bg-[#0B192C] border-b border-[#D4AF37]/30 px-4 flex items-center justify-between shrink-0 z-20 shadow-md">
+      <header className="h-12 bg-[#2C1A1D] border-b border-[#C58B76]/30 px-4 flex items-center justify-between shrink-0 z-20 shadow-md">
         <div className="flex items-center space-x-2.5">
-          <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-[#DFB76C]/40 flex items-center justify-center text-[#DFB76C]">
+          <div className="w-7 h-7 rounded-lg bg-[#7A2E43]/40 border border-[#C58B76]/40 flex items-center justify-center text-[#E6B8A2]">
             <ShieldCheck className="w-4 h-4" />
           </div>
           <span className="font-serif font-bold text-xs sm:text-sm text-white tracking-wide">
@@ -120,8 +120,8 @@ export default function SuperAdminPanel({ onLogout, onBackToSite }) {
 
         <div className="flex items-center space-x-2 sm:space-x-3">
           {/* Dynamic Daily Contact Limit Control */}
-          <div className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg bg-black/40 border border-[#DFB76C]/30 shadow-inner">
-            <Eye className="w-3.5 h-3.5 text-[#DFB76C]" />
+          <div className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg bg-black/40 border border-[#C58B76]/30 shadow-inner">
+            <Eye className="w-3.5 h-3.5 text-[#E6B8A2]" />
             <span className="text-[11px] text-slate-300 font-semibold hidden md:inline">
               Daily Limit:
             </span>
@@ -131,14 +131,14 @@ export default function SuperAdminPanel({ onLogout, onBackToSite }) {
               max="1000"
               value={dailyLimitInput}
               onChange={(e) => setDailyLimitInput(e.target.value)}
-              className="w-12 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-amber-300 font-mono text-xs text-center focus:outline-none focus:border-[#DFB76C]"
+              className="w-12 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-[#E6B8A2] font-mono text-xs text-center focus:outline-none focus:border-[#C58B76]"
               title="Daily contact view limit per user"
             />
             <button
               type="button"
               onClick={handleSaveDailyLimit}
               disabled={isSavingLimit}
-              className="px-2 py-0.5 rounded bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              className="px-2 py-0.5 rounded bg-[#7A2E43] hover:bg-[#612234] text-white font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
               title="Save daily contact limit"
             >
               {isSavingLimit ? (
@@ -194,7 +194,7 @@ export default function SuperAdminPanel({ onLogout, onBackToSite }) {
       </header>
 
       {/* Embedded Super Admin Management Engine */}
-      <main className="flex-1 w-full h-full relative overflow-hidden bg-[#070F1E]">
+      <main className="flex-1 w-full h-full relative overflow-hidden bg-[#1A1012]">
         <iframe
           src="/super-admin.html"
           title="Super Admin Workspace"

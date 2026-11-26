@@ -44,16 +44,16 @@ serve(async (req) => {
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #F8FAFC; margin: 0; padding: 20px; color: #1E293B; }
             .container { max-width: 580px; margin: 0 auto; background: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #E2E8F0; }
-            .header { background: linear-gradient(135deg, #0B192C 0%, #152E52 100%); padding: 36px 24px; text-align: center; }
-            .brand { font-size: 26px; font-weight: 800; color: #DFB76C; letter-spacing: 1.5px; margin: 0; }
+            .header { background: linear-gradient(135deg, #7A2E43 0%, #612234 100%); padding: 36px 24px; text-align: center; }
+            .brand { font-size: 26px; font-weight: 800; color: #E6B8A2; letter-spacing: 1.5px; margin: 0; }
             .tagline { color: #94A3B8; font-size: 11px; margin-top: 6px; text-transform: uppercase; letter-spacing: 2px; }
             .content { padding: 32px 28px; }
-            .greeting { font-size: 20px; font-weight: 700; color: #0B192C; margin-bottom: 12px; }
-            .card { background: #FFFDF7; border: 2px dashed #D4AF37; border-radius: 16px; padding: 24px; text-align: center; margin: 24px 0; }
-            .card-label { font-size: 11px; text-transform: uppercase; color: #8C6D1F; font-weight: 700; letter-spacing: 1px; }
-            .reg-id { font-size: 34px; font-weight: 800; color: #0B192C; letter-spacing: 2px; margin: 8px 0; }
+            .greeting { font-size: 20px; font-weight: 700; color: #2C1A1D; margin-bottom: 12px; }
+            .card { background: #FFF9F6; border: 2px dashed #C58B76; border-radius: 16px; padding: 24px; text-align: center; margin: 24px 0; }
+            .card-label { font-size: 11px; text-transform: uppercase; color: #7A2E43; font-weight: 700; letter-spacing: 1px; }
+            .reg-id { font-size: 34px; font-weight: 800; color: #2C1A1D; letter-spacing: 2px; margin: 8px 0; }
             .card-subtext { font-size: 12px; color: #64748B; margin: 0; }
-            .cta-button { display: inline-block; background: linear-gradient(135deg, #D4AF37 0%, #DFB76C 100%); color: #0B192C; text-decoration: none; font-weight: 800; font-size: 14px; padding: 14px 34px; border-radius: 12px; margin: 12px 0; }
+            .cta-button { display: inline-block; background: #7A2E43; color: #FFFFFF; text-decoration: none; font-weight: 800; font-size: 14px; padding: 14px 34px; border-radius: 12px; margin: 12px 0; }
             .footer { background: #F1F5F9; padding: 20px; text-align: center; font-size: 11px; color: #64748B; line-height: 1.6; }
           </style>
         </head>
@@ -101,12 +101,12 @@ serve(async (req) => {
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #F8FAFC; margin: 0; padding: 20px; color: #1E293B; }
             .container { max-width: 580px; margin: 0 auto; background: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #E2E8F0; }
-            .header { background: #0B192C; padding: 28px 24px; text-align: center; }
-            .brand { font-size: 22px; font-weight: 800; color: #DFB76C; margin: 0; }
+            .header { background: #2C1A1D; padding: 28px 24px; text-align: center; }
+            .brand { font-size: 22px; font-weight: 800; color: #E6B8A2; margin: 0; }
             .content { padding: 32px 28px; text-align: center; }
-            .alert-title { font-size: 19px; font-weight: 700; color: #0B192C; margin-bottom: 8px; }
-            .message-box { background: #F8FAFC; border-left: 4px solid #D4AF37; padding: 16px 20px; border-radius: 8px; text-align: left; margin: 20px 0; font-size: 14px; color: #334155; line-height: 1.5; }
-            .cta-button { display: inline-block; background: linear-gradient(135deg, #D4AF37 0%, #DFB76C 100%); color: #0B192C; text-decoration: none; font-weight: 800; font-size: 13px; padding: 12px 28px; border-radius: 10px; margin-top: 10px; }
+            .alert-title { font-size: 19px; font-weight: 700; color: #2C1A1D; margin-bottom: 8px; }
+            .message-box { background: #FFF9F6; border-left: 4px solid #C58B76; padding: 16px 20px; border-radius: 8px; text-align: left; margin: 20px 0; font-size: 14px; color: #334155; line-height: 1.5; }
+            .cta-button { display: inline-block; background: #7A2E43; color: #FFFFFF; text-decoration: none; font-weight: 800; font-size: 13px; padding: 12px 28px; border-radius: 10px; margin-top: 10px; }
             .footer { background: #F1F5F9; padding: 16px; text-align: center; font-size: 11px; color: #64748B; }
           </style>
         </head>

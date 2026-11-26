@@ -165,7 +165,7 @@ export default function MobileSearchScreen({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search mobile number, name, district..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:bg-white focus:ring-2 focus:ring-[#D4AF37] focus:outline-none"
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-[#E5D0C6] text-xs focus:bg-white focus:ring-2 focus:ring-[#C58B76] focus:outline-none"
             />
           </div>
 
@@ -175,15 +175,15 @@ export default function MobileSearchScreen({
               onClick={onOpenFilter}
               className={`h-[35px] px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-2xs ${
                 activeFiltersCount > 0
-                  ? 'border-[#D4AF37] bg-amber-50/90 text-[#8C6D1F]'
-                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:border-[#D4AF37]/40'
+                  ? 'border-[#E5D0C6] bg-[#FFF9F6] text-[#7A2E43]'
+                  : 'border-[#E5D0C6] bg-slate-50 text-slate-700 hover:bg-slate-100 hover:border-[#C58B76]/50'
               }`}
               title="Filter Matches"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-[#8C6D1F]" />
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#7A2E43]" />
               <span>Filter</span>
               {activeFiltersCount > 0 && (
-                <span className="min-w-4 h-4 px-1 bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] font-extrabold text-[9px] rounded-full flex items-center justify-center shadow-xs">
+                <span className="min-w-4 h-4 px-1 bg-[#7A2E43] text-white font-extrabold text-[9px] rounded-full flex items-center justify-center shadow-xs">
                   {activeFiltersCount}
                 </span>
               )}
@@ -205,7 +205,7 @@ export default function MobileSearchScreen({
             searchPlaceholder="Search state..."
             buttonClassName={`h-9 px-2 rounded-xl border text-[11px] font-semibold ${
               selectedState !== 'All States'
-                ? 'border-[#D4AF37] bg-amber-50/90 text-[#8C6D1F] shadow-2xs font-bold'
+                ? 'border-[#E5D0C6] bg-[#FFF9F6] text-[#7A2E43] shadow-2xs font-bold'
                 : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
             }`}
           />
@@ -220,7 +220,7 @@ export default function MobileSearchScreen({
             searchPlaceholder="Search district..."
             buttonClassName={`h-9 px-2 rounded-xl border text-[11px] font-semibold ${
               selectedDistrict !== 'All Districts'
-                ? 'border-[#D4AF37] bg-amber-50/90 text-[#8C6D1F] shadow-2xs font-bold'
+                ? 'border-[#E5D0C6] bg-[#FFF9F6] text-[#7A2E43] shadow-2xs font-bold'
                 : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
             }`}
           />
@@ -235,7 +235,7 @@ export default function MobileSearchScreen({
             searchPlaceholder="Search religion..."
             buttonClassName={`h-9 px-2 rounded-xl border text-[11px] font-semibold ${
               selectedReligion !== 'All Religions'
-                ? 'border-[#D4AF37] bg-amber-50/90 text-[#8C6D1F] shadow-2xs font-bold'
+                ? 'border-[#E5D0C6] bg-[#FFF9F6] text-[#7A2E43] shadow-2xs font-bold'
                 : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
             }`}
           />
@@ -246,11 +246,11 @@ export default function MobileSearchScreen({
         <div className="space-y-1.5 pt-1.5 border-t border-slate-100 overflow-visible relative z-30">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
             <span className="flex items-center gap-1">
-              <Globe className="w-3.5 h-3.5 text-[#8C6D1F]" />
+              <Globe className="w-3.5 h-3.5 text-[#7A2E43]" />
               <span>Country / NRI Filter</span>
             </span>
             {selectedCountry !== 'All Profiles' && (
-              <span className="text-[10px] text-[#8C6D1F] font-bold bg-amber-50 px-2 py-0.2 rounded-full border border-amber-200">
+              <span className="text-[10px] text-[#7A2E43] font-bold bg-[#FFF9F6] px-2 py-0.2 rounded-full border border-[#E5D0C6]">
                 {selectedCountry}
               </span>
             )}
@@ -280,7 +280,7 @@ export default function MobileSearchScreen({
             </button>
           )}
         </div>
-        <span className="text-[11px] text-[#8C6D1F] font-semibold">
+        <span className="text-[11px] text-[#7A2E43] font-semibold">
           {selectedCountry !== 'All Profiles'
             ? `✈️ ${selectedCountry}`
             : selectedDistrict !== 'All Districts'
@@ -346,15 +346,15 @@ export default function MobileSearchScreen({
                     className="w-full h-full object-cover select-none pointer-events-none" 
                   />
                 ) : null}
-                <div className={`search-avatar-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] font-serif ${resolveProfilePhoto(profile) ? 'hidden' : ''}`}>
-                  <div className="w-10 h-10 rounded-full border border-[#DFB76C]/40 flex items-center justify-center bg-[#0B192C]/80 shadow-xs mb-1">
-                    <span className="text-base font-bold font-serif text-[#DFB76C]">
+                <div className={`search-avatar-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#7A2E43] via-[#612234] to-[#2C1A1D] text-[#E6B8A2] font-serif ${resolveProfilePhoto(profile) ? 'hidden' : ''}`}>
+                  <div className="w-10 h-10 rounded-full border border-[#E5D0C6]/40 flex items-center justify-center bg-[#7A2E43]/80 shadow-xs mb-1">
+                    <span className="text-base font-bold font-serif text-[#E6B8A2]">
                       {(profile.name || 'C').charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <span className="text-[8px] font-sans text-slate-300">Verified</span>
                 </div>
-                <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded-full text-[8px] font-bold bg-[#D4AF37] text-[#0B192C]">
+                <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded-full text-[8px] font-bold bg-[#7A2E43] text-white">
                   {profile.matchScore}%
                 </span>
               </div>
@@ -393,7 +393,7 @@ export default function MobileSearchScreen({
                   </p>
                   {Boolean(profile.isPaid || (profile.membership && profile.membership !== 'free')) ? (
                     <span className="text-[8px] px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-900 border border-amber-200/80 font-black flex items-center gap-0.5">
-                      <Crown className="w-2.5 h-2.5 text-[#D4AF37] fill-current" />
+                      <Crown className="w-2.5 h-2.5 text-[#C58B76] fill-current" />
                       <span>Paid</span>
                     </span>
                   ) : (
@@ -404,7 +404,7 @@ export default function MobileSearchScreen({
                 </div>
 
                 <p className="text-[11px] text-slate-600 font-medium truncate mt-0.5 flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-[#DFB76C] shrink-0" />
+                  <MapPin className="w-3 h-3 text-[#C58B76] shrink-0" />
                   {isNriProfile(profile) ? (
                     <span>
                       <strong className="text-slate-800">
@@ -454,7 +454,7 @@ export default function MobileSearchScreen({
                           onToggleInterest(profile.id);
                         }
                       }}
-                      className="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center space-x-1 cursor-pointer bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:brightness-105 active:scale-95 transition-all shadow-xs"
+                      className="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center space-x-1 cursor-pointer bg-[#7A2E43] hover:bg-[#612234] text-white active:scale-95 transition-all shadow-xs"
                       title="Send Interest"
                     >
                       <Send className="w-3.5 h-3.5" />

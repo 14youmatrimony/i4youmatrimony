@@ -163,7 +163,7 @@ export default function IncomingCallModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 w-full h-[100dvh] bg-gradient-to-b from-[#0B192C] via-[#060D17] to-[#040911] text-white overflow-hidden select-none flex flex-col items-center justify-between animate-in fade-in"
+      className="fixed inset-0 z-50 w-full h-[100dvh] bg-gradient-to-b from-[#2C1A1D] via-[#1A0E10] to-[#0D0708] text-white overflow-hidden select-none flex flex-col items-center justify-between animate-in fade-in"
       style={{
         height: '100dvh',
         width: '100%',
@@ -177,7 +177,7 @@ export default function IncomingCallModal({
       onClick={(e) => e.stopPropagation()}
     >
       {/* Glow Effects */}
-      <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-[#D4AF37]/20 to-transparent pointer-events-none" />
+      <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-[#C58B76]/20 to-transparent pointer-events-none" />
       <div className="absolute top-1/4 w-60 h-60 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none animate-pulse" />
 
       {/* Inner Responsive Column */}
@@ -200,13 +200,13 @@ export default function IncomingCallModal({
             )}
             {caller?.city && (
               <p className="text-xs text-slate-400 flex items-center justify-center gap-1 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-[#DFB76C]" />
+                <MapPin className="w-3.5 h-3.5 text-[#E6B8A2]" />
                 <span>{caller.city}</span>
               </p>
             )}
           </div>
 
-          <p className="text-xs text-[#DFB76C] font-semibold pt-1">
+          <p className="text-xs text-[#E6B8A2] font-semibold pt-1">
             {isVideo ? 'Incoming video call...' : 'Incoming voice call...'}
           </p>
         </div>
@@ -214,9 +214,9 @@ export default function IncomingCallModal({
         {/* Pulsing Avatar */}
         <div className="relative my-auto py-3 sm:py-6 flex items-center justify-center shrink-0">
           <div className="absolute w-44 h-44 sm:w-48 sm:h-48 rounded-full border-2 border-emerald-500/40 animate-ping pointer-events-none" />
-          <div className="absolute w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-[#D4AF37]/50 animate-pulse pointer-events-none" />
+          <div className="absolute w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-[#C58B76]/50 animate-pulse pointer-events-none" />
           
-          <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-4 ring-[#D4AF37] shadow-2xl">
+          <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-4 ring-[#C58B76] shadow-2xl">
             <SafeAvatar 
               src={displayPhoto} 
               alt={displayName} 
@@ -224,7 +224,7 @@ export default function IncomingCallModal({
               size="2xl"
               className="w-full h-full object-cover"
             />
-            <div className="absolute bottom-1 right-1 bg-emerald-600 text-white p-1 rounded-full ring-2 ring-[#0B192C]">
+            <div className="absolute bottom-1 right-1 bg-emerald-600 text-white p-1 rounded-full ring-2 ring-[#2C1A1D]">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>

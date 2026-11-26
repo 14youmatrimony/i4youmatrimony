@@ -92,25 +92,25 @@ export default function WebsiteSuccessStories() {
   }, [liveStories]);
 
   return (
-    <section id="testimonials-section" className="py-16 lg:py-24 bg-[#0B192C] text-white border-b border-[#D4AF37]/30 relative overflow-hidden">
+    <section id="testimonials-section" className="py-16 lg:py-24 bg-[#FFFBF9] text-[#5A4649] border-b border-[#E5D0C6] relative overflow-hidden">
       
       {/* Background Ambience */}
-      <div className="absolute top-1/2 left-1/3 w-96 h-96 bg-[#DFB76C]/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute top-1/2 left-1/3 w-96 h-96 bg-[#E6B8A2]/15 rounded-full blur-3xl pointer-events-none"></div>
 
       <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 relative z-10 space-y-12">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#DFB76C] text-xs font-bold uppercase tracking-wider">
+          <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-[#FDECE4] border border-[#E5D0C6] text-[#7A2E43] text-xs font-bold uppercase tracking-wider">
             <Heart className="w-3.5 h-3.5 fill-current" />
             <span>Real Couples, Real Blessed Marriages</span>
           </div>
 
-          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-serif font-extrabold tracking-tight text-white">
+          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-serif font-extrabold tracking-tight text-[#2C1A1D]">
             14,800+ Happy Stories & Counting
           </h2>
 
-          <p className="text-sm sm:text-base text-slate-300 font-normal leading-relaxed">
+          <p className="text-sm sm:text-base text-[#5A4649] font-normal leading-relaxed">
             Read heartwarming stories of couples who found their sacred match across Indian metros and heritage towns.
           </p>
         </div>
@@ -120,12 +120,12 @@ export default function WebsiteSuccessStories() {
           {displayStories.map((story) => (
             <article
               key={story.id}
-              className="bg-gradient-to-b from-[#152E52]/90 to-[#0B192C]/95 rounded-3xl overflow-hidden border border-[#D4AF37]/40 shadow-2xl flex flex-col justify-between group hover:border-[#D4AF37] transition-all hover:-translate-y-1 select-none"
+              className="bg-white rounded-3xl overflow-hidden border border-[#E5D0C6] shadow-sm flex flex-col justify-between group hover:border-[#C58B76] hover:shadow-xl transition-all hover:-translate-y-1 select-none"
             >
               
               {/* Couple Wedding Photo with DRM Protection */}
               <div 
-                className="relative h-64 sm:h-72 overflow-hidden bg-slate-900 select-none"
+                className="relative h-64 sm:h-72 overflow-hidden bg-slate-100 select-none"
                 onContextMenu={(e) => e.preventDefault()}
               >
                 <img 
@@ -136,11 +136,11 @@ export default function WebsiteSuccessStories() {
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 pointer-events-none select-none" 
                   style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-transparent to-transparent pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#2C1A1D]/90 via-transparent to-transparent pointer-events-none"></div>
 
                 <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                  <span className="px-2.5 py-1 rounded-full bg-[#0B192C]/85 text-[#DFB76C] border border-[#D4AF37]/50 font-bold text-[11px] backdrop-blur-xs flex items-center gap-1 shadow-md">
-                    <Sparkles className="w-3 h-3 text-[#DFB76C]" />
+                  <span className="px-2.5 py-1 rounded-full bg-white/95 text-[#7A2E43] border border-[#E5D0C6] font-bold text-[11px] backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                    <Sparkles className="w-3 h-3 text-[#C58B76]" />
                     <span>{story.gunasMatch}</span>
                   </span>
                   {story.isLiveUserStory && (
@@ -155,8 +155,8 @@ export default function WebsiteSuccessStories() {
                   <h3 className="text-xl font-serif font-bold text-white drop-shadow-sm">
                     {story.couple}
                   </h3>
-                  <p className="text-xs text-slate-300 flex items-center gap-1 mt-0.5">
-                    <MapPin className="w-3 h-3 text-[#DFB76C]" />
+                  <p className="text-xs text-[#FDECE4] flex items-center gap-1 mt-0.5">
+                    <MapPin className="w-3 h-3 text-[#E6B8A2]" />
                     <span>{story.location}</span>
                   </p>
                 </div>
@@ -166,19 +166,19 @@ export default function WebsiteSuccessStories() {
               <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
                 
                 <div className="space-y-3">
-                  <div className="flex items-center space-x-1 text-amber-400">
+                  <div className="flex items-center space-x-1 text-[#C58B76]">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-amber-400" />
+                      <Star key={i} className="w-4 h-4 fill-[#C58B76]" />
                     ))}
-                    <span className="text-xs font-bold text-slate-300 ml-1">5.0 Verified Marriage</span>
+                    <span className="text-xs font-bold text-[#5A4649] ml-1">5.0 Verified Marriage</span>
                   </div>
 
-                  <p className="text-xs text-slate-300 italic leading-relaxed font-normal">
+                  <p className="text-xs text-[#5A4649] italic leading-relaxed font-normal">
                     {story.quote}
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-[#DFB76C] font-semibold">
+                <div className="pt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-[#C58B76] font-semibold">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" /> Married: {story.weddingDate}
                   </span>

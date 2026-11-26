@@ -5222,7 +5222,7 @@ export default function App() {
             {/* SCREEN 1: Dedicated Login Modal on Website */}
             {currentScreen === 'login' && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-                <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-[#D4AF37]/40 relative">
+                <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-[#E5D0C6] relative">
                   <LoginScreen 
                     onLoginSuccess={handleLoginSuccess}
                     setCurrentScreen={setCurrentScreen}
@@ -5236,7 +5236,7 @@ export default function App() {
             {/* SCREEN 2: Dedicated Register Modal on Website */}
             {currentScreen === 'register' && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-                <div className={`w-full ${registeredVerifiedPhone ? 'max-w-xl max-h-[90vh]' : 'max-w-md'} overflow-y-auto bg-white rounded-3xl shadow-2xl border border-[#D4AF37]/40 relative`}>
+                <div className={`w-full ${registeredVerifiedPhone ? 'max-w-xl max-h-[90vh]' : 'max-w-md'} overflow-y-auto bg-white rounded-3xl shadow-2xl border border-[#E5D0C6] relative`}>
                   {registeredVerifiedPhone ? (
                     <RegistrationWizard 
                       initialData={{ mobile: registeredVerifiedPhone, mobileVerified: true }}
@@ -5282,7 +5282,7 @@ export default function App() {
             {/* SCREEN 3.5: Aadhaar Verification Modal on Website */}
             {currentScreen === 'verify-aadhaar' && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-                <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-[#D4AF37]/40 relative">
+                <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-[#E5D0C6] relative">
                   <AadhaarVerificationScreen 
                     registrationData={pendingRegistration || currentUser}
                     onVerificationSuccess={(data) => {
@@ -5648,12 +5648,12 @@ export default function App() {
                 <div className={`px-4 py-3 rounded-2xl shadow-2xl flex items-center space-x-2.5 text-xs font-semibold backdrop-blur-md ${
                   toastType === 'error'
                     ? 'bg-rose-950/95 text-rose-100 border border-rose-500 shadow-rose-900/50'
-                    : 'bg-[#0B192C]/95 text-white border border-[#D4AF37]/50 shadow-black/40'
+                    : 'bg-[#2C1A1D]/95 text-white border border-[#C58B76]/50 shadow-[#7A2E43]/20'
                 }`}>
                   {toastType === 'error' ? (
                     <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                   ) : (
-                    <Sparkles className="w-4 h-4 text-[#DFB76C] shrink-0" />
+                    <Sparkles className="w-4 h-4 text-[#E6B8A2] shrink-0" />
                   )}
                   <span className="truncate">{toastMessage}</span>
                 </div>
@@ -5693,12 +5693,12 @@ export default function App() {
             <div className={`px-3.5 py-2.5 rounded-2xl shadow-xl flex items-center space-x-2 text-xs font-semibold backdrop-blur-md ${
               toastType === 'error'
                 ? 'bg-rose-950/95 text-rose-100 border border-rose-500 shadow-rose-900/50'
-                : 'bg-[#0B192C]/95 text-white border border-[#D4AF37]/50 shadow-black/40'
+                : 'bg-[#2C1A1D]/95 text-white border border-[#C58B76]/50 shadow-[#7A2E43]/20'
             }`}>
               {toastType === 'error' ? (
                 <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
               ) : (
-                <Sparkles className="w-3.5 h-3.5 text-[#DFB76C] shrink-0" />
+                <Sparkles className="w-3.5 h-3.5 text-[#E6B8A2] shrink-0" />
               )}
               <span className="truncate">{toastMessage}</span>
             </div>

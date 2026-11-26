@@ -327,7 +327,7 @@ export default function MobileMatchFeed({
                 myStatus
                   ? (myStatus.isHidden 
                       ? 'bg-slate-400 ring-2 ring-slate-300' 
-                      : 'bg-gradient-to-tr from-[#D4AF37] via-[#DFB76C] to-[#8C6D1F] ring-2 ring-amber-200')
+                      : 'bg-gradient-to-tr from-[#7A2E43] via-[#C58B76] to-[#E6B8A2] ring-2 ring-[#E5D0C6]')
                   : 'bg-slate-200'
               }`}>
                 <div className="w-full h-full rounded-full bg-slate-100 flex items-center justify-center overflow-hidden ring-2 ring-white">
@@ -353,7 +353,7 @@ export default function MobileMatchFeed({
                       }}
                     />
                   ) : myStatus?.type === 'text' ? (
-                    <div className={`w-full h-full flex items-center justify-center text-[10px] font-bold text-white bg-gradient-to-br ${myStatus?.bgGradient || 'from-[#0B192C] to-[#1E3A8A]'}`}>
+                    <div className={`w-full h-full flex items-center justify-center text-[10px] font-bold text-white bg-gradient-to-br ${myStatus?.bgGradient || 'from-[#7A2E43] to-[#612234]'}`}>
                       Status
                     </div>
                   ) : (
@@ -364,8 +364,8 @@ export default function MobileMatchFeed({
 
               {/* Bottom Right Badge: Plus if no status, Camera / EyeOff if has status */}
               {!myStatus ? (
-                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-[#D4AF37] rounded-full border-2 border-white flex items-center justify-center shadow-xs">
-                  <Plus className="w-3 h-3 text-[#0B192C] stroke-[3]" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-[#7A2E43] rounded-full border-2 border-white flex items-center justify-center shadow-xs">
+                  <Plus className="w-3 h-3 text-white stroke-[3]" />
                 </div>
               ) : myStatus.isHidden ? (
                 <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-slate-600 rounded-full border-2 border-white flex items-center justify-center shadow-xs">
@@ -414,7 +414,7 @@ export default function MobileMatchFeed({
               >
                 <div className="relative">
                   {/* WhatsApp Gradient Story Ring */}
-                  <div className="w-14 h-14 rounded-full p-0.5 transition-transform group-active:scale-95 bg-gradient-to-tr from-[#D4AF37] via-[#DFB76C] to-[#8C6D1F] ring-2 ring-amber-200">
+                  <div className="w-14 h-14 rounded-full p-0.5 transition-transform group-active:scale-95 bg-gradient-to-tr from-[#7A2E43] via-[#C58B76] to-[#E6B8A2] ring-2 ring-[#E6B8A2]/50">
                     <img 
                       src={p.photo || status?.mediaUrl} 
                       alt={p.name}
@@ -444,7 +444,7 @@ export default function MobileMatchFeed({
                 <span className="text-[10px] font-semibold text-slate-800 truncate w-full text-center">
                   {p.name ? p.name.split(' ')[0] : 'Member'}
                 </span>
-                <span className="text-[9px] text-[#8C6D1F] font-bold truncate max-w-full text-center">
+                <span className="text-[9px] text-[#7A2E43] font-bold truncate max-w-full text-center">
                   {p.district || p.city || 'Story'}
                 </span>
               </div>
@@ -461,10 +461,10 @@ export default function MobileMatchFeed({
         {onOpenOffers && !hasPaidPlan && activeOffer && (
           <div 
             onClick={onOpenOffers}
-            className="bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C] border border-[#D4AF37]/50 rounded-2xl p-3 text-white flex items-center justify-between cursor-pointer hover:border-[#D4AF37] transition-all shadow-md group active:scale-[0.99]"
+            className="bg-gradient-to-r from-[#7A2E43] via-[#612234] to-[#2C1A1D] border border-[#E5D0C6]/50 rounded-2xl p-3 text-white flex items-center justify-between cursor-pointer hover:border-[#C58B76] transition-all shadow-md group active:scale-[0.99]"
           >
             <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#D4AF37] to-[#DFB76C] text-[#0B192C] flex items-center justify-center shrink-0 font-bold shadow-xs">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#C58B76] to-[#E6B8A2] text-[#2C1A1D] flex items-center justify-center shrink-0 font-bold shadow-xs">
                 <Crown className="w-4 h-4 fill-current" />
               </div>
               <div className="min-w-0">
@@ -474,15 +474,15 @@ export default function MobileMatchFeed({
                     {activeOffer.discount_percent}% OFF
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-300 truncate">
-                  {activeOffer.description || 'Unlock phone numbers, addresses & direct chat'} • Code: <strong className="text-[#DFB76C] font-mono">{activeOffer.code}</strong>
+                <p className="text-[10px] text-slate-200 truncate">
+                  {activeOffer.description || 'Unlock phone numbers, addresses & direct chat'} • Code: <strong className="text-[#E6B8A2] font-mono">{activeOffer.code}</strong>
                 </p>
               </div>
             </div>
 
             <button
               type="button"
-              className="ml-2 px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] text-[10px] font-extrabold shrink-0 group-hover:scale-105 transition-transform flex items-center space-x-1 shadow-xs cursor-pointer"
+              className="ml-2 px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#C58B76] to-[#E6B8A2] text-[#2C1A1D] text-[10px] font-extrabold shrink-0 group-hover:scale-105 transition-transform flex items-center space-x-1 shadow-xs cursor-pointer"
             >
               <span>View Plans</span>
               <ChevronRight className="w-3 h-3" />
@@ -543,7 +543,7 @@ export default function MobileMatchFeed({
 
               <button
                 type="button"
-                className="ml-2 px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] text-[10px] font-extrabold shrink-0 group-hover:scale-105 transition-transform flex items-center space-x-1 shadow-xs cursor-pointer"
+                className="ml-2 px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#7A2E43] to-[#612234] text-white text-[10px] font-extrabold shrink-0 group-hover:scale-105 transition-transform flex items-center space-x-1 shadow-xs cursor-pointer"
               >
                 <span>{currentUser?.aadhaar_status === 'sent_back' ? 'Re-upload' : (currentUser?.aadhaar_front_image ? 'View Status' : 'Verify UID')}</span>
                 <ChevronRight className="w-3 h-3" />
@@ -554,9 +554,9 @@ export default function MobileMatchFeed({
 
         {/* Active Filter Indicator Banner */}
         {activeFiltersCount > 0 && (
-          <div className="bg-amber-50/90 border border-[#D4AF37]/35 rounded-2xl px-3.5 py-2.5 flex items-center justify-between text-xs shadow-2xs">
-            <div className="flex items-center space-x-2 text-[#8C6D1F]">
-              <Sparkles className="w-3.5 h-3.5 shrink-0 text-[#8C6D1F]" />
+          <div className="bg-[#FFF9F6] border border-[#E5D0C6] rounded-2xl px-3.5 py-2.5 flex items-center justify-between text-xs shadow-2xs">
+            <div className="flex items-center space-x-2 text-[#7A2E43]">
+              <Sparkles className="w-3.5 h-3.5 shrink-0 text-[#7A2E43]" />
               <span className="font-bold text-[11px]">
                 {activeFiltersCount} Filter{activeFiltersCount > 1 ? 's' : ''} Active • {filteredProfiles.length} Match{filteredProfiles.length !== 1 ? 'es' : ''}
               </span>
@@ -565,7 +565,7 @@ export default function MobileMatchFeed({
               <button
                 type="button"
                 onClick={onOpenFilter}
-                className="text-[#0B192C] hover:underline cursor-pointer"
+                className="text-[#7A2E43] hover:underline cursor-pointer"
               >
                 Modify
               </button>
@@ -584,7 +584,7 @@ export default function MobileMatchFeed({
         {/* Quick Feed Layout Switcher Bar */}
         {filteredProfiles.length > 0 && (
           <div className="flex items-center justify-between px-1 py-1">
-            <span className="text-[11px] font-bold text-slate-700">
+            <span className="text-[11px] font-bold text-[#5A4649]">
               {filteredProfiles.length} {getTargetGenderLabel(currentUser)} • {feedLayout === 'grid4' ? '4-Profile Grid' : 'Single Card'}
             </span>
 
@@ -594,7 +594,7 @@ export default function MobileMatchFeed({
                 onClick={() => setFeedLayout('single')}
                 className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
                   feedLayout === 'single'
-                    ? 'bg-white text-[#0B192C] shadow-xs'
+                    ? 'bg-white text-[#2C1A1D] shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
                 title="Single Full Card (1 Profile at a time - Classic)"
@@ -608,7 +608,7 @@ export default function MobileMatchFeed({
                 onClick={() => setFeedLayout('grid4')}
                 className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
                   feedLayout === 'grid4'
-                    ? 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] shadow-xs font-black'
+                    ? 'bg-[#7A2E43] text-white shadow-xs font-black'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
                 title="4-Profile Grid (4 Profiles at a time - 2x2)"
@@ -622,13 +622,13 @@ export default function MobileMatchFeed({
 
         {/* Empty State when no profiles match */}
         {filteredProfiles.length === 0 ? (
-          <div className="text-center py-12 px-4 bg-white rounded-3xl border border-slate-200 shadow-sm mx-1 space-y-3.5 animate-in fade-in">
-            <div className="w-12 h-12 rounded-full bg-amber-50 text-[#8C6D1F] border border-amber-200 flex items-center justify-center mx-auto shadow-2xs">
+          <div className="text-center py-12 px-4 bg-white rounded-3xl border border-[#E5D0C6] shadow-sm mx-1 space-y-3.5 animate-in fade-in">
+            <div className="w-12 h-12 rounded-full bg-[#FFF9F6] text-[#7A2E43] border border-[#E5D0C6] flex items-center justify-center mx-auto shadow-2xs">
               <Filter className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-serif font-bold text-base text-[#0B192C]">No Profiles Match Your Criteria</h4>
-              <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+              <h4 className="font-serif font-bold text-base text-[#2C1A1D]">No Profiles Match Your Criteria</h4>
+              <p className="text-xs text-[#5A4649] mt-1 max-w-xs mx-auto">
                 Try widening your location, age, or community preferences to discover more compatible profiles.
               </p>
             </div>
@@ -644,7 +644,7 @@ export default function MobileMatchFeed({
               <button
                 type="button"
                 onClick={onOpenFilter}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] text-xs font-extrabold shadow-sm cursor-pointer flex items-center space-x-1.5"
+                className="px-4 py-2 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-extrabold shadow-sm cursor-pointer flex items-center space-x-1.5"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
                 <span>Adjust Filters</span>
@@ -716,9 +716,9 @@ export default function MobileMatchFeed({
                         }`} 
                       />
                     ) : null}
-                    <div className={`avatar-placeholder-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] font-serif ${resolveProfilePhoto(profile) ? 'hidden' : ''}`}>
-                      <div className="w-16 h-16 rounded-full border border-[#DFB76C]/40 flex items-center justify-center bg-[#0B192C]/80 shadow-md mb-1.5">
-                        <span className="text-2xl font-bold font-serif text-[#DFB76C]">
+                    <div className={`avatar-placeholder-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#7A2E43] via-[#612234] to-[#2C1A1D] text-[#E6B8A2] font-serif ${resolveProfilePhoto(profile) ? 'hidden' : ''}`}>
+                      <div className="w-16 h-16 rounded-full border border-[#E5D0C6]/40 flex items-center justify-center bg-[#7A2E43]/80 shadow-md mb-1.5">
+                        <span className="text-2xl font-bold font-serif text-[#E6B8A2]">
                           {(profile.name || 'C').charAt(0).toUpperCase()}
                         </span>
                       </div>
@@ -730,9 +730,9 @@ export default function MobileMatchFeed({
 
                     {/* Top Match Score Badge (Left) */}
                     {profile.matchScore && (
-                      <div className="absolute top-1.5 left-1.5 z-10 px-1.5 py-0.5 rounded-md bg-[#0B192C]/85 backdrop-blur-md border border-[#D4AF37]/50 shadow-xs flex items-center space-x-0.5">
-                        <Sparkles className="w-2.5 h-2.5 text-[#DFB76C] animate-pulse" />
-                        <span className="font-mono font-black text-[9px] text-[#DFB76C]">
+                      <div className="absolute top-1.5 left-1.5 z-10 px-1.5 py-0.5 rounded-md bg-[#7A2E43]/90 backdrop-blur-md border border-[#E5D0C6]/50 shadow-xs flex items-center space-x-0.5">
+                        <Sparkles className="w-2.5 h-2.5 text-[#E6B8A2] animate-pulse" />
+                        <span className="font-mono font-black text-[9px] text-[#E6B8A2]">
                           {profile.matchScore}%
                         </span>
                       </div>
@@ -774,7 +774,7 @@ export default function MobileMatchFeed({
                     {/* Photo Privacy Lock Badge */}
                     {(profile.hidePhotos || profile.photoVisibility === 'request' || (profile.photoVisibility === 'accepted' && !isInterested)) && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center p-2 pointer-events-none text-center bg-black/40 backdrop-blur-xs">
-                        <Lock className="w-4 h-4 text-[#DFB76C] mb-1" />
+                        <Lock className="w-4 h-4 text-[#C58B76] mb-1" />
                         <span className="text-[8.5px] font-bold text-white bg-black/60 px-1.5 py-0.5 rounded">
                           🔒 Protected
                         </span>
@@ -797,7 +797,7 @@ export default function MobileMatchFeed({
                     <div className="space-y-1">
                       {/* Location */}
                       <div className="flex items-center space-x-1 text-[10px] text-slate-600 truncate">
-                        <MapPin className="w-2.5 h-2.5 text-[#DFB76C] shrink-0" />
+                        <MapPin className="w-2.5 h-2.5 text-[#C58B76] shrink-0" />
                         {isNriProfile(profile) ? (
                           <span className="truncate font-semibold text-indigo-900">
                             {profile.work_city ? `${profile.work_city}, ` : ''}{getProfileCountry(profile)}
@@ -809,7 +809,7 @@ export default function MobileMatchFeed({
 
                       {/* Profession */}
                       <div className="flex items-center space-x-1 text-[10px] text-slate-800 truncate">
-                        <Briefcase className="w-2.5 h-2.5 text-[#1E3A8A] shrink-0" />
+                        <Briefcase className="w-2.5 h-2.5 text-[#7A2E43] shrink-0" />
                         <span className="truncate">{profile.profession}</span>
                       </div>
 
@@ -849,7 +849,7 @@ export default function MobileMatchFeed({
                           e.stopPropagation();
                           onStartChat(profile);
                         }}
-                        className="w-7 h-7 rounded-full bg-blue-50 border border-blue-200 text-[#1E3A8A] hover:bg-blue-100 flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition-all"
+                        className="w-7 h-7 rounded-full bg-[#FDF2EE] border border-[#E5D0C6] text-[#7A2E43] hover:bg-[#7A2E43] hover:text-white flex items-center justify-center shrink-0 cursor-pointer active:scale-90 transition-all"
                         title="Live Message"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
@@ -889,7 +889,7 @@ export default function MobileMatchFeed({
                               onToggleInterest(profile.id);
                             }
                           }}
-                          className="flex-1 h-7 rounded-full text-[10px] font-bold transition-all flex items-center justify-center space-x-1 shadow-2xs truncate cursor-pointer active:scale-95 bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:brightness-105"
+                          className="flex-1 h-7 rounded-full text-[10px] font-bold transition-all flex items-center justify-center space-x-1 shadow-2xs truncate cursor-pointer active:scale-95 bg-[#7A2E43] hover:bg-[#612234] text-white shadow-sm"
                           title="Send Interest"
                         >
                           <Send className="w-2.5 h-2.5" />
@@ -932,7 +932,7 @@ export default function MobileMatchFeed({
               return (
                 <div 
                   key={profile.id}
-                  className="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-md hover:border-[#D4AF37]/60 hover:shadow-xl transition-all relative flex flex-col group"
+                  className="bg-white rounded-3xl overflow-hidden border border-[#E5D0C6] shadow-[0_4px_20px_rgba(122,46,67,0.06)] hover:border-[#C58B76] hover:shadow-xl transition-all relative flex flex-col group"
                 >
                   {/* Full Mobile Width Photo */}
                   <div 
@@ -967,9 +967,9 @@ export default function MobileMatchFeed({
                         }`} 
                       />
                     ) : null}
-                    <div className={`avatar-placeholder-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] font-serif ${resolveProfilePhoto(profile) ? 'hidden' : ''}`}>
-                      <div className="w-24 h-24 rounded-full border-2 border-[#DFB76C]/40 flex items-center justify-center bg-[#0B192C]/80 shadow-lg mb-2">
-                        <span className="text-4xl font-bold font-serif text-[#DFB76C]">
+                    <div className={`avatar-placeholder-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#7A2E43] via-[#612234] to-[#2C1A1D] text-[#E6B8A2] font-serif ${resolveProfilePhoto(profile) ? 'hidden' : ''}`}>
+                      <div className="w-24 h-24 rounded-full border-2 border-[#E5D0C6]/40 flex items-center justify-center bg-[#7A2E43]/80 shadow-lg mb-2">
+                        <span className="text-4xl font-bold font-serif text-[#E6B8A2]">
                           {(profile.name || 'C').charAt(0).toUpperCase()}
                         </span>
                       </div>
@@ -981,8 +981,8 @@ export default function MobileMatchFeed({
                     {/* Photo Privacy Lock Shield Overlay if restricted */}
                     {(profile.hidePhotos || profile.photoVisibility === 'request' || (profile.photoVisibility === 'accepted' && !isInterested)) && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center p-4 pointer-events-none text-center">
-                        <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-[#D4AF37]/50 flex items-center justify-center text-[#DFB76C] mb-2 shadow-lg">
-                          {profile.hidePhotos ? <EyeOff className="w-6 h-6 text-rose-400" /> : <Lock className="w-6 h-6 text-[#DFB76C]" />}
+                        <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-[#E5D0C6]/50 flex items-center justify-center text-[#C58B76] mb-2 shadow-lg">
+                          {profile.hidePhotos ? <EyeOff className="w-6 h-6 text-rose-400" /> : <Lock className="w-6 h-6 text-[#C58B76]" />}
                         </div>
                         <span className="px-3 py-1 rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-white font-bold text-xs shadow-md">
                           {profile.hidePhotos 
@@ -1034,7 +1034,7 @@ export default function MobileMatchFeed({
                         </p>
 
                         <div className="flex items-center space-x-1 text-xs text-slate-200 mt-1">
-                          <MapPin className="w-3.5 h-3.5 text-[#DFB76C] shrink-0" />
+                          <MapPin className="w-3.5 h-3.5 text-[#C58B76] shrink-0" />
                           {isNriProfile(profile) ? (
                             <span className="truncate">
                               <strong className="text-white font-semibold">
@@ -1054,12 +1054,12 @@ export default function MobileMatchFeed({
                       {/* Match Percentage in Small Digital Badge */}
                       {profile.matchScore && (
                         <div className="shrink-0 mb-0.5">
-                          <div className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-[#0B192C]/85 backdrop-blur-md border border-[#D4AF37]/50 shadow-md">
-                            <Sparkles className="w-3 h-3 text-[#DFB76C] shrink-0 animate-pulse" />
-                            <span className="font-mono font-black text-xs text-[#DFB76C] tracking-tight">
+                          <div className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-[#7A2E43]/90 backdrop-blur-md border border-[#E5D0C6]/50 shadow-md">
+                            <Sparkles className="w-3 h-3 text-[#E6B8A2] shrink-0 animate-pulse" />
+                            <span className="font-mono font-black text-xs text-[#E6B8A2] tracking-tight">
                               {profile.matchScore}%
                             </span>
-                            <span className="text-[8.5px] font-bold uppercase text-slate-300 tracking-wide">
+                            <span className="text-[8.5px] font-bold uppercase text-slate-200 tracking-wide">
                               Match
                             </span>
                           </div>
@@ -1071,7 +1071,7 @@ export default function MobileMatchFeed({
                   {/* Card Meta Body */}
                   <div className="p-3.5 space-y-3 bg-white">
                     <div className="flex items-start space-x-2 text-xs text-slate-700">
-                      <Briefcase className="w-4 h-4 text-[#1E3A8A] shrink-0 mt-0.5" />
+                      <Briefcase className="w-4 h-4 text-[#7A2E43] shrink-0 mt-0.5" />
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-slate-900 truncate">{profile.profession}</p>
                         <p className="text-[11px] text-slate-500 truncate">
@@ -1097,7 +1097,7 @@ export default function MobileMatchFeed({
                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                       {Boolean(profile.isPaid || (profile.membership && profile.membership !== 'free')) ? (
                         <span className="px-2.5 py-1 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-extrabold flex items-center gap-1 shrink-0 shadow-2xs">
-                          <Crown className="w-3.5 h-3.5 text-[#D4AF37] fill-current" />
+                          <Crown className="w-3.5 h-3.5 text-[#C58B76] fill-current" />
                           <span>{profile.membershipPlan || 'VIP Member'}</span>
                         </span>
                       ) : (
@@ -1149,7 +1149,7 @@ export default function MobileMatchFeed({
                       {/* Live Message (Chat) */}
                       <button
                         onClick={() => onStartChat(profile)}
-                        className="p-2.5 rounded-full bg-blue-50 border border-blue-200 text-[#1E3A8A] transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-[#0B192C] hover:text-[#DFB76C] shrink-0"
+                        className="p-2.5 rounded-full bg-[#FDF2EE] border border-[#E5D0C6] text-[#7A2E43] transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-xs hover:bg-[#7A2E43] hover:text-white shrink-0"
                         title="Live Message"
                       >
                         <MessageCircle className="w-4 h-4" />
@@ -1185,7 +1185,7 @@ export default function MobileMatchFeed({
                               onToggleInterest(profile.id);
                             }
                           }}
-                          className="flex-1 py-2.5 px-3 rounded-full text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] text-[#0B192C] shadow-[#D4AF37]/30 hover:brightness-105 btn-luxury-shimmer"
+                          className="flex-1 py-2.5 px-3 rounded-full text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 bg-[#7A2E43] hover:bg-[#612234] text-white shadow-[#7A2E43]/20"
                           title="Send Interest"
                         >
                           <Send className="w-3.5 h-3.5" />

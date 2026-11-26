@@ -247,34 +247,34 @@ export default function WebsiteMatchShowcase({
   ]);
 
   return (
-    <section id="matches-section" className="py-12 lg:py-20 bg-slate-50 text-slate-900 border-b border-slate-200">
+    <section id="matches-section" className="py-12 lg:py-20 bg-[#FFF9F6] text-[#5A4649] border-b border-[#E5D0C6]">
       <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-8">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#DFB76C]/15 border border-[#D4AF37]/30 text-[#8C6D1F] text-xs font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-[#8C6D1F]" />
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#FDECE4] border border-[#E5D0C6] text-[#7A2E43] text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5 text-[#C58B76]" />
             <span>Curated Matrimonial Feed</span>
           </div>
 
-          <h2 className="text-2xl sm:text-4xl font-serif font-extrabold text-[#0B192C] tracking-tight">
+          <h2 className="text-2xl sm:text-4xl font-serif font-extrabold text-[#2C1A1D] tracking-tight">
             Handpicked Matches for You
           </h2>
         </div>
 
         {/* Search & Category Filter Bar */}
-        <div className="relative bg-gradient-to-b from-white via-white to-amber-50/15 rounded-3xl p-4 sm:p-6 shadow-xl shadow-slate-200/50 border border-slate-200/90 transition-all space-y-4 overflow-hidden">
+        <div className="relative bg-white rounded-3xl p-4 sm:p-6 shadow-md shadow-[#7A2E43]/05 border border-[#E5D0C6] transition-all space-y-4 overflow-hidden">
           
-          {/* Subtle Royal Gold Top Aura */}
-          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#DFB76C] to-transparent opacity-90" />
-          <div className="absolute -top-20 -right-20 w-56 h-56 bg-gradient-to-br from-[#DFB76C]/10 via-[#D4AF37]/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+          {/* Subtle Rose Gold Top Accent */}
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#C58B76] to-transparent opacity-90" />
+          <div className="absolute -top-20 -right-20 w-56 h-56 bg-gradient-to-br from-[#E6B8A2]/15 via-[#C58B76]/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
           {/* Search Input & Action Controls */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 relative z-10">
             
             {/* Quick Keyword Search Input */}
             <div className="relative flex-1 group/search">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-amber-500/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#8C6D1F] group-focus-within/search:bg-[#0B192C] group-focus-within/search:text-[#DFB76C] group-focus-within/search:border-[#DFB76C] transition-all">
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-[#FDECE4] border border-[#E5D0C6] flex items-center justify-center text-[#7A2E43] group-focus-within/search:bg-[#7A2E43] group-focus-within/search:text-white group-focus-within/search:border-[#7A2E43] transition-all">
                 <Search className="w-4 h-4" />
               </div>
               <input
@@ -282,19 +282,19 @@ export default function WebsiteMatchShowcase({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search candidate name, hometown, profession, or education..."
-                className="w-full pl-13 pr-24 py-3 rounded-2xl bg-slate-50/90 hover:bg-slate-50 focus:bg-white text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 border border-slate-200/90 hover:border-[#DFB76C]/60 focus:outline-hidden focus:border-[#D4AF37] focus:ring-4 focus:ring-[#DFB76C]/15 transition-all shadow-inner"
+                className="w-full pl-13 pr-24 py-3 rounded-2xl bg-[#FFF9F6] hover:bg-white focus:bg-white text-xs sm:text-sm font-medium text-[#2C1A1D] placeholder:text-[#8E797C] border border-[#E5D0C6] hover:border-[#C58B76] focus:outline-hidden focus:border-[#C58B76] focus:ring-4 focus:ring-[#C58B76]/15 transition-all shadow-inner"
               />
               {searchTerm ? (
                 <button
                   type="button"
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-slate-200/80 hover:bg-slate-300 text-xs font-bold text-slate-700 hover:text-slate-900 cursor-pointer transition-colors flex items-center space-x-1"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-[#FDECE4] hover:bg-[#f7ddd4] text-xs font-bold text-[#7A2E43] cursor-pointer transition-colors flex items-center space-x-1"
                 >
                   <X className="w-3.5 h-3.5" />
                   <span className="text-[10px]">Clear</span>
                 </button>
               ) : (
-                <div className="hidden md:flex items-center space-x-1 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[11px] font-semibold text-slate-400 bg-white/80 px-2 py-0.5 rounded-lg border border-slate-200/60 shadow-2xs">
+                <div className="hidden md:flex items-center space-x-1 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[11px] font-semibold text-[#8E797C] bg-white px-2 py-0.5 rounded-lg border border-[#E5D0C6] shadow-2xs">
                   <span>Quick Finder</span>
                 </div>
               )}
@@ -307,14 +307,14 @@ export default function WebsiteMatchShowcase({
                 onClick={() => setIsFilterExpanded(!isFilterExpanded)}
                 className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center space-x-2 border transition-all cursor-pointer shadow-xs active:scale-95 ${
                   isFilterExpanded
-                    ? 'bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C] text-[#DFB76C] border-[#D4AF37] shadow-lg shadow-[#0B192C]/20 ring-2 ring-[#DFB76C]/25'
-                    : 'bg-white hover:bg-gradient-to-r hover:from-amber-50/60 hover:to-white text-slate-700 hover:text-[#0B192C] border-slate-200/90 hover:border-[#DFB76C] hover:shadow-md'
+                    ? 'bg-[#7A2E43] text-white border-[#7A2E43] shadow-md shadow-[#7A2E43]/20 ring-2 ring-[#C58B76]/30'
+                    : 'bg-white hover:bg-[#FDF2EE] text-[#5A4649] hover:text-[#7A2E43] border-[#E5D0C6] hover:border-[#7A2E43] hover:shadow-xs'
                 }`}
               >
-                <SlidersHorizontal className="w-4 h-4 text-[#DFB76C]" />
+                <SlidersHorizontal className="w-4 h-4 text-[#C58B76]" />
                 <span>{isFilterExpanded ? 'Hide Filters' : 'More Filters'}</span>
                 {activeFiltersCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-[#DFB76C] text-[#0B192C] text-[10px] font-extrabold flex items-center justify-center shadow-xs">
+                  <span className="w-5 h-5 rounded-full bg-[#C58B76] text-white text-[10px] font-extrabold flex items-center justify-center shadow-xs">
                     {activeFiltersCount}
                   </span>
                 )}
@@ -328,10 +328,10 @@ export default function WebsiteMatchShowcase({
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="p-3 rounded-2xl border border-slate-200/90 text-slate-500 hover:text-[#0B192C] bg-slate-50 hover:bg-amber-50/80 hover:border-[#DFB76C] shadow-2xs hover:shadow-sm transition-all group/reset cursor-pointer active:scale-90"
+                className="p-3 rounded-2xl border border-[#E5D0C6] text-[#8E797C] hover:text-[#7A2E43] bg-[#FFF9F6] hover:bg-[#FDF2EE] hover:border-[#7A2E43] shadow-2xs hover:shadow-xs transition-all group/reset cursor-pointer active:scale-90"
                 title="Reset All Filters"
               >
-                <RotateCcw className="w-4 h-4 group-hover/reset:-rotate-180 transition-transform duration-500 text-slate-500 group-hover/reset:text-[#8C6D1F]" />
+                <RotateCcw className="w-4 h-4 group-hover/reset:-rotate-180 transition-transform duration-500 text-[#8E797C] group-hover/reset:text-[#7A2E43]" />
               </button>
             </div>
 
@@ -340,12 +340,12 @@ export default function WebsiteMatchShowcase({
 
           {/* Row 3: Expandable Advanced Filters Drawer */}
           {isFilterExpanded && (
-            <div className="pt-4 border-t border-slate-200/80 bg-gradient-to-b from-slate-50/70 to-amber-50/20 rounded-2xl p-4 sm:p-5 border border-slate-200/60 shadow-inner grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3.5 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="pt-4 border-t border-[#E5D0C6] bg-[#FFFBF9] rounded-2xl p-4 sm:p-5 border border-[#E5D0C6] shadow-inner grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3.5 animate-in fade-in slide-in-from-top-2 duration-200">
               
               {/* State */}
               <div>
-                <label className="flex items-center space-x-1 text-[11px] font-bold text-slate-700 uppercase mb-1.5">
-                  <MapPin className="w-3 h-3 text-[#DFB76C]" />
+                <label className="flex items-center space-x-1 text-[11px] font-bold text-[#5A4649] uppercase mb-1.5">
+                  <MapPin className="w-3 h-3 text-[#C58B76]" />
                   <span>State</span>
                 </label>
                 <select
@@ -354,7 +354,7 @@ export default function WebsiteMatchShowcase({
                     setFilterState(e.target.value);
                     setFilterDistrict('All Districts');
                   }}
-                  className="w-full bg-white border border-slate-200 hover:border-[#DFB76C]/60 text-xs rounded-xl p-2.5 font-medium text-slate-800 focus:outline-hidden focus:border-[#D4AF37] focus:ring-2 focus:ring-[#DFB76C]/20 shadow-2xs cursor-pointer"
+                  className="w-full bg-white border border-[#E5D0C6] hover:border-[#C58B76] text-xs rounded-xl p-2.5 font-medium text-[#2C1A1D] focus:outline-hidden focus:border-[#C58B76] focus:ring-2 focus:ring-[#C58B76]/20 shadow-2xs cursor-pointer"
                 >
                   <option value="All States">All States</option>
                   {STATES_AND_CITIES.map(s => (
@@ -365,15 +365,15 @@ export default function WebsiteMatchShowcase({
 
               {/* District */}
               <div>
-                <label className="flex items-center space-x-1 text-[11px] font-bold text-slate-700 uppercase mb-1.5">
-                  <Compass className="w-3 h-3 text-[#DFB76C]" />
+                <label className="flex items-center space-x-1 text-[11px] font-bold text-[#5A4649] uppercase mb-1.5">
+                  <Compass className="w-3 h-3 text-[#C58B76]" />
                   <span>District</span>
                 </label>
                 <select
                   value={filterDistrict}
                   onChange={(e) => setFilterDistrict(e.target.value)}
                   disabled={districts.length === 0}
-                  className="w-full bg-white border border-slate-200 hover:border-[#DFB76C]/60 text-xs rounded-xl p-2.5 font-medium text-slate-800 focus:outline-hidden focus:border-[#D4AF37] focus:ring-2 focus:ring-[#DFB76C]/20 disabled:opacity-50 shadow-2xs cursor-pointer"
+                  className="w-full bg-white border border-[#E5D0C6] hover:border-[#C58B76] text-xs rounded-xl p-2.5 font-medium text-[#2C1A1D] focus:outline-hidden focus:border-[#C58B76] focus:ring-2 focus:ring-[#C58B76]/20 disabled:opacity-50 shadow-2xs cursor-pointer"
                 >
                   <option value="All Districts">{filterState === 'All States' ? 'Select State First' : 'All Districts'}</option>
                   {districts.map(d => (
@@ -384,8 +384,8 @@ export default function WebsiteMatchShowcase({
 
               {/* Religion */}
               <div>
-                <label className="flex items-center space-x-1 text-[11px] font-bold text-slate-700 uppercase mb-1.5">
-                  <Sparkles className="w-3 h-3 text-[#DFB76C]" />
+                <label className="flex items-center space-x-1 text-[11px] font-bold text-[#5A4649] uppercase mb-1.5">
+                  <Sparkles className="w-3 h-3 text-[#C58B76]" />
                   <span>Religion</span>
                 </label>
                 <select
@@ -394,7 +394,7 @@ export default function WebsiteMatchShowcase({
                     setFilterReligion(e.target.value);
                     onSelectReligion?.(e.target.value);
                   }}
-                  className="w-full bg-white border border-slate-200 hover:border-[#DFB76C]/60 text-xs rounded-xl p-2.5 font-medium text-slate-800 focus:outline-hidden focus:border-[#D4AF37] focus:ring-2 focus:ring-[#DFB76C]/20 shadow-2xs cursor-pointer"
+                  className="w-full bg-white border border-[#E5D0C6] hover:border-[#C58B76] text-xs rounded-xl p-2.5 font-medium text-[#2C1A1D] focus:outline-hidden focus:border-[#C58B76] focus:ring-2 focus:ring-[#C58B76]/20 shadow-2xs cursor-pointer"
                 >
                   <option value="All Religions">All Religions</option>
                   {RELIGIONS.map(r => (
@@ -406,14 +406,14 @@ export default function WebsiteMatchShowcase({
 
               {/* Diet */}
               <div>
-                <label className="flex items-center space-x-1 text-[11px] font-bold text-slate-700 uppercase mb-1.5">
-                  <Utensils className="w-3 h-3 text-[#DFB76C]" />
+                <label className="flex items-center space-x-1 text-[11px] font-bold text-[#5A4649] uppercase mb-1.5">
+                  <Utensils className="w-3 h-3 text-[#C58B76]" />
                   <span>Diet</span>
                 </label>
                 <select
                   value={filterDiet}
                   onChange={(e) => setFilterDiet(e.target.value)}
-                  className="w-full bg-white border border-slate-200 hover:border-[#DFB76C]/60 text-xs rounded-xl p-2.5 font-medium text-slate-800 focus:outline-hidden focus:border-[#D4AF37] focus:ring-2 focus:ring-[#DFB76C]/20 shadow-2xs cursor-pointer"
+                  className="w-full bg-white border border-[#E5D0C6] hover:border-[#C58B76] text-xs rounded-xl p-2.5 font-medium text-[#2C1A1D] focus:outline-hidden focus:border-[#C58B76] focus:ring-2 focus:ring-[#C58B76]/20 shadow-2xs cursor-pointer"
                 >
                   <option value="All">All Diets</option>
                   <option value="Vegetarian">Pure Vegetarian</option>
@@ -425,14 +425,14 @@ export default function WebsiteMatchShowcase({
 
               {/* Height Selection */}
               <div>
-                <label className="flex items-center space-x-1 text-[11px] font-bold text-slate-700 uppercase mb-1.5">
-                  <Ruler className="w-3 h-3 text-[#DFB76C]" />
+                <label className="flex items-center space-x-1 text-[11px] font-bold text-[#5A4649] uppercase mb-1.5">
+                  <Ruler className="w-3 h-3 text-[#C58B76]" />
                   <span>Height</span>
                 </label>
                 <select
                   value={filterHeight}
                   onChange={(e) => setFilterHeight(e.target.value)}
-                  className="w-full bg-white border border-slate-200 hover:border-[#DFB76C]/60 text-xs rounded-xl p-2.5 font-medium text-slate-800 focus:outline-hidden focus:border-[#D4AF37] focus:ring-2 focus:ring-[#DFB76C]/20 shadow-2xs cursor-pointer"
+                  className="w-full bg-white border border-[#E5D0C6] hover:border-[#C58B76] text-xs rounded-xl p-2.5 font-medium text-[#2C1A1D] focus:outline-hidden focus:border-[#C58B76] focus:ring-2 focus:ring-[#C58B76]/20 shadow-2xs cursor-pointer"
                 >
                   {HEIGHT_FILTER_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -444,15 +444,15 @@ export default function WebsiteMatchShowcase({
 
               {/* Age Range */}
               <div>
-                <label className="flex items-center space-x-1 text-[11px] font-bold text-slate-700 uppercase mb-1.5">
-                  <Calendar className="w-3 h-3 text-[#DFB76C]" />
+                <label className="flex items-center space-x-1 text-[11px] font-bold text-[#5A4649] uppercase mb-1.5">
+                  <Calendar className="w-3 h-3 text-[#C58B76]" />
                   <span>Age Range</span>
                 </label>
                 <div className="flex items-center space-x-1.5">
                   <select
                     value={filterMinAge}
                     onChange={(e) => setFilterMinAge(Number(e.target.value))}
-                    className="w-1/2 bg-white border border-slate-200 text-xs rounded-xl p-2.5 font-medium text-slate-800 focus:outline-hidden focus:border-[#D4AF37] cursor-pointer"
+                    className="w-1/2 bg-white border border-[#E5D0C6] text-xs rounded-xl p-2.5 font-medium text-[#2C1A1D] focus:outline-hidden focus:border-[#C58B76] cursor-pointer"
                   >
                     {[21, 23, 25, 27, 29, 31, 33, 35].map(a => (
                       <option key={a} value={a}>{a} yrs</option>
@@ -462,7 +462,7 @@ export default function WebsiteMatchShowcase({
                   <select
                     value={filterMaxAge}
                     onChange={(e) => setFilterMaxAge(Number(e.target.value))}
-                    className="w-1/2 bg-white border border-slate-200 text-xs rounded-xl p-2.5 font-medium text-slate-800 focus:outline-hidden focus:border-[#D4AF37] cursor-pointer"
+                    className="w-1/2 bg-white border border-[#E5D0C6] text-xs rounded-xl p-2.5 font-medium text-[#2C1A1D] focus:outline-hidden focus:border-[#C58B76] cursor-pointer"
                   >
                     {[25, 28, 30, 32, 35, 38, 42, 45].map(a => (
                       <option key={a} value={a}>{a} yrs</option>
@@ -476,13 +476,13 @@ export default function WebsiteMatchShowcase({
                 <label className={`w-full h-[42px] px-3 rounded-xl border flex items-center justify-center space-x-2 text-xs font-bold cursor-pointer transition-all shadow-2xs select-none ${
                   verifiedOnly
                     ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/60 ring-2 ring-emerald-500/20'
-                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                    : 'bg-white hover:bg-[#FDF2EE] text-[#5A4649] border-[#E5D0C6]'
                 }`}>
                   <input
                     type="checkbox"
                     checked={verifiedOnly}
                     onChange={(e) => setVerifiedOnly(e.target.checked)}
-                    className="w-4 h-4 rounded text-[#D4AF37] accent-emerald-600 cursor-pointer"
+                    className="w-4 h-4 rounded text-[#7A2E43] accent-emerald-600 cursor-pointer"
                   />
                   <ShieldCheck className={`w-4 h-4 ${verifiedOnly ? 'text-emerald-400' : 'text-slate-400'}`} />
                   <span className="truncate">Aadhaar Verified</span>
@@ -500,7 +500,7 @@ export default function WebsiteMatchShowcase({
 
 
               {filterReligion !== 'All Religions' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-[#0B192C] to-[#152E52] text-[#DFB76C] border border-[#D4AF37]/50 text-xs font-bold shadow-xs">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#7A2E43] text-white border border-[#C58B76]/50 text-xs font-bold shadow-xs">
                   <span>🙏 {filterReligion === 'Buddhist & Parsi' ? 'Buddhist & Parsi' : filterReligion}</span>
                   <button
                     type="button"
@@ -518,7 +518,7 @@ export default function WebsiteMatchShowcase({
 
               {searchTerm && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-900 border border-amber-300/60 text-xs font-bold shadow-2xs">
-                  <Search className="w-3 h-3 text-[#8C6D1F]" />
+                  <Search className="w-3 h-3 text-[#7A2E43]" />
                   <span>"{searchTerm}"</span>
                   <button
                     type="button"
@@ -610,7 +610,7 @@ export default function WebsiteMatchShowcase({
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="text-xs text-[#8C6D1F] hover:text-[#0B192C] font-extrabold cursor-pointer ml-auto flex items-center space-x-1 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100/70 border border-amber-200 transition-colors"
+                className="text-xs text-[#7A2E43] hover:text-[#612234] font-extrabold cursor-pointer ml-auto flex items-center space-x-1 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100/70 border border-amber-200 transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset All Filters</span>
@@ -628,7 +628,7 @@ export default function WebsiteMatchShowcase({
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
             <span>
-              Showing <strong className="text-[#0B192C] font-extrabold text-sm">{filteredProfiles.length}</strong> verified matching candidate profiles
+              Showing <strong className="text-[#2C1A1D] font-extrabold text-sm">{filteredProfiles.length}</strong> verified matching candidate profiles
             </span>
           </div>
           
@@ -650,7 +650,7 @@ export default function WebsiteMatchShowcase({
                 <article
                   key={profile.id}
                   onClick={() => onSelectProfile(profile)}
-                  className="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-md hover:shadow-2xl hover:border-[#D4AF37]/60 transition-all duration-300 flex flex-col group hover:-translate-y-2 relative cursor-pointer"
+                  className="bg-white rounded-3xl overflow-hidden border border-[#E5D0C6] shadow-sm hover:shadow-xl hover:border-[#C58B76] transition-all duration-300 flex flex-col group hover:-translate-y-2 relative cursor-pointer"
                 >
                   
                   {/* Photo Container */}
@@ -661,12 +661,12 @@ export default function WebsiteMatchShowcase({
                       className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-[#0B192C]/25 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#2C1A1D] via-[#2C1A1D]/25 to-transparent"></div>
 
                     {/* Top Badge: Match Score */}
                     <div className="absolute top-3 left-3 z-10">
-                      <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] shadow-lg flex items-center space-x-1.5">
-                        <Sparkles className="w-3.5 h-3.5 fill-[#0B192C]" />
+                      <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#7A2E43] text-white shadow-md flex items-center space-x-1.5">
+                        <Sparkles className="w-3.5 h-3.5 fill-white text-white" />
                         <span>{profile.matchScore}% Match</span>
                       </span>
                     </div>
@@ -696,14 +696,14 @@ export default function WebsiteMatchShowcase({
                         </span>
                       </div>
 
-                      <h3 className="text-xl font-serif font-bold text-white tracking-wide truncate group-hover:text-[#DFB76C] transition-colors drop-shadow-sm">
+                      <h3 className="text-xl font-serif font-bold text-white tracking-wide truncate group-hover:text-[#E6B8A2] transition-colors drop-shadow-sm">
                         {profile.name}
                       </h3>
                       
                       <p className="text-xs text-slate-200 flex items-center gap-1 font-medium mt-0.5">
                         <span>{profile.age} Yrs, {profile.height}</span>
                         <span>•</span>
-                        <MapPin className="w-3 h-3 text-[#DFB76C] shrink-0" />
+                        <MapPin className="w-3 h-3 text-[#E6B8A2] shrink-0" />
                         <span className="truncate">{profile.district || profile.city}, {profile.state}</span>
                       </p>
                     </div>
@@ -713,28 +713,28 @@ export default function WebsiteMatchShowcase({
                   {/* Card Body Specs */}
                   <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3 bg-white">
                     
-                    <div className="space-y-2 text-xs text-slate-600">
+                    <div className="space-y-2 text-xs text-[#5A4649]">
                       {/* Religion */}
-                      <p className="flex items-center gap-1.5 text-slate-900 font-bold truncate">
-                        <span className="w-2 h-2 rounded-full bg-[#D4AF37] shrink-0"></span>
+                      <p className="flex items-center gap-1.5 text-[#2C1A1D] font-bold truncate">
+                        <span className="w-2 h-2 rounded-full bg-[#C58B76] shrink-0"></span>
                         <span>{profile.religion}</span>
                       </p>
 
                       {/* Education */}
                       <p className="flex items-start gap-2 line-clamp-1 font-medium">
-                        <GraduationCap className="w-3.5 h-3.5 text-[#B8860B] shrink-0 mt-0.5" />
+                        <GraduationCap className="w-3.5 h-3.5 text-[#C58B76] shrink-0 mt-0.5" />
                         <span className="truncate">{profile.education}</span>
                       </p>
 
                       {/* Profession & Company */}
                       <p className="flex items-start gap-2 line-clamp-1 font-medium">
-                        <Briefcase className="w-3.5 h-3.5 text-[#B8860B] shrink-0 mt-0.5" />
+                        <Briefcase className="w-3.5 h-3.5 text-[#C58B76] shrink-0 mt-0.5" />
                         <span className="truncate">{profile.profession}</span>
                       </p>
 
                       {/* Income */}
                       {profile.annualIncome && (
-                        <p className="flex items-center gap-2 text-slate-800 font-semibold">
+                        <p className="flex items-center gap-2 text-[#2C1A1D] font-semibold">
                           <IndianRupee className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                           <span>{profile.annualIncome}</span>
                         </p>
@@ -743,10 +743,10 @@ export default function WebsiteMatchShowcase({
                       {/* Astrology Rashi & Nakshatra */}
                       {profile.astronomy && (
                         <div className="pt-1 flex items-center gap-1.5 flex-wrap">
-                          <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 text-[10px] font-bold border border-amber-200">
+                          <span className="px-2 py-0.5 rounded-md bg-[#FFF9F6] text-[#7A2E43] text-[10px] font-bold border border-[#E5D0C6]">
                             Rashi: {profile.astronomy.rashi?.split(' ')[0]}
                           </span>
-                          <span className="px-2 py-0.5 rounded-md bg-sky-50 text-sky-900 text-[10px] font-bold border border-sky-200">
+                          <span className="px-2 py-0.5 rounded-md bg-[#FDECE4] text-[#5A4649] text-[10px] font-bold border border-[#E5D0C6]">
                             Nakshatra: {profile.astronomy.nakshatra}
                           </span>
                         </div>
@@ -754,7 +754,7 @@ export default function WebsiteMatchShowcase({
                     </div>
 
                     {/* Action Buttons Row */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+                    <div className="pt-3 border-t border-[#E5D0C6] flex items-center gap-2">
                       
                       {/* Send Interest Button */}
                       <button
@@ -769,10 +769,10 @@ export default function WebsiteMatchShowcase({
                             onToggleInterest(profile.id);
                           }
                         }}
-                        className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-md active:scale-95 ${
+                        className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm active:scale-95 ${
                           isInterested
                             ? 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100'
-                            : 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] hover:brightness-105 btn-luxury-shimmer'
+                            : 'bg-[#7A2E43] hover:bg-[#612234] text-white shadow-md shadow-[#7A2E43]/20'
                         }`}
                       >
                         <Heart className={`w-3.5 h-3.5 ${isInterested ? 'fill-rose-600' : ''}`} />
@@ -786,7 +786,7 @@ export default function WebsiteMatchShowcase({
                           e.stopPropagation();
                           onStartChat(profile.id);
                         }}
-                        className="p-2.5 rounded-xl bg-slate-100 hover:bg-[#0B192C] hover:text-[#DFB76C] text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                        className="p-2.5 rounded-xl bg-[#FFF9F6] hover:bg-[#7A2E43] hover:text-white text-[#5A4649] border border-[#E5D0C6] transition-colors cursor-pointer"
                         title="Open Matrimonial Chat"
                       >
                         <MessageCircle className="w-4 h-4" />
@@ -802,19 +802,19 @@ export default function WebsiteMatchShowcase({
           </div>
         ) : (
           /* Empty State */
-          <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 max-w-md mx-auto space-y-4">
-            <div className="w-16 h-16 rounded-full bg-amber-50 text-[#8C6D1F] flex items-center justify-center mx-auto">
+          <div className="bg-white rounded-3xl p-10 text-center border border-[#E5D0C6] max-w-md mx-auto space-y-4 shadow-sm">
+            <div className="w-16 h-16 rounded-full bg-[#FDECE4] text-[#7A2E43] flex items-center justify-center mx-auto">
               <Search className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-serif font-bold text-slate-900">
+            <h3 className="text-lg font-serif font-bold text-[#2C1A1D]">
               No matching profiles found
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#5A4649]">
               We couldn't find any profiles matching your search criteria. Try adjusting your age, location, or religion filters.
             </p>
             <button
               onClick={handleResetFilters}
-              className="px-5 py-2 rounded-xl bg-[#0B192C] text-[#DFB76C] text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
             >
               Reset All Filters
             </button>

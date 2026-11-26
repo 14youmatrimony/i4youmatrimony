@@ -271,23 +271,23 @@ export default function MobileProfileDetailSheet({
     <div className="absolute inset-0 z-50 bg-slate-50 flex flex-col h-full w-full overflow-hidden animate-in slide-in-from-right-4 duration-200">
       
       {/* Top Mobile Full-Screen App Bar (Cleaned up: Only Back and Share buttons) */}
-      <header className="bg-[#0B192C] text-white px-3 py-2.5 flex items-center justify-between border-b border-[#D4AF37]/30 shadow-md shrink-0 z-30">
+      <header className="bg-[#FFFBF9] text-[#2C1A1D] px-3 py-2.5 flex items-center justify-between border-b border-[#E5D0C6] shadow-xs shrink-0 z-30">
         <button
           onClick={onClose}
-          className="p-1.5 -ml-1 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          className="p-1.5 -ml-1 rounded-full text-slate-500 hover:text-[#2C1A1D] hover:bg-slate-100 transition-colors cursor-pointer"
           aria-label="Back"
           title="Back"
         >
-          <ChevronLeft className="w-6 h-6 text-[#DFB76C]" />
+          <ChevronLeft className="w-6 h-6 text-[#7A2E43]" />
         </button>
 
         <button
           onClick={() => setShowShareSheet(true)}
-          className="p-2 -mr-1 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          className="p-2 -mr-1 rounded-full text-slate-500 hover:text-[#2C1A1D] hover:bg-slate-100 transition-colors cursor-pointer"
           title="Share Profile"
           aria-label="Share Profile"
         >
-          <Share2 className="w-4 h-4 text-[#DFB76C]" />
+          <Share2 className="w-4 h-4 text-[#7A2E43]" />
         </button>
       </header>
 
@@ -305,8 +305,8 @@ export default function MobileProfileDetailSheet({
             
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center space-x-2">
-                <Share2 className="w-4 h-4 text-[#8C6D1F]" />
-                <h4 className="font-serif font-bold text-sm text-[#0B192C]">Share {profile.name}'s Profile</h4>
+                <Share2 className="w-4 h-4 text-[#7A2E43]" />
+                <h4 className="font-serif font-bold text-sm text-[#2C1A1D]">Share {profile.name}'s Profile</h4>
               </div>
               <button 
                 onClick={() => setShowShareSheet(false)}
@@ -417,22 +417,22 @@ export default function MobileProfileDetailSheet({
                 }`} 
               />
             ) : null}
-            <div className={`detail-avatar-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#0B192C] via-[#1E3E62] to-[#0B192C] text-[#DFB76C] font-serif ${activePhoto ? 'hidden' : ''}`}>
-              <div className="w-28 h-28 rounded-full border-2 border-[#DFB76C]/40 flex items-center justify-center bg-[#0B192C]/80 shadow-2xl mb-3">
-                <span className="text-5xl font-bold font-serif text-[#DFB76C]">
+            <div className={`detail-avatar-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-[#7A2E43] via-[#612234] to-[#2C1A1D] text-[#E6B8A2] font-serif ${activePhoto ? 'hidden' : ''}`}>
+              <div className="w-28 h-28 rounded-full border-2 border-[#E5D0C6]/40 flex items-center justify-center bg-[#7A2E43]/80 shadow-2xl mb-3">
+                <span className="text-5xl font-bold font-serif text-[#E6B8A2]">
                   {(profile.name || 'C').charAt(0).toUpperCase()}
                 </span>
               </div>
               <span className="text-sm font-sans text-slate-300 font-medium">Verified Profile</span>
             </div>
             {/* Elegant Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0B192C] via-black/20 to-transparent pointer-events-none"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#2C1A1D] via-black/20 to-transparent pointer-events-none"></div>
 
             {/* Photo Privacy Lock Shield Overlay */}
             {(profile.hidePhotos || profile.photoVisibility === 'request' || (profile.photoVisibility === 'accepted' && !isInterested)) && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-4 pointer-events-none text-center z-15">
-                <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-[#D4AF37]/50 flex items-center justify-center text-[#DFB76C] mb-2 shadow-lg">
-                  {profile.hidePhotos ? <EyeOff className="w-6 h-6 text-rose-400" /> : <Lock className="w-6 h-6 text-[#DFB76C]" />}
+                <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-[#E5D0C6]/50 flex items-center justify-center text-[#C58B76] mb-2 shadow-lg">
+                  {profile.hidePhotos ? <EyeOff className="w-6 h-6 text-rose-400" /> : <Lock className="w-6 h-6 text-[#C58B76]" />}
                 </div>
                 <span className="px-3 py-1 rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-white font-bold text-xs shadow-md">
                   {profile.hidePhotos 
@@ -498,7 +498,7 @@ export default function MobileProfileDetailSheet({
               </p>
 
               <div className="flex items-center space-x-1.5 text-xs text-slate-300 mt-1">
-                <MapPin className="w-3.5 h-3.5 text-[#DFB76C] shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-[#C58B76] shrink-0" />
                 {isNriProfile(profile) ? (
                   <span className="font-medium">
                     <strong className="text-white font-semibold">
@@ -537,7 +537,7 @@ export default function MobileProfileDetailSheet({
         )}
 
         {/* Live Active Communication Suite (Direct 1-Tap Access) */}
-        <div className="mx-3 my-2 p-2 rounded-2xl bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C] border border-[#D4AF37]/40 shadow-sm text-white">
+        <div className="mx-3 my-2 p-2 rounded-2xl bg-gradient-to-r from-[#7A2E43] via-[#612234] to-[#2C1A1D] border border-[#E5D0C6]/40 shadow-sm text-white">
           <div className="grid grid-cols-4 gap-1.5">
             {/* 1. Live Audio Call */}
             <button
@@ -602,10 +602,10 @@ export default function MobileProfileDetailSheet({
                   onToggleInterest(profile.id);
                 }
               }}
-              className="py-2 px-1 rounded-xl bg-gradient-to-tr from-[#D4AF37]/30 to-[#DFB76C]/30 hover:from-[#D4AF37]/50 hover:to-[#DFB76C]/50 active:scale-95 border border-[#D4AF37]/60 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+              className="py-2 px-1 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
             >
-              <Zap className="w-4 h-4 text-[#DFB76C] fill-current" />
-              <span className="text-[9.5px] font-bold text-[#DFB76C]">Instant Msg</span>
+              <Zap className="w-4 h-4 text-[#E6B8A2] fill-current" />
+              <span className="text-[9.5px] font-bold text-[#E6B8A2]">Instant Msg</span>
             </button>
           </div>
         </div>
@@ -625,7 +625,7 @@ export default function MobileProfileDetailSheet({
               onClick={() => setActiveTab(tab.id)}
               className={`py-3 px-2 text-xs font-bold whitespace-nowrap transition-colors border-b-2 ${
                 activeTab === tab.id 
-                  ? 'text-[#0B192C] border-[#D4AF37]' 
+                  ? 'text-[#7A2E43] border-[#7A2E43]' 
                   : 'text-slate-400 border-transparent hover:text-slate-700'
               }`}
             >
@@ -695,12 +695,12 @@ export default function MobileProfileDetailSheet({
                 <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <Sparkles className="w-4 h-4 text-[#DFB76C]" />
+                      <Sparkles className="w-4 h-4 text-[#C58B76]" />
                       <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                         Hobbies &amp; Interests
                       </h3>
                     </div>
-                    <span className="text-[10px] font-bold text-[#8C6D1F] bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                    <span className="text-[10px] font-bold text-[#7A2E43] bg-[#FFF9F6] px-2.5 py-0.5 rounded-full border border-[#E5D0C6]">
                       Personal Passions
                     </span>
                   </div>
@@ -755,7 +755,7 @@ export default function MobileProfileDetailSheet({
 
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2.5">
                   <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-amber-100 text-[#8C6D1F] flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-full bg-[#FFF9F6] text-[#7A2E43] border border-[#E5D0C6] flex items-center justify-center shrink-0 mt-0.5">
                       <MapPin className="w-4 h-4" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -767,10 +767,10 @@ export default function MobileProfileDetailSheet({
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="text-base font-extrabold text-[#0B192C]">
+                      <span className="text-base font-extrabold text-[#2C1A1D]">
                         {locMatch.matchPercent}%
                       </span>
-                      <span className="block text-[9px] font-bold text-[#8C6D1F]">
+                      <span className="block text-[9px] font-bold text-[#7A2E43]">
                         Loc. Score
                       </span>
                     </div>
@@ -792,7 +792,7 @@ export default function MobileProfileDetailSheet({
                     isContactUnlocked 
                       ? 'bg-emerald-100 text-emerald-700' 
                       : (!currentUser?.aadhaarVerified 
-                          ? 'bg-amber-100 text-[#8C6D1F]' 
+                          ? 'bg-[#FFF9F6] text-[#7A2E43]' 
                           : (!hasPaidPlan 
                               ? 'bg-amber-100 text-amber-700' 
                               : 'bg-blue-100 text-blue-700'))
@@ -817,7 +817,7 @@ export default function MobileProfileDetailSheet({
                 <button
                   type="button"
                   onClick={() => setActiveTab('contact')}
-                  className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-bold text-[#8C6D1F] hover:bg-slate-100 shrink-0 cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-[#FFF9F6] border border-[#E5D0C6] text-[11px] font-bold text-[#7A2E43] hover:bg-[#FDECE4] shrink-0 cursor-pointer"
                 >
                   {isContactUnlocked ? 'View Numbers →' : 'Unlock Contact →'}
                 </button>
@@ -833,8 +833,8 @@ export default function MobileProfileDetailSheet({
                 /* Locked State 1: Requires Aadhaar Verification */
                 <div className="bg-white rounded-2xl p-5 border border-amber-200 shadow-sm space-y-4">
                   <div className="text-center space-y-1.5">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-100 text-[#8C6D1F] flex items-center justify-center mx-auto shadow-inner">
-                      <Lock className="w-6 h-6 text-[#8C6D1F]" />
+                    <div className="w-12 h-12 rounded-2xl bg-[#FFF9F6] text-[#7A2E43] border border-[#E5D0C6] flex items-center justify-center mx-auto shadow-inner">
+                      <Lock className="w-6 h-6 text-[#7A2E43]" />
                     </div>
                     <h4 className="font-bold text-slate-900 text-sm">
                       Contact Details Protected by Aadhaar Shield
@@ -883,10 +883,10 @@ export default function MobileProfileDetailSheet({
                 </div>
               ) : !hasPaidPlan ? (
                 /* Locked State 2: Requires Active Paid Subscription */
-                <div className="bg-white rounded-2xl p-5 border border-[#DFB76C]/60 shadow-sm space-y-4">
+                <div className="bg-white rounded-2xl p-5 border border-[#E5D0C6] shadow-sm space-y-4">
                   <div className="text-center space-y-1.5">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-100 to-yellow-100 text-[#8C6D1F] flex items-center justify-center mx-auto shadow-inner border border-amber-200">
-                      <Crown className="w-6 h-6 text-[#8C6D1F]" />
+                    <div className="w-12 h-12 rounded-2xl bg-[#FFF9F6] text-[#7A2E43] border border-[#E5D0C6] flex items-center justify-center mx-auto shadow-inner">
+                      <Crown className="w-6 h-6 text-[#7A2E43]" />
                     </div>
                     <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
                       Subscription Required
@@ -935,9 +935,9 @@ export default function MobileProfileDetailSheet({
                       onClose();
                       onOpenOffers?.();
                     }}
-                    className="w-full py-3 px-4 rounded-xl text-xs font-bold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] shadow-md shadow-[#D4AF37]/30 transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                    className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#7A2E43] hover:bg-[#612234] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer"
                   >
-                    <Crown className="w-4 h-4 text-[#0B192C]" />
+                    <Crown className="w-4 h-4 text-white" />
                     <span>View Subscription Plans & Upgrade (50% OFF)</span>
                   </button>
 
@@ -951,7 +951,7 @@ export default function MobileProfileDetailSheet({
                   {/* Membership Credit Pill */}
                   <div className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-blue-50 border border-amber-200/80 rounded-xl px-3.5 py-2.5 text-xs">
                     <div className="flex items-center space-x-2">
-                      <Crown className="w-4 h-4 text-[#8C6D1F]" />
+                      <Crown className="w-4 h-4 text-[#7A2E43]" />
                       <div>
                         <span className="font-bold text-slate-800 text-[11px] block">
                           {currentUser?.membershipPlan || `${currentUser?.membership?.toUpperCase()} Member`}
@@ -1024,9 +1024,9 @@ export default function MobileProfileDetailSheet({
                       <button
                         type="button"
                         onClick={() => onUnlockContact?.(profile.id)}
-                        className="w-full py-3 px-4 rounded-xl text-xs font-bold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] shadow-md shadow-[#D4AF37]/30 transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-[0.98]"
+                        className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#7A2E43] hover:bg-[#612234] shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-[0.98]"
                       >
-                        <Lock className="w-4 h-4 text-[#0B192C]" />
+                        <Lock className="w-4 h-4 text-white" />
                         <span>Unlock Contact Details (Uses 1 Credit)</span>
                       </button>
 
@@ -1053,7 +1053,7 @@ export default function MobileProfileDetailSheet({
                   {/* Membership Credit Pill */}
                   <div className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-xl px-3 py-2 text-xs">
                     <div className="flex items-center space-x-2">
-                      <Crown className="w-4 h-4 text-[#8C6D1F]" />
+                      <Crown className="w-4 h-4 text-[#7A2E43]" />
                       <div>
                         <span className="font-bold text-slate-800 text-[11px] block">
                           {currentUser?.membershipPlan || `${currentUser?.membership?.toUpperCase()} Member`}
@@ -1091,9 +1091,9 @@ export default function MobileProfileDetailSheet({
                             onClose();
                             onStartChat(profile);
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-[#0B192C] text-[#DFB76C] font-bold text-xs hover:bg-slate-900 border border-[#D4AF37]/40 flex items-center space-x-1 shadow-xs cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-[#7A2E43] hover:bg-[#612234] text-white font-bold text-xs flex items-center space-x-1 shadow-xs cursor-pointer"
                         >
-                          <MessageCircle className="w-3 h-3 text-[#DFB76C]" />
+                          <MessageCircle className="w-3 h-3 text-white" />
                           <span>Chat</span>
                         </button>
                       </div>
@@ -1145,7 +1145,7 @@ export default function MobileProfileDetailSheet({
                   </div>
 
                   <p className="text-[10px] text-slate-500 bg-amber-50 p-2.5 rounded-xl border border-amber-200/60 leading-snug">
-                    <strong className="text-[#8C6D1F]">Family Matrimony Etiquette:</strong> Please call between 9:00 AM and 8:30 PM IST. Introduce your family background respectfully.
+                    <strong className="text-[#7A2E43]">Family Matrimony Etiquette:</strong> Please call between 9:00 AM and 8:30 PM IST. Introduce your family background respectfully.
                   </p>
                 </div>
               )}
@@ -1160,7 +1160,7 @@ export default function MobileProfileDetailSheet({
               {/* Profession Card */}
               <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
                 <div className="flex items-center space-x-2">
-                  <Briefcase className="w-5 h-5 text-[#1E3A8A]" />
+                  <Briefcase className="w-5 h-5 text-[#7A2E43]" />
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                     Professional Background
                   </h3>
@@ -1191,7 +1191,7 @@ export default function MobileProfileDetailSheet({
 
                   {(profile.jobLocation || profile.jobPlace || profile.workLocation) && (
                     <div className="flex items-center gap-1.5 text-xs text-slate-700 bg-white p-2 rounded-lg border border-slate-200/80">
-                      <MapPin className="w-3.5 h-3.5 text-[#1E3A8A] shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 text-[#7A2E43] shrink-0" />
                       <span className="text-slate-500 font-medium">Job Place:</span>
                       <strong className="text-slate-900 font-bold">{profile.jobLocation || profile.jobPlace || profile.workLocation}</strong>
                       {profile.workLocationType && (
@@ -1214,12 +1214,12 @@ export default function MobileProfileDetailSheet({
               <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <GraduationCap className="w-5 h-5 text-[#8C6D1F]" />
+                    <GraduationCap className="w-5 h-5 text-[#7A2E43]" />
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                       Academic Background
                     </h3>
                   </div>
-                  <span className="text-[10px] font-bold text-[#8C6D1F] bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                  <span className="text-[10px] font-bold text-[#7A2E43] bg-[#FFF9F6] px-2.5 py-0.5 rounded-full border border-[#E5D0C6]">
                     Academic Journey
                   </span>
                 </div>
@@ -1228,7 +1228,7 @@ export default function MobileProfileDetailSheet({
                   {/* Highest Qualification */}
                   <div className="p-3 bg-gradient-to-r from-amber-50/70 to-slate-50 rounded-xl border border-amber-200/80 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-[#8C6D1F] uppercase tracking-wider flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-[#7A2E43] uppercase tracking-wider flex items-center gap-1">
                         <span>🎓 Highest Qualification</span>
                       </span>
                       {profile.educationCategory && (
@@ -1240,7 +1240,7 @@ export default function MobileProfileDetailSheet({
                     <h4 className="font-bold text-slate-900 text-sm">{profile.education}</h4>
                     {profile.institute && (
                       <p className="text-xs text-slate-600 font-medium flex items-center gap-1.5 mt-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#DFB76C] shrink-0"></span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#C58B76] shrink-0"></span>
                         <span>{profile.institute}</span>
                       </p>
                     )}
@@ -1395,7 +1395,7 @@ export default function MobileProfileDetailSheet({
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20 pointer-events-none"></div>
                       
                       <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
-                        <span className="px-1.5 py-0.5 rounded-md bg-[#0B192C]/90 text-white text-[8px] font-bold">
+                        <span className="px-1.5 py-0.5 rounded-md bg-[#2C1A1D]/90 text-white text-[8px] font-bold">
                           Family #{fIdx + 1}
                         </span>
                         {screenshotRestricted && (
@@ -1427,15 +1427,15 @@ export default function MobileProfileDetailSheet({
             <div className="space-y-4 animate-in fade-in duration-200">
               
               {/* Ashtakoot Banner */}
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-2xl p-4 border border-amber-200/80 text-center space-y-1.5 shadow-sm">
-                <div className="w-10 h-10 rounded-full bg-[#DFB76C]/30 text-[#8C6D1F] flex items-center justify-center mx-auto mb-1">
+              <div className="bg-gradient-to-br from-[#FFF9F6] to-[#FDECE4] rounded-2xl p-4 border border-[#E5D0C6] text-center space-y-1.5 shadow-sm">
+                <div className="w-10 h-10 rounded-full bg-[#FFF9F6] text-[#7A2E43] border border-[#E5D0C6] flex items-center justify-center mx-auto mb-1">
                   <Sparkles className="w-5 h-5" />
                 </div>
-                <h4 className="font-bold text-amber-950 text-base">Ashtakoot Kundali Milan</h4>
-                <p className="text-xs text-amber-800">
+                <h4 className="font-bold text-[#2C1A1D] text-base">Ashtakoot Kundali Milan</h4>
+                <p className="text-xs text-[#5A4649]">
                   Compatibility Score: <span className="font-bold">{profile.gunasMatch}</span> ({profile.matchScore}% Match)
                 </p>
-                <span className="inline-block mt-1 px-3 py-0.5 rounded-full text-[11px] font-bold bg-[#D4AF37] text-[#0B192C]">
+                <span className="inline-block mt-1 px-3 py-0.5 rounded-full text-[11px] font-bold bg-[#7A2E43] text-white">
                   Highly Auspicious Match
                 </span>
               </div>
@@ -1471,9 +1471,9 @@ export default function MobileProfileDetailSheet({
               <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <HeartHandshake className="w-3.5 h-3.5 text-[#DFB76C]" /> What {profile.name.split(' ')[0]} Values
+                    <HeartHandshake className="w-3.5 h-3.5 text-[#C58B76]" /> What {profile.name.split(' ')[0]} Values
                   </h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-[#8C6D1F] border border-amber-200">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FFF9F6] text-[#7A2E43] border border-[#E5D0C6]">
                     Verified Expectations
                   </span>
                 </div>
@@ -1566,9 +1566,9 @@ export default function MobileProfileDetailSheet({
                   ].map((trait, idx) => (
                     <span 
                       key={idx}
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50/80 text-[#8C6D1F] border border-amber-200/80 flex items-center space-x-1"
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[#FFF9F6] text-[#7A2E43] border border-[#E5D0C6] flex items-center space-x-1"
                     >
-                      <Check className="w-3 h-3 text-[#DFB76C] stroke-[3]" />
+                      <Check className="w-3 h-3 text-[#7A2E43] stroke-[3]" />
                       <span>{trait}</span>
                     </span>
                   ))}
@@ -1690,7 +1690,7 @@ export default function MobileProfileDetailSheet({
                 onToggleInterest(profile.id);
               }
             }}
-            className="flex-1 py-3 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] shadow-[#D4AF37]/30"
+            className="flex-1 py-3 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer active:scale-95 bg-[#7A2E43] hover:bg-[#612234] text-white shadow-[#7A2E43]/20"
             title="Send Interest"
           >
             <Send className="w-4 h-4" />
@@ -1719,7 +1719,7 @@ export default function MobileProfileDetailSheet({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 mx-auto flex items-center justify-center mb-4">
-              <Lock className="w-7 h-7 text-[#DFB76C]" />
+              <Lock className="w-7 h-7 text-[#C58B76]" />
             </div>
 
             <h3 className="font-serif font-bold text-base text-slate-900 mb-2">

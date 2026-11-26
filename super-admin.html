@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-[#070F1E]">
+<html lang="en" class="h-full bg-[#1A1012]">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -25,12 +25,12 @@
         extend: {
           colors: {
             brand: {
-              navy: '#0B192C',
-              dark: '#070F1E',
-              card: '#122238',
-              gold: '#D4AF37',
-              goldLight: '#DFB76C',
-              goldDark: '#8C6D1F',
+              navy: '#2C1A1D',
+              dark: '#1A1012',
+              card: '#382226',
+              gold: '#C58B76',
+              goldLight: '#E6B8A2',
+              goldDark: '#7A2E43',
             }
           },
           fontFamily: {
@@ -41,7 +41,7 @@
       }
     };
   </script>
-<body class="h-screen w-screen overflow-hidden text-slate-100 bg-[#070F1E] relative m-0 p-0">
+<body class="h-screen w-screen overflow-hidden text-slate-100 bg-[#1A1012] relative m-0 p-0">
 
   <!-- Mobile Drawer Overlay -->
   <div id="sidebarOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden lg:hidden"></div>
@@ -49,25 +49,25 @@
   <!-- ========================================================
        SIDEBAR NAVIGATION
        ======================================================== -->
-  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-[#0B192C] border-r border-[#D4AF37]/20 flex flex-col justify-between transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-[#2C1A1D] border-r border-[#C58B76]/20 flex flex-col justify-between transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
     
     <!-- Top Brand Section -->
     <div>
       <div class="h-20 flex items-center px-6 border-b border-slate-800/80 justify-between">
         <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('overview')">
-          <div class="relative w-10 h-10 rounded-full gold-gradient p-0.5 shadow-md shadow-[#D4AF37]/20 flex items-center justify-center">
-            <div class="w-full h-full rounded-full bg-[#0B192C] flex items-center justify-center">
-              <i data-lucide="crown" class="w-5 h-5 text-[#DFB76C]"></i>
+          <div class="relative w-10 h-10 rounded-full gold-gradient p-0.5 shadow-md shadow-[#C58B76]/20 flex items-center justify-center">
+            <div class="w-full h-full rounded-full bg-[#2C1A1D] flex items-center justify-center">
+              <i data-lucide="crown" class="w-5 h-5 text-[#E6B8A2]"></i>
             </div>
             <span class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#DFB76C]"></span>
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C58B76] opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E6B8A2]"></span>
             </span>
           </div>
           <div>
             <div class="flex items-center gap-1.5">
               <span class="text-xl font-serif font-bold text-white tracking-wide">I 4 You</span>
-              <span class="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-[#D4AF37]/20 text-[#DFB76C] border border-[#D4AF37]/40">Admin</span>
+              <span class="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-[#C58B76]/20 text-[#E6B8A2] border border-[#C58B76]/40">Admin</span>
             </div>
             <p class="text-[10px] text-slate-400">Executive Console</p>
           </div>
@@ -78,7 +78,7 @@
       <nav class="p-4 space-y-1.5">
         <button 
           data-tab-target="overview"
-          class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all bg-gradient-to-r from-[#D4AF37]/20 to-[#DFB76C]/10 text-[#DFB76C] border border-[#D4AF37]/40 shadow-inner"
+          class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all bg-gradient-to-r from-[#C58B76]/20 to-[#E6B8A2]/10 text-[#E6B8A2] border border-[#C58B76]/40 shadow-inner"
         >
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
           <span>Overview & Analytics</span>
@@ -141,19 +141,19 @@
 
     <!-- Bottom Admin Card & Actions (Edit, Delete, Logout) -->
     <div class="p-4 border-t border-slate-800/80">
-      <div class="p-2.5 rounded-2xl bg-[#122238] border border-slate-700/60 flex items-center justify-between gap-2">
+      <div class="p-2.5 rounded-2xl bg-[#382226] border border-slate-700/60 flex items-center justify-between gap-2">
         <div class="flex items-center space-x-2.5 overflow-hidden min-w-0 flex-1">
           <img 
             id="adminAvatarImg"
             src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200" 
             alt="Admin Avatar" 
-            class="w-8 h-8 rounded-full object-cover border border-[#D4AF37]/40 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+            class="w-8 h-8 rounded-full object-cover border border-[#C58B76]/40 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
             onclick="openEditCurrentAdminModal()"
             title="Click to edit profile"
           />
           <div class="truncate min-w-0">
             <p id="adminFullName" class="text-xs font-bold text-white truncate">Arun Thomas</p>
-            <p id="adminRoleBadge" class="text-[10px] text-[#DFB76C] font-medium truncate">Super Admin</p>
+            <p id="adminRoleBadge" class="text-[10px] text-[#E6B8A2] font-medium truncate">Super Admin</p>
           </div>
         </div>
         <div class="flex items-center space-x-1 flex-shrink-0">
@@ -189,10 +189,10 @@
   <!-- ========================================================
        MAIN APP WORKSPACE
        ======================================================== -->
-  <div id="mainWorkspace" class="absolute inset-0 lg:left-64 flex flex-col overflow-hidden z-10 bg-[#070F1E]">
+  <div id="mainWorkspace" class="absolute inset-0 lg:left-64 flex flex-col overflow-hidden z-10 bg-[#1A1012]">
 
     <!-- Top Header Bar -->
-    <header class="h-20 bg-[#0B192C]/95 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-8 flex items-center justify-between flex-shrink-0 z-30 sticky top-0">
+    <header class="h-20 bg-[#2C1A1D]/95 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-8 flex items-center justify-between flex-shrink-0 z-30 sticky top-0">
       
       <!-- Mobile Menu & Global Search -->
       <div class="flex items-center space-x-4 flex-1 max-w-xl">
@@ -211,7 +211,7 @@
             type="text" 
             id="globalSearchInput" 
             placeholder="Search profiles, coupons, or transactions... (Press Ctrl + K)"
-            class="w-full pl-10 pr-12 py-2 bg-[#070F1E] border border-slate-700/80 rounded-xl text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30 transition-all"
+            class="w-full pl-10 pr-12 py-2 bg-[#1A1012] border border-slate-700/80 rounded-xl text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-[#C58B76] focus:ring-1 focus:ring-[#C58B76]/30 transition-all"
           />
           <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[10px] text-slate-500 font-mono">
             Ctrl K
@@ -236,7 +236,7 @@
         <!-- Quick Create User Trigger -->
         <button 
           onclick="openAddUserModal()"
-          class="py-2 px-3 sm:px-4 rounded-xl gold-gradient text-slate-950 font-semibold text-xs sm:text-sm shadow-md shadow-[#D4AF37]/20 hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+          class="py-2 px-3 sm:px-4 rounded-xl gold-gradient text-white font-semibold text-xs sm:text-sm shadow-md shadow-[#C58B76]/20 hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
         >
           <i data-lucide="user-plus" class="w-4 h-4"></i>
           <span class="hidden sm:inline">Add User</span>
@@ -282,11 +282,11 @@
       <section id="view-overview" class="space-y-8">
         
         <!-- Welcome Banner -->
-        <div class="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-[#0B192C] via-[#122238] to-[#0B192C] border border-[#D4AF37]/30 shadow-xl overflow-hidden">
+        <div class="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-[#2C1A1D] via-[#382226] to-[#2C1A1D] border border-[#C58B76]/30 shadow-xl overflow-hidden">
           <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#DFB76C] border border-[#D4AF37]/40">
+                <span class="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#C58B76]/20 text-[#E6B8A2] border border-[#C58B76]/40">
                   Realtime Telemetry
                 </span>
                 <span class="text-xs text-slate-400">Pan-India Matrimony Engine</span>
@@ -310,7 +310,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           
           <!-- Total Profiles -->
-          <div class="p-6 rounded-2xl bg-[#0B192C] border border-slate-800/80 hover:border-[#D4AF37]/40 transition-all shadow-lg">
+          <div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800/80 hover:border-[#C58B76]/40 transition-all shadow-lg">
             <div class="flex items-center justify-between mb-4">
               <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Profiles</span>
               <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
@@ -327,7 +327,7 @@
           </div>
 
           <!-- Total Revenue -->
-          <div class="p-6 rounded-2xl bg-[#0B192C] border border-slate-800/80 hover:border-emerald-500/40 transition-all shadow-lg">
+          <div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800/80 hover:border-emerald-500/40 transition-all shadow-lg">
             <div class="flex items-center justify-between mb-4">
               <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Revenue</span>
               <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
@@ -344,10 +344,10 @@
           </div>
 
           <!-- Verified Profiles -->
-          <div class="p-6 rounded-2xl bg-[#0B192C] border border-slate-800/80 hover:border-[#D4AF37]/40 transition-all shadow-lg">
+          <div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800/80 hover:border-[#C58B76]/40 transition-all shadow-lg">
             <div class="flex items-center justify-between mb-4">
               <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Verification Rate</span>
-              <div class="w-10 h-10 rounded-xl bg-[#D4AF37]/10 text-[#DFB76C] flex items-center justify-center">
+              <div class="w-10 h-10 rounded-xl bg-[#C58B76]/10 text-[#E6B8A2] flex items-center justify-center">
                 <i data-lucide="shield-check" class="w-5 h-5"></i>
               </div>
             </div>
@@ -359,7 +359,7 @@
           </div>
 
           <!-- Active Offers -->
-          <div class="p-6 rounded-2xl bg-[#0B192C] border border-slate-800/80 hover:border-purple-500/40 transition-all shadow-lg">
+          <div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800/80 hover:border-purple-500/40 transition-all shadow-lg">
             <div class="flex items-center justify-between mb-4">
               <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Active Offers</span>
               <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
@@ -379,7 +379,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           <!-- Chart 1: User Growth Line Chart -->
-          <div class="lg:col-span-8 p-6 rounded-3xl bg-[#0B192C] border border-slate-800 shadow-xl">
+          <div class="lg:col-span-8 p-6 rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl">
             <div class="flex items-center justify-between mb-6">
               <div>
                 <h3 class="text-base font-bold text-white">Member Acquisition Trajectory</h3>
@@ -395,7 +395,7 @@
           </div>
 
           <!-- Chart 2: Verification Breakdown Doughnut -->
-          <div class="lg:col-span-4 p-6 rounded-3xl bg-[#0B192C] border border-slate-800 shadow-xl flex flex-col justify-between">
+          <div class="lg:col-span-4 p-6 rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl flex flex-col justify-between">
             <div>
               <h3 class="text-base font-bold text-white mb-1">Trust & Verification</h3>
               <p class="text-xs text-slate-400 mb-4">Identity classification distribution</p>
@@ -409,7 +409,7 @@
           </div>
 
           <!-- Chart 3: Monthly Revenue Bar Chart -->
-          <div class="lg:col-span-6 p-6 rounded-3xl bg-[#0B192C] border border-slate-800 shadow-xl">
+          <div class="lg:col-span-6 p-6 rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl">
             <div class="flex items-center justify-between mb-6">
               <div>
                 <h3 class="text-base font-bold text-white">Subscription Revenue Volume</h3>
@@ -423,13 +423,13 @@
           </div>
 
           <!-- Chart 4: Top States Horizontal Bar -->
-          <div class="lg:col-span-6 p-6 rounded-3xl bg-[#0B192C] border border-slate-800 shadow-xl">
+          <div class="lg:col-span-6 p-6 rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl">
             <div class="flex items-center justify-between mb-6">
               <div>
                 <h3 class="text-base font-bold text-white">Regional Member Density</h3>
                 <p class="text-xs text-slate-400">Top candidate concentrations by state</p>
               </div>
-              <span class="text-xs text-[#DFB76C] font-mono">Pan-India</span>
+              <span class="text-xs text-[#E6B8A2] font-mono">Pan-India</span>
             </div>
             <div class="h-64">
               <canvas id="regionalChart"></canvas>
@@ -459,7 +459,7 @@
             <button onclick="loadUsers()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors" title="Refresh Table">
               <i data-lucide="refresh-cw" class="w-4 h-4"></i>
             </button>
-            <button onclick="openAddUserModal()" class="py-2 px-4 rounded-xl gold-gradient text-slate-950 font-semibold text-xs sm:text-sm shadow-md shadow-[#D4AF37]/20 hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5">
+            <button onclick="openAddUserModal()" class="py-2 px-4 rounded-xl gold-gradient text-white font-semibold text-xs sm:text-sm shadow-md shadow-[#C58B76]/20 hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5">
               <i data-lucide="user-plus" class="w-4 h-4"></i>
               <span>Add Candidate</span>
             </button>
@@ -467,7 +467,7 @@
         </div>
 
         <!-- Filter Controls Strip -->
-        <div class="p-4 rounded-2xl bg-[#0B192C] border border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           
           <!-- Search Input -->
           <div class="lg:col-span-2 relative">
@@ -478,13 +478,13 @@
               type="text" 
               id="userSearchInput" 
               placeholder="Search by name, email, phone, city, profession..."
-              class="w-full pl-9 pr-4 py-2 bg-[#070F1E] border border-slate-700 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-none focus:border-[#D4AF37]"
+              class="w-full pl-9 pr-4 py-2 bg-[#1A1012] border border-slate-700 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-none focus:border-[#C58B76]"
             />
           </div>
 
           <!-- Status Filter -->
           <div>
-            <select id="userStatusFilter" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]">
+            <select id="userStatusFilter" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#C58B76]">
               <option value="all">All Account Statuses</option>
               <option value="active">Active Members</option>
               <option value="pending">Pending Review</option>
@@ -495,7 +495,7 @@
 
           <!-- Gender Filter -->
           <div>
-            <select id="userGenderFilter" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]">
+            <select id="userGenderFilter" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#C58B76]">
               <option value="all">All Genders</option>
               <option value="Female">Female Profiles</option>
               <option value="Male">Male Profiles</option>
@@ -504,7 +504,7 @@
 
           <!-- Verification Filter -->
           <div>
-            <select id="userVerifiedFilter" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]">
+            <select id="userVerifiedFilter" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#C58B76]">
               <option value="all">All Verifications</option>
               <option value="1">Verified Only</option>
               <option value="0">Unverified Only</option>
@@ -514,7 +514,7 @@
         </div>
 
         <!-- Data Table Container -->
-        <div class="rounded-3xl bg-[#0B192C] border border-slate-800 shadow-xl overflow-hidden">
+        <div class="rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
@@ -538,7 +538,7 @@
           <div class="p-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-400">
             <div class="flex items-center space-x-2">
               <span>Show</span>
-              <select id="userLimitSelect" class="py-1 px-2 rounded-lg bg-[#070F1E] border border-slate-700 text-white text-xs">
+              <select id="userLimitSelect" class="py-1 px-2 rounded-lg bg-[#1A1012] border border-slate-700 text-white text-xs">
                 <option value="10">10</option>
                 <option value="25">25</option>
                 <option value="50">50</option>
@@ -554,14 +554,14 @@
               <button 
                 id="userPrevBtn"
                 onclick="changeUserPage(-1)"
-                class="px-3 py-1.5 rounded-lg bg-[#070F1E] hover:bg-slate-800 border border-slate-700 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                class="px-3 py-1.5 rounded-lg bg-[#1A1012] hover:bg-slate-800 border border-slate-700 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
                 Previous
               </button>
               <button 
                 id="userNextBtn"
                 onclick="changeUserPage(1)"
-                class="px-3 py-1.5 rounded-lg bg-[#070F1E] hover:bg-slate-800 border border-slate-700 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                class="px-3 py-1.5 rounded-lg bg-[#1A1012] hover:bg-slate-800 border border-slate-700 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
                 Next
               </button>
@@ -604,7 +604,7 @@
 
         <!-- Quick Summary Metrics -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div class="p-4 rounded-2xl bg-[#0B192C] border border-slate-800 flex items-center justify-between shadow-md">
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800 flex items-center justify-between shadow-md">
             <div>
               <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Candidates</p>
               <h3 id="aadhaarMetricTotal" class="text-2xl font-extrabold text-white font-mono mt-1">0</h3>
@@ -614,7 +614,7 @@
             </div>
           </div>
 
-          <div class="p-4 rounded-2xl bg-[#0B192C] border border-amber-500/30 bg-amber-500/5 flex items-center justify-between cursor-pointer hover:border-amber-500/50 transition-all shadow-md group" onclick="filterAadhaarStatus('pending')">
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-amber-500/30 bg-amber-500/5 flex items-center justify-between cursor-pointer hover:border-amber-500/50 transition-all shadow-md group" onclick="filterAadhaarStatus('pending')">
             <div>
               <p class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Pending Review</p>
               <h3 id="aadhaarMetricPending" class="text-2xl font-extrabold text-amber-300 font-mono mt-1">0</h3>
@@ -624,7 +624,7 @@
             </div>
           </div>
 
-          <div class="p-4 rounded-2xl bg-[#0B192C] border border-emerald-500/30 bg-emerald-500/5 flex items-center justify-between cursor-pointer hover:border-emerald-500/50 transition-all shadow-md group" onclick="filterAadhaarStatus('verified')">
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-emerald-500/30 bg-emerald-500/5 flex items-center justify-between cursor-pointer hover:border-emerald-500/50 transition-all shadow-md group" onclick="filterAadhaarStatus('verified')">
             <div>
               <p class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Aadhaar Approved</p>
               <h3 id="aadhaarMetricApproved" class="text-2xl font-extrabold text-emerald-400 font-mono mt-1">0</h3>
@@ -634,19 +634,19 @@
             </div>
           </div>
 
-          <div class="p-4 rounded-2xl bg-[#0B192C] border border-slate-800 flex items-center justify-between shadow-md">
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800 flex items-center justify-between shadow-md">
             <div>
               <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Verification Rate</p>
-              <h3 id="aadhaarMetricRate" class="text-2xl font-extrabold text-[#DFB76C] font-mono mt-1">0%</h3>
+              <h3 id="aadhaarMetricRate" class="text-2xl font-extrabold text-[#E6B8A2] font-mono mt-1">0%</h3>
             </div>
-            <div class="w-10 h-10 rounded-xl bg-[#DFB76C]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#DFB76C]">
+            <div class="w-10 h-10 rounded-xl bg-[#E6B8A2]/10 border border-[#C58B76]/30 flex items-center justify-center text-[#E6B8A2]">
               <i data-lucide="sparkles" class="w-5 h-5"></i>
             </div>
           </div>
         </div>
 
         <!-- Filter & Search Controls Bar -->
-        <div class="p-4 rounded-2xl bg-[#0B192C] border border-slate-800/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-md">
+        <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-md">
           <!-- Search input -->
           <div class="relative flex-1 max-w-md">
             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -656,13 +656,13 @@
               type="text" 
               id="aadhaarSearchInput" 
               placeholder="Search candidate name, mobile, district..."
-              class="w-full pl-9 pr-4 py-2 bg-[#070F1E] border border-slate-700 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-none focus:border-[#D4AF37]"
+              class="w-full pl-9 pr-4 py-2 bg-[#1A1012] border border-slate-700 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-none focus:border-[#C58B76]"
             />
           </div>
 
           <!-- Status Filter Tabs / Switchers -->
           <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-            <div class="flex items-center space-x-1.5 bg-[#070F1E] p-1 rounded-xl border border-slate-700">
+            <div class="flex items-center space-x-1.5 bg-[#1A1012] p-1 rounded-xl border border-slate-700">
               <button 
                 id="aadhaarFilterPendingBtn"
                 onclick="filterAadhaarStatus('pending')"
@@ -694,7 +694,7 @@
             </div>
 
             <!-- View Switcher: Table View vs View Aadhaar Cards -->
-            <div class="flex items-center space-x-1 bg-[#070F1E] p-1 rounded-xl border border-slate-700">
+            <div class="flex items-center space-x-1 bg-[#1A1012] p-1 rounded-xl border border-slate-700">
               <button 
                 id="aadhaarViewModeTableBtn"
                 onclick="setAadhaarViewMode('table')"
@@ -720,7 +720,7 @@
         <!-- Aadhaar Content Container -->
         <div id="aadhaarContentContainer" class="space-y-4">
           <!-- Table View Container -->
-          <div id="aadhaarTableWrapper" class="rounded-3xl bg-[#0B192C] border border-slate-800 shadow-xl overflow-hidden">
+          <div id="aadhaarTableWrapper" class="rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl overflow-hidden">
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse">
                 <thead>
@@ -746,7 +746,7 @@
           </div>
 
           <!-- Pagination Bar -->
-          <div class="rounded-2xl bg-[#0B192C] border border-slate-800 p-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-3 shadow-md">
+          <div class="rounded-2xl bg-[#2C1A1D] border border-slate-800 p-4 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-3 shadow-md">
             <span id="aadhaarPaginationInfo">Showing 0 of 0 candidates</span>
             <div class="flex items-center space-x-2">
               <button id="aadhaarPrevPageBtn" onclick="changeAadhaarPage(-1)" class="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
@@ -784,7 +784,7 @@
         </div>
 
         <!-- Offers Table Container -->
-        <div class="rounded-3xl bg-[#0B192C] border border-slate-800 shadow-xl overflow-hidden">
+        <div class="rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
@@ -816,7 +816,7 @@
           <div>
             <div class="flex items-center gap-2">
               <h2 class="text-2xl font-serif font-bold text-white">Membership Plans & Pricing</h2>
-              <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#DFB76C] border border-[#D4AF37]/40">Live Config</span>
+              <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-[#C58B76]/20 text-[#E6B8A2] border border-[#C58B76]/40">Live Config</span>
             </div>
             <p class="text-xs text-slate-400">Configure matrimonial packages, duration pricing tiers (3, 6, 12 months), verified contact credits, and exclusive features.</p>
           </div>
@@ -833,24 +833,24 @@
 
         <!-- KPI / Metrics Grid for Plans -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="p-4 rounded-2xl bg-[#0B192C] border border-slate-800">
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800">
             <p class="text-[11px] text-slate-400 font-medium">Total Membership Plans</p>
             <p id="totalPlansCount" class="text-2xl font-bold text-white mt-1">4</p>
             <span class="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 mt-1">
               <i data-lucide="check" class="w-3 h-3"></i> Synchronized with App
             </span>
           </div>
-          <div class="p-4 rounded-2xl bg-[#0B192C] border border-slate-800">
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800">
             <p class="text-[11px] text-slate-400 font-medium">Active Member Tiers</p>
             <p id="activePlansCount" class="text-2xl font-bold text-emerald-400 mt-1">4</p>
             <span class="text-[10px] text-slate-400 mt-1">Available for checkout</span>
           </div>
-          <div class="p-4 rounded-2xl bg-[#0B192C] border border-slate-800">
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800">
             <p class="text-[11px] text-slate-400 font-medium">Most Popular Tier</p>
-            <p id="popularPlanName" class="text-2xl font-bold text-[#DFB76C] mt-1">Diamond VIP</p>
-            <span class="text-[10px] text-[#DFB76C] mt-1">75 Verified Contacts</span>
+            <p id="popularPlanName" class="text-2xl font-bold text-[#E6B8A2] mt-1">Diamond VIP</p>
+            <span class="text-[10px] text-[#E6B8A2] mt-1">75 Verified Contacts</span>
           </div>
-          <div class="p-4 rounded-2xl bg-[#0B192C] border border-slate-800">
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800">
             <p class="text-[11px] text-slate-400 font-medium">Elite Concierge Tier</p>
             <p id="elitePlanName" class="text-2xl font-bold text-purple-400 mt-1">Platinum Royal</p>
             <span class="text-[10px] text-purple-300 mt-1">Unlimited Concierge</span>
@@ -863,10 +863,10 @@
         </div>
 
         <!-- Quick Comparison Summary Table -->
-        <div class="rounded-3xl bg-[#0B192C] border border-slate-800 shadow-xl overflow-hidden mt-6">
+        <div class="rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl overflow-hidden mt-6">
           <div class="p-4 border-b border-slate-800/80 bg-slate-900/50 flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <i data-lucide="layers" class="w-4 h-4 text-[#DFB76C]"></i>
+              <i data-lucide="layers" class="w-4 h-4 text-[#E6B8A2]"></i>
               <h3 class="text-sm font-bold text-white">Full Pricing & Duration Matrix</h3>
             </div>
             <span class="text-xs text-slate-400">All prices in INR (₹)</span>
@@ -894,12 +894,12 @@
         </div>
 
         <!-- Matrimonial Privileges & Quota Comparison Matrix -->
-        <div class="rounded-3xl bg-[#0B192C] border border-slate-800 shadow-xl overflow-hidden mt-6">
+        <div class="rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl overflow-hidden mt-6">
           <div class="p-4 border-b border-slate-800/80 bg-slate-900/50 flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-2">
-              <i data-lucide="sparkles" class="w-4 h-4 text-[#DFB76C]"></i>
+              <i data-lucide="sparkles" class="w-4 h-4 text-[#E6B8A2]"></i>
               <h3 class="text-sm font-bold text-white">Matrimonial Privileges & Quota Comparison</h3>
-              <span class="text-xs text-[#DFB76C] font-medium hidden sm:inline">• Side-by-side tier comparison</span>
+              <span class="text-xs text-[#E6B8A2] font-medium hidden sm:inline">• Side-by-side tier comparison</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-[11px] text-slate-400 hidden md:inline">Tier switches & actions enabled</span>
@@ -942,7 +942,7 @@
             <p class="text-xs text-slate-400">Complete payment ledger with refund adjustments, invoice receipts, and status modifications.</p>
           </div>
           <div class="flex items-center space-x-2.5">
-                        <button onclick="printAllPayments()" id="printAllPaymentsBtn" class="py-2 px-3.5 rounded-xl bg-[#DFB76C]/20 hover:bg-[#DFB76C]/30 text-[#DFB76C] border border-[#DFB76C]/40 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm hover:shadow" title="Calculate Total and Print All Transactions">
+                        <button onclick="printAllPayments()" id="printAllPaymentsBtn" class="py-2 px-3.5 rounded-xl bg-[#E6B8A2]/20 hover:bg-[#E6B8A2]/30 text-[#E6B8A2] border border-[#E6B8A2]/40 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm hover:shadow" title="Calculate Total and Print All Transactions">
               <i data-lucide="printer" class="w-4 h-4"></i>
               <span>Print All / Total</span>
             </button>
@@ -961,7 +961,7 @@
         </div>
 
         <!-- Payment Filter Controls -->
-        <div class="p-4 rounded-2xl bg-[#0B192C] border border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-3">
           
           <!-- Search Payment -->
           <div class="relative">
@@ -972,13 +972,13 @@
               type="text" 
               id="paymentSearchInput" 
               placeholder="Search by Txn ID, User, or Invoice #..."
-              class="w-full pl-9 pr-4 py-2 bg-[#070F1E] border border-slate-700 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-none focus:border-[#D4AF37]"
+              class="w-full pl-9 pr-4 py-2 bg-[#1A1012] border border-slate-700 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-none focus:border-[#C58B76]"
             />
           </div>
 
           <!-- Status Filter -->
           <div>
-            <select id="paymentStatusFilter" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]">
+            <select id="paymentStatusFilter" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#C58B76]">
               <option value="all">All Payment Statuses</option>
               <option value="completed">Completed Successfully</option>
               <option value="pending">Pending Settlement</option>
@@ -989,7 +989,7 @@
 
           <!-- Method Filter -->
           <div>
-            <select id="paymentMethodFilter" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#D4AF37]">
+            <select id="paymentMethodFilter" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#C58B76]">
               <option value="all">All Payment Gateways</option>
               <option value="UPI">UPI (GPay / PhonePe / BHIM)</option>
               <option value="Razorpay">Razorpay Gateway</option>
@@ -1001,7 +1001,7 @@
         </div>
 
         <!-- Payments Table -->
-        <div class="rounded-3xl bg-[#0B192C] border border-slate-800 shadow-xl overflow-hidden">
+        <div class="rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
@@ -1035,14 +1035,14 @@
               <button 
                 id="paymentPrevBtn"
                 onclick="changePaymentPage(-1)"
-                class="px-3 py-1.5 rounded-lg bg-[#070F1E] hover:bg-slate-800 border border-slate-700 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                class="px-3 py-1.5 rounded-lg bg-[#1A1012] hover:bg-slate-800 border border-slate-700 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
                 Previous
               </button>
               <button 
                 id="paymentNextBtn"
                 onclick="changePaymentPage(1)"
-                class="px-3 py-1.5 rounded-lg bg-[#070F1E] hover:bg-slate-800 border border-slate-700 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                class="px-3 py-1.5 rounded-lg bg-[#1A1012] hover:bg-slate-800 border border-slate-700 text-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
                 Next
               </button>
@@ -1065,14 +1065,14 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
                     <!-- Daily Contact View Limit Configuration Card -->
-          <div class="p-6 rounded-3xl bg-[#0B192C] border border-[#DFB76C]/40 space-y-4 shadow-xl relative overflow-hidden">
+          <div class="p-6 rounded-3xl bg-[#2C1A1D] border border-[#E6B8A2]/40 space-y-4 shadow-xl relative overflow-hidden">
             <div class="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none"></div>
             <div class="flex items-center justify-between relative z-10">
               <h3 class="text-base font-bold text-white flex items-center gap-2">
-                <i data-lucide="eye" class="w-5 h-5 text-[#DFB76C]"></i>
+                <i data-lucide="eye" class="w-5 h-5 text-[#E6B8A2]"></i>
                 Daily Contact View Limit
               </h3>
-              <span id="dailyContactLimitBadge" class="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-[#DFB76C] text-xs font-mono font-bold">
+              <span id="dailyContactLimitBadge" class="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-[#E6B8A2] text-xs font-mono font-bold">
                 Active Limit: <span id="currentDailyLimitDisplay">5</span> / day
               </span>
             </div>
@@ -1092,7 +1092,7 @@
                       min="1" 
                       max="1000" 
                       value="5" 
-                      class="w-full px-4 py-2.5 rounded-xl bg-[#070F1E] border border-slate-700 text-white font-mono text-sm focus:outline-none focus:border-[#DFB76C] transition-colors"
+                      class="w-full px-4 py-2.5 rounded-xl bg-[#1A1012] border border-slate-700 text-white font-mono text-sm focus:outline-none focus:border-[#E6B8A2] transition-colors"
                       placeholder="e.g. 5"
                     />
                   </div>
@@ -1113,9 +1113,9 @@
           </div>
 
           <!-- Admin Security Card -->
-          <div class="p-6 rounded-3xl bg-[#0B192C] border border-slate-800 space-y-4">
+          <div class="p-6 rounded-3xl bg-[#2C1A1D] border border-slate-800 space-y-4">
             <h3 class="text-base font-bold text-white flex items-center gap-2">
-              <i data-lucide="shield" class="w-5 h-5 text-[#DFB76C]"></i>
+              <i data-lucide="shield" class="w-5 h-5 text-[#E6B8A2]"></i>
               Administrator Profile
             </h3>
             <div class="space-y-3 text-xs text-slate-300">
@@ -1147,7 +1147,7 @@
               </div>
             </div>
             <div class="flex gap-2 pt-2">
-              <button type="button" onclick="openEditCurrentAdminModal()" class="flex-1 py-2.5 rounded-xl bg-[#DFB76C]/10 hover:bg-[#DFB76C]/20 text-[#DFB76C] border border-[#DFB76C]/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer">
+              <button type="button" onclick="openEditCurrentAdminModal()" class="flex-1 py-2.5 rounded-xl bg-[#E6B8A2]/10 hover:bg-[#E6B8A2]/20 text-[#E6B8A2] border border-[#E6B8A2]/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer">
                 <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Edit Profile & Password
               </button>
               <button type="button" onclick="openDeleteCurrentAdminModal()" class="py-2.5 px-4 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer" title="Delete Administrator Account">
@@ -1157,7 +1157,7 @@
           </div>
 
           <!-- Database & Telemetry Health -->
-          <div class="p-6 rounded-3xl bg-[#0B192C] border border-slate-800 space-y-4">
+          <div class="p-6 rounded-3xl bg-[#2C1A1D] border border-slate-800 space-y-4">
             <h3 class="text-base font-bold text-white flex items-center gap-2">
               <i data-lucide="database" class="w-5 h-5 text-emerald-400"></i>
               Database Architecture
@@ -1199,11 +1199,11 @@
         </div>
 
         <!-- Administrator Accounts & Team Access Card -->
-        <div class="p-6 rounded-3xl bg-[#0B192C] border border-slate-800 space-y-4">
+        <div class="p-6 rounded-3xl bg-[#2C1A1D] border border-slate-800 space-y-4">
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-slate-800">
             <div>
               <h3 class="text-base font-bold text-white flex items-center gap-2">
-                <i data-lucide="users-round" class="w-5 h-5 text-[#DFB76C]"></i>
+                <i data-lucide="users-round" class="w-5 h-5 text-[#E6B8A2]"></i>
                 Administrator Accounts & Access Control
               </h3>
               <p class="text-xs text-slate-400">Manage administrator privileges, portal operators, edit credentials, or delete admin accounts.</p>
@@ -1231,7 +1231,7 @@
               <tbody id="adminUsersTableBody" class="divide-y divide-slate-800 text-slate-200">
                 <tr>
                   <td colspan="5" class="py-8 text-center text-slate-400">
-                    <div class="inline-block animate-spin w-5 h-5 border-2 border-[#DFB76C] border-t-transparent rounded-full mb-1"></div>
+                    <div class="inline-block animate-spin w-5 h-5 border-2 border-[#E6B8A2] border-t-transparent rounded-full mb-1"></div>
                     <p class="text-xs">Loading administrators...</p>
                   </td>
                 </tr>
@@ -1250,7 +1250,7 @@
        ======================================================== -->
 
   <!-- 1. USER ADD / EDIT MODAL -->
-  <dialog id="userModal" class="rounded-3xl bg-[#0B192C] text-white border border-[#D4AF37]/30 shadow-2xl p-0 w-full max-w-2xl backdrop:bg-black/75">
+  <dialog id="userModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-[#C58B76]/30 shadow-2xl p-0 w-full max-w-2xl backdrop:bg-black/75">
     <div class="p-6 border-b border-slate-800 flex items-center justify-between">
       <h3 id="userModalTitle" class="text-lg font-bold text-white">Add New Profile</h3>
       <button onclick="document.getElementById('userModal').close()" class="p-1 rounded-lg text-slate-400 hover:text-white">
@@ -1265,11 +1265,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="sm:col-span-2">
           <label class="block text-xs text-slate-300 mb-1">Full Candidate Name *</label>
-          <input type="text" id="userName" required class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="e.g. Dr. Sneha Kulkarni"/>
+          <input type="text" id="userName" required class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="e.g. Dr. Sneha Kulkarni"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Age (Years) *</label>
-          <input type="number" id="userAge" required min="18" max="75" value="26" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]"/>
+          <input type="number" id="userAge" required min="18" max="75" value="26" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]"/>
         </div>
       </div>
 
@@ -1277,7 +1277,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Gender *</label>
-          <select id="userGender" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]">
+          <select id="userGender" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]">
             <option value="Female">Female</option>
             <option value="Male">Male</option>
           </select>
@@ -1287,14 +1287,14 @@
             <span>Phone Number</span>
             <span class="text-[9px] text-emerald-400 font-mono flex items-center gap-0.5"><i data-lucide="lock" class="w-2.5 h-2.5"></i> AES-256</span>
           </label>
-          <input type="text" id="userPhone" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="+91 98201 00000"/>
+          <input type="text" id="userPhone" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="+91 98201 00000"/>
         </div>
         <div>
           <label class="text-xs text-slate-300 mb-1 flex items-center justify-between">
             <span>Email Address</span>
             <span class="text-[9px] text-emerald-400 font-mono flex items-center gap-0.5"><i data-lucide="lock" class="w-2.5 h-2.5"></i> AES-256</span>
           </label>
-          <input type="email" id="userEmail" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="candidate@example.com"/>
+          <input type="email" id="userEmail" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="candidate@example.com"/>
         </div>
       </div>
 
@@ -1302,15 +1302,15 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">State</label>
-          <input type="text" id="userState" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="e.g. Maharashtra"/>
+          <input type="text" id="userState" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="e.g. Maharashtra"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">City</label>
-          <input type="text" id="userCity" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="e.g. Mumbai"/>
+          <input type="text" id="userCity" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="e.g. Mumbai"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">District</label>
-          <input type="text" id="userDistrict" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="e.g. Mumbai Suburban"/>
+          <input type="text" id="userDistrict" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="e.g. Mumbai Suburban"/>
         </div>
       </div>
 
@@ -1320,22 +1320,22 @@
           <span>Native / Family Address</span>
           <span class="text-[9px] text-emerald-400 font-mono flex items-center gap-0.5"><i data-lucide="lock" class="w-2.5 h-2.5"></i> AES-256 Encrypted</span>
         </label>
-        <input type="text" id="userNativeAddress" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="e.g. 402, Royal Palms, Model Colony"/>
+        <input type="text" id="userNativeAddress" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="e.g. 402, Royal Palms, Model Colony"/>
       </div>
 
       <!-- Row 4: Profession & Income -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Profession / Title</label>
-          <input type="text" id="userProfession" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="e.g. Software Architect"/>
+          <input type="text" id="userProfession" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="e.g. Software Architect"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Company / Organization</label>
-          <input type="text" id="userCompany" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="e.g. Google India"/>
+          <input type="text" id="userCompany" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="e.g. Google India"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Annual Package</label>
-          <input type="text" id="userIncome" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="e.g. ₹ 35 - 40 LPA"/>
+          <input type="text" id="userIncome" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="e.g. ₹ 35 - 40 LPA"/>
         </div>
       </div>
 
@@ -1343,11 +1343,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Education Degree</label>
-          <input type="text" id="userEducation" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="e.g. B.Tech (IIT), MBA"/>
+          <input type="text" id="userEducation" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="e.g. B.Tech (IIT), MBA"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Religion</label>
-          <input type="text" id="userReligion" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="e.g. Hindu"/>
+          <input type="text" id="userReligion" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="e.g. Hindu"/>
           <input type="hidden" id="userCaste" value=""/>
         </div>
       </div>
@@ -1356,7 +1356,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Diet</label>
-          <select id="userDiet" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]">
+          <select id="userDiet" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]">
             <option value="Vegetarian">Vegetarian</option>
             <option value="Non-Vegetarian">Non-Vegetarian</option>
             <option value="Eggetarian">Eggetarian</option>
@@ -1365,7 +1365,7 @@
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Manglik Status</label>
-          <select id="userManglik" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]">
+          <select id="userManglik" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]">
             <option value="Non-Manglik">Non-Manglik</option>
             <option value="Manglik">Manglik</option>
             <option value="Anshik Manglik">Anshik Manglik</option>
@@ -1373,7 +1373,7 @@
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Account Status</label>
-          <select id="userStatus" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]">
+          <select id="userStatus" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]">
             <option value="active">Active</option>
             <option value="pending">Pending Review</option>
             <option value="suspended">Suspended</option>
@@ -1385,22 +1385,22 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="sm:col-span-2">
           <label class="block text-xs text-slate-300 mb-1">Profile Photo URL</label>
-          <input type="url" id="userPhotoUrl" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]" placeholder="https://images.unsplash.com/..."/>
+          <input type="url" id="userPhotoUrl" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]" placeholder="https://images.unsplash.com/..."/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Match Score %</label>
-          <input type="number" id="userMatchScore" min="50" max="100" value="92" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#D4AF37]"/>
+          <input type="number" id="userMatchScore" min="50" max="100" value="92" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76]"/>
         </div>
       </div>
 
       <!-- Verification Toggles -->
       <div class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
         <label class="flex items-center cursor-pointer">
-          <input type="checkbox" id="userAadhaarVerified" class="w-4 h-4 rounded text-[#D4AF37] bg-[#070F1E] border-slate-700"/>
+          <input type="checkbox" id="userAadhaarVerified" class="w-4 h-4 rounded text-[#C58B76] bg-[#1A1012] border-slate-700"/>
           <span class="ml-2 text-xs text-slate-200">Aadhaar Identity Verified</span>
         </label>
         <label class="flex items-center cursor-pointer">
-          <input type="checkbox" id="userGovtVerified" class="w-4 h-4 rounded text-blue-500 bg-[#070F1E] border-slate-700"/>
+          <input type="checkbox" id="userGovtVerified" class="w-4 h-4 rounded text-blue-500 bg-[#1A1012] border-slate-700"/>
           <span class="ml-2 text-xs text-slate-200">Govt ID Card Verified</span>
         </label>
       </div>
@@ -1409,7 +1409,7 @@
         <button type="button" onclick="document.getElementById('userModal').close()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
           Cancel
         </button>
-        <button type="submit" class="px-5 py-2 rounded-xl gold-gradient text-slate-950 font-semibold text-xs shadow-md shadow-[#D4AF37]/20 hover:brightness-110">
+        <button type="submit" class="px-5 py-2 rounded-xl gold-gradient text-white font-semibold text-xs shadow-md shadow-[#C58B76]/20 hover:brightness-110">
           Save Profile
         </button>
       </div>
@@ -1417,7 +1417,7 @@
   </dialog>
 
   <!-- 2. OFFERS ADD / EDIT MODAL -->
-  <dialog id="offerModal" class="rounded-3xl bg-[#0B192C] text-white border border-purple-500/30 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/75">
+  <dialog id="offerModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-purple-500/30 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/75">
     <div class="p-6 border-b border-slate-800 flex items-center justify-between">
       <h3 id="offerModalTitle" class="text-lg font-bold text-white">Promotional Offer</h3>
       <button onclick="document.getElementById('offerModal').close()" class="p-1 rounded-lg text-slate-400 hover:text-white">
@@ -1431,22 +1431,22 @@
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Coupon Code *</label>
-          <input type="text" id="offerCode" required placeholder="e.g. DIWALI50" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs font-mono uppercase focus:border-purple-400"/>
+          <input type="text" id="offerCode" required placeholder="e.g. DIWALI50" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs font-mono uppercase focus:border-purple-400"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Discount % *</label>
-          <input type="number" id="offerDiscount" required min="1" max="100" value="25" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-purple-400"/>
+          <input type="number" id="offerDiscount" required min="1" max="100" value="25" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-purple-400"/>
         </div>
       </div>
 
       <div>
         <label class="block text-xs text-slate-300 mb-1">Offer Title *</label>
-        <input type="text" id="offerTitle" required placeholder="e.g. Festive Diwali 50% Off Special" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-purple-400"/>
+        <input type="text" id="offerTitle" required placeholder="e.g. Festive Diwali 50% Off Special" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-purple-400"/>
       </div>
 
       <div>
         <label class="block text-xs text-slate-300 mb-1">Applicable Matrimony Plan</label>
-        <select id="offerPlanType" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-purple-400">
+        <select id="offerPlanType" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-purple-400">
           <option value="All Plans">All Plans</option>
           <option value="Gold 3-Months">Gold 3-Months</option>
           <option value="Platinum 6-Months">Platinum 6-Months</option>
@@ -1457,27 +1457,27 @@
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Valid From</label>
-          <input type="date" id="offerValidFrom" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs"/>
+          <input type="date" id="offerValidFrom" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Valid Until</label>
-          <input type="date" id="offerValidUntil" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs"/>
+          <input type="date" id="offerValidUntil" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs"/>
         </div>
       </div>
 
       <div>
         <label class="block text-xs text-slate-300 mb-1">Maximum Redemption Limit</label>
-        <input type="number" id="offerMaxUses" value="200" min="1" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs"/>
+        <input type="number" id="offerMaxUses" value="200" min="1" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs"/>
       </div>
 
       <div>
         <label class="block text-xs text-slate-300 mb-1">Terms / Description</label>
-        <textarea id="offerDescription" rows="2" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs" placeholder="Terms and promotional details..."></textarea>
+        <textarea id="offerDescription" rows="2" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs" placeholder="Terms and promotional details..."></textarea>
       </div>
 
       <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
         <label class="flex items-center cursor-pointer">
-          <input type="checkbox" id="offerActive" checked class="w-4 h-4 rounded text-purple-500 bg-[#070F1E] border-slate-700"/>
+          <input type="checkbox" id="offerActive" checked class="w-4 h-4 rounded text-purple-500 bg-[#1A1012] border-slate-700"/>
           <span class="ml-2 text-xs text-slate-200">Offer is currently Active and redeemable</span>
         </label>
       </div>
@@ -1494,7 +1494,7 @@
   </dialog>
 
   <!-- 3. PAYMENT RECORD / EDIT MODAL -->
-  <dialog id="paymentModal" class="rounded-3xl bg-[#0B192C] text-white border border-emerald-500/30 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/75">
+  <dialog id="paymentModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-emerald-500/30 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/75">
     <div class="p-6 border-b border-slate-800 flex items-center justify-between">
       <h3 id="paymentModalTitle" class="text-lg font-bold text-white">Record / Edit Payment</h3>
       <button onclick="document.getElementById('paymentModal').close()" class="p-1 rounded-lg text-slate-400 hover:text-white">
@@ -1508,23 +1508,23 @@
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Transaction ID *</label>
-          <input type="text" id="paymentTxnId" required class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs font-mono"/>
+          <input type="text" id="paymentTxnId" required class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs font-mono"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Amount (INR ₹) *</label>
-          <input type="number" id="paymentAmount" step="1" required class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs font-mono font-bold"/>
+          <input type="number" id="paymentAmount" step="1" required class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs font-mono font-bold"/>
         </div>
       </div>
 
       <div>
         <label class="block text-xs text-slate-300 mb-1">Candidate / Customer Name *</label>
-        <input type="text" id="paymentUserName" required placeholder="e.g. Dr. Ananya Kulkarni" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs"/>
+        <input type="text" id="paymentUserName" required placeholder="e.g. Dr. Ananya Kulkarni" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs"/>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Plan / Package</label>
-          <select id="paymentPlanName" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs">
+          <select id="paymentPlanName" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs">
             <option value="Gold 3-Months">Gold 3-Months (₹2,999)</option>
             <option value="Platinum 6-Months">Platinum 6-Months (₹5,499)</option>
             <option value="Royal VIP 12-Months">Royal VIP 12-Months (₹9,999)</option>
@@ -1533,7 +1533,7 @@
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Payment Method</label>
-          <select id="paymentMethod" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs">
+          <select id="paymentMethod" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs">
             <option value="UPI (Google Pay)">UPI (Google Pay)</option>
             <option value="UPI (PhonePe)">UPI (PhonePe)</option>
             <option value="UPI (Paytm)">UPI (Paytm)</option>
@@ -1547,7 +1547,7 @@
 
       <div>
         <label class="block text-xs text-slate-300 mb-1">Transaction Status</label>
-        <select id="paymentStatus" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs font-semibold">
+        <select id="paymentStatus" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs font-semibold">
           <option value="completed">Completed Successfully</option>
           <option value="refunded">Refunded</option>
           <option value="pending">Pending Bank Verification</option>
@@ -1557,7 +1557,7 @@
 
       <div>
         <label class="block text-xs text-slate-300 mb-1">Admin Notes / Reference</label>
-        <textarea id="paymentNotes" rows="2" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs" placeholder="e.g. Applied Diwali coupon or manual adjustment..."></textarea>
+        <textarea id="paymentNotes" rows="2" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs" placeholder="e.g. Applied Diwali coupon or manual adjustment..."></textarea>
       </div>
 
       <div class="pt-4 border-t border-slate-800 flex justify-end gap-2">
@@ -1572,7 +1572,7 @@
   </dialog>
 
   <!-- 4. DELETE CONFIRMATION MODAL -->
-  <dialog id="deleteModal" class="rounded-3xl bg-[#0B192C] text-white border border-rose-500/30 shadow-2xl p-6 w-full max-w-md backdrop:bg-black/75">
+  <dialog id="deleteModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-rose-500/30 shadow-2xl p-6 w-full max-w-md backdrop:bg-black/75">
     <div class="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mb-4">
       <i data-lucide="alert-triangle" class="w-6 h-6"></i>
     </div>
@@ -1597,10 +1597,10 @@
   </dialog>
 
   <!-- 5. INVOICE / RECEIPT MODAL (PRINTABLE) -->
-  <dialog id="receiptModal" class="rounded-3xl bg-[#0B192C] text-white border border-[#D4AF37]/30 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/80">
+  <dialog id="receiptModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-[#C58B76]/30 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/80">
     <div class="p-6 border-b border-slate-800 flex items-center justify-between no-print">
       <div class="flex items-center gap-2">
-        <i data-lucide="receipt" class="w-5 h-5 text-[#DFB76C]"></i>
+        <i data-lucide="receipt" class="w-5 h-5 text-[#E6B8A2]"></i>
         <h3 class="text-base font-bold text-white">Official Tax Invoice Receipt</h3>
       </div>
       <div class="flex items-center gap-2">
@@ -1624,7 +1624,7 @@
           <p class="text-[10px] text-slate-500">GSTIN: 27AABCI4409Z1ZT</p>
         </div>
         <div class="text-right">
-          <p class="text-xs uppercase font-bold tracking-wider text-[#DFB76C]">Invoice</p>
+          <p class="text-xs uppercase font-bold tracking-wider text-[#E6B8A2]">Invoice</p>
           <p id="receiptInvoiceNo" class="font-mono text-white text-sm font-bold">INV-2026-0000</p>
           <p id="receiptDate" class="text-[10px] text-slate-400">2026-09-23</p>
         </div>
@@ -1669,7 +1669,7 @@
       <div class="pt-4 border-t border-slate-800 space-y-2">
         <div class="flex justify-between font-bold text-base text-white">
           <span>Total Paid:</span>
-          <span id="receiptTotal" class="font-mono text-[#DFB76C]">₹0</span>
+          <span id="receiptTotal" class="font-mono text-[#E6B8A2]">₹0</span>
         </div>
         <div class="flex justify-between text-[11px] text-slate-400">
           <span>Status:</span>
@@ -1685,14 +1685,14 @@
     </div>
   </dialog>
   <!-- 5b. PRINT ALL / FINANCIAL LEDGER AUDIT MODAL -->
-  <dialog id="printLedgerModal" class="rounded-3xl bg-[#0B192C] text-white border border-[#D4AF37]/30 shadow-2xl p-0 w-full max-w-4xl backdrop:bg-black/85">
+  <dialog id="printLedgerModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-[#C58B76]/30 shadow-2xl p-0 w-full max-w-4xl backdrop:bg-black/85">
     <div class="p-5 border-b border-slate-800 flex items-center justify-between no-print">
       <div class="flex items-center gap-2">
-        <i data-lucide="printer" class="w-5 h-5 text-[#DFB76C]"></i>
+        <i data-lucide="printer" class="w-5 h-5 text-[#E6B8A2]"></i>
         <h3 class="text-base font-bold text-white">Transaction Ledger & Revenue Report</h3>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-[#DFB76C] hover:bg-[#c9a05b] text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer">
+        <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-[#E6B8A2] hover:bg-[#c9a05b] text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer">
           <i data-lucide="printer" class="w-4 h-4"></i> Print Statement
         </button>
         <button onclick="document.getElementById('printLedgerModal').close()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer">
@@ -1712,7 +1712,7 @@
           <p class="text-[10px] text-slate-500 font-mono mt-0.5">GSTIN: 27AABCI4409Z1ZT • Official Financial Statement</p>
         </div>
         <div class="text-right">
-          <span class="inline-block px-2.5 py-1 rounded-full bg-[#DFB76C]/10 text-[#DFB76C] border border-[#DFB76C]/30 text-[10px] uppercase font-bold tracking-wider mb-1">
+          <span class="inline-block px-2.5 py-1 rounded-full bg-[#E6B8A2]/10 text-[#E6B8A2] border border-[#E6B8A2]/30 text-[10px] uppercase font-bold tracking-wider mb-1">
             Financial Ledger
           </span>
           <p class="text-xs text-slate-300">Generated: <span id="printLedgerDate" class="font-mono text-white font-semibold">2026-10-29</span></p>
@@ -1728,7 +1728,7 @@
         </div>
         <div class="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800">
           <p class="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Total Ledger Amount</p>
-          <p id="printLedgerTotal" class="text-lg font-mono font-bold text-[#DFB76C] mt-1">₹0</p>
+          <p id="printLedgerTotal" class="text-lg font-mono font-bold text-[#E6B8A2] mt-1">₹0</p>
         </div>
         <div class="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800">
           <p class="text-[10px] uppercase tracking-wider text-emerald-400 font-medium">Completed Volume</p>
@@ -1762,7 +1762,7 @@
               <td colspan="6" class="py-3 px-4 text-right text-xs uppercase tracking-wider text-slate-300">
                 Total Amount of Displayed Transactions:
               </td>
-              <td id="printLedgerGrandTotal" class="py-3 px-3 text-right text-sm text-[#DFB76C]">
+              <td id="printLedgerGrandTotal" class="py-3 px-3 text-right text-sm text-[#E6B8A2]">
                 ₹0
               </td>
             </tr>
@@ -1788,10 +1788,10 @@
 
 
   <!-- 6. COMPLETE PROFILE INSPECTOR MODAL -->
-  <dialog id="profileViewModal" class="rounded-3xl bg-[#0B192C] text-white border border-[#D4AF37]/30 shadow-2xl p-0 w-full max-w-xl backdrop:bg-black/75">
+  <dialog id="profileViewModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-[#C58B76]/30 shadow-2xl p-0 w-full max-w-xl backdrop:bg-black/75">
     <div class="p-6 border-b border-slate-800 flex items-center justify-between">
       <h3 class="text-base font-bold text-white flex items-center gap-2">
-        <i data-lucide="user" class="w-4 h-4 text-[#DFB76C]"></i>
+        <i data-lucide="user" class="w-4 h-4 text-[#E6B8A2]"></i>
         Matrimonial Profile Dossier
       </h3>
       <button onclick="document.getElementById('profileViewModal').close()" class="p-1 rounded-lg text-slate-400 hover:text-white">
@@ -1803,11 +1803,11 @@
       
       <!-- Profile Hero -->
       <div class="flex items-center space-x-4">
-        <img id="viewProfilePhoto" class="w-20 h-20 rounded-2xl object-cover border-2 border-[#D4AF37]/40 shadow-lg"/>
+        <img id="viewProfilePhoto" class="w-20 h-20 rounded-2xl object-cover border-2 border-[#C58B76]/40 shadow-lg"/>
         <div>
           <h3 id="viewProfileName" class="text-xl font-bold text-white">Candidate Name</h3>
           <p id="viewProfileSubtitle" class="text-xs text-slate-300">Age • Gender • Religion</p>
-          <span id="viewProfileMatchScore" class="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#DFB76C] border border-[#D4AF37]/40 font-mono">
+          <span id="viewProfileMatchScore" class="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full bg-[#C58B76]/20 text-[#E6B8A2] border border-[#C58B76]/40 font-mono">
             96% Match
           </span>
         </div>
@@ -1868,7 +1868,7 @@
       <!-- Uploaded Verification Documents & Scans (if available) -->
       <div id="viewProfileDocsSection" class="hidden space-y-2 text-xs">
         <h4 class="font-bold text-slate-400 uppercase tracking-wider text-[10px] flex items-center justify-between">
-          <span class="flex items-center gap-1.5 text-[#DFB76C]">
+          <span class="flex items-center gap-1.5 text-[#E6B8A2]">
             <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
             User Uploaded Verification Documents
           </span>
@@ -1901,7 +1901,7 @@
       <!-- User Uploaded Original Profile & Family Photos Gallery -->
       <div id="viewProfilePhotosSection" class="space-y-3 text-xs">
         <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-          <h4 class="font-bold text-slate-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5 text-[#DFB76C]">
+          <h4 class="font-bold text-slate-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5 text-[#E6B8A2]">
             <i data-lucide="camera" class="w-3.5 h-3.5"></i>
             Candidate Uploaded Original Photos & Gallery
           </h4>
@@ -1914,7 +1914,7 @@
         <div class="space-y-1.5">
           <div class="flex items-center justify-between">
             <span class="text-slate-300 text-[11px] font-semibold flex items-center gap-1">
-              <i data-lucide="user" class="w-3 h-3 text-[#DFB76C]"></i>
+              <i data-lucide="user" class="w-3 h-3 text-[#E6B8A2]"></i>
               Personal Portrait Photos (Up to 5):
             </span>
             <span class="text-[10px] text-slate-500 font-mono">Click to inspect full size</span>
@@ -2003,7 +2003,7 @@
   <!-- ========================================================
        AADHAAR CARD PREVIEW & INSPECTION MODAL
        ======================================================== -->
-  <dialog id="aadhaarCardModal" class="rounded-3xl bg-[#0B192C] text-white border border-[#D4AF37]/40 shadow-2xl p-0 w-full max-w-2xl backdrop:bg-black/80">
+  <dialog id="aadhaarCardModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-[#C58B76]/40 shadow-2xl p-0 w-full max-w-2xl backdrop:bg-black/80">
     <div class="p-5 sm:p-6 border-b border-slate-800 flex items-center justify-between">
       <div class="flex items-center gap-2.5">
         <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
@@ -2032,7 +2032,7 @@
       
       <!-- Top Switch Bar: Side Switcher (Front vs Back) + Unmask Switch -->
       <!-- Top Switch Bar: View Mode Switcher + Side Switcher (Front vs Back) + Unmask Switch -->
-      <div class="flex flex-wrap items-center justify-between gap-3 bg-[#070F1E] p-2.5 rounded-2xl border border-slate-800">
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-[#1A1012] p-2.5 rounded-2xl border border-slate-800">
         <!-- View Mode Switch: Uploaded Document Photo vs Digitized Card -->
         <div class="flex items-center space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-700">
           <button 
@@ -2088,7 +2088,7 @@
               onchange="toggleAadhaarCardMask(this.checked)"
               class="sr-only peer"
             />
-            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#DFB76C] shadow-inner"></div>
+            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#E6B8A2] shadow-inner"></div>
             <span class="ml-2 text-xs font-medium text-slate-300">Show Full 12 Digits</span>
           </label>
         </div>
@@ -2100,7 +2100,7 @@
       </div>
 
       <!-- Bottom Approval & Quick Navigation Bar -->
-      <div class="p-4 rounded-2xl bg-[#070F1E] border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="p-4 rounded-2xl bg-[#1A1012] border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
         <!-- Aadhaar Manual Approval & Send Back Actions -->
         <div class="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-start">
           <div class="flex items-center space-x-2">
@@ -2158,7 +2158,7 @@
   <!-- ========================================================
        SEND BACK AADHAAR MODAL (CLARITY / UNREADABLE REASONS)
        ======================================================== -->
-  <dialog id="sendBackAadhaarModal" class="rounded-3xl bg-[#0B192C] text-white border border-rose-500/40 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/80">
+  <dialog id="sendBackAadhaarModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-rose-500/40 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/80">
     <div class="p-5 border-b border-slate-800 flex items-center justify-between">
       <div class="flex items-center gap-2.5">
         <div class="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
@@ -2250,7 +2250,7 @@
           id="sendBackReasonText" 
           rows="3" 
           required
-          class="w-full bg-[#070F1E] border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-400 resize-none font-medium leading-relaxed"
+          class="w-full bg-[#1A1012] border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-400 resize-none font-medium leading-relaxed"
           placeholder="Enter reason why the document is being sent back..."
         ></textarea>
         <p class="text-[10px] text-slate-400">
@@ -2280,10 +2280,10 @@
   </dialog>
 
   <!-- 7. MEMBERSHIP PLAN CREATE / EDIT MODAL -->
-  <dialog id="planModal" class="rounded-3xl bg-[#0B192C] text-white border border-[#D4AF37]/30 shadow-2xl p-0 w-full max-w-2xl backdrop:bg-black/75">
+  <dialog id="planModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-[#C58B76]/30 shadow-2xl p-0 w-full max-w-2xl backdrop:bg-black/75">
     <div class="p-6 border-b border-slate-800 flex items-center justify-between">
       <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#DFB76C]">
+        <div class="w-9 h-9 rounded-xl bg-[#C58B76]/10 border border-[#C58B76]/30 flex items-center justify-center text-[#E6B8A2]">
           <i data-lucide="crown" class="w-5 h-5"></i>
         </div>
         <div>
@@ -2303,22 +2303,22 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Plan Identifier (Key / Slug) *</label>
-          <input type="text" id="planId" required placeholder="e.g. gold, diamond, vip" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs font-mono lowercase focus:border-[#DFB76C]"/>
+          <input type="text" id="planId" required placeholder="e.g. gold, diamond, vip" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs font-mono lowercase focus:border-[#E6B8A2]"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Display Plan Name *</label>
-          <input type="text" id="planName" required placeholder="e.g. Diamond VIP" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]"/>
+          <input type="text" id="planName" required placeholder="e.g. Diamond VIP" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]"/>
         </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Marketing Tagline</label>
-          <input type="text" id="planTagline" placeholder="e.g. Fastest matches with 3x visibility" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]"/>
+          <input type="text" id="planTagline" placeholder="e.g. Fastest matches with 3x visibility" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Promo Badge Text</label>
-          <input type="text" id="planBadge" placeholder="e.g. MOST POPULAR ⭐, POPULAR CHOICE" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]"/>
+          <input type="text" id="planBadge" placeholder="e.g. MOST POPULAR ⭐, POPULAR CHOICE" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]"/>
         </div>
       </div>
 
@@ -2326,7 +2326,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1">Visual Theme Color</label>
-          <select id="planColor" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]">
+          <select id="planColor" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]">
             <option value="amber">Warm Gold (Amber)</option>
             <option value="blue">Royal Sapphire (Blue)</option>
             <option value="purple">Elite Concierge (Purple)</option>
@@ -2337,11 +2337,11 @@
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Verified Contact Credits *</label>
-          <input type="number" id="planContactCredits" required min="0" value="30" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]"/>
+          <input type="number" id="planContactCredits" required min="0" value="30" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1">Display Sort Order</label>
-          <input type="number" id="planSortOrder" min="1" max="99" value="1" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]"/>
+          <input type="number" id="planSortOrder" min="1" max="99" value="1" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]"/>
         </div>
       </div>
 
@@ -2349,13 +2349,13 @@
       <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
         <div class="flex items-center justify-between">
           <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-            <i data-lucide="tag" class="w-3.5 h-3.5 text-[#DFB76C]"></i> Duration Pricing Tiers (INR ₹)
+            <i data-lucide="tag" class="w-3.5 h-3.5 text-[#E6B8A2]"></i> Duration Pricing Tiers (INR ₹)
           </h4>
           <span class="text-[11px] text-slate-400">Regular price vs. Special offer price</span>
         </div>
 
         <!-- 1-Month Pricing -->
-        <div class="grid grid-cols-3 gap-2 items-center bg-[#070F1E] p-2.5 rounded-xl border border-slate-800/80">
+        <div class="grid grid-cols-3 gap-2 items-center bg-[#1A1012] p-2.5 rounded-xl border border-slate-800/80">
           <span class="text-xs font-bold text-slate-200">1-Month Tier</span>
           <div>
             <label class="block text-[10px] text-slate-400">Regular (₹)</label>
@@ -2368,7 +2368,7 @@
         </div>
 
         <!-- 3-Months Pricing -->
-        <div class="grid grid-cols-3 gap-2 items-center bg-[#070F1E] p-2.5 rounded-xl border border-slate-800/80">
+        <div class="grid grid-cols-3 gap-2 items-center bg-[#1A1012] p-2.5 rounded-xl border border-slate-800/80">
           <span class="text-xs font-bold text-slate-200">3-Month Tier</span>
           <div>
             <label class="block text-[10px] text-slate-400">Regular (₹)</label>
@@ -2381,7 +2381,7 @@
         </div>
 
         <!-- 6-Months Pricing -->
-        <div class="grid grid-cols-3 gap-2 items-center bg-[#070F1E] p-2.5 rounded-xl border border-slate-800/80">
+        <div class="grid grid-cols-3 gap-2 items-center bg-[#1A1012] p-2.5 rounded-xl border border-slate-800/80">
           <span class="text-xs font-bold text-slate-200">6-Month Tier</span>
           <div>
             <label class="block text-[10px] text-slate-400">Regular (₹)</label>
@@ -2394,7 +2394,7 @@
         </div>
 
         <!-- 12-Months Pricing -->
-        <div class="grid grid-cols-3 gap-2 items-center bg-[#070F1E] p-2.5 rounded-xl border border-slate-800/80">
+        <div class="grid grid-cols-3 gap-2 items-center bg-[#1A1012] p-2.5 rounded-xl border border-slate-800/80">
           <span class="text-xs font-bold text-slate-200">12-Month Tier</span>
           <div>
             <label class="block text-[10px] text-slate-400">Regular (₹)</label>
@@ -2411,26 +2411,26 @@
       <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
         <div class="flex items-center justify-between">
           <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-[#DFB76C]"></i> Matchmaking Privileges & Quota Details
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-[#E6B8A2]"></i> Matchmaking Privileges & Quota Details
           </h4>
-          <span class="text-[11px] text-[#DFB76C]">Premium privileges configuration</span>
+          <span class="text-[11px] text-[#E6B8A2]">Premium privileges configuration</span>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-xs text-slate-300 mb-1">Daily Direct Interests Quota</label>
-            <input type="text" id="planDailyInterests" placeholder="e.g. Unlimited, 50 / day, 25 / day, 5 / day" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]"/>
+            <input type="text" id="planDailyInterests" placeholder="e.g. Unlimited, 50 / day, 25 / day, 5 / day" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]"/>
           </div>
           <div>
             <label class="block text-xs text-slate-300 mb-1">Vedic Kundali Matching Quota</label>
-            <input type="text" id="planKundaliReports" placeholder="e.g. 50 Reports + PDF, 15 Detailed Reports, Basic Ashtakoot" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]"/>
+            <input type="text" id="planKundaliReports" placeholder="e.g. 50 Reports + PDF, 15 Detailed Reports, Basic Ashtakoot" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]"/>
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block text-xs text-slate-300 mb-1">Search Visibility Boost</label>
-            <select id="planSearchBoost" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]">
+            <select id="planSearchBoost" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]">
               <option value="1x Standard">1x Standard Profile Rank</option>
               <option value="2x Priority">2x Priority Search Boost</option>
               <option value="3x Spotlight">3x Spotlight in Match Feed</option>
@@ -2439,7 +2439,7 @@
           </div>
           <div>
             <label class="block text-xs text-slate-300 mb-1">Profile & Photo Privacy Shield</label>
-            <select id="planPrivacyShield" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]">
+            <select id="planPrivacyShield" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]">
               <option value="Standard Public">Standard Public</option>
               <option value="Photo Blur until Accepted">Photo Blur until Accepted</option>
               <option value="Protected Contact Access">Protected Contact Access</option>
@@ -2448,7 +2448,7 @@
           </div>
           <div>
             <label class="block text-xs text-slate-300 mb-1">Customer Support SLA</label>
-            <select id="planSupportLevel" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]">
+            <select id="planSupportLevel" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]">
               <option value="Basic Email (48-72h)">Basic Email (48-72h)</option>
               <option value="Priority Chat & Email (24h)">Priority Chat & Email (24h)</option>
               <option value="Priority Phone & WhatsApp (12h)">Priority Phone & WhatsApp (12h)</option>
@@ -2457,12 +2457,12 @@
           </div>
         </div>
 
-        <div class="p-3 rounded-xl bg-[#070F1E] border border-[#D4AF37]/30">
+        <div class="p-3 rounded-xl bg-[#1A1012] border border-[#C58B76]/30">
           <label class="flex items-center cursor-pointer">
             <input type="checkbox" id="planHasAdvisor" class="w-4 h-4 rounded text-amber-500 bg-slate-900 border-slate-700"/>
             <span class="ml-2.5 text-xs text-slate-200 font-semibold flex items-center gap-1.5">
               <span>🤵 Personal Dedicated Relationship Manager</span>
-              <span class="text-[10px] text-[#DFB76C] bg-[#D4AF37]/10 px-2 py-0.5 rounded-full border border-[#D4AF37]/30">Handpicked weekly matchmaking introductions</span>
+              <span class="text-[10px] text-[#E6B8A2] bg-[#C58B76]/10 px-2 py-0.5 rounded-full border border-[#C58B76]/30">Handpicked weekly matchmaking introductions</span>
             </span>
           </label>
         </div>
@@ -2474,20 +2474,20 @@
           <label class="block text-xs text-slate-300 font-semibold">Included & Excluded Features List</label>
           <span class="text-[10px] text-slate-400">One per line. Start with '+' for included, '-' for excluded</span>
         </div>
-        <textarea id="planFeatures" rows="6" class="w-full py-2.5 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs font-mono leading-relaxed focus:border-[#DFB76C]" placeholder="+ Browse 100% Aadhaar Verified Profiles&#10;+ Send Unlimited Interests & Shortlists&#10;+ View 30 Verified Mobile Numbers & Addresses&#10;+ Direct WhatsApp Family Connect Link&#10;- Personal Matchmaking Advisor"></textarea>
+        <textarea id="planFeatures" rows="6" class="w-full py-2.5 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs font-mono leading-relaxed focus:border-[#E6B8A2]" placeholder="+ Browse 100% Aadhaar Verified Profiles&#10;+ Send Unlimited Interests & Shortlists&#10;+ View 30 Verified Mobile Numbers & Addresses&#10;+ Direct WhatsApp Family Connect Link&#10;- Personal Matchmaking Advisor"></textarea>
       </div>
 
       <!-- Toggles -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
         <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
           <label class="flex items-center cursor-pointer">
-            <input type="checkbox" id="planIsPopular" class="w-4 h-4 rounded text-amber-500 bg-[#070F1E] border-slate-700"/>
+            <input type="checkbox" id="planIsPopular" class="w-4 h-4 rounded text-amber-500 bg-[#1A1012] border-slate-700"/>
             <span class="ml-2 text-xs text-slate-200 font-medium">Highlight as "Most Popular"</span>
           </label>
         </div>
         <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
           <label class="flex items-center cursor-pointer">
-            <input type="checkbox" id="planActive" checked class="w-4 h-4 rounded text-emerald-500 bg-[#070F1E] border-slate-700"/>
+            <input type="checkbox" id="planActive" checked class="w-4 h-4 rounded text-emerald-500 bg-[#1A1012] border-slate-700"/>
             <span class="ml-2 text-xs text-slate-200 font-medium">Plan is Active & Live</span>
           </label>
         </div>
@@ -2505,10 +2505,10 @@
   </dialog>
 
   <!-- 8. ADMINISTRATOR PROFILE CREATE / EDIT MODAL -->
-  <dialog id="adminModal" class="rounded-3xl bg-[#0B192C] text-white border border-[#D4AF37]/30 shadow-2xl p-0 w-full max-w-xl backdrop:bg-black/75">
+  <dialog id="adminModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-[#C58B76]/30 shadow-2xl p-0 w-full max-w-xl backdrop:bg-black/75">
     <div class="p-6 border-b border-slate-800 flex items-center justify-between">
       <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#DFB76C]">
+        <div class="w-9 h-9 rounded-xl bg-[#C58B76]/10 border border-[#C58B76]/30 flex items-center justify-center text-[#E6B8A2]">
           <i data-lucide="shield-check" class="w-5 h-5"></i>
         </div>
         <div>
@@ -2535,11 +2535,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1 font-semibold">Full Name *</label>
-          <input type="text" id="adminFormFullName" required placeholder="e.g. Arun Thomas" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]"/>
+          <input type="text" id="adminFormFullName" required placeholder="e.g. Arun Thomas" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1 font-semibold">Username *</label>
-          <input type="text" id="adminFormUsername" required placeholder="e.g. rajesh_admin" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs font-mono focus:border-[#DFB76C]"/>
+          <input type="text" id="adminFormUsername" required placeholder="e.g. rajesh_admin" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs font-mono focus:border-[#E6B8A2]"/>
         </div>
       </div>
 
@@ -2547,11 +2547,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-slate-300 mb-1 font-semibold">Email Address *</label>
-          <input type="email" id="adminFormEmail" required placeholder="e.g. admin@i4you.com" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]"/>
+          <input type="email" id="adminFormEmail" required placeholder="e.g. admin@i4you.com" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]"/>
         </div>
         <div>
           <label class="block text-xs text-slate-300 mb-1 font-semibold">Assigned Role</label>
-          <select id="adminFormRole" class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C]">
+          <select id="adminFormRole" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2]">
             <option value="Super Admin">Super Admin (Full Root Access)</option>
             <option value="Administrator">Administrator (Management & Billing)</option>
             <option value="Matchmaking Manager">Matchmaking Manager (Profile Approvals)</option>
@@ -2564,8 +2564,8 @@
       <div>
         <label class="block text-xs text-slate-300 mb-1 font-semibold">Avatar Image URL</label>
         <div class="flex items-center gap-3">
-          <img id="adminFormAvatarPreview" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200" alt="Preview" class="w-10 h-10 rounded-full object-cover border border-[#DFB76C]/40 flex-shrink-0" />
-          <input type="text" id="adminFormAvatar" oninput="updateAdminAvatarPreview(this.value)" placeholder="https://images.unsplash.com/..." class="w-full py-2 px-3 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs font-mono focus:border-[#DFB76C]"/>
+          <img id="adminFormAvatarPreview" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200" alt="Preview" class="w-10 h-10 rounded-full object-cover border border-[#E6B8A2]/40 flex-shrink-0" />
+          <input type="text" id="adminFormAvatar" oninput="updateAdminAvatarPreview(this.value)" placeholder="https://images.unsplash.com/..." class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs font-mono focus:border-[#E6B8A2]"/>
         </div>
         <div class="mt-2 flex items-center gap-2">
           <span class="text-[10px] text-slate-400">Presets:</span>
@@ -2580,7 +2580,7 @@
       <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
         <div class="flex items-center justify-between">
           <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-            <i data-lucide="key" class="w-3.5 h-3.5 text-[#DFB76C]"></i> Security & Password
+            <i data-lucide="key" class="w-3.5 h-3.5 text-[#E6B8A2]"></i> Security & Password
           </h4>
           <span id="adminFormPasswordHelp" class="text-[11px] text-slate-400">Leave blank to retain current password</span>
         </div>
@@ -2588,7 +2588,7 @@
           <div>
             <label class="block text-[11px] text-slate-300 mb-1">New Password</label>
             <div class="relative">
-              <input type="password" id="adminFormPassword" oninput="validateAdminPasswordsLive()" placeholder="Minimum 6 characters" class="w-full py-1.5 pl-3 pr-9 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C] transition-colors"/>
+              <input type="password" id="adminFormPassword" oninput="validateAdminPasswordsLive()" placeholder="Minimum 6 characters" class="w-full py-1.5 pl-3 pr-9 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2] transition-colors"/>
               <button type="button" onclick="toggleAdminPasswordVis('adminFormPassword', 'toggleNewPassIcon')" class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-white transition-colors cursor-pointer" title="Toggle password visibility">
                 <i data-lucide="eye" id="toggleNewPassIcon" class="w-3.5 h-3.5"></i>
               </button>
@@ -2597,7 +2597,7 @@
           <div>
             <label class="block text-[11px] text-slate-300 mb-1">Confirm Password</label>
             <div class="relative">
-              <input type="password" id="adminFormPasswordConfirm" oninput="validateAdminPasswordsLive()" placeholder="Repeat password" class="w-full py-1.5 pl-3 pr-9 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C] transition-colors"/>
+              <input type="password" id="adminFormPasswordConfirm" oninput="validateAdminPasswordsLive()" placeholder="Repeat password" class="w-full py-1.5 pl-3 pr-9 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2] transition-colors"/>
               <button type="button" onclick="toggleAdminPasswordVis('adminFormPasswordConfirm', 'toggleConfirmPassIcon')" class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-white transition-colors cursor-pointer" title="Toggle password visibility">
                 <i data-lucide="eye" id="toggleConfirmPassIcon" class="w-3.5 h-3.5"></i>
               </button>
@@ -2624,16 +2624,16 @@
   <!-- ========================================================
        FULL-SCREEN PHOTO INSPECTOR LIGHTBOX MODAL
        ======================================================== -->
-  <dialog id="photoInspectModal" class="rounded-3xl bg-[#0B192C] text-white border border-[#D4AF37]/40 shadow-2xl p-0 w-full max-w-2xl backdrop:bg-black/85">
+  <dialog id="photoInspectModal" class="rounded-3xl bg-[#2C1A1D] text-white border border-[#C58B76]/40 shadow-2xl p-0 w-full max-w-2xl backdrop:bg-black/85">
     <div class="p-4 border-b border-slate-800 flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <i data-lucide="image" class="w-4 h-4 text-[#DFB76C]"></i>
+        <i data-lucide="image" class="w-4 h-4 text-[#E6B8A2]"></i>
         <h3 id="photoInspectTitle" class="text-sm font-bold text-white">Authentic Candidate Photo</h3>
         <span id="photoInspectBadge" class="text-[10px] px-2 py-0.5 rounded-full font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30">Original Upload</span>
       </div>
       <div class="flex items-center gap-2">
         <a id="photoInspectDownloadLink" href="#" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 flex items-center gap-1 cursor-pointer">
-          <i data-lucide="external-link" class="w-3 h-3 text-[#DFB76C]"></i>
+          <i data-lucide="external-link" class="w-3 h-3 text-[#E6B8A2]"></i>
           <span>Open Full Size</span>
         </a>
         <button onclick="document.getElementById('photoInspectModal').close()" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
@@ -2653,18 +2653,18 @@
   <!-- ========================================================
        SUPER ADMIN LOGIN & LOCK SCREEN OVERLAY
        ======================================================== -->
-  <div id="adminLoginOverlay" class="fixed inset-0 z-[100] bg-[#070F1E] flex items-center justify-center p-4 transition-all duration-300">
+  <div id="adminLoginOverlay" class="fixed inset-0 z-[100] bg-[#1A1012] flex items-center justify-center p-4 transition-all duration-300">
     <!-- Ambient Background Glows -->
-    <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#D4AF37]/10 blur-3xl pointer-events-none"></div>
+    <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#C58B76]/10 blur-3xl pointer-events-none"></div>
     <div class="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-blue-600/10 blur-3xl pointer-events-none"></div>
 
-    <div class="w-full max-w-md p-8 rounded-3xl bg-[#0B192C] border border-[#D4AF37]/30 shadow-2xl relative z-10 space-y-6">
+    <div class="w-full max-w-md p-8 rounded-3xl bg-[#2C1A1D] border border-[#C58B76]/30 shadow-2xl relative z-10 space-y-6">
       <!-- Header -->
       <div class="text-center space-y-2">
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-amber-600/10 border border-[#DFB76C]/30 text-[#DFB76C] flex items-center justify-center mx-auto shadow-inner">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-amber-600/10 border border-[#E6B8A2]/30 text-[#E6B8A2] flex items-center justify-center mx-auto shadow-inner">
           <i data-lucide="shield-check" class="w-7 h-7"></i>
         </div>
-        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#DFB76C]/10 border border-[#DFB76C]/20 text-[10px] text-[#DFB76C] font-bold uppercase tracking-wider">
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E6B8A2]/10 border border-[#E6B8A2]/20 text-[10px] text-[#E6B8A2] font-bold uppercase tracking-wider">
           <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
           Super Admin Portal
         </div>
@@ -2690,7 +2690,7 @@
               required 
               value="admin@i4you.com" 
               placeholder="admin@i4you.com" 
-              class="w-full pl-10 pr-3 py-2.5 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C] focus:outline-none transition-colors"
+              class="w-full pl-10 pr-3 py-2.5 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2] focus:outline-none transition-colors"
             />
           </div>
         </div>
@@ -2704,7 +2704,7 @@
               id="adminLoginPassword" 
               required 
               placeholder="••••••••" 
-              class="w-full pl-10 pr-10 py-2.5 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C] focus:outline-none transition-colors"
+              class="w-full pl-10 pr-10 py-2.5 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#E6B8A2] focus:outline-none transition-colors"
             />
             <button 
               type="button" 
@@ -2729,7 +2729,7 @@
 
       <!-- Return to public site -->
       <div class="pt-2 border-t border-slate-800/80 text-center">
-        <a href="/" class="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#DFB76C] transition-colors">
+        <a href="/" class="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#E6B8A2] transition-colors">
           <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
           <span>Return to Matrimony Website</span>
         </a>
@@ -2741,7 +2741,7 @@
        TOAST NOTIFICATION CONTAINER
        ======================================================== -->
   <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
-    <div id="toastContent" class="px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium border bg-[#122238] text-white border-slate-700">
+    <div id="toastContent" class="px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium border bg-[#382226] text-white border-slate-700">
       <i data-lucide="check-circle" id="toastIcon" class="w-5 h-5 text-emerald-400"></i>
       <span id="toastMessage">Success</span>
     </div>

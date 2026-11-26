@@ -209,7 +209,7 @@ export default function CountryNriFilterBar({
           onClick={handleAllClick}
           className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
             isAllActive
-              ? 'bg-[#0B192C] text-[#DFB76C] shadow-2xs font-extrabold'
+              ? 'bg-[#7A2E43] text-white shadow-xs font-extrabold'
               : 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200/70'
           }`}
         >
@@ -222,7 +222,7 @@ export default function CountryNriFilterBar({
           onClick={handleAbroadClick}
           className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 flex items-center gap-1 ${
             isAbroadActive
-              ? 'bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] shadow-2xs font-extrabold'
+              ? 'bg-[#7A2E43] text-white shadow-xs font-extrabold'
               : 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200/70'
           }`}
         >
@@ -244,11 +244,11 @@ export default function CountryNriFilterBar({
                   setIsDropdownOpen(true);
                   setTimeout(() => searchInputRef.current?.focus(), 60);
                 }}
-                className="h-[30px] w-full px-2.5 rounded-xl border border-[#D4AF37] bg-amber-50/95 flex items-center justify-between gap-1.5 text-[11px] font-bold text-[#8C6D1F] shadow-2xs cursor-pointer hover:bg-amber-100/90 transition-colors"
+                className="h-[30px] w-full px-2.5 rounded-xl border border-[#C58B76] bg-[#FFF9F6] flex items-center justify-between gap-1.5 text-[11px] font-bold text-[#7A2E43] shadow-2xs cursor-pointer hover:bg-[#FDF2EE] transition-colors"
                 title={`Filtered for ${selectedCountryObj.name}. Click to change or × to revert to all NRI.`}
               >
                 <div className="flex items-center gap-1.5 truncate">
-                  <Search className="w-3.5 h-3.5 text-[#8C6D1F] shrink-0" />
+                  <Search className="w-3.5 h-3.5 text-[#7A2E43] shrink-0" />
                   <span className="text-sm shrink-0">{selectedCountryObj.flag}</span>
                   <span className="truncate">{selectedCountryObj.name}</span>
                 </div>
@@ -260,12 +260,12 @@ export default function CountryNriFilterBar({
                       handleClearCountry(e);
                     }}
                     onClick={handleClearCountry}
-                    className="p-0.5 rounded-full hover:bg-amber-200 text-[#8C6D1F] hover:text-slate-900 transition-colors shrink-0 cursor-pointer"
+                    className="p-0.5 rounded-full hover:bg-[#FDECE4] text-[#7A2E43] hover:text-slate-900 transition-colors shrink-0 cursor-pointer"
                     title="Clear country filter (revert to all NRI)"
                   >
                     <X className="w-3 h-3" />
                   </button>
-                  <ChevronDown className={`w-3.5 h-3.5 text-[#8C6D1F] transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 text-[#7A2E43] transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </div>
               </div>
             ) : (
@@ -277,7 +277,7 @@ export default function CountryNriFilterBar({
                 }}
                 className={`h-[30px] w-full px-2 rounded-xl border bg-white flex items-center gap-1.5 transition-all shadow-2xs cursor-text ${
                   isDropdownOpen 
-                    ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/20' 
+                    ? 'border-[#C58B76] ring-2 ring-[#C58B76]/20' 
                     : 'border-slate-300 hover:border-slate-400'
                 }`}
               >
@@ -336,7 +336,7 @@ export default function CountryNriFilterBar({
                     className="p-0.5 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                     title={isDropdownOpen ? 'Close list' : 'Open country list'}
                   >
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-[#8C6D1F]' : ''}`} />
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-[#7A2E43]' : ''}`} />
                   </button>
                 </div>
               </div>
@@ -352,7 +352,7 @@ export default function CountryNriFilterBar({
                 {/* Header Indicator */}
                 <div className="px-2.5 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-500 select-none">
                   <span>Top 100 World Countries</span>
-                  <span className="text-[#8C6D1F]">
+                  <span className="text-[#7A2E43]">
                     {matchingCountries.length} countries
                   </span>
                 </div>
@@ -376,9 +376,9 @@ export default function CountryNriFilterBar({
                       onMouseEnter={() => setHighlightIndex(0)}
                       className={`w-full px-2 py-1.5 rounded-lg text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
                         highlightIndex === 0
-                          ? 'bg-amber-100/80 text-[#8C6D1F]'
+                          ? 'bg-[#FDF2EE] text-[#7A2E43]'
                           : selectedCountry === 'Working Abroad (NRI)'
-                          ? 'bg-[#0B192C] text-[#DFB76C]'
+                          ? 'bg-[#7A2E43] text-white'
                           : 'hover:bg-slate-100 text-slate-800'
                       }`}
                     >
@@ -387,7 +387,7 @@ export default function CountryNriFilterBar({
                         <span className="truncate">All Abroad (NRI) Countries</span>
                       </div>
                       {selectedCountry === 'Working Abroad (NRI)' && (
-                        <Check className="w-3.5 h-3.5 text-[#DFB76C] shrink-0 ml-1.5" />
+                        <Check className="w-3.5 h-3.5 text-white shrink-0 ml-1.5" />
                       )}
                     </button>
                   )}
@@ -416,9 +416,9 @@ export default function CountryNriFilterBar({
                           onMouseEnter={() => setHighlightIndex(navIndex)}
                           className={`w-full px-2 py-1.5 rounded-lg text-left text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${
                             isSelected
-                              ? 'bg-[#0B192C] text-[#DFB76C] font-bold shadow-2xs'
+                              ? 'bg-[#7A2E43] text-white font-bold shadow-2xs'
                               : isHighlighted
-                              ? 'bg-amber-50 text-[#8C6D1F]'
+                              ? 'bg-[#FDF2EE] text-[#7A2E43]'
                               : 'hover:bg-slate-100 text-slate-800'
                           }`}
                         >
@@ -426,13 +426,13 @@ export default function CountryNriFilterBar({
                             <span className="text-base leading-none shrink-0">{c.flag}</span>
                             <span className="truncate">{c.name}</span>
                             {c.popular && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-[#7A2E43] shrink-0">
                                 NRI Top
                               </span>
                             )}
                           </div>
                           {isSelected && (
-                            <Check className="w-3.5 h-3.5 text-[#DFB76C] shrink-0 ml-1.5" />
+                            <Check className="w-3.5 h-3.5 text-white shrink-0 ml-1.5" />
                           )}
                         </button>
                       );

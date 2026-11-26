@@ -64,31 +64,31 @@ export default function WebsiteNavbar({
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full shadow-xl">
+    <header className="sticky top-0 z-50 w-full shadow-md">
       {/* 1. Global Announcement / Live Offer Bar */}
-      <div className="bg-gradient-to-r from-[#8C6D1F] via-[#DFB76C] to-[#8C6D1F] text-[#0B192C] px-3 py-1.5 text-xs font-semibold">
+      <div className="bg-gradient-to-r from-[#7A2E43] via-[#C58B76] to-[#7A2E43] text-white px-3 py-1.5 text-xs font-semibold">
         <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 flex items-center justify-between gap-2">
           {featuredOffer ? (
             <div className="flex items-center space-x-2 truncate">
-              <span className="bg-[#0B192C] text-[#DFB76C] text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+              <span className="bg-[#FFFBF9] text-[#7A2E43] text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 shadow-xs">
                 <Crown className="w-3 h-3 fill-current" /> {featuredOffer.title || 'Festive Vivah Offer'}
               </span>
-              <span className="truncate hidden sm:inline">
+              <span className="truncate hidden sm:inline text-white/95">
                 Celebrate with <strong>Flat {featuredOffer.discount_percent}% OFF</strong> on all Quarterly & Annual plans!
               </span>
               <button
                 onClick={handleCopyCoupon}
-                className="inline-flex items-center space-x-1 px-2 py-0.5 bg-[#0B192C]/10 hover:bg-[#0B192C]/20 rounded border border-[#0B192C]/20 text-[11px] transition-all cursor-pointer font-bold shrink-0"
+                className="inline-flex items-center space-x-1 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded border border-white/30 text-[11px] transition-all cursor-pointer font-bold shrink-0 text-white"
                 title="Click to copy coupon"
               >
                 {copiedCoupon ? (
                   <>
-                    <Check className="w-3 h-3 text-emerald-900" />
+                    <Check className="w-3 h-3 text-white" />
                     <span>COPIED!</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3 h-3" />
+                    <Copy className="w-3 h-3 text-white" />
                     <span>Use: <strong>{featuredOffer.code}</strong></span>
                   </>
                 )}
@@ -96,20 +96,20 @@ export default function WebsiteNavbar({
             </div>
           ) : (
             <div className="flex items-center space-x-2 truncate">
-              <span className="bg-[#0B192C] text-[#DFB76C] text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+              <span className="bg-[#FFFBF9] text-[#7A2E43] text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 shadow-xs">
                 <Crown className="w-3 h-3 fill-current" /> I 4 You Matrimony
               </span>
-              <span className="truncate text-xs font-semibold">
+              <span className="truncate text-xs font-semibold text-white/95">
                 Official Indian Matrimonial Platform • 100% Verified Profiles & Family Backgrounds
               </span>
             </div>
           )}
 
-          <div className="hidden md:flex items-center space-x-4 text-[11px] text-[#0B192C] shrink-0 font-medium">
+          <div className="hidden md:flex items-center space-x-4 text-[11px] text-white/95 shrink-0 font-medium">
             <span className="flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-900" /> 100% UIDAI Aadhaar Verified
+              <ShieldCheck className="w-3.5 h-3.5 text-white" /> 100% UIDAI Aadhaar Verified
             </span>
-            <a href="tel:8968926566" className="flex items-center gap-1 hover:underline text-[#0B192C]">
+            <a href="tel:8968926566" className="flex items-center gap-1 hover:underline text-white">
               <PhoneCall className="w-3.5 h-3.5" /> Helpline: <strong>8968926566</strong>
             </a>
           </div>
@@ -117,7 +117,7 @@ export default function WebsiteNavbar({
       </div>
 
       {/* 2. Main Luxury Matrimonial Navbar */}
-      <nav className="bg-[#0B192C]/95 backdrop-blur-md border-b border-[#D4AF37]/30 text-white px-2 sm:px-4 py-2.5 transition-all">
+      <nav className="bg-[#FFFBF9]/95 backdrop-blur-md border-b border-[#E5D0C6] text-[#2C1A1D] px-2 sm:px-4 py-2.5 transition-all">
         <div className="w-[90%] max-w-[1800px] mx-auto flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Brand Logo & Tagline */}
@@ -125,33 +125,33 @@ export default function WebsiteNavbar({
             onClick={() => onScrollToSection('hero-section')} 
             className="flex items-center space-x-2 sm:space-x-3 cursor-pointer group shrink-0"
           >
-            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-[#D4AF37] via-[#DFB76C] to-[#8C6D1F] p-0.5 shadow-lg shadow-[#D4AF37]/25 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
+            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-[#7A2E43] via-[#C58B76] to-[#E6B8A2] p-0.5 shadow-lg shadow-[#7A2E43]/20 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
               <img 
                 src="/brand-logo.png" 
                 alt="I 4 You Logo" 
                 className="w-full h-full object-cover rounded-full" 
                 onError={(e) => {
                   e.target.style.display = 'none';
-                  e.target.parentElement.innerHTML = '<div class="w-full h-full bg-[#0B192C] text-[#DFB76C] font-serif font-black flex items-center justify-center text-sm">I4U</div>';
+                  e.target.parentElement.innerHTML = '<div class="w-full h-full bg-[#FFFBF9] text-[#7A2E43] font-serif font-black flex items-center justify-center text-sm">I4U</div>';
                 }}
               />
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#DFB76C]"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C58B76] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C58B76]"></span>
               </span>
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center space-x-1.5">
-                <span className="text-xl sm:text-2xl font-serif font-extrabold tracking-wide text-white drop-shadow-sm whitespace-nowrap">
+                <span className="text-xl sm:text-2xl font-serif font-extrabold tracking-wide text-[#2C1A1D] drop-shadow-xs whitespace-nowrap">
                   I 4 You
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#DFB76C] border border-[#D4AF37]/40 shadow-xs whitespace-nowrap">
+                <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-[#FDECE4] text-[#7A2E43] border border-[#E5D0C6] shadow-xs whitespace-nowrap">
                   Matrimony
                 </span>
               </div>
-              <p className="text-[10px] sm:text-[10.5px] text-slate-300 font-medium tracking-wide hidden 2xl:flex items-center gap-1 truncate">
-                <Sparkles className="w-3 h-3 text-[#DFB76C] shrink-0" /> Pan-India Trusted Vedic Matchmaking
+              <p className="text-[10px] sm:text-[10.5px] text-[#5A4649] font-medium tracking-wide hidden 2xl:flex items-center gap-1 truncate">
+                <Sparkles className="w-3 h-3 text-[#C58B76] shrink-0" /> Pan-India Trusted Vedic Matchmaking
               </p>
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function WebsiteNavbar({
               <button
                 key={link.id}
                 onClick={() => onScrollToSection(link.id)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-200 hover:text-white hover:bg-white/10 transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#5A4649] hover:text-[#7A2E43] hover:bg-[#FDECE4]/60 transition-all cursor-pointer whitespace-nowrap ${
                   idx >= 3 ? 'hidden 2xl:inline-block' : ''
                 }`}
               >
@@ -174,51 +174,46 @@ export default function WebsiteNavbar({
           {/* Right Action Controls */}
           <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
             
-
-
-
-
-            {/* Notification Bell - Visible only when logged in and hidden on registration page */}
+            {/* Notification Bell */}
             {onOpenNotifications && currentUser && currentScreen !== 'register' && (
               <button
                 onClick={onOpenNotifications}
-                className="relative p-1.5 sm:p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 hover:text-[#DFB76C] transition-colors cursor-pointer shrink-0"
+                className="relative p-1.5 sm:p-2 rounded-full bg-white hover:bg-[#FDECE4] border border-[#E5D0C6] text-[#5A4649] hover:text-[#7A2E43] transition-colors cursor-pointer shrink-0 shadow-xs"
                 title="View Match & Interest Notifications"
               >
                 <Bell className="w-4 h-4" />
                 {unreadNotificationsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#7A2E43] text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse">
                     {unreadNotificationsCount}
                   </span>
                 )}
               </button>
             )}
 
-            {/* Promotional Offers Quick Trigger - Only if offer is active and user is not paid */}
+            {/* Promotional Offers Quick Trigger */}
             {!hasPaidPlan && featuredOffer && (
               <button
                 type="button"
                 onClick={onOpenOffers}
-                className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/25 via-[#DFB76C]/30 to-amber-500/25 hover:from-amber-500/40 hover:to-yellow-500/40 text-[#DFB76C] border border-[#D4AF37]/70 text-xs font-bold transition-all cursor-pointer shadow-md active:scale-95 shrink-0 animate-pulse-glow"
+                className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#FDECE4] via-[#FFF9F6] to-[#FDECE4] hover:bg-[#FDECE4] text-[#7A2E43] border border-[#E5D0C6] text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
                 title={`Claim ${featuredOffer.discount_percent}% OFF with code ${featuredOffer.code}`}
               >
-                <Crown className="w-3.5 h-3.5 fill-[#DFB76C]" />
+                <Crown className="w-3.5 h-3.5 fill-[#C58B76] text-[#C58B76]" />
                 <span>Special Offer • {featuredOffer.discount_percent}% OFF</span>
               </button>
             )}
 
             {/* User Auth: Login/Register or Profile Pill + Logout */}
-            {/* User Auth: Login/Register or Logout */}
             {currentUser ? (
               <div className="flex items-center space-x-1.5 shrink-0">
                 {onOpenEditProfile && (
                   <button
                     type="button"
                     onClick={onOpenEditProfile}
-                    className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-[#D4AF37]/50 text-[#DFB76C] text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all active:scale-95 shrink-0"
+                    className="px-3 py-1.5 rounded-full bg-white hover:bg-[#FDF2EE] border border-[#7A2E43] text-[#7A2E43] text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all active:scale-95 shrink-0 shadow-xs"
                     title="Edit your Matrimony Profile"
                   >
-                    <Edit3 className="w-3.5 h-3.5 text-[#DFB76C]" />
+                    <Edit3 className="w-3.5 h-3.5 text-[#7A2E43]" />
                     <span>Edit Profile</span>
                   </button>
                 )}
@@ -226,10 +221,10 @@ export default function WebsiteNavbar({
                   <button
                     type="button"
                     onClick={onLogout}
-                    className="px-3 py-1.5 rounded-full bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/40 text-rose-300 text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all active:scale-95 shrink-0"
+                    className="px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all active:scale-95 shrink-0"
                     title="Log Out of your account"
                   >
-                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    <LogOut className="w-3.5 h-3.5 text-rose-600" />
                     <span>Logout</span>
                   </button>
                 )}
@@ -239,20 +234,20 @@ export default function WebsiteNavbar({
                 <button
                   type="button"
                   onClick={onOpenLogin}
-                  className="px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-extrabold text-[#0B192C] bg-gradient-to-r from-[#D4AF37] via-[#F3E5AB] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] transition-all cursor-pointer flex items-center space-x-1.5 shadow-md shadow-[#D4AF37]/30 border border-yellow-200/60 active:scale-95 shrink-0 btn-luxury-shimmer"
+                  className="px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-extrabold text-white bg-[#7A2E43] hover:bg-[#612234] transition-all cursor-pointer flex items-center space-x-1.5 shadow-md shadow-[#7A2E43]/20 border border-[#7A2E43] active:scale-95 shrink-0"
                   title="Member Login"
                 >
-                  <LogIn className="w-3.5 h-3.5 text-[#0B192C] stroke-[2.5]" />
+                  <LogIn className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                   <span>Login</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={onOpenRegister}
-                  className="hidden sm:inline-flex px-3 sm:px-3.5 py-1.5 rounded-full text-xs font-bold bg-white/10 hover:bg-white/20 border border-[#D4AF37]/50 hover:border-[#D4AF37] text-[#DFB76C] transition-all cursor-pointer items-center space-x-1 active:scale-95 shrink-0"
+                  className="hidden sm:inline-flex px-3 sm:px-3.5 py-1.5 rounded-full text-xs font-bold bg-white hover:bg-[#FDF2EE] border border-[#7A2E43] text-[#7A2E43] transition-all cursor-pointer items-center space-x-1 active:scale-95 shrink-0 shadow-xs"
                   title="Register Free Profile"
                 >
-                  <UserPlus className="w-3.5 h-3.5 text-[#DFB76C]" />
+                  <UserPlus className="w-3.5 h-3.5 text-[#7A2E43]" />
                   <span>Register Free</span>
                 </button>
               </div>
@@ -261,10 +256,10 @@ export default function WebsiteNavbar({
             {/* Mobile / Tablet Hamburger Menu */}
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
-              className="xl:hidden p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 shrink-0"
+              className="xl:hidden p-2 rounded-lg text-[#5A4649] hover:text-[#7A2E43] hover:bg-[#FDECE4]/60 shrink-0"
               aria-label="Toggle Navigation"
             >
-              {mobileNavOpen ? <X className="w-5 h-5 text-[#DFB76C]" /> : <Menu className="w-5 h-5" />}
+              {mobileNavOpen ? <X className="w-5 h-5 text-[#7A2E43]" /> : <Menu className="w-5 h-5" />}
             </button>
 
           </div>
@@ -273,7 +268,7 @@ export default function WebsiteNavbar({
 
         {/* Mobile Dropdown Menu */}
         {mobileNavOpen && (
-          <div className="xl:hidden mt-3 pt-3 border-t border-white/10 space-y-1 animate-in fade-in slide-in-from-top-2">
+          <div className="xl:hidden mt-3 pt-3 border-t border-[#E5D0C6] space-y-1 animate-in fade-in slide-in-from-top-2">
             {navLinks.map((link) => (
               <button
                 key={link.id}
@@ -281,16 +276,16 @@ export default function WebsiteNavbar({
                   onScrollToSection(link.id);
                   setMobileNavOpen(false);
                 }}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-200 hover:bg-white/10 flex items-center justify-between"
+                className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-[#5A4649] hover:text-[#7A2E43] hover:bg-[#FDECE4]/60 flex items-center justify-between"
               >
                 <span>{link.label}</span>
-                <Sparkles className="w-3.5 h-3.5 text-[#DFB76C]" />
+                <Sparkles className="w-3.5 h-3.5 text-[#C58B76]" />
               </button>
             ))}
             <div className="pt-2 flex flex-col gap-2">
               {currentUser ? (
                 <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-[#D4AF37]/30">
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-[#E5D0C6] shadow-xs">
                     <div className="flex items-center space-x-2.5">
                       <div className="relative">
                         <SafeAvatar
@@ -298,17 +293,17 @@ export default function WebsiteNavbar({
                           alt={currentUser.name || "Member"}
                           gender={currentUser.gender}
                           size="sm"
-                          className="w-9 h-9 ring-1 ring-emerald-400"
+                          className="w-9 h-9 ring-1 ring-emerald-500"
                         />
                         {currentUser.aadhaarVerified && (
-                          <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 text-white rounded-full flex items-center justify-center ring-1 ring-[#0B192C]">
+                          <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-600 text-white rounded-full flex items-center justify-center ring-1 ring-white">
                             <CheckCircle2 className="w-2.5 h-2.5 stroke-[3]" />
                           </span>
                         )}
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-white">{currentUser.name}</p>
-                        <p className="text-[10px] text-emerald-400 font-medium">
+                        <p className="text-xs font-bold text-[#2C1A1D]">{currentUser.name}</p>
+                        <p className="text-[10px] text-emerald-600 font-medium">
                           {currentUser.aadhaarVerified ? '✓ Aadhaar Verified' : 'Logged In Member'}
                         </p>
                       </div>
@@ -323,7 +318,7 @@ export default function WebsiteNavbar({
                         }
                         setMobileNavOpen(false);
                       }}
-                      className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] text-[#0B192C] text-xs font-bold shadow-sm cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-bold shadow-xs cursor-pointer"
                     >
                       Open App
                     </button>
@@ -335,9 +330,9 @@ export default function WebsiteNavbar({
                         onLogout();
                         setMobileNavOpen(false);
                       }}
-                      className="w-full py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/40 text-rose-300 text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer"
+                      className="w-full py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer"
                     >
-                      <LogOut className="w-4 h-4 text-rose-400" />
+                      <LogOut className="w-4 h-4 text-rose-600" />
                       <span>Log Out</span>
                     </button>
                   )}
@@ -350,9 +345,9 @@ export default function WebsiteNavbar({
                       onOpenLogin();
                       setMobileNavOpen(false);
                     }}
-                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F3E5AB] to-[#D4AF37] hover:from-[#dfb76c] hover:to-[#b89228] text-[#0B192C] text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow-md shadow-[#D4AF37]/25 border border-yellow-200/60 transition-all active:scale-95 cursor-pointer"
+                    className="w-full py-2.5 px-3 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-extrabold flex items-center justify-center space-x-1.5 shadow-md shadow-[#7A2E43]/20 border border-[#7A2E43] transition-all active:scale-95 cursor-pointer"
                   >
-                    <LogIn className="w-4 h-4 text-[#0B192C] stroke-[2.5]" />
+                    <LogIn className="w-4 h-4 text-white stroke-[2.5]" />
                     <span>Member Login</span>
                   </button>
                   <button
@@ -361,9 +356,9 @@ export default function WebsiteNavbar({
                       onOpenRegister();
                       setMobileNavOpen(false);
                     }}
-                    className="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-[#D4AF37]/50 text-white text-xs font-bold flex items-center justify-center space-x-1.5 transition-all active:scale-95 cursor-pointer"
+                    className="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-[#FDF2EE] border border-[#7A2E43] text-[#7A2E43] text-xs font-bold flex items-center justify-center space-x-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
                   >
-                    <UserPlus className="w-4 h-4 text-[#DFB76C]" />
+                    <UserPlus className="w-4 h-4 text-[#7A2E43]" />
                     <span>Register Free</span>
                   </button>
                 </div>
@@ -373,7 +368,7 @@ export default function WebsiteNavbar({
                   onOpenOffers();
                   setMobileNavOpen(false);
                 }}
-                className="w-full py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-[#DFB76C] border border-[#D4AF37]/40 text-xs font-bold flex items-center justify-center space-x-1.5"
+                className="w-full py-2 rounded-xl bg-[#FDECE4] hover:bg-[#f7ddd4] text-[#7A2E43] border border-[#E5D0C6] text-xs font-bold flex items-center justify-center space-x-1.5 shadow-xs"
               >
                 <Crown className="w-3.5 h-3.5" />
                 <span>{featuredOffer ? `Special Offers & Membership Plans (${featuredOffer.discount_percent}% OFF)` : 'Membership Plans & Pricing'}</span>

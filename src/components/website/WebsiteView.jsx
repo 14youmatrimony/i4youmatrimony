@@ -64,7 +64,7 @@ export default function WebsiteView({
 
   return (
     <div 
-      className="website-view-root min-h-screen min-h-[100dvh] bg-slate-50 text-slate-900 flex flex-col antialiased selection:bg-[#DFB76C]/30 selection:text-[#0B192C]"
+      className="website-view-root min-h-screen min-h-[100dvh] bg-gradient-to-b from-[#FFF9F6] to-[#FDECE4] text-[#5A4649] flex flex-col antialiased selection:bg-[#C58B76]/30 selection:text-[#7A2E43]"
       style={{ minHeight: '100dvh' }}
     >
       

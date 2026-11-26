@@ -75,7 +75,7 @@ export default function DualRangeSlider({
 
       {/* Active Highlight Range Bar */}
       <div
-        className="absolute top-1/2 -translate-y-1/2 h-2 bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] rounded-full pointer-events-none"
+        className="absolute top-1/2 -translate-y-1/2 h-2 bg-gradient-to-r from-[#7A2E43] to-[#C58B76] rounded-full pointer-events-none"
         style={{
           left: `${minPercent}%`,
           width: `${Math.max(0, maxPercent - minPercent)}%`

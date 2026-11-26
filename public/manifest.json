@@ -6,8 +6,8 @@
   "id": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui", "window-controls-overlay"],
-  "background_color": "#0b192c",
-  "theme_color": "#dfb76c",
+  "background_color": "#FFF9F6",
+  "theme_color": "#7A2E43",
   "orientation": "portrait",
   "categories": ["lifestyle", "social"],
   "icons": [

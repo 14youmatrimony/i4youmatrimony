@@ -50,8 +50,8 @@ export default function PremiumUpgradePromptModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Gold Banner */}
-        <div className="bg-gradient-to-r from-[#0B192C] via-[#152E52] to-[#0B192C] text-white p-6 text-center relative overflow-hidden">
-          <div className="absolute -top-12 -right-12 w-36 h-36 bg-[#DFB76C]/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="bg-gradient-to-r from-[#7A2E43] via-[#8E354F] to-[#612234] text-white p-6 text-center relative overflow-hidden">
+          <div className="absolute -top-12 -right-12 w-36 h-36 bg-[#E6B8A2]/20 rounded-full blur-2xl pointer-events-none" />
           
           <button 
             onClick={onClose}
@@ -60,12 +60,12 @@ export default function PremiumUpgradePromptModal({
             <X className="w-4 h-4" />
           </button>
 
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#D4AF37] to-[#DFB76C] text-[#0B192C] mx-auto flex items-center justify-center shadow-lg mb-3">
-            <Crown className="w-7 h-7 fill-[#0B192C]" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#C58B76] to-[#E6B8A2] text-[#2C1A1D] mx-auto flex items-center justify-center shadow-lg mb-3">
+            <Crown className="w-7 h-7 fill-[#2C1A1D]" />
           </div>
 
-          <div className="inline-flex items-center space-x-1 px-3 py-0.5 rounded-full bg-[#DFB76C]/20 border border-[#DFB76C]/40 text-[#DFB76C] text-[11px] font-bold uppercase tracking-wider mb-2">
-            <Sparkles className="w-3 h-3 fill-[#DFB76C]" />
+          <div className="inline-flex items-center space-x-1 px-3 py-0.5 rounded-full bg-[#E6B8A2]/20 border border-[#E6B8A2]/40 text-[#E6B8A2] text-[11px] font-bold uppercase tracking-wider mb-2">
+            <Sparkles className="w-3 h-3 fill-[#E6B8A2]" />
             <span>Premium Member Exclusive</span>
           </div>
 
@@ -81,7 +81,7 @@ export default function PremiumUpgradePromptModal({
         <div className="p-5 space-y-4 text-left">
           
           <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/60 text-xs text-slate-700 leading-relaxed flex items-start space-x-3">
-            <div className="p-2 rounded-xl bg-amber-500/15 text-[#8C6D1F] shrink-0 mt-0.5">
+            <div className="p-2 rounded-xl bg-[#C58B76]/15 text-[#7A2E43] shrink-0 mt-0.5">
               <FeatureIcon className="w-5 h-5" />
             </div>
             <div>
@@ -117,7 +117,7 @@ export default function PremiumUpgradePromptModal({
           <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-1">
             <div className="flex items-center justify-center space-x-2">
               <span className="text-xs text-slate-500 line-through">₹ 3,999</span>
-              <span className="text-base font-extrabold text-[#0B192C]">From ₹ 1,999 only</span>
+              <span className="text-base font-extrabold text-[#2C1A1D]">From ₹ 1,999 only</span>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
                 50% OFF Limited Offer
               </span>
@@ -133,7 +133,7 @@ export default function PremiumUpgradePromptModal({
                 onClose();
                 onOpenPlans();
               }}
-              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#D4AF37] via-[#DFB76C] to-[#B89228] text-[#0B192C] font-extrabold text-sm shadow-lg shadow-[#D4AF37]/30 hover:brightness-105 active:scale-98 transition-all flex items-center justify-center space-x-2 cursor-pointer btn-luxury-shimmer"
+              className="w-full py-3.5 px-4 rounded-2xl bg-[#7A2E43] hover:bg-[#612234] text-white font-extrabold text-sm shadow-md shadow-[#7A2E43]/20 active:scale-98 transition-all flex items-center justify-center space-x-2 cursor-pointer"
             >
               <span>View Membership Plans & Unlock Now</span>
               <ArrowRight className="w-4 h-4" />

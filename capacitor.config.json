@@ -6,11 +6,11 @@
     "androidScheme": "https"
   },
   "android": {
-    "backgroundColor": "#0B192C",
+    "backgroundColor": "#2C1A1D",
     "allowMixedContent": true
   },
   "ios": {
-    "backgroundColor": "#0B192C",
+    "backgroundColor": "#2C1A1D",
     "contentInset": "always"
   },
   "plugins": {

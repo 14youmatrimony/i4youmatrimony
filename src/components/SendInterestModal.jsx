@@ -248,7 +248,7 @@ export default function SendInterestModal({
                     key={tmpl.id}
                     type="button"
                     onClick={() => handleSelectTemplate(tmpl.text)}
-                    className="p-2 text-left rounded-xl border border-slate-200 bg-slate-50 hover:bg-amber-50/70 hover:border-[#D4AF37] text-[11px] transition-all cursor-pointer active:scale-98"
+                    className="p-2 text-left rounded-xl border border-slate-200 bg-slate-50 hover:bg-[#FDF2EE] hover:border-[#C58B76] text-[11px] transition-all cursor-pointer active:scale-98"
                   >
                     <div className="font-bold text-[10.5px] text-slate-800">{tmpl.label}</div>
                     <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">{tmpl.text}</p>
@@ -274,7 +274,7 @@ export default function SendInterestModal({
                 onChange={(e) => setMessage(e.target.value.slice(0, maxLength))}
                 rows={3}
                 placeholder="Type your personal message here..."
-                className="w-full p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#DFB76C]/20 transition-all resize-none"
+                className="w-full p-2.5 sm:p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-[#C58B76] focus:ring-2 focus:ring-[#C58B76]/20 transition-all resize-none"
               />
             </div>
 
@@ -290,9 +290,9 @@ export default function SendInterestModal({
               <button
                 type="submit"
                 disabled={!message.trim()}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] via-[#F3E5AB] to-[#D4AF37] text-[#0B192C] font-bold text-xs shadow-sm active:scale-95 transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border border-[#D4AF37]/40"
+                className="px-4 py-2 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white font-bold text-xs shadow-md shadow-[#7A2E43]/20 active:scale-95 transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border border-[#7A2E43]"
               >
-                <Zap className="w-3.5 h-3.5 fill-[#0B192C]" />
+                <Zap className="w-3.5 h-3.5 fill-white text-white" />
                 <span>Send Instant Message</span>
               </button>
             </div>

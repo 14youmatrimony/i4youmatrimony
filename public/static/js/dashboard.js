@@ -189,7 +189,7 @@ function showToast(message, type = 'success') {
     } else if (type === 'info') {
       toastContent.className = 'px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium border bg-amber-950/95 text-amber-200 border-amber-800';
     } else {
-      toastContent.className = 'px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium border bg-[#122238]/95 text-emerald-200 border-emerald-800';
+      toastContent.className = 'px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium border bg-[#382226]/95 text-emerald-200 border-emerald-800';
     }
   }
 
@@ -500,7 +500,7 @@ function updateAdminProfileUI() {
   if (roleEl) {
     roleEl.textContent = role;
     if (role === 'Super Admin') {
-      roleEl.className = 'text-[10px] text-[#DFB76C] font-bold truncate';
+      roleEl.className = 'text-[10px] text-[#E6B8A2] font-bold truncate';
     } else if (role === 'CRM Manager') {
       roleEl.className = 'text-[10px] text-emerald-400 font-bold truncate';
     } else if (role === 'Finance Manager') {
@@ -645,7 +645,7 @@ function switchTab(tabId) {
   document.querySelectorAll('[data-tab-target]').forEach(btn => {
     const isCurrent = btn.getAttribute('data-tab-target') === tabId;
     if (isCurrent) {
-      btn.className = 'w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all bg-gradient-to-r from-[#D4AF37]/20 to-[#DFB76C]/10 text-[#DFB76C] border border-[#D4AF37]/40 shadow-inner';
+      btn.className = 'w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all bg-gradient-to-r from-[#C58B76]/20 to-[#E6B8A2]/10 text-[#E6B8A2] border border-[#C58B76]/40 shadow-inner';
     } else {
       btn.className = 'w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-white/5 border border-transparent';
     }
@@ -816,7 +816,7 @@ async function syncAllTelemetry(e) {
   const originalHtml = btn ? btn.innerHTML : '';
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<span class="inline-block animate-spin w-3.5 h-3.5 border-2 border-[#DFB76C] border-t-transparent rounded-full"></span> <span>Syncing...</span>';
+    btn.innerHTML = '<span class="inline-block animate-spin w-3.5 h-3.5 border-2 border-[#E6B8A2] border-t-transparent rounded-full"></span> <span>Syncing...</span>';
   }
   try {
     if (typeof window.syncAdminSupabase === 'function') {
@@ -871,12 +871,12 @@ function renderGrowthChart(monthlyTrend) {
       datasets: [{
         label: 'New Verified Signups',
         data: data,
-        borderColor: '#DFB76C',
+        borderColor: '#E6B8A2',
         backgroundColor: 'rgba(223, 183, 108, 0.15)',
         tension: 0.4,
         fill: true,
-        pointBackgroundColor: '#D4AF37',
-        pointBorderColor: '#0B192C',
+        pointBackgroundColor: '#C58B76',
+        pointBorderColor: '#2C1A1D',
         pointBorderWidth: 2,
         pointRadius: 4,
         pointHoverRadius: 6
@@ -888,11 +888,11 @@ function renderGrowthChart(monthlyTrend) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#0B192C',
-          borderColor: '#D4AF37',
+          backgroundColor: '#2C1A1D',
+          borderColor: '#C58B76',
           borderWidth: 1,
           padding: 10,
-          titleColor: '#DFB76C',
+          titleColor: '#E6B8A2',
           bodyColor: '#fff',
           cornerRadius: 8
         }
@@ -950,7 +950,7 @@ function renderRevenueChart(monthlyTrend) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#0B192C',
+          backgroundColor: '#2C1A1D',
           borderColor: '#10b981',
           borderWidth: 1,
           padding: 10,
@@ -1007,10 +1007,10 @@ function renderVerificationChart(breakdown) {
         backgroundColor: [
           '#10b981', // Emerald
           '#3b82f6', // Blue
-          '#DFB76C', // Gold
+          '#E6B8A2', // Gold
           '#f43f5e'  // Rose
         ],
-        borderColor: '#0B192C',
+        borderColor: '#2C1A1D',
         borderWidth: 3
       }]
     },
@@ -1024,7 +1024,7 @@ function renderVerificationChart(breakdown) {
           labels: { color: '#cbd5e1', padding: 12, font: { size: 11 } }
         },
         tooltip: {
-          backgroundColor: '#0B192C',
+          backgroundColor: '#2C1A1D',
           padding: 10,
           cornerRadius: 8
         }
@@ -1069,8 +1069,8 @@ function renderRegionalChart(regionalData) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#0B192C',
-          borderColor: '#D4AF37',
+          backgroundColor: '#2C1A1D',
+          borderColor: '#C58B76',
           borderWidth: 1,
           padding: 8,
           cornerRadius: 8
@@ -1203,7 +1203,7 @@ async function loadUsers() {
   tableBody.innerHTML = `
     <tr>
       <td colspan="7" class="text-center py-12 text-slate-400">
-        <div class="inline-block animate-spin w-6 h-6 border-2 border-[#DFB76C] border-t-transparent rounded-full mb-2"></div>
+        <div class="inline-block animate-spin w-6 h-6 border-2 border-[#E6B8A2] border-t-transparent rounded-full mb-2"></div>
         <p class="text-xs">Loading authentic user profiles...</p>
       </td>
     </tr>
@@ -1287,7 +1287,7 @@ async function loadUsers() {
           <td class="py-3 px-4">
             <div class="flex items-center space-x-3">
               <div 
-                class="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border ${hasRealPhoto ? 'border-amber-400 ring-2 ring-amber-400/30' : 'border-[#D4AF37]/30'} bg-slate-800 cursor-pointer group"
+                class="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border ${hasRealPhoto ? 'border-amber-400 ring-2 ring-amber-400/30' : 'border-[#C58B76]/30'} bg-slate-800 cursor-pointer group"
                 onclick="event.stopPropagation(); openPhotoInspectModal('${userPhotoUrl}', 'Original Portrait Photo', '${safeUserName}', 'Portrait Photo')"
                 title="Click to view original photo"
               >
@@ -1296,9 +1296,9 @@ async function loadUsers() {
               </div>
               <div class="min-w-0">
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="font-medium text-white text-sm hover:text-[#DFB76C] cursor-pointer truncate" onclick="openViewProfileModal('${u.id}')">${u.name}</span>
-                  ${u.match_score >= 95 ? '<span class="text-[10px] px-1 rounded bg-[#D4AF37]/20 text-[#DFB76C] font-mono">95%+</span>' : ''}
-                  ${hasRealPhoto ? `<button type="button" onclick="event.stopPropagation(); openViewProfileModal('${u.id}')" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-[#DFB76C] border border-[#D4AF37]/40 font-medium hover:bg-amber-500/30 transition-colors cursor-pointer" title="Candidate has authentic uploaded photos">📸 ${totalPhotoCount > 0 ? totalPhotoCount + ' Photos' : 'Original'}</button>` : ''}
+                  <span class="font-medium text-white text-sm hover:text-[#E6B8A2] cursor-pointer truncate" onclick="openViewProfileModal('${u.id}')">${u.name}</span>
+                  ${u.match_score >= 95 ? '<span class="text-[10px] px-1 rounded bg-[#C58B76]/20 text-[#E6B8A2] font-mono">95%+</span>' : ''}
+                  ${hasRealPhoto ? `<button type="button" onclick="event.stopPropagation(); openViewProfileModal('${u.id}')" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-[#E6B8A2] border border-[#C58B76]/40 font-medium hover:bg-amber-500/30 transition-colors cursor-pointer" title="Candidate has authentic uploaded photos">📸 ${totalPhotoCount > 0 ? totalPhotoCount + ' Photos' : 'Original'}</button>` : ''}
                 </div>
                 <div class="text-xs text-slate-400 flex items-center gap-1">
                   <span>${u.age} yrs</span> &bull; 
@@ -1434,7 +1434,7 @@ async function loadUsers() {
               </button>
               <button 
                 onclick="openEditUserModal('${u.id}')"
-                class="p-1.5 text-slate-400 hover:text-[#DFB76C] hover:bg-slate-700/60 rounded-lg transition-colors" 
+                class="p-1.5 text-slate-400 hover:text-[#E6B8A2] hover:bg-slate-700/60 rounded-lg transition-colors" 
                 title="Edit User Profile"
               >
                 <i data-lucide="edit-3" class="w-4 h-4"></i>
@@ -1791,14 +1791,14 @@ async function openViewProfileModal(id) {
           const isPrimary = (idx === 0);
           const safeName = (u.name || 'Candidate').replace(/'/g, "\\'");
           return `
-            <div class="relative group rounded-xl overflow-hidden border ${isPrimary ? 'border-[#DFB76C] ring-1 ring-[#DFB76C]/40' : 'border-slate-700'} bg-black aspect-square flex items-center justify-center cursor-pointer shadow-md" onclick="openPhotoInspectModal('${pUrl}', '${isPrimary ? 'Primary Portrait Photo' : 'Portrait Photo #' + (idx + 1)}', '${safeName}', '${isPrimary ? 'Primary Portrait' : 'Single Photo #' + (idx + 1)}')">
+            <div class="relative group rounded-xl overflow-hidden border ${isPrimary ? 'border-[#E6B8A2] ring-1 ring-[#E6B8A2]/40' : 'border-slate-700'} bg-black aspect-square flex items-center justify-center cursor-pointer shadow-md" onclick="openPhotoInspectModal('${pUrl}', '${isPrimary ? 'Primary Portrait Photo' : 'Portrait Photo #' + (idx + 1)}', '${safeName}', '${isPrimary ? 'Primary Portrait' : 'Single Photo #' + (idx + 1)}')">
               <img src="${pUrl}" alt="Photo ${idx + 1}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800'"/>
               <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold gap-1 transition-all">
-                <i data-lucide="zoom-in" class="w-3.5 h-3.5 text-[#DFB76C]"></i>
+                <i data-lucide="zoom-in" class="w-3.5 h-3.5 text-[#E6B8A2]"></i>
                 <span class="text-[10px]">Inspect</span>
               </div>
               <div class="absolute bottom-1 left-1 pointer-events-none">
-                <span class="text-[8px] font-bold px-1.5 py-0.5 rounded shadow ${isPrimary ? 'bg-[#DFB76C] text-slate-950' : 'bg-black/75 text-slate-300 border border-white/20'}">
+                <span class="text-[8px] font-bold px-1.5 py-0.5 rounded shadow ${isPrimary ? 'bg-[#E6B8A2] text-slate-950' : 'bg-black/75 text-slate-300 border border-white/20'}">
                   ${isPrimary ? '★ Primary' : '#' + (idx + 1)}
                 </span>
               </div>
@@ -2103,7 +2103,7 @@ async function loadOffers() {
           <!-- Code -->
           <td class="py-3 px-4">
             <div class="flex items-center gap-2">
-              <span class="font-mono text-sm font-bold text-[#DFB76C] bg-[#D4AF37]/10 px-2 py-0.5 rounded border border-[#D4AF37]/30 tracking-wider">
+              <span class="font-mono text-sm font-bold text-[#E6B8A2] bg-[#C58B76]/10 px-2 py-0.5 rounded border border-[#C58B76]/30 tracking-wider">
                 ${o.code}
               </span>
             </div>
@@ -2137,7 +2137,7 @@ async function loadOffers() {
               <span class="text-slate-500">Max: ${o.max_uses}</span>
             </div>
             <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div class="bg-gradient-to-r from-[#D4AF37] to-[#DFB76C] h-full rounded-full" style="width: ${usagePercent}%"></div>
+              <div class="bg-gradient-to-r from-[#C58B76] to-[#E6B8A2] h-full rounded-full" style="width: ${usagePercent}%"></div>
             </div>
           </td>
 
@@ -2151,7 +2151,7 @@ async function loadOffers() {
             <div class="flex items-center justify-end space-x-1">
               <button 
                 onclick="openEditOfferModal('${o.id}')"
-                class="p-1.5 text-slate-400 hover:text-[#DFB76C] hover:bg-slate-700/60 rounded-lg transition-colors"
+                class="p-1.5 text-slate-400 hover:text-[#E6B8A2] hover:bg-slate-700/60 rounded-lg transition-colors"
                 title="Edit Offer"
               >
                 <i data-lucide="edit-3" class="w-4 h-4"></i>
@@ -2574,8 +2574,8 @@ function renderPlans() {
     if (cardsContainer) {
       if (plans.length === 0) {
         cardsContainer.innerHTML = `
-          <div class="col-span-full text-center py-12 text-slate-400 bg-[#0B192C] rounded-3xl border border-slate-800">
-            <i data-lucide="crown" class="w-8 h-8 mx-auto text-[#DFB76C] mb-2 opacity-50"></i>
+          <div class="col-span-full text-center py-12 text-slate-400 bg-[#2C1A1D] rounded-3xl border border-slate-800">
+            <i data-lucide="crown" class="w-8 h-8 mx-auto text-[#E6B8A2] mb-2 opacity-50"></i>
             <p class="text-sm font-medium text-slate-300">No membership plans configured</p>
             <p class="text-xs text-slate-500 mt-1">Click "+ Create New Plan" to configure your first package</p>
           </div>
@@ -2591,8 +2591,8 @@ function renderPlans() {
               btnBg: 'bg-amber-500 hover:bg-amber-400 text-slate-950'
             },
             blue: {
-              cardBorder: p.is_popular ? 'border-[#D4AF37] ring-1 ring-[#D4AF37]/50' : 'border-blue-500/30 hover:border-blue-400/70',
-              headerBg: 'bg-gradient-to-r from-[#0B192C] via-[#1E3A8A] to-[#0B192C]',
+              cardBorder: p.is_popular ? 'border-[#C58B76] ring-1 ring-[#C58B76]/50' : 'border-blue-500/30 hover:border-blue-400/70',
+              headerBg: 'bg-gradient-to-r from-[#2C1A1D] via-[#1E3A8A] to-[#2C1A1D]',
               badgeBg: 'bg-blue-400/20 text-blue-300 border-blue-400/40',
               accentText: 'text-blue-400',
               btnBg: 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white'
@@ -2641,7 +2641,7 @@ function renderPlans() {
           const safePlanName = (p.name || '').replace(/'/g, "\\'");
 
         return `
-          <div class="rounded-3xl bg-[#0B192C] border ${theme.cardBorder} shadow-xl flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-2xl">
+          <div class="rounded-3xl bg-[#2C1A1D] border ${theme.cardBorder} shadow-xl flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-2xl">
             <!-- Header Bar -->
             <div>
               <div class="p-5 ${theme.headerBg} relative text-white">
@@ -2654,7 +2654,7 @@ function renderPlans() {
                       ${p.badge}
                     </span>
                   ` : (p.is_popular ? `
-                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#D4AF37]/30 text-[#DFB76C] border border-[#D4AF37]/50">
+                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#C58B76]/30 text-[#E6B8A2] border border-[#C58B76]/50">
                       FEATURED ⭐
                     </span>
                   ` : '')}
@@ -2679,11 +2679,11 @@ function renderPlans() {
                   </div>
 
                   ${p.has_advisor ? `
-                    <div class="flex items-center justify-between px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#D4AF37]/20 to-amber-500/10 border border-[#D4AF37]/40 text-[#DFB76C] text-[11px] font-bold">
+                    <div class="flex items-center justify-between px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#C58B76]/20 to-amber-500/10 border border-[#C58B76]/40 text-[#E6B8A2] text-[11px] font-bold">
                       <span class="flex items-center gap-1.5">
                         <span>🤵</span> Dedicated Matchmaking Manager
                       </span>
-                      <span class="text-[9px] uppercase tracking-wider bg-[#D4AF37]/30 px-1.5 py-0.5 rounded">VIP</span>
+                      <span class="text-[9px] uppercase tracking-wider bg-[#C58B76]/30 px-1.5 py-0.5 rounded">VIP</span>
                     </div>
                   ` : ''}
                 </div>
@@ -2709,8 +2709,8 @@ function renderPlans() {
                         <span class="text-[9px] line-through text-slate-500 block">₹${p.price_3m}</span>
                         <span class="text-[11px] font-bold text-emerald-400 font-mono">₹${p.offer_price_3m}</span>
                       </div>
-                      <div class="p-1.5 rounded-xl bg-slate-900 border border-[#D4AF37]/40 shadow-inner">
-                        <span class="block text-[9.5px] text-[#DFB76C] font-bold">6-Mo ⭐</span>
+                      <div class="p-1.5 rounded-xl bg-slate-900 border border-[#C58B76]/40 shadow-inner">
+                        <span class="block text-[9.5px] text-[#E6B8A2] font-bold">6-Mo ⭐</span>
                         <span class="text-[9px] line-through text-slate-500 block">₹${p.price_6m}</span>
                         <span class="text-[11px] font-bold text-emerald-300 font-mono">₹${p.offer_price_6m}</span>
                       </div>
@@ -2724,7 +2724,7 @@ function renderPlans() {
                 </div>
 
                 <!-- Matrimonial Privileges Badges Grid -->
-                <div class="p-2.5 rounded-xl bg-[#070F1E] border border-slate-800/80 space-y-1.5 text-[11px]">
+                <div class="p-2.5 rounded-xl bg-[#1A1012] border border-slate-800/80 space-y-1.5 text-[11px]">
                   <div class="flex items-center justify-between text-slate-300">
                     <span class="text-slate-400 flex items-center gap-1">
                       <span>💌</span> Direct Interests:
@@ -2845,7 +2845,7 @@ function renderPlans() {
               <div class="font-bold text-white flex items-center gap-2">
                 <span>${p.name}</span>
                 <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">${p.id}</span>
-                ${p.is_popular ? '<span class="text-[10px] text-[#DFB76C]">⭐</span>' : ''}
+                ${p.is_popular ? '<span class="text-[10px] text-[#E6B8A2]">⭐</span>' : ''}
               </div>
               <p class="text-xs text-slate-400 line-clamp-1">${p.tagline || ''}</p>
             </td>
@@ -2938,13 +2938,13 @@ function renderPlans() {
       ${plans.map(p => {
         const safePlanName = (p.name || '').replace(/'/g, "\\'");
         return `
-        <th class="py-3 px-4 text-center font-bold min-w-[170px] ${p.id === 'vip' ? 'text-purple-400' : p.id === 'diamond' ? 'text-[#DFB76C]' : p.id === 'gold' ? 'text-amber-400' : 'text-slate-300'}">
+        <th class="py-3 px-4 text-center font-bold min-w-[170px] ${p.id === 'vip' ? 'text-purple-400' : p.id === 'diamond' ? 'text-[#E6B8A2]' : p.id === 'gold' ? 'text-amber-400' : 'text-slate-300'}">
           <div class="space-y-1">
             <div class="text-sm font-extrabold uppercase tracking-wide flex items-center justify-center gap-1">
               <span>${p.name}</span>
               ${p.is_popular ? '<span class="text-xs" title="Most Popular">⭐</span>' : ''}
             </div>
-            ${p.is_popular ? '<span class="text-[9px] font-extrabold text-[#DFB76C] bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 inline-block">MOST POPULAR</span>' : ''}
+            ${p.is_popular ? '<span class="text-[9px] font-extrabold text-[#E6B8A2] bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 inline-block">MOST POPULAR</span>' : ''}
           </div>
 
           <!-- Switch & Actions Bar Directly on Header -->
@@ -2969,10 +2969,10 @@ function renderPlans() {
               <button 
                 type="button"
                 onclick="openEditPlanModal('${p.id}')" 
-                class="py-1 px-2.5 rounded-lg bg-slate-800 hover:bg-[#DFB76C]/20 hover:text-[#DFB76C] text-slate-300 text-[10.5px] font-bold flex items-center gap-1 transition-all border border-slate-700 hover:border-[#DFB76C]/40 cursor-pointer shadow-xs active:scale-95" 
+                class="py-1 px-2.5 rounded-lg bg-slate-800 hover:bg-[#E6B8A2]/20 hover:text-[#E6B8A2] text-slate-300 text-[10.5px] font-bold flex items-center gap-1 transition-all border border-slate-700 hover:border-[#E6B8A2]/40 cursor-pointer shadow-xs active:scale-95" 
                 title="Edit ${p.name}"
               >
-                <i data-lucide="edit-3" class="w-3 h-3 text-[#DFB76C]"></i>
+                <i data-lucide="edit-3" class="w-3 h-3 text-[#E6B8A2]"></i>
                 <span>Edit</span>
               </button>
               <button 
@@ -3082,10 +3082,10 @@ function renderPlans() {
             <button 
               type="button"
               onclick="openEditPlanModal('${p.id}')" 
-              class="py-1.5 px-3 rounded-xl bg-[#DFB76C]/15 hover:bg-[#DFB76C]/25 text-[#DFB76C] border border-[#D4AF37]/40 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95" 
+              class="py-1.5 px-3 rounded-xl bg-[#E6B8A2]/15 hover:bg-[#E6B8A2]/25 text-[#E6B8A2] border border-[#C58B76]/40 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95" 
               title="Edit ${p.name} Attributes"
             >
-              <i data-lucide="edit-3" class="w-3.5 h-3.5 text-[#DFB76C]"></i>
+              <i data-lucide="edit-3" class="w-3.5 h-3.5 text-[#E6B8A2]"></i>
               <span>Edit Plan</span>
             </button>
             <button 
@@ -3106,7 +3106,7 @@ function renderPlans() {
     compBody.innerHTML = comparisonRows.map(row => `
       <tr class="hover:bg-slate-800/30 transition-colors">
         <td class="py-3 px-4 font-semibold text-slate-200 flex items-center gap-2">
-          <i data-lucide="${row.icon}" class="w-3.5 h-3.5 text-[#DFB76C]"></i>
+          <i data-lucide="${row.icon}" class="w-3.5 h-3.5 text-[#E6B8A2]"></i>
           <span>${row.label}</span>
         </td>
         ${plans.map(p => `
@@ -3478,7 +3478,7 @@ async function loadPayments() {
   tableBody.innerHTML = `
     <tr>
       <td colspan="7" class="text-center py-10 text-slate-400">
-        <div class="inline-block animate-spin w-6 h-6 border-2 border-[#DFB76C] border-t-transparent rounded-full mb-2"></div>
+        <div class="inline-block animate-spin w-6 h-6 border-2 border-[#E6B8A2] border-t-transparent rounded-full mb-2"></div>
         <p class="text-xs">Loading transaction history...</p>
       </td>
     </tr>
@@ -3594,7 +3594,7 @@ async function loadPayments() {
               <button 
                 type="button"
                 onclick="openEditPaymentModal('${safeId}')"
-                class="p-2 text-slate-400 hover:text-[#DFB76C] hover:bg-[#DFB76C]/10 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center shadow-sm"
+                class="p-2 text-slate-400 hover:text-[#E6B8A2] hover:bg-[#E6B8A2]/10 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center shadow-sm"
                 title="Edit Payment / Change Status"
               >
                 <i data-lucide="edit-3" class="w-4 h-4"></i>
@@ -3650,7 +3650,7 @@ function renderPaymentsTableSummary(displayedPayments = []) {
     <tr class="bg-slate-900/90 border-t-2 border-slate-700/80">
       <td class="py-3.5 px-4">
         <div class="font-mono text-xs font-bold text-white flex items-center gap-1.5">
-          <i data-lucide="calculator" class="w-4 h-4 text-[#DFB76C]"></i>
+          <i data-lucide="calculator" class="w-4 h-4 text-[#E6B8A2]"></i>
           <span>PAGE TOTAL (${totalCount} Records)</span>
         </div>
         <div class="text-[10px] text-slate-400 font-mono">Displayed Transactions</div>
@@ -3660,7 +3660,7 @@ function renderPaymentsTableSummary(displayedPayments = []) {
         <div class="text-[11px] text-slate-400">Net Volume: ${formatINR(completedAmount)}</div>
       </td>
       <td class="py-3.5 px-4">
-        <div class="text-sm font-extrabold text-[#DFB76C] font-mono">
+        <div class="text-sm font-extrabold text-[#E6B8A2] font-mono">
           ${formatINR(totalAmount)}
         </div>
         <div class="text-[10px] text-slate-400 uppercase font-mono">INR Total</div>
@@ -3672,7 +3672,7 @@ function renderPaymentsTableSummary(displayedPayments = []) {
         <button 
           type="button"
           onclick="printAllPayments()" 
-          class="px-3 py-1.5 rounded-lg bg-[#DFB76C]/20 hover:bg-[#DFB76C]/30 text-[#DFB76C] border border-[#DFB76C]/40 text-xs font-semibold inline-flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+          class="px-3 py-1.5 rounded-lg bg-[#E6B8A2]/20 hover:bg-[#E6B8A2]/30 text-[#E6B8A2] border border-[#E6B8A2]/40 text-xs font-semibold inline-flex items-center gap-1 transition-all cursor-pointer shadow-sm"
           title="Print Entire Table with Total"
         >
           <i data-lucide="printer" class="w-3.5 h-3.5"></i>
@@ -4073,14 +4073,14 @@ async function loadAdminUsers() {
       const isCurrent = state.admin && (state.admin.id === admin.id);
       const avatarUrl = admin.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200';
       const roleColor = admin.role === 'Super Admin'
-        ? 'bg-amber-500/10 text-[#DFB76C] border-amber-500/20'
+        ? 'bg-amber-500/10 text-[#E6B8A2] border-amber-500/20'
         : 'bg-blue-500/10 text-blue-400 border-blue-500/20';
 
       return `
         <tr class="hover:bg-white/[0.02] transition-colors">
           <td class="py-3 px-3">
             <div class="flex items-center space-x-3">
-              <img src="${escapeHtml(avatarUrl)}" alt="Avatar" class="w-8 h-8 rounded-full object-cover border border-[#DFB76C]/30 flex-shrink-0" />
+              <img src="${escapeHtml(avatarUrl)}" alt="Avatar" class="w-8 h-8 rounded-full object-cover border border-[#E6B8A2]/30 flex-shrink-0" />
               <div>
                 <p class="font-bold text-white text-xs flex items-center gap-1.5">
                   ${escapeHtml(admin.full_name)}
@@ -4648,7 +4648,7 @@ async function loadAadhaarVerifications() {
   tableBody.innerHTML = `
     <tr>
       <td colspan="6" class="text-center py-12 text-slate-400">
-        <div class="inline-block animate-spin w-6 h-6 border-2 border-[#DFB76C] border-t-transparent rounded-full mb-2"></div>
+        <div class="inline-block animate-spin w-6 h-6 border-2 border-[#E6B8A2] border-t-transparent rounded-full mb-2"></div>
         <p class="text-xs">Loading Aadhaar verification candidates...</p>
       </td>
     </tr>
@@ -4854,12 +4854,12 @@ async function loadAadhaarVerifications() {
           <!-- Candidate Profile -->
           <td class="py-3 px-4">
             <div class="flex items-center space-x-3">
-              <div class="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-[#D4AF37]/30 bg-slate-800">
+              <div class="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-[#C58B76]/30 bg-slate-800">
                 <img src="${u.photo || (String(u.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')}" alt="${u.name}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800'"/>
               </div>
               <div class="min-w-0">
                 <div class="flex items-center gap-1.5">
-                  <span class="font-medium text-white text-sm hover:text-[#DFB76C] cursor-pointer truncate" onclick="openViewProfileModal('${u.id}')">${u.name}</span>
+                  <span class="font-medium text-white text-sm hover:text-[#E6B8A2] cursor-pointer truncate" onclick="openViewProfileModal('${u.id}')">${u.name}</span>
                   <span class="text-[10px] text-slate-400 font-mono">#${u.id}</span>
                 </div>
                 <div class="text-xs text-slate-400 flex items-center gap-1">
@@ -4980,7 +4980,7 @@ async function loadAadhaarVerifications() {
               </button>
               <button 
                 onclick="openEditUserModal('${u.id}')"
-                class="p-1.5 text-slate-400 hover:text-[#DFB76C] hover:bg-slate-700/60 rounded-lg transition-colors cursor-pointer" 
+                class="p-1.5 text-slate-400 hover:text-[#E6B8A2] hover:bg-slate-700/60 rounded-lg transition-colors cursor-pointer" 
                 title="Edit Candidate Details"
               >
                 <i data-lucide="edit-3" class="w-4 h-4"></i>
@@ -5027,7 +5027,7 @@ function renderAadhaarCardsGrid(users) {
 
   if (!users || users.length === 0) {
     cardsWrapper.innerHTML = `
-      <div class="col-span-full text-center py-12 text-slate-400 bg-[#0B192C] rounded-3xl border border-slate-800 p-8">
+      <div class="col-span-full text-center py-12 text-slate-400 bg-[#2C1A1D] rounded-3xl border border-slate-800 p-8">
         <i data-lucide="shield-check" class="w-10 h-10 mx-auto text-emerald-400 mb-2 opacity-60"></i>
         <p class="text-base font-semibold text-slate-200">
           ${state.aadhaar.status === 'pending' ? 'All Clear! No pending Aadhaar verifications.' : 'No candidates found.'}
@@ -5048,19 +5048,19 @@ function renderAadhaarCardsGrid(users) {
     const maskedNo = `XXXX XXXX ${cleanNo.slice(-4) || '5928'}`;
 
     return `
-      <div class="rounded-3xl bg-[#0B192C] border ${isApproved ? 'border-emerald-500/40' : 'border-amber-500/40'} p-5 shadow-xl flex flex-col justify-between space-y-4 hover:border-[#DFB76C]/60 transition-all">
+      <div class="rounded-3xl bg-[#2C1A1D] border ${isApproved ? 'border-emerald-500/40' : 'border-amber-500/40'} p-5 shadow-xl flex flex-col justify-between space-y-4 hover:border-[#E6B8A2]/60 transition-all">
         <!-- Top Profile & Status Bar -->
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center space-x-3 min-w-0">
             <img 
               src="${u.photo || (String(u.gender).toLowerCase() === 'male' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800')}" 
               alt="${u.name}" 
-              class="w-12 h-12 rounded-2xl object-cover border border-[#D4AF37]/50 flex-shrink-0"
+              class="w-12 h-12 rounded-2xl object-cover border border-[#C58B76]/50 flex-shrink-0"
               onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800'"
             />
             <div class="min-w-0">
               <div class="flex items-center gap-1.5">
-                <h4 class="font-bold text-white text-sm hover:text-[#DFB76C] cursor-pointer truncate" onclick="openViewProfileModal('${u.id}')">${u.name}</h4>
+                <h4 class="font-bold text-white text-sm hover:text-[#E6B8A2] cursor-pointer truncate" onclick="openViewProfileModal('${u.id}')">${u.name}</h4>
                 <span class="text-[10px] text-slate-400 font-mono">#${u.id}</span>
               </div>
               <p class="text-xs text-slate-400 mt-0.5">${u.age} yrs &bull; ${u.gender} &bull; ${u.district || u.city || 'Kerala'}</p>
@@ -5083,7 +5083,7 @@ function renderAadhaarCardsGrid(users) {
         </div>
 
         <!-- Embedded Mini Aadhaar Card Preview Component -->
-        <div class="bg-[#070F1E] p-3 rounded-2xl border border-slate-800 space-y-2">
+        <div class="bg-[#1A1012] p-3 rounded-2xl border border-slate-800 space-y-2">
           ${u.aadhaar_front_image ? `
             <div class="relative w-full h-28 rounded-xl overflow-hidden border border-amber-500/30 group/card cursor-pointer" onclick="openAadhaarCardModal('${u.id}')" title="Click to view authentic uploaded Aadhaar card">
               <img src="${u.aadhaar_front_image.startsWith('/') ? `${u.aadhaar_front_image}?_t=${Date.now()}` : u.aadhaar_front_image}" alt="Uploaded Aadhaar Card" class="w-full h-full object-cover group-hover/card:scale-105 transition-all duration-300" onerror="this.onerror=null; this.src=AADHAAR_FALLBACK_SVG;"/>
@@ -5296,7 +5296,7 @@ function renderUploadedDocumentHtml(u, side) {
   }
 
   return `
-    <div class="w-full max-w-[620px] bg-[#070F1E] rounded-2xl border border-emerald-500/40 shadow-2xl overflow-hidden p-4 space-y-3.5 animate-in fade-in duration-150">
+    <div class="w-full max-w-[620px] bg-[#1A1012] rounded-2xl border border-emerald-500/40 shadow-2xl overflow-hidden p-4 space-y-3.5 animate-in fade-in duration-150">
       <!-- Document Top Bar -->
       <div class="flex items-center justify-between text-xs border-b border-slate-800 pb-2.5">
         <div class="flex items-center gap-2">
@@ -5315,7 +5315,7 @@ function renderUploadedDocumentHtml(u, side) {
             class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold flex items-center gap-1 transition-colors border border-slate-700 cursor-pointer shadow-xs"
             title="Open Full Resolution Photo in New Tab"
           >
-            <i data-lucide="external-link" class="w-3 h-3 text-[#DFB76C]"></i>
+            <i data-lucide="external-link" class="w-3 h-3 text-[#E6B8A2]"></i>
             <span>Inspect Full Size</span>
           </a>
         </div>
@@ -5332,7 +5332,7 @@ function renderUploadedDocumentHtml(u, side) {
           title="Click to view full resolution"
         />
         <div class="absolute bottom-3 left-3 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-[10px] text-white flex items-center gap-2 pointer-events-none shadow-md">
-          <i data-lucide="camera" class="w-3.5 h-3.5 text-[#DFB76C]"></i>
+          <i data-lucide="camera" class="w-3.5 h-3.5 text-[#E6B8A2]"></i>
           <span class="font-bold">${u.name} &bull; ${side.toUpperCase()}</span>
           <span class="text-slate-400 font-mono">#${u.id}</span>
         </div>
@@ -5482,7 +5482,7 @@ function renderAadhaarCardModalContent() {
     container.innerHTML = sentBackBannerHtml + renderUploadedDocumentHtml(u, state.aadhaar.cardSide);
   } else {
     container.innerHTML = sentBackBannerHtml + `
-      <div id="aadhaarCardPaper" class="w-full max-w-[560px] bg-[#FEFEFE] text-[#0B192C] rounded-2xl shadow-2xl border-2 border-slate-300 overflow-hidden relative select-none font-sans transition-all duration-200">
+      <div id="aadhaarCardPaper" class="w-full max-w-[560px] bg-[#FEFEFE] text-[#2C1A1D] rounded-2xl shadow-2xl border-2 border-slate-300 overflow-hidden relative select-none font-sans transition-all duration-200">
         ${renderAadhaarCardHtml(u, state.aadhaar.cardSide, state.aadhaar.unmaskDigits)}
       </div>
     `;
@@ -5542,7 +5542,7 @@ function renderAadhaarCardHtml(u, side, unmask) {
         <!-- Main Body: Photo + Candidate Information -->
         <div class="flex items-start space-x-4 mb-4">
           <!-- Candidate Photo with Gold Security Border -->
-          <div class="relative w-24 h-28 sm:w-28 sm:h-34 rounded-xl overflow-hidden border-2 border-[#D4AF37] shadow-sm flex-shrink-0 bg-slate-200">
+          <div class="relative w-24 h-28 sm:w-28 sm:h-34 rounded-xl overflow-hidden border-2 border-[#C58B76] shadow-sm flex-shrink-0 bg-slate-200">
             <img src="${photo}" alt="${u.name}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800'"/>
             <div class="absolute bottom-0 inset-x-0 bg-slate-950/80 text-[8px] text-white text-center py-0.5 font-bold tracking-wider">
               OFFICIAL ID
@@ -5783,7 +5783,7 @@ function filterAadhaarStatus(status) {
   const activeClass = 'py-1.5 px-3 rounded-lg text-xs font-semibold transition-all bg-amber-500 text-slate-950 shadow-sm cursor-pointer';
   const activeRoseClass = 'py-1.5 px-3 rounded-lg text-xs font-semibold transition-all bg-rose-500 text-white shadow-sm cursor-pointer';
   const activeEmeraldClass = 'py-1.5 px-3 rounded-lg text-xs font-semibold transition-all bg-emerald-500 text-slate-950 shadow-sm cursor-pointer';
-  const activeGoldClass = 'py-1.5 px-3 rounded-lg text-xs font-semibold transition-all bg-[#DFB76C] text-slate-950 shadow-sm cursor-pointer';
+  const activeGoldClass = 'py-1.5 px-3 rounded-lg text-xs font-semibold transition-all bg-[#E6B8A2] text-slate-950 shadow-sm cursor-pointer';
   const inactiveClass = 'py-1.5 px-3 rounded-lg text-xs font-semibold transition-all text-slate-300 hover:text-white cursor-pointer';
 
   if (pendingBtn) pendingBtn.className = status === 'pending' ? activeClass : inactiveClass;

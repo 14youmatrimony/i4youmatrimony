@@ -49,20 +49,20 @@ export default function MobileAppShell({
     const baseNav = 'mobile-bottom-nav fixed bottom-0 left-0 right-0 w-full z-50 flex items-center justify-around pointer-events-auto';
     switch (bottomBarStyle) {
       case 'classic':
-        return `${baseNav} bg-[#0B192C] text-white border-t border-[#D4AF37]/35 px-2 py-2 shadow-[0_-4px_24px_rgba(0,0,0,0.35)]`;
+        return `${baseNav} bg-[#FFFBF9] text-[#2C1A1D] border-t border-[#E5D0C6] px-2 py-2 shadow-[0_-4px_24px_rgba(122,46,67,0.06)]`;
       case 'glass':
-        return `${baseNav} bg-[#0B192C]/90 backdrop-blur-xl border-t border-white/20 px-2 py-2 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]`;
+        return `${baseNav} bg-[#FFFBF9]/95 backdrop-blur-xl border-t border-[#E5D0C6] px-2 py-2 shadow-[0_-8px_32px_rgba(122,46,67,0.08)]`;
       case 'dock':
-        return `${baseNav} bg-[#0B192C]/95 backdrop-blur-2xl border-t border-[#D4AF37]/40 px-2 py-2 shadow-[0_10px_35px_rgba(0,0,0,0.6)]`;
+        return `${baseNav} bg-[#FFFBF9]/95 backdrop-blur-2xl border-t border-[#E5D0C6] px-2 py-2 shadow-[0_10px_35px_rgba(122,46,67,0.1)]`;
       case 'transparent':
       default:
-        return `${baseNav} bg-[#0B192C]/80 backdrop-blur-md border-t border-white/10 px-2 py-2 text-slate-200`;
+        return `${baseNav} bg-[#FFFBF9]/85 backdrop-blur-md border-t border-[#E5D0C6] px-2 py-2 text-[#5A4649]`;
     }
   }, [bottomBarStyle]);
 
   return (
     <div className={`flex-1 flex flex-col min-h-0 overflow-hidden relative transition-colors duration-300 ${
-      isDarkMode ? 'bg-[#060D17] text-slate-100' : 'bg-slate-100 text-slate-900'
+      isDarkMode ? 'bg-[#2C1A1D] text-slate-100' : 'bg-[#FFF9F6] text-[#5A4649]'
     }`}>
       
       {/* Main Content Area with adaptive background */}
@@ -73,7 +73,7 @@ export default function MobileAppShell({
             ? 'flex flex-col min-h-0 overflow-hidden pb-0'
             : 'overflow-y-auto scroll-smooth pb-24 sm:pb-28'
         } ${
-          isDarkMode ? 'bg-[#081220]' : 'bg-slate-50'
+          isDarkMode ? 'bg-[#2C1A1D]' : 'bg-[#FFF9F6]'
         }`}
       >
         {children}
@@ -84,14 +84,14 @@ export default function MobileAppShell({
         <button
           type="button"
           onClick={onOpenNotifications}
-          className="absolute bottom-[76px] right-3.5 z-40 w-11 h-11 rounded-2xl bg-[#0B192C]/90 backdrop-blur-md text-white border-2 shadow-2xl flex items-center justify-center cursor-pointer active:scale-95 hover:scale-105 transition-all group"
+          className="absolute bottom-[76px] right-3.5 z-40 w-11 h-11 rounded-2xl bg-white/95 backdrop-blur-md text-[#7A2E43] border border-[#E5D0C6] shadow-xl flex items-center justify-center cursor-pointer active:scale-95 hover:scale-105 transition-all group"
           style={{ borderColor: accent.primary }}
           title="Notifications & Alerts"
           aria-label="Open Notifications"
         >
-          <Bell className="w-5 h-5 group-hover:rotate-12 transition-transform drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" style={{ color: accent.primaryLight }} />
+          <Bell className="w-5 h-5 group-hover:rotate-12 transition-transform drop-shadow-[0_1px_2px_rgba(122,46,67,0.15)]" style={{ color: accent.primary }} />
           {unreadNotificationsCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-4.5 px-1 bg-rose-600 text-white font-extrabold text-[10px] rounded-full flex items-center justify-center shadow-md border-2 border-[#0B192C] animate-pulse">
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-4.5 px-1 bg-[#7A2E43] text-white font-extrabold text-[10px] rounded-full flex items-center justify-center shadow-md border-2 border-white animate-pulse">
               {unreadNotificationsCount}
             </span>
           )}
@@ -125,33 +125,33 @@ export default function MobileAppShell({
                 className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all duration-200 cursor-pointer select-none group active:scale-90 ${
                   isTransparentBar
                     ? isActive
-                      ? 'bg-black/70 backdrop-blur-md text-white border border-[#D4AF37]/60 shadow-md px-3'
-                      : 'bg-black/35 backdrop-blur-sm text-slate-200 hover:bg-black/50 hover:text-white px-2.5'
+                      ? 'bg-white/90 backdrop-blur-md text-[#7A2E43] border border-[#E5D0C6] shadow-sm px-3'
+                      : 'bg-white/40 backdrop-blur-sm text-[#5A4649] hover:bg-white/60 hover:text-[#7A2E43] px-2.5'
                     : isActive
-                      ? 'bg-white/15 px-3.5 shadow-xs border border-white/10'
-                      : 'hover:bg-white/5'
+                      ? 'bg-[#FDECE4] px-3.5 shadow-xs border border-[#E5D0C6]'
+                      : 'hover:bg-[#FDECE4]/50'
                 }`}
               >
                 <div className="relative">
                   <Icon 
                     className={`w-5 h-5 transition-transform ${
                       isActive 
-                        ? 'stroke-[2.8] scale-110' 
+                        ? 'stroke-[2.8] scale-110 text-[#7A2E43]' 
                         : isTransparentBar
-                          ? 'stroke-[2.2] text-slate-200 group-hover:text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]'
-                          : 'stroke-[2.1] text-slate-300 group-hover:text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]'
+                          ? 'stroke-[2.2] text-[#8E797C] group-hover:text-[#7A2E43]'
+                          : 'stroke-[2.1] text-[#8E797C] group-hover:text-[#7A2E43]'
                     }`}
                     style={isActive ? {
-                      color: accent.primaryLight || accent.primary,
+                      color: accent.primary || '#7A2E43',
                       filter: `drop-shadow(0 2px 8px ${accent.glowColor})`
                     } : {}}
                   />
                   {tab.badge && (
                     <span 
-                      className="absolute -top-1.5 -right-2.5 min-w-[18px] h-4.5 px-1 rounded-full text-[9px] font-black flex items-center justify-center shadow-md border-2 border-[#0B192C] ring-1 ring-black/10"
+                      className="absolute -top-1.5 -right-2.5 min-w-[18px] h-4.5 px-1 rounded-full text-[9px] font-black flex items-center justify-center shadow-md border-2 border-white"
                       style={{
                         backgroundColor: accent.primary,
-                        color: accent.badgeText === 'text-white' ? '#FFFFFF' : '#0B192C'
+                        color: '#FFFFFF'
                       }}
                     >
                       {tab.badge}
@@ -161,12 +161,12 @@ export default function MobileAppShell({
                 <span 
                   className={`text-[10.5px] mt-0.5 tracking-tight transition-all ${
                     isActive 
-                      ? 'font-black text-white drop-shadow-sm scale-105'
+                      ? 'font-black text-[#7A2E43] scale-105'
                       : isTransparentBar
-                        ? 'font-bold text-slate-200 group-hover:text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]'
-                        : 'font-semibold text-slate-300 group-hover:text-white'
+                        ? 'font-bold text-[#8E797C] group-hover:text-[#7A2E43]'
+                        : 'font-semibold text-[#8E797C] group-hover:text-[#7A2E43]'
                   }`}
-                  style={isActive ? { color: accent.primaryLight || '#FFFFFF' } : {}}
+                  style={isActive ? { color: accent.primary || '#7A2E43' } : {}}
                 >
                   {tab.label}
                 </span>
@@ -174,8 +174,8 @@ export default function MobileAppShell({
                   <span 
                     className="w-1.5 h-1.5 rounded-full mt-0.5"
                     style={{
-                      backgroundColor: accent.primary,
-                      boxShadow: `0 0 6px ${accent.primary}`
+                      backgroundColor: accent.primary || '#7A2E43',
+                      boxShadow: `0 0 6px ${accent.primary || '#7A2E43'}`
                     }}
                   ></span>
                 )}

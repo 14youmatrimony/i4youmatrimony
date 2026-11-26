@@ -193,8 +193,8 @@ export const MEMBERSHIP_PLANS = [
     badge: 'MOST POPULAR ⭐',
     isPopular: true,
     color: 'blue',
-    accentBorder: 'border-[#D4AF37]',
-    headerBg: 'bg-gradient-to-r from-[#0B192C] via-[#1E3A8A] to-[#0B192C] text-white',
+    accentBorder: 'border-[#C58B76]',
+    headerBg: 'bg-gradient-to-r from-[#7A2E43] via-[#8E354F] to-[#612234] text-white',
     pricing: {
       1: { originalPrice: 1599, offerPrice: 799, perMonth: 799, durationMonths: 1, discount: '50% OFF' },
       3: { originalPrice: 3999, offerPrice: 1999, perMonth: 666, durationMonths: 3, discount: '50% OFF' },
@@ -397,12 +397,12 @@ export function formatBackendPlan(p) {
     isPopular: Boolean(p.is_popular),
     color: p.color || (p.id === 'diamond' ? 'blue' : p.id === 'vip' ? 'purple' : 'amber'),
     accentBorder: p.color === 'blue' || p.id === 'diamond' 
-      ? 'border-[#D4AF37]' 
+      ? 'border-[#C58B76]' 
       : p.color === 'purple' || p.id === 'vip' 
         ? 'border-purple-400' 
         : (isFree ? 'border-slate-300' : 'border-amber-400'),
     headerBg: p.color === 'blue' || p.id === 'diamond'
-      ? 'bg-gradient-to-r from-[#0B192C] via-[#1E3A8A] to-[#0B192C] text-white'
+      ? 'bg-gradient-to-r from-[#7A2E43] via-[#8E354F] to-[#612234] text-white'
       : p.color === 'purple' || p.id === 'vip'
         ? 'bg-gradient-to-r from-purple-900 to-indigo-950 text-white'
         : (isFree ? 'bg-slate-800 text-white' : 'bg-gradient-to-r from-amber-600 to-amber-700 text-white'),

@@ -865,7 +865,7 @@ export default function MobileInterestsScreen({
       <div className="p-4 min-h-[460px] flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
         <div className="w-full max-w-sm p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 text-center shadow-lg">
           <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 mx-auto flex items-center justify-center mb-4 shadow-sm">
-            <Lock className="w-8 h-8 text-[#DFB76C]" />
+            <Lock className="w-8 h-8 text-[#C58B76]" />
           </div>
           <h3 className="font-serif font-bold text-lg mb-2">Login Required</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
@@ -874,7 +874,7 @@ export default function MobileInterestsScreen({
           <button
             type="button"
             onClick={onOpenLogin}
-            className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-md hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 cursor-pointer"
+            className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-[#7A2E43] hover:bg-[#612234] text-white shadow-md active:scale-[0.98] transition-all flex items-center justify-center space-x-2 cursor-pointer"
           >
             <span>Log In / Register</span>
           </button>
@@ -892,7 +892,7 @@ export default function MobileInterestsScreen({
           onClick={() => setActiveSegment('sent')}
           className={`flex-1 py-2 rounded-xl transition-all ${
             activeSegment === 'sent' 
-              ? 'bg-white text-[#0B192C] shadow-sm' 
+              ? 'bg-white text-[#2C1A1D] shadow-sm' 
               : 'text-slate-600'
           }`}
         >
@@ -902,7 +902,7 @@ export default function MobileInterestsScreen({
           onClick={() => setActiveSegment('received')}
           className={`flex-1 py-2 rounded-xl transition-all ${
             activeSegment === 'received' 
-              ? 'bg-white text-[#0B192C] shadow-sm' 
+              ? 'bg-white text-[#2C1A1D] shadow-sm' 
               : 'text-slate-600'
           }`}
         >
@@ -912,7 +912,7 @@ export default function MobileInterestsScreen({
           onClick={() => setActiveSegment('shortlist')}
           className={`flex-1 py-2 rounded-xl transition-all ${
             activeSegment === 'shortlist' 
-              ? 'bg-white text-[#0B192C] shadow-sm' 
+              ? 'bg-white text-[#2C1A1D] shadow-sm' 
               : 'text-slate-600'
           }`}
         >
@@ -945,7 +945,7 @@ export default function MobileInterestsScreen({
                         alt={p.name}
                         gender={p.gender}
                         size="md"
-                        className="w-12 h-12 ring-2 ring-[#DFB76C] select-none photo-protected shrink-0"
+                        className="w-12 h-12 ring-2 ring-[#C58B76] select-none photo-protected shrink-0"
                       />
                       <div className="min-w-0">
                         <h4 className="font-serif font-bold text-sm text-slate-900 truncate">{p.name}</h4>
@@ -992,7 +992,7 @@ export default function MobileInterestsScreen({
                               e.stopPropagation();
                               onStartChat?.(p);
                             }}
-                            className="p-2 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 border border-blue-200 active:scale-95 transition-all shadow-xs cursor-pointer"
+                            className="p-2 rounded-xl bg-[#FDF2EE] text-[#7A2E43] hover:bg-[#7A2E43] hover:text-white border border-[#E5D0C6] active:scale-95 transition-all shadow-xs cursor-pointer"
                             title="Send Message"
                           >
                             <MessageCircle className="w-4 h-4" />
@@ -1006,7 +1006,7 @@ export default function MobileInterestsScreen({
                               e.stopPropagation();
                               onStartChat?.(p);
                             }}
-                            className="p-2 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100"
+                            className="p-2 rounded-xl bg-[#FDF2EE] text-[#7A2E43] hover:bg-[#7A2E43] hover:text-white"
                             title="Message"
                           >
                             <MessageCircle className="w-4 h-4" />
@@ -1056,7 +1056,7 @@ export default function MobileInterestsScreen({
               </div>
             ) : visibleInterests.length === 0 ? (
               <div className="py-14 px-6 text-center bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 text-[#DFB76C] mx-auto flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 text-[#C58B76] mx-auto flex items-center justify-center">
                   <Heart className="w-7 h-7 stroke-[2]" />
                 </div>
                 <h4 className="font-serif font-bold text-base text-slate-900">No requests yet</h4>
@@ -1081,7 +1081,7 @@ export default function MobileInterestsScreen({
                         alt={p.name}
                         gender={p.gender}
                         size="lg"
-                        className="w-14 h-14 ring-2 ring-[#DFB76C] select-none photo-protected shrink-0"
+                        className="w-14 h-14 ring-2 ring-[#C58B76] select-none photo-protected shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-1.5">
@@ -1090,7 +1090,7 @@ export default function MobileInterestsScreen({
                         </div>
                         <p className="text-[11px] text-slate-500">{p.age} yrs • {p.district || p.city}{p.state ? `, ${p.state}` : ''}</p>
                         <p className="text-[11px] text-slate-500 truncate">{p.profession || 'Professional'}{p.education ? ` • ${p.education}` : ''}</p>
-                        <p className="text-[11px] font-bold text-[#8C6D1F] mt-0.5">{p.gunasMatch || '28/36 Gunas'} ({p.matchScore || 88}% Milan)</p>
+                        <p className="text-[11px] font-bold text-[#7A2E43] mt-0.5">{p.gunasMatch || '28/36 Gunas'} ({p.matchScore || 88}% Milan)</p>
                       </div>
                     </div>
 
@@ -1145,7 +1145,7 @@ export default function MobileInterestsScreen({
                               e.stopPropagation();
                               onStartChat?.(p);
                             }}
-                            className="p-2 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 border border-blue-200 active:scale-95 transition-all shadow-xs cursor-pointer"
+                            className="p-2 rounded-xl bg-[#FDF2EE] text-[#7A2E43] hover:bg-[#7A2E43] hover:text-white border border-[#E5D0C6] active:scale-95 transition-all shadow-xs cursor-pointer"
                             title="Message"
                           >
                             <MessageCircle className="w-4 h-4" />
@@ -1157,7 +1157,7 @@ export default function MobileInterestsScreen({
                         <button
                           type="button"
                           onClick={() => onToggleInterest(p.id)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:brightness-105 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                          className="flex-1 py-2 px-3 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
                         >
                           <Heart className="w-4 h-4 fill-white" />
                           <span>Send Interest</span>
@@ -1165,7 +1165,7 @@ export default function MobileInterestsScreen({
                         <button
                           type="button"
                           onClick={() => onStartChat?.(p)}
-                          className="py-2 px-3.5 rounded-xl bg-blue-50 text-[#1E3A8A] hover:bg-blue-100 border border-blue-200 active:scale-95 transition-all font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer"
+                          className="py-2 px-3.5 rounded-xl bg-[#FDF2EE] text-[#7A2E43] hover:bg-[#7A2E43] hover:text-white border border-[#E5D0C6] active:scale-95 transition-all font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer"
                           title="Message"
                         >
                           <MessageCircle className="w-4 h-4" />
@@ -1270,7 +1270,7 @@ export default function MobileInterestsScreen({
                   <div className="flex items-center space-x-1.5 shrink-0">
                     <button
                       onClick={() => onToggleInterest(p.id)}
-                      className="px-3 py-1.5 rounded-xl bg-[#D4AF37] text-[#0B192C] font-bold text-xs"
+                      className="px-3 py-1.5 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white font-bold text-xs"
                     >
                       Connect
                     </button>

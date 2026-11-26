@@ -822,8 +822,8 @@ export default function MobileChatScreen({
         <div className={`w-full max-w-sm p-6 rounded-3xl border text-center shadow-lg ${
           isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
         }`}>
-          <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 mx-auto flex items-center justify-center mb-4 shadow-sm">
-            <Lock className="w-8 h-8 text-[#DFB76C]" />
+          <div className="w-16 h-16 rounded-full bg-[#C58B76]/10 border border-[#C58B76]/30 text-[#7A2E43] mx-auto flex items-center justify-center mb-4 shadow-sm">
+            <Lock className="w-8 h-8 text-[#C58B76]" />
           </div>
           <h3 className="font-serif font-bold text-lg mb-2">Login Required</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
@@ -957,7 +957,7 @@ export default function MobileChatScreen({
         isDarkMode ? 'bg-[#081220] text-slate-100' : 'bg-slate-50 text-slate-900'
       }`}>
         {/* Loading Skeleton Header */}
-        <div className="bg-[#0B192C] text-white px-3 py-2.5 flex items-center justify-between border-b border-white/10 shrink-0 sticky top-0 z-20">
+        <div className="bg-[#FFFBF9] text-[#2C1A1D] px-3 py-2.5 flex items-center justify-between border-b border-[#E5D0C6] shrink-0 sticky top-0 z-20">
           <div className="flex items-center space-x-2 min-w-0">
             <button
               type="button"
@@ -1016,7 +1016,7 @@ export default function MobileChatScreen({
       >
         
         {/* Native Mobile Chat Header */}
-        <div className="bg-[#0B192C] text-white px-3 py-2.5 flex items-center justify-between border-b border-white/10 shrink-0 sticky top-0 z-20 shadow-xs">
+        <div className="bg-[#FFFBF9] text-[#2C1A1D] px-3 py-2.5 flex items-center justify-between border-b border-[#E5D0C6] shrink-0 sticky top-0 z-20 shadow-xs">
           <div className="flex items-center space-x-2 min-w-0">
             <button
               onClick={() => {
@@ -1028,7 +1028,7 @@ export default function MobileChatScreen({
                 setMessages([]);
                 setInputText('');
               }}
-              className="p-1 rounded-full text-slate-300 hover:text-white cursor-pointer"
+              className="p-1 rounded-full text-slate-500 hover:text-[#2C1A1D] cursor-pointer"
               title="Back to all conversations"
             >
               <ChevronLeft className="w-6 h-6" />
@@ -1039,16 +1039,16 @@ export default function MobileChatScreen({
               onClick={() => onSelectProfile(partnerUser)}
             >
               <img 
-                src={partnerUser.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(partnerUser.name)}&background=0B192C&color=DFB76C&bold=true`} 
+                src={partnerUser.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(partnerUser.name)}&background=7A2E43&color=E6B8A2&bold=true`} 
                 alt={partnerUser.name}
                 onError={(e) => {
                   e.currentTarget.onerror = null;
-                  e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(partnerUser.name)}&background=0B192C&color=DFB76C&bold=true`;
+                  e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(partnerUser.name)}&background=7A2E43&color=E6B8A2&bold=true`;
                 }}
-                className="w-9 h-9 rounded-full object-cover ring-1 ring-[#DFB76C]" 
+                className="w-9 h-9 rounded-full object-cover ring-1 ring-[#C58B76]" 
               />
               <span 
-                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-1.5 ring-[#0B192C] ${
+                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-1.5 ring-[#FFFBF9] ${
                   isPartnerOnline ? 'bg-emerald-500' : 'bg-rose-500'
                 }`}
                 title={isPartnerOnline ? 'Online' : 'Offline'}
@@ -1057,7 +1057,7 @@ export default function MobileChatScreen({
 
             <div className="min-w-0" onClick={() => onSelectProfile(partnerUser)}>
               <div className="flex items-center space-x-1.5">
-                <h3 className="font-serif font-bold text-xs sm:text-sm text-white truncate">
+                <h3 className="font-serif font-bold text-xs sm:text-sm text-[#2C1A1D] truncate">
                   {partnerUser.name}
                 </h3>
                 {partnerUser.verified && (
@@ -1142,8 +1142,8 @@ export default function MobileChatScreen({
             </div>
           ) : displayMessages.length === 0 ? (
             <div className="py-12 px-4 text-center space-y-2.5">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-100 to-yellow-50 border border-amber-200 text-[#8C6D1F] mx-auto flex items-center justify-center shadow-xs">
-                <Sparkles className="w-6 h-6 text-[#DFB76C]" />
+              <div className="w-12 h-12 rounded-full bg-[#FFF9F6] border border-[#E5D0C6] text-[#7A2E43] mx-auto flex items-center justify-center shadow-xs">
+                <Sparkles className="w-6 h-6 text-[#C58B76]" />
               </div>
               <h4 className="font-serif font-bold text-sm text-slate-800">
                 Start your conversation with {partnerUser.name}
@@ -1178,8 +1178,8 @@ export default function MobileChatScreen({
                   <div key={uniqueKey} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed shadow-sm ${
                       isMe 
-                        ? 'bg-[#0B192C] text-white rounded-br-none' 
-                        : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
+                        ? 'bg-[#7A2E43] text-white rounded-br-none' 
+                        : 'bg-white text-[#2C1A1D] border border-[#E5D0C6] rounded-bl-none'
                     }`}>
                       {m.text}
                     </div>
@@ -1213,7 +1213,7 @@ export default function MobileChatScreen({
         <div className={`px-3 py-1.5 border-t flex space-x-1.5 overflow-x-auto scrollbar-none shrink-0 ${
           isDarkMode ? 'bg-slate-900/80 border-white/10' : 'bg-slate-100/70 border-slate-200'
         }`}>
-          <span className="text-[10px] font-bold text-[#DFB76C] flex items-center gap-1 shrink-0 px-1">
+          <span className="text-[10px] font-bold text-[#7A2E43] flex items-center gap-1 shrink-0 px-1">
             ⚡ Instant:
           </span>
           {[
@@ -1229,8 +1229,8 @@ export default function MobileChatScreen({
               onClick={() => handleSend(prompt)}
               className={`text-[10px] px-2.5 py-1 rounded-full whitespace-nowrap cursor-pointer transition-colors active:scale-95 ${
                 isDarkMode 
-                  ? 'bg-slate-800 border border-slate-700 text-slate-200 hover:border-[#D4AF37]' 
-                  : 'bg-white border border-slate-200 text-slate-700 hover:border-[#D4AF37] hover:text-[#0B192C]'
+                  ? 'bg-slate-800 border border-slate-700 text-slate-200 hover:border-[#C58B76]' 
+                  : 'bg-white border border-[#E5D0C6] text-slate-700 hover:border-[#C58B76] hover:text-[#7A2E43]'
               }`}
             >
               {prompt}
@@ -1241,7 +1241,7 @@ export default function MobileChatScreen({
         {/* Bottom Input - Always Active Live Chat Form */}
         <div 
           className={`px-3 pt-2 pb-2 sm:pb-3 shrink-0 border-t transition-colors ${
-            isDarkMode ? 'bg-[#0B192C] border-white/10' : 'bg-white border-slate-200'
+            isDarkMode ? 'bg-[#2C1A1D] border-white/10' : 'bg-white border-slate-200'
           }`}
           style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}
         >
@@ -1251,7 +1251,7 @@ export default function MobileChatScreen({
                 isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>
                 <span className="text-[10px] font-bold text-slate-400 pl-1 pr-1.5 shrink-0 flex items-center gap-0.5 select-none">
-                  <Smile className="w-3 h-3 text-[#DFB76C]" /> Emojis:
+                  <Smile className="w-3 h-3 text-[#C58B76]" /> Emojis:
                 </span>
                 <div className="flex items-center gap-0.5 shrink-0">
                   {POPULAR_EMOJIS.map((emoji) => (
@@ -1279,7 +1279,7 @@ export default function MobileChatScreen({
                 type="button"
                 onClick={() => setShowEmojiPicker(prev => !prev)}
                 className={`p-2 rounded-xl transition-colors cursor-pointer shrink-0 ${
-                  showEmojiPicker ? 'bg-amber-400/20 text-[#DFB76C]' : 'text-slate-400 hover:text-slate-200'
+                  showEmojiPicker ? 'bg-[#C58B76]/20 text-[#7A2E43]' : 'text-slate-400 hover:text-slate-200'
                 }`}
                 title="Add Emoji"
               >
@@ -1291,7 +1291,7 @@ export default function MobileChatScreen({
                 value={inputText}
                 onChange={handleInputChange}
                 placeholder={`Message ${partnerUser?.name || 'partner'}...`}
-                className={`flex-1 px-3 py-2 rounded-xl text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none transition-colors ${
+                className={`flex-1 px-3 py-2 rounded-xl text-xs focus:ring-2 focus:ring-[#C58B76] focus:outline-none transition-colors ${
                   isDarkMode 
                     ? 'bg-slate-800/90 border border-slate-700 text-white placeholder-slate-400 focus:bg-slate-800' 
                     : 'bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 focus:bg-white'
@@ -1300,10 +1300,10 @@ export default function MobileChatScreen({
               <button
                 type="submit"
                 disabled={!inputText.trim()}
-                className="p-2.5 rounded-xl bg-[#D4AF37] text-[#0B192C] disabled:opacity-40 cursor-pointer active:scale-95 transition-transform shrink-0"
+                className="p-2.5 rounded-xl bg-[#7A2E43] text-white disabled:opacity-40 cursor-pointer active:scale-95 transition-transform shrink-0"
                 style={{
-                  backgroundColor: accent?.primary || '#D4AF37',
-                  color: accent?.badgeText === 'text-white' ? '#FFFFFF' : '#0B192C'
+                  backgroundColor: accent?.primary || '#7A2E43',
+                  color: '#FFFFFF'
                 }}
               >
                 <Send className="w-4 h-4" />
@@ -1325,25 +1325,25 @@ export default function MobileChatScreen({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search matches & chats..."
-          className={`w-full pl-9 pr-3 py-2 rounded-xl text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none shadow-sm ${
-            isDarkMode ? 'bg-slate-900 border border-slate-800 text-white placeholder-slate-400' : 'bg-white border border-slate-200'
+          className={`w-full pl-9 pr-3 py-2 rounded-xl text-xs focus:ring-2 focus:ring-[#C58B76] focus:outline-none shadow-sm ${
+            isDarkMode ? 'bg-slate-900 border border-slate-800 text-white placeholder-slate-400' : 'bg-white border border-[#E5D0C6]'
           }`}
         />
       </div>
 
       {isLoadingConversations && (!conversations || conversations.length === 0) ? (
         <div className={`py-16 px-6 text-center space-y-3.5 rounded-2xl border shadow-xs mt-2 ${
-          isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
+          isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-[#E5D0C6]'
         }`}>
-          <div className="w-10 h-10 rounded-full border-2 border-[#D4AF37] border-t-transparent animate-spin mx-auto" />
+          <div className="w-10 h-10 rounded-full border-2 border-[#C58B76] border-t-transparent animate-spin mx-auto" />
           <p className="text-xs text-slate-500 font-medium">Loading your conversations & matches...</p>
         </div>
       ) : filteredChatConversations.length === 0 ? (
         <div className={`py-16 px-6 text-center space-y-3.5 rounded-2xl border shadow-xs mt-2 ${
-          isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
+          isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-[#E5D0C6]'
         }`}>
-          <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-100 to-yellow-50 border border-[#D4AF37]/40 text-[#8C6D1F] mx-auto flex items-center justify-center shadow-xs">
-            <MessageCircle className="w-7 h-7 text-[#DFB76C]" />
+          <div className="w-14 h-14 rounded-full bg-[#FFF9F6] border border-[#E5D0C6] text-[#7A2E43] mx-auto flex items-center justify-center shadow-xs">
+            <MessageCircle className="w-7 h-7 text-[#C58B76]" />
           </div>
           <h3 className={`font-serif font-bold text-base ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
             {searchQuery.trim() ? 'No Matching Chats' : 'No Conversations Yet'}
@@ -1400,13 +1400,13 @@ export default function MobileChatScreen({
               >
                 <div className="relative shrink-0">
                   <img 
-                    src={profile.photo || profile.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'Member')}&background=0B192C&color=DFB76C&bold=true`} 
+                    src={profile.photo || profile.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'Member')}&background=7A2E43&color=E6B8A2&bold=true`} 
                     alt={profile.name}
                     onError={(e) => {
                       e.currentTarget.onerror = null;
-                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'Member')}&background=0B192C&color=DFB76C&bold=true`;
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'Member')}&background=7A2E43&color=E6B8A2&bold=true`;
                     }}
-                    className="w-12 h-12 rounded-full object-cover ring-2 ring-[#DFB76C]/50" 
+                    className="w-12 h-12 rounded-full object-cover ring-2 ring-[#C58B76]/50" 
                   />
                   {presenceService.isUserOnline(profile) ? (
                     <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" title="Online"></span>
@@ -1446,8 +1446,8 @@ export default function MobileChatScreen({
                       <span 
                         className="w-5 h-5 rounded-full text-[10px] font-extrabold flex items-center justify-center shrink-0 ml-2"
                         style={{
-                          backgroundColor: accent?.primary || '#D4AF37',
-                          color: accent?.badgeText === 'text-white' ? '#FFFFFF' : '#0B192C'
+                          backgroundColor: accent?.primary || '#7A2E43',
+                          color: '#FFFFFF'
                         }}
                       >
                         {conv.unreadCount}
@@ -1472,7 +1472,7 @@ export default function MobileChatScreen({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 mx-auto flex items-center justify-center mb-4">
-              <Lock className="w-7 h-7 text-[#DFB76C]" />
+              <Lock className="w-7 h-7 text-[#C58B76]" />
             </div>
 
             <h3 className="font-serif font-bold text-base text-slate-900 dark:text-white mb-2">

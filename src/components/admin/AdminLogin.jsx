@@ -86,19 +86,19 @@ export default function AdminLogin({ onLoginSuccess, onBack }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#070F1E] flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-[#1A1012] flex items-center justify-center p-4 overflow-y-auto">
       {/* Ambient Luxury Glows */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#D4AF37]/10 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-blue-600/10 blur-3xl pointer-events-none" />
+      <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#C58B76]/10 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-[#7A2E43]/15 blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-md p-8 rounded-3xl bg-[#0B192C] border border-[#D4AF37]/30 shadow-2xl relative z-10 space-y-6">
+      <div className="w-full max-w-md p-8 rounded-3xl bg-[#2C1A1D] border border-[#C58B76]/30 shadow-2xl relative z-10 space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-amber-600/10 border border-[#DFB76C]/30 text-[#DFB76C] flex items-center justify-center mx-auto shadow-inner">
-            <ShieldCheck className="w-7 h-7 text-[#DFB76C]" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#7A2E43]/40 to-[#8E354F]/30 border border-[#C58B76]/40 text-[#E6B8A2] flex items-center justify-center mx-auto shadow-inner">
+            <ShieldCheck className="w-7 h-7 text-[#E6B8A2]" />
           </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#DFB76C]/10 border border-[#DFB76C]/20 text-[10px] text-[#DFB76C] font-bold uppercase tracking-wider">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C58B76]/10 border border-[#C58B76]/30 text-[10px] text-[#E6B8A2] font-bold uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C58B76] animate-pulse" />
             Super Admin Portal
           </div>
           <h2 className="text-2xl font-serif font-bold text-white tracking-tight">Admin Sign In</h2>
@@ -128,7 +128,7 @@ export default function AdminLogin({ onLoginSuccess, onBack }) {
                 required 
                 autoComplete="email"
                 placeholder="admin@i4you.com" 
-                className="w-full pl-10 pr-3 py-2.5 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C] focus:outline-none transition-colors"
+                className="w-full pl-10 pr-3 py-2.5 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76] focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -146,7 +146,7 @@ export default function AdminLogin({ onLoginSuccess, onBack }) {
                 required 
                 autoComplete="current-password"
                 placeholder="••••••••" 
-                className="w-full pl-10 pr-10 py-2.5 bg-[#070F1E] border border-slate-700 rounded-xl text-white text-xs focus:border-[#DFB76C] focus:outline-none transition-colors"
+                className="w-full pl-10 pr-10 py-2.5 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:border-[#C58B76] focus:outline-none transition-colors"
               />
               <button 
                 type="button" 
@@ -162,10 +162,10 @@ export default function AdminLogin({ onLoginSuccess, onBack }) {
           <button 
             type="submit" 
             disabled={isLoading}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:scale-98"
+            className="w-full py-3 px-4 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white font-bold text-xs shadow-lg shadow-[#7A2E43]/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed active:scale-98"
           >
             {isLoading ? (
-              <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
                 <LogIn className="w-4 h-4" />
@@ -180,7 +180,7 @@ export default function AdminLogin({ onLoginSuccess, onBack }) {
           <button 
             type="button"
             onClick={onBack ? onBack : () => { window.location.href = '/'; }}
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#DFB76C] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#E6B8A2] transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Return to Matrimony Website</span>

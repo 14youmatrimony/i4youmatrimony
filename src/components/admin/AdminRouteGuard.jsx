@@ -91,12 +91,12 @@ export default function AdminRouteGuard({ children, onBack }) {
   // State 1: Verifying active session
   if (isAuthenticated === null) {
     return (
-      <div className="fixed inset-0 z-50 bg-[#070F1E] flex flex-col items-center justify-center p-4">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-amber-600/10 border border-[#DFB76C]/30 text-[#DFB76C] flex items-center justify-center mb-4 shadow-xl">
-          <ShieldCheck className="w-8 h-8 text-[#DFB76C] animate-pulse" />
+      <div className="fixed inset-0 z-50 bg-[#1A1012] flex flex-col items-center justify-center p-4">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#7A2E43]/40 to-[#8E354F]/30 border border-[#C58B76]/40 text-[#E6B8A2] flex items-center justify-center mb-4 shadow-xl">
+          <ShieldCheck className="w-8 h-8 text-[#E6B8A2] animate-pulse" />
         </div>
         <div className="flex items-center space-x-2 text-slate-300 text-sm font-semibold">
-          <Loader2 className="w-4 h-4 text-[#DFB76C] animate-spin" />
+          <Loader2 className="w-4 h-4 text-[#E6B8A2] animate-spin" />
           <span>Verifying Admin Authorization...</span>
         </div>
       </div>
