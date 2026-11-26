@@ -27,7 +27,7 @@ import {
   isCandidateMatchingTarget, 
   isSelfProfile 
 } from '../../utils/genderMatch';
-import { isPlaceholderOrIncompleteProfile } from '../../services/api';
+import { isDemoProfile, isPlaceholderOrIncompleteProfile } from '../../services/api';
 
 export function parseHeightInches(hStr) {
   if (!hStr) return null;
@@ -154,8 +154,8 @@ export default function WebsiteMatchShowcase({
     const isUserLoggedIn = Boolean(currentUser && currentUser.gender);
     const targetGender = isUserLoggedIn ? getTargetCandidateGender(currentUser) : null;
 
-    return profiles
-      .filter((p) => Boolean(p && (p.name || p.fullName || p.id)))
+    return (profiles || [])
+      .filter((p) => !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p))
       .filter((p) => {
         // 0. Exclude own profile (by ID, Name, and Phone)
         if (isSelfProfile(p, currentUser)) return false;

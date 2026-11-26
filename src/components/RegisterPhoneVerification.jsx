@@ -135,14 +135,17 @@ export default function RegisterPhoneVerification({
     setError('');
     try {
       const res = await signInWithGoogleAuth();
-      if (res.success && res.user) {
+      if (res?.pendingRedirect) {
+        return; // Redirecting to Google authentication page
+      }
+      if (res?.success && res?.user) {
         if (onGoogleLogin) {
           onGoogleLogin(res.user);
         } else if (onVerificationSuccess) {
-          onVerificationSuccess(res.user.mobile || '9847123456');
+          onVerificationSuccess(res.user.mobile || res.user.phone || '');
         }
       } else {
-        setError(res.error || 'Failed to authenticate with Google. Please try again.');
+        setError(res?.error || 'Failed to authenticate with Google. Please try again.');
       }
     } catch (err) {
       setError(err?.message || 'Google sign-in was interrupted. Please try again.');

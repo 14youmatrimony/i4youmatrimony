@@ -184,11 +184,6 @@ export async function registerWithRegisterId(formData) {
   // Persist session to local device storage
   persistUserSession(userSession);
 
-  // Auto-create/upsert user row in Supabase public.profiles (id, user_id, full_name, name)
-  ensureProfileRowExists(userSession).catch(err => {
-    console.warn('[authService] ensureProfileRowExists on registration warning:', err);
-  });
-
   // 4. Send "Profile Created Successfully" Email Notification
   if (cleanEmail) {
     sendRegistrationEmail({
@@ -523,11 +518,6 @@ export function persistUserSession(user, tokens = {}) {
     if (typeof window !== 'undefined' && normalizedUser.id) {
       window.__currentUserId = normalizedUser.id;
     }
-
-    // Auto-create/upsert user row in Supabase public.profiles (id, user_id, full_name, name)
-    ensureProfileRowExists(normalizedUser).catch(err => {
-      console.warn('[authService] Auto-create profile in Supabase warning:', err);
-    });
 
     return normalizedUser;
   } catch (e) {

@@ -104,25 +104,23 @@ export async function ensureProfileRowExists(user) {
   const uid = user.id || user.user_id || user.userId || user.uid;
   if (!uid) return null;
 
-  const rawName = user.name || user.fullName || user.full_name || 'Member';
-  const cleanId = String(uid).trim();
-  const phone = user.phone || user.mobile || null;
-  const email = user.email || null;
-  const registerId = user.register_id || user.registerId || null;
-  const photoUrl = user.profile_photo_url || user.photo_url || user.photo || user.avatar_url || null;
-  const familyPhotoUrl = user.family_photo_url || (Array.isArray(user.familyPhotos) ? user.familyPhotos[0] : null) || null;
-
   if (isSupabaseConfigured() && supabase) {
     try {
-      // 1. Check if row exists in public.profiles
+      const cleanId = String(uid).trim();
+      const registerId = user.register_id || user.registerId || null;
+      const phone = user.phone || user.mobile || null;
+      const email = user.email || null;
+
       const orTokens = [`id.eq.${cleanId}`];
       if (registerId) orTokens.push(`register_id.eq.${registerId}`);
       if (phone && String(phone).replace(/\D/g, '').length >= 10) orTokens.push(`phone.eq.${phone}`);
+      if (email && email.includes('@')) orTokens.push(`email.eq.${email}`);
 
       const { data: existing, error: checkErr } = await supabase
         .from('profiles')
-        .select('id, name, full_name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url')
+        .select('id, name, full_name, profile_photo_url, photo_url, photo, avatar_url, family_photo_url, gender, status')
         .or(orTokens.join(','))
+        .neq('status', 'deleted')
         .limit(1)
         .maybeSingle();
 
@@ -130,57 +128,10 @@ export async function ensureProfileRowExists(user) {
         return existing;
       }
 
-      // 2. If row does not exist, automatically upsert record into public.profiles (id, user_id, full_name, name)
-      const upsertPayload = {
-        id: cleanId,
-        user_id: cleanId,
-        full_name: rawName,
-        name: rawName,
-        gender: user.gender || 'Female',
-        status: user.status || 'active',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      if (email) upsertPayload.email = email;
-      if (phone) upsertPayload.phone = phone;
-      if (registerId) upsertPayload.register_id = registerId;
-      if (photoUrl) {
-        upsertPayload.photo = photoUrl;
-        upsertPayload.photo_url = photoUrl;
-        upsertPayload.profile_photo_url = photoUrl;
-        upsertPayload.avatar_url = photoUrl;
-      }
-      if (familyPhotoUrl) {
-        upsertPayload.family_photo_url = familyPhotoUrl;
-        upsertPayload.family_photos = JSON.stringify([familyPhotoUrl]);
-      }
-
-      let { data: inserted, error: insertErr } = await supabase
-        .from('profiles')
-        .upsert(upsertPayload, { onConflict: 'id' })
-        .select('id, register_id')
-        .maybeSingle();
-
-      // Gracefully handle PostgreSQL error 42703 (missing column in custom schemas)
-      if (insertErr && (insertErr.message?.includes('column') || insertErr.code === '42703')) {
-        const safePayload = { ...upsertPayload };
-        delete safePayload.user_id;
-        delete safePayload.full_name;
-        delete safePayload.profile_photo_url;
-        delete safePayload.family_photo_url;
-        delete safePayload.avatar_url;
-        const retryRes = await supabase
-          .from('profiles')
-          .upsert(safePayload, { onConflict: 'id' })
-          .select('id, register_id')
-          .maybeSingle();
-        inserted = retryRes.data;
-      }
-
-      console.log('[ensureProfileRowExists] Auto-created profile row in public.profiles for:', cleanId);
-      return inserted;
+      // Strict rule: DO NOT automatically insert/upsert blank or default profile rows.
+      return null;
     } catch (e) {
-      console.warn('[ensureProfileRowExists] Supabase check/upsert warning:', e);
+      console.warn('[ensureProfileRowExists] Supabase check warning:', e);
     }
   }
   return null;
@@ -714,6 +665,16 @@ export function isPlaceholderOrIncompleteProfile(profile, options = {}) {
 
   const lowerName = cleanName.toLowerCase();
 
+  // Strict check: completely exclude "Google User" or "Google" string
+  if (
+    lowerName === 'google user' ||
+    lowerName === 'google' ||
+    lowerName.startsWith('google user') ||
+    lowerName.includes('google user')
+  ) {
+    return true;
+  }
+
   // 1. Generic placeholder name patterns (e.g. "Member usr_9496", "User_...", "User 123", "usr_...")
   if (
     /^member\s*usr/i.test(cleanName) ||
@@ -734,6 +695,8 @@ export function isPlaceholderOrIncompleteProfile(profile, options = {}) {
 
   // 2. Generic placeholder matrimonial labels
   const genericPlaceholders = [
+    'google user',
+    'google',
     'candidate',
     'a candidate',
     'verified candidate',
@@ -771,10 +734,30 @@ export function isPlaceholderOrIncompleteProfile(profile, options = {}) {
     }
   }
 
-  // 5. Check photo validity if options.requirePhoto is enabled
-  if (options.requirePhoto) {
+  // 5. Exclude deleted or inactive profiles
+  if (profile.status === 'deleted' || profile.status === 'inactive' || Boolean(profile.deleted_at)) {
+    return true;
+  }
+
+  // If only validating name (e.g. sender name sanity check)
+  if (options.nameOnly) {
+    return false;
+  }
+
+  // 6. Strict Gender Requirement for Candidate Profiles
+  if (options.requireGender !== false) {
+    const gender = normalizeGender(profile.gender);
+    if (!gender || gender === 'unknown') {
+      return true;
+    }
+  }
+
+  // 7. Strict Profile Photo Requirement for Candidate Profiles
+  if (options.requirePhoto !== false) {
     const photo = resolveProfilePhoto(profile);
-    if (!photo || isFakeAvatarUrl(photo)) return true;
+    if (!photo || isFakeAvatarUrl(photo)) {
+      return true;
+    }
   }
 
   return false;
@@ -1215,7 +1198,15 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
 
       let query = supabase
         .from('profiles')
-        .select(PROFILE_FEED_COLUMNS);
+        .select(PROFILE_FEED_COLUMNS)
+        .not('name', 'is', null)
+        .neq('name', '')
+        .neq('name', 'Google User')
+        .not('gender', 'is', null)
+        .neq('gender', '')
+        .neq('status', 'deleted')
+        .neq('status', 'inactive')
+        .is('deleted_at', null);
 
       if (cleanId) {
         const uidStr = String(cleanId).trim();
@@ -1247,7 +1238,15 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
         console.warn('[fetchLiveProfiles] Column error, falling back to select("*"):', error.message);
         let fallbackQuery = supabase
           .from('profiles')
-          .select('*');
+          .select('*')
+          .not('name', 'is', null)
+          .neq('name', '')
+          .neq('name', 'Google User')
+          .not('gender', 'is', null)
+          .neq('gender', '')
+          .neq('status', 'deleted')
+          .neq('status', 'inactive')
+          .is('deleted_at', null);
         if (cleanId) {
           const uidStr = String(cleanId).trim();
           fallbackQuery = fallbackQuery.neq('id', uidStr);
@@ -1275,7 +1274,7 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
         const rawList = data
           .map(mapSupabaseRowToProfile)
           .filter(p => {
-            if (!p) return false;
+            if (!p || isDemoProfile(p) || isPlaceholderOrIncompleteProfile(p)) return false;
             if (cleanId) {
               const uidStr = String(cleanId).trim().toLowerCase();
               const pId = String(p.id || '').toLowerCase();
@@ -3213,7 +3212,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
           sanitizeName(row.metadata?.senderName, fallbackMemberName)
         );
 
-        if (!sName || isPlaceholderOrIncompleteProfile({ name: sName, id: sId })) return;
+        if (!sName || isPlaceholderOrIncompleteProfile({ name: sName, id: sId }, { nameOnly: true })) return;
 
         const sPhoto = resolveProfilePhoto(matched) || resolveProfilePhoto(row.metadata?.senderPhoto) || null;
         const sAge = matched?.age || row.metadata?.senderAge || null;
@@ -3338,7 +3337,7 @@ export async function fetchUserNotifications(userOrId, allProfiles = []) {
           sanitizeName(row.metadata?.senderName, fallbackMemberName)
         );
 
-        if (!sName || isPlaceholderOrIncompleteProfile({ name: sName, id: sId })) return;
+        if (!sName || isPlaceholderOrIncompleteProfile({ name: sName, id: sId }, { nameOnly: true })) return;
 
         const sPhoto = resolveProfilePhoto(matched) || resolveProfilePhoto(row.metadata?.senderPhoto) || null;
         const sAge = matched?.age || row.metadata?.senderAge || null;

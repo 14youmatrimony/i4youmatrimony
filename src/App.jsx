@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl, fetchActiveStoriesApi, insertStoryApi, deleteStoryApi, deleteExpiredStoriesApi, insertSuccessStoryApi, fetchSuccessStoriesApi } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl, fetchActiveStoriesApi, insertStoryApi, deleteStoryApi, deleteExpiredStoriesApi, insertSuccessStoryApi, fetchSuccessStoriesApi } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
 import { formatR2PublicUrl, uploadStoryToR2, uploadSuccessStoryToR2, deletePhotoFromR2 } from './utils/r2Upload';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { profileSyncService } from './services/profileSyncService';
 import { uploadProfilePhoto } from './services/storageService';
 import { logoutUser, persistUserSession } from './services/authService';
-import { signOutGoogleAuth } from './services/googleAuth';
+import { signOutGoogleAuth, extractGoogleUserDetails } from './services/googleAuth';
 import DeviceFrameSimulator from './components/mobile/DeviceFrameSimulator';
 import MobileAppShell from './components/mobile/MobileAppShell';
 import MobileMatchFeed from './components/mobile/MobileMatchFeed';
@@ -113,8 +113,15 @@ export const checkStoredUserSession = () => {
     }
     user.id = resolvedId;
 
-    // Purge any legacy demo/mock account sessions
-    if (user.id === 'demo-priya' || user.id === 'demo-rohan' || String(user.id).startsWith('demo-') || user.isDemo || user.isTest) {
+    // Purge any legacy demo/mock account sessions or hardcoded Google User placeholder
+    if (
+      user.id === 'demo-priya' || 
+      user.id === 'demo-rohan' || 
+      String(user.id).startsWith('demo-') || 
+      user.isDemo || 
+      user.isTest ||
+      (user.name && user.name.toLowerCase() === 'google user')
+    ) {
       localStorage.removeItem('i4u_auth_user');
       localStorage.removeItem('i4u_current_user_id');
       localStorage.removeItem('i4u_register_id');
@@ -485,7 +492,7 @@ export default function App() {
       const currentAuthId = activeUser?.id || activeUser?.user_id;
       const liveList = await fetchLiveProfiles(activeUser || currentAuthId);
       if (Array.isArray(liveList) && liveList.length > 0) {
-        const cleanList = liveList.filter(p => Boolean(p && (p.name || p.fullName || p.id)));
+        const cleanList = liveList.filter(p => p && !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p));
         setProfiles(cleanList);
         safeStorage.setJSON('i4u_cached_profiles', cleanList);
       }
@@ -1221,15 +1228,73 @@ export default function App() {
 
   // Root-level auth state listener: Synchronizes persistent authentication sessions & tokens across browser sessions and tabs
   useEffect(() => {
-    const unsubscribe = initSupabaseAuthListener((event, session) => {
+    const unsubscribe = initSupabaseAuthListener(async (event, session) => {
       if (event === 'SIGNED_OUT') {
-        if (localStorage.getItem('i4u_logged_out') === 'true') {
-          setCurrentUser(null);
-        }
-      } else if (session?.user && !currentUser) {
-        const stored = checkStoredUserSession();
-        if (stored) {
-          setCurrentUser(stored);
+        setCurrentUser(null);
+        localStorage.removeItem('i4u_auth_user');
+        localStorage.removeItem('i4u_current_user_id');
+        localStorage.removeItem('i4u_register_id');
+        localStorage.setItem('i4u_logged_out', 'true');
+      } else if (session?.user) {
+        const googleDetails = extractGoogleUserDetails(session.user);
+        const userId = session.user.id;
+        const userEmail = session.user.email;
+
+        if (isSupabaseConfigured() && supabase) {
+          try {
+            const orTokens = [`id.eq.${userId}`, `user_id.eq.${userId}`];
+            if (userEmail && userEmail.includes('@')) {
+              orTokens.push(`email.eq.${userEmail}`);
+            }
+            const { data: existingProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .or(orTokens.join(','))
+              .neq('status', 'deleted')
+              .maybeSingle();
+
+            if (existingProfile) {
+              const mapped = mapSupabaseRowToProfile(existingProfile);
+              const merged = {
+                ...googleDetails,
+                ...mapped,
+                id: existingProfile.id,
+                user_id: existingProfile.user_id || userId,
+                email: existingProfile.email || googleDetails.email,
+                name: (existingProfile.name && !['google user', 'google'].includes(existingProfile.name.toLowerCase().trim()))
+                  ? existingProfile.name
+                  : (googleDetails.name || existingProfile.name)
+              };
+              persistUserSession(merged);
+              setCurrentUser(merged);
+              localStorage.removeItem('i4u_logged_out');
+            } else {
+              // Row does not exist in public.profiles!
+              // Rule 2: Do NOT auto-recreate a deleted or ghost profile row.
+              const stored = checkStoredUserSession();
+              if (stored) {
+                // User had an active session but their profile was deleted from database (e.g. by Super Admin)
+                console.info('[Supabase Auth] Profile row was deleted. Automatically signing out user.');
+                await supabase.auth.signOut().catch(() => {});
+                localStorage.removeItem('i4u_auth_user');
+                localStorage.removeItem('i4u_current_user_id');
+                localStorage.removeItem('i4u_register_id');
+                localStorage.setItem('i4u_logged_out', 'true');
+                setCurrentUser(null);
+                setCurrentScreen('login');
+                showToast('Your account is no longer active. Please sign in or register.');
+              } else {
+                // Fresh Google OAuth login needing onboarding
+                setPendingRegistration({
+                  ...googleDetails,
+                  emailVerified: true
+                });
+                setCurrentScreen('register');
+              }
+            }
+          } catch (err) {
+            console.warn('[Supabase Auth] Auth state profile verification notice:', err);
+          }
         }
       }
     });
@@ -1281,20 +1346,23 @@ export default function App() {
           return merged;
         });
       } else {
-        // If not found in Supabase public.profiles, immediately auto-create their row!
-        console.info('[Supabase Sync] Profile row not found in public.profiles. Auto-creating row for:', fetchId);
+        // Rule 2: If profile row was deleted from public.profiles (e.g. by Super Admin),
+        // do NOT recreate a "Google User" or any profile row!
+        // Automatically call supabase.auth.signOut() and redirect them to the login screen.
+        console.info('[Supabase Sync] Profile row not found in public.profiles (deleted or removed). Signing out:', fetchId);
         try {
-          await ensureProfileRowExists(currentUser);
-          const freshCreated = await fetchLiveUserProfile(fetchId);
-          if (freshCreated && isMounted) {
-            setCurrentUser(prev => {
-              const merged = { ...(prev || {}), ...freshCreated };
-              try { localStorage.setItem('i4u_auth_user', JSON.stringify(merged)); } catch (e) {}
-              return merged;
-            });
-          }
-        } catch (autoErr) {
-          console.warn('[Supabase Sync] Auto-create row notice:', autoErr);
+          await supabase.auth.signOut().catch(() => {});
+        } catch (_) {}
+        localStorage.removeItem('i4u_auth_user');
+        localStorage.removeItem('i4u_current_user_id');
+        localStorage.removeItem('i4u_register_id');
+        localStorage.removeItem('i4u_auth_token');
+        localStorage.removeItem('i4u_refresh_token');
+        localStorage.setItem('i4u_logged_out', 'true');
+        if (isMounted) {
+          setCurrentUser(null);
+          setCurrentScreen('login');
+          showToast('Your profile is no longer active. Please sign in or register.');
         }
       }
     }).catch(err => {
@@ -1306,21 +1374,29 @@ export default function App() {
     };
   }, [currentUser?.id]);
 
-  // When user opens the Profile page (activeTab === 'account'), ensure row exists in public.profiles and strictly fetch latest data
+  // When user opens the Profile page (activeTab === 'account'), strictly fetch latest data and ensure active profile
   useEffect(() => {
     if (activeTab === 'account' && currentUser?.id && isSupabaseConfigured()) {
-      ensureProfileRowExists(currentUser).then(() => {
-        return fetchLiveUserProfile(currentUser.id);
-      }).then(freshProfile => {
+      fetchLiveUserProfile(currentUser.id).then(async (freshProfile) => {
         if (freshProfile) {
           setCurrentUser(prev => {
             const merged = { ...(prev || {}), ...freshProfile };
             try { localStorage.setItem('i4u_auth_user', JSON.stringify(merged)); } catch (e) {}
             return merged;
           });
+        } else {
+          console.info('[Account Tab] Profile not found in public.profiles. Signing out...');
+          await supabase.auth.signOut().catch(() => {});
+          localStorage.removeItem('i4u_auth_user');
+          localStorage.removeItem('i4u_current_user_id');
+          localStorage.removeItem('i4u_register_id');
+          localStorage.setItem('i4u_logged_out', 'true');
+          setCurrentUser(null);
+          setCurrentScreen('login');
+          showToast('Your profile is no longer active. Please sign in or register.');
         }
       }).catch(err => {
-        console.warn('[AccountTab] Ensure profile row warning:', err);
+        console.warn('[AccountTab] Profile verification warning:', err);
       });
     }
   }, [activeTab, currentUser?.id]);
@@ -4548,7 +4624,7 @@ export default function App() {
   // Handler when Login succeeds
   const handleLoginSuccess = (userData) => {
     const rawName = userData?.name || currentUser?.name || '';
-    const isPlaceholder = !rawName || ['verified member', 'a verified member', 'member'].includes(rawName.toLowerCase().trim());
+    const isPlaceholder = !rawName || ['verified member', 'a verified member', 'member', 'google user', 'google'].includes(rawName.toLowerCase().trim());
     const finalName = isPlaceholder ? 'Candidate' : rawName.trim();
     const resolvedGender = normalizeGender(userData?.gender || currentUser?.gender) === 'male' ? 'Male' : 'Female';
     const updatedUser = {
@@ -4758,7 +4834,7 @@ export default function App() {
     const seenKeys = new Set();
 
     return profiles
-      .filter(p => Boolean(p && (p.name || p.fullName || p.id)))
+      .filter(p => Boolean(p && !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)))
       .filter(p => {
         if (!p || !p.id) return false;
 
@@ -5043,7 +5119,7 @@ export default function App() {
   // - If user is logged in with gender, strictly filter by opposite gender
   // - If guest / unauthenticated, provide ALL candidates (both Gents and Women) to WebsiteView
   const websiteProfiles = useMemo(() => {
-    const validProfiles = profiles.filter(p => Boolean(p && (p.name || p.fullName || p.id)));
+    const validProfiles = profiles.filter(p => Boolean(p && !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)));
     if (currentUser?.gender) {
       const targetGender = getTargetCandidateGender(currentUser);
       return validProfiles.filter(p => {
