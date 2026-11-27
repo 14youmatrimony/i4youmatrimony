@@ -4000,8 +4000,8 @@ export async function deleteExpiredStoriesApi() {
 const LOCAL_STORAGE_SUCCESS_STORIES_KEY = 'i4you_success_stories';
 
 /**
- * Fetches all verified marriage success stories from Supabase public.success_stories
- * ordered by created_at DESC. Falls back to localStorage cache if network fails.
+ * Fetches all active Happy Stories from Supabase public.happy_stories
+ * ordered by display_order ASC, created_at DESC.
  */
 export async function fetchSuccessStoriesApi() {
   let cached = [];
@@ -4016,8 +4016,10 @@ export async function fetchSuccessStoriesApi() {
 
   try {
     const { data, error } = await supabase
-      .from('success_stories')
-      .select('id, couple_names, wedding_date, story, photo_url, location, created_at')
+      .from('happy_stories')
+      .select('id, couple_names, wedding_date, story_text, photo_url, location, source, is_active, display_order, created_at')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -4025,7 +4027,7 @@ export async function fetchSuccessStoriesApi() {
       return cached;
     }
 
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       try {
         localStorage.setItem(LOCAL_STORAGE_SUCCESS_STORIES_KEY, JSON.stringify(data));
       } catch (e) {}
@@ -4040,10 +4042,10 @@ export async function fetchSuccessStoriesApi() {
 }
 
 /**
- * Inserts a new marriage success story into public.success_stories
+ * Inserts a new marriage success story into public.happy_stories
  * and updates localStorage cache.
  */
-export async function insertSuccessStoryApi({ coupleNames, location, weddingDate, storyText, photoUrl }) {
+export async function insertSuccessStoryApi({ coupleNames, location, weddingDate, storyText, photoUrl, source = 'user_deletion' }) {
   if (!photoUrl || !coupleNames) {
     throw new Error('Couple names and wedding photo are required for success story');
   }
@@ -4054,7 +4056,9 @@ export async function insertSuccessStoryApi({ coupleNames, location, weddingDate
     wedding_date: weddingDate ? String(weddingDate).trim() : new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
     story_text: storyText ? String(storyText).trim() : 'We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey.',
     photo_url: photoUrl,
-    created_at: new Date().toISOString()
+    source: source || 'user_deletion',
+    is_active: true,
+    display_order: 0
   };
 
   // 1. Mirror into localStorage cache immediately
@@ -4065,13 +4069,13 @@ export async function insertSuccessStoryApi({ coupleNames, location, weddingDate
     localStorage.setItem(LOCAL_STORAGE_SUCCESS_STORIES_KEY, JSON.stringify(updated));
   } catch (e) {}
 
-  // 2. Insert into Supabase public.success_stories
+  // 2. Insert into Supabase public.happy_stories
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
-        .from('success_stories')
+        .from('happy_stories')
         .insert(payload)
-        .select('id, couple_names, wedding_date, story, photo_url, location, created_at')
+        .select('id, couple_names, wedding_date, story_text, photo_url, location, source, is_active, display_order, created_at')
         .single();
 
       if (error) {
@@ -4079,7 +4083,7 @@ export async function insertSuccessStoryApi({ coupleNames, location, weddingDate
         throw error;
       }
 
-      console.info('[insertSuccessStoryApi] Successfully saved success story:', data?.id);
+      console.info('[insertSuccessStoryApi] Successfully saved happy story:', data?.id);
       return data;
     } catch (err) {
       console.error('[insertSuccessStoryApi] Insert exception:', err);

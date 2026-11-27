@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Heart,
   MapPin,
@@ -6,6 +6,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { fetchSuccessStoriesApi } from '../../services/api';
+import { supabase, isSupabaseConfigured } from '../../services/supabase';
 
 const BENCHMARK_STORIES = [
   {
@@ -60,39 +61,60 @@ const BENCHMARK_STORIES = [
 
 export default function WebsiteSuccessStories() {
   const [liveStories, setLiveStories] = useState([]);
+  const [hasLoadedLive, setHasLoadedLive] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadLiveStories = async () => {
-      try {
-        const stories = await fetchSuccessStoriesApi();
-        if (isMounted && Array.isArray(stories) && stories.length > 0) {
-          setLiveStories(stories);
-        }
-      } catch (err) {
-        console.warn('[WebsiteSuccessStories] Failed to load live stories:', err);
+  const loadLiveStories = useCallback(async () => {
+    try {
+      const stories = await fetchSuccessStoriesApi();
+      if (Array.isArray(stories)) {
+        setLiveStories(stories);
+        setHasLoadedLive(true);
       }
-    };
-    loadLiveStories();
-    return () => {
-      isMounted = false;
-    };
+    } catch (err) {
+      console.warn('[WebsiteSuccessStories] Failed to load live stories:', err);
+    }
   }, []);
 
-  const displayStories = useMemo(() => {
-    const formattedLive = (liveStories || []).map(row => ({
-      id: row.id || `live-${row.created_at || Math.random()}`,
-      couple: row.couple_names || 'Blessed Couple',
-      location: row.location || 'Kerala, India',
-      weddingDate: row.wedding_date || 'Recently Married',
-      photo: row.photo_url || BENCHMARK_STORIES[0].photo,
-      note: row.story_text
-        ? row.story_text.replace(/^[“"]+|[”"]+$/g, '')
-        : 'Found our life partner through I 4 You Matrimony.'
-    }));
+  useEffect(() => {
+    loadLiveStories();
 
-    return [...formattedLive, ...BENCHMARK_STORIES].slice(0, 6);
-  }, [liveStories]);
+    let channel = null;
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        channel = supabase
+          .channel('public:happy_stories_sync')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'happy_stories' }, () => {
+            loadLiveStories();
+          })
+          .on('broadcast', { event: 'happy_stories_updated' }, () => {
+            loadLiveStories();
+          })
+          .subscribe();
+      } catch (_) {}
+    }
+
+    return () => {
+      if (channel && supabase) {
+        try { supabase.removeChannel(channel); } catch (_) {}
+      }
+    };
+  }, [loadLiveStories]);
+
+  const displayStories = useMemo(() => {
+    if (hasLoadedLive) {
+      return (liveStories || []).map(row => ({
+        id: row.id || `live-${row.created_at || Math.random()}`,
+        couple: row.couple_names || 'Blessed Couple',
+        location: row.location || 'Kerala, India',
+        weddingDate: row.wedding_date || 'Recently Married',
+        photo: row.photo_url || BENCHMARK_STORIES[0].photo,
+        note: row.story_text
+          ? row.story_text.replace(/^[“"]+|[”"]+$/g, '')
+          : 'Found our life partner through I 4 You Matrimony.'
+      }));
+    }
+    return BENCHMARK_STORIES;
+  }, [liveStories, hasLoadedLive]);
 
   return (
     <section

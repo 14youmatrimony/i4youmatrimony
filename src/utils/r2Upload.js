@@ -473,14 +473,23 @@ export async function uploadSuccessStoryToR2(file) {
     return { success: true, publicUrl: file };
   }
 
-  // 1. Client-Side WebP Compression (max 1200px, quality 0.80, image/webp)
+  // 1. Client-Side WebP Compression (max 1200px, quality 0.80, strictly < 500 KB)
   let compressed;
   try {
+    let q = 0.80;
     compressed = await compressImageToWebP(file, {
       maxDimension: 1200,
-      quality: 0.80,
+      quality: q,
       fillBackground: false
     });
+    while (compressed?.blob && compressed.blob.size >= 500 * 1024 && q > 0.35) {
+      q -= 0.1;
+      compressed = await compressImageToWebP(file, {
+        maxDimension: 1200,
+        quality: q,
+        fillBackground: false
+      });
+    }
   } catch (compErr) {
     console.warn('[r2Upload] Success story WebP compression notice:', compErr);
     compressed = { dataUrl: file, sizeKB: 0 };
@@ -488,10 +497,10 @@ export async function uploadSuccessStoryToR2(file) {
 
   const { endpoint, accessKeyId, secretAccessKey, bucketName, region } = getR2Config();
 
-  // 2. Dedicated Cloudflare R2 path: success-stories/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp
+  // 2. Dedicated Cloudflare R2 path: happy-stories/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.webp
   const timestamp = Date.now();
   const randomSuffix = Math.random().toString(36).slice(2, 7);
-  const filePath = `success-stories/${timestamp}-${randomSuffix}.webp`;
+  const filePath = `happy-stories/${timestamp}-${randomSuffix}.webp`;
   const contentType = 'image/webp';
 
   try {

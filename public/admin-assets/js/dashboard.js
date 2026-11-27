@@ -230,6 +230,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadVendorApprovals();
   loadHomepageBanners();
   initBannerDropZone();
+  loadHappyStories();
+  initHappyStoryDropZone();
   startLiveSyncPolling();
   setupRealtimeProfileSync();
 
@@ -277,7 +279,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const hashTab = (window.location.hash || '').replace('#', '').toLowerCase();
     const targetTab = urlParams.get('tab') || hashTab;
-    if (targetTab && ['overview', 'users', 'aadhaar', 'offers', 'plans', 'payments', 'vendors', 'banners', 'settings'].includes(targetTab)) {
+    if (targetTab && ['overview', 'users', 'aadhaar', 'offers', 'plans', 'payments', 'vendors', 'banners', 'happy-stories', 'settings'].includes(targetTab)) {
       setTimeout(() => switchTab(targetTab), 50);
     }
   } catch (e) {}
@@ -483,7 +485,7 @@ function canAccessTab(tabId) {
   if (role === 'Super Admin') return true;
   const perms = state.admin.permissions || [];
   if (tabId === 'overview') return true;
-  if (tabId === 'users' || tabId === 'aadhaar' || tabId === 'vendors' || tabId === 'banners') return perms.includes('users:view');
+  if (tabId === 'users' || tabId === 'aadhaar' || tabId === 'vendors' || tabId === 'banners' || tabId === 'happy-stories') return perms.includes('users:view');
   if (tabId === 'offers') return perms.includes('offers:view');
   if (tabId === 'plans') return perms.includes('plans:view');
   if (tabId === 'payments') return perms.includes('payments:view');
@@ -655,7 +657,7 @@ function switchTab(tabId) {
   });
 
   // Toggle views
-  const viewPanels = ['overview', 'users', 'aadhaar', 'offers', 'plans', 'payments', 'vendors', 'banners', 'settings'];
+  const viewPanels = ['overview', 'users', 'aadhaar', 'offers', 'plans', 'payments', 'vendors', 'banners', 'happy-stories', 'settings'];
   viewPanels.forEach(panel => {
     const el = document.getElementById(`view-${panel}`);
     if (el) {
@@ -689,6 +691,8 @@ function switchTab(tabId) {
     loadVendorApprovals();
   } else if (tabId === 'banners') {
     loadHomepageBanners();
+  } else if (tabId === 'happy-stories') {
+    loadHappyStories();
   } else if (tabId === 'settings') {
     loadSettings();
   }
@@ -6760,8 +6764,9 @@ async function compressBannerImage(file) {
   return { blob: bestBlob, ext, contentType: mime, originalKB, compressedKB, previewUrl };
 }
 
-async function uploadBannerToR2(blob, ext, contentType) {
-  const objectKey = `banners/banner_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+async function uploadBannerToR2(blob, ext, contentType, prefix = 'banners') {
+  const cleanPrefix = String(prefix || 'banners').replace(/^\/+|\/+$/g, '');
+  const objectKey = `${cleanPrefix}/${cleanPrefix === 'happy-stories' ? 'story' : 'banner'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const arrayBuffer = await blob.arrayBuffer();
   const payloadHash = await r2Sha256Hex(arrayBuffer);
 
@@ -7246,9 +7251,12 @@ const BANNER_CROP_W = 1920;
 const BANNER_CROP_H = 720; // Exact 16:6 hero aspect ratio
 
 const cropState = {
+  mode: 'banner', // 'banner' | 'happy_story'
   queue: [],
   queueIdx: 0,
   editBanner: null,
+  editStory: null,
+  storyMeta: null,
   img: null,
   originalKB: 0,
   fileName: '',
@@ -7361,6 +7369,9 @@ function resetCropTransform() {
 }
 
 function openNewBannersCropQueue(files) {
+  cropState.mode = 'banner';
+  cropState.editStory = null;
+  cropState.storyMeta = null;
   cropState.queue = files;
   cropState.queueIdx = 0;
   cropState.editBanner = null;
@@ -7370,6 +7381,9 @@ function openNewBannersCropQueue(files) {
 async function openExistingBannerCrop(bannerId) {
   const banner = (state.banners.list || []).find(b => String(b.id) === String(bannerId));
   if (!banner) return;
+  cropState.mode = 'banner';
+  cropState.editStory = null;
+  cropState.storyMeta = null;
   cropState.queue = [];
   cropState.queueIdx = 0;
   cropState.editBanner = banner;
@@ -7547,9 +7561,58 @@ async function applyCropAndUpload() {
     const { blob, ext, contentType, compressedKB } = await exportCroppedCanvasUnder500KB();
     if (sizeEstimate) sizeEstimate.textContent = `Compressed: ${compressedKB} KB (${ext.toUpperCase()})`;
 
-    const { publicUrl } = await uploadBannerToR2(blob, ext, contentType);
+    const r2Prefix = cropState.mode === 'happy_story' ? 'happy-stories' : 'banners';
+    const { publicUrl } = await uploadBannerToR2(blob, ext, contentType, r2Prefix);
     const sb = getSupabaseAdminClient();
     if (!sb) throw new Error('Supabase client not initialized.');
+
+    if (cropState.mode === 'happy_story') {
+      if (cropState.editStory) {
+        const oldUrl = cropState.editStory.photo_url;
+        const { error } = await sb
+          .from('happy_stories')
+          .update({
+            photo_url: publicUrl,
+            couple_names: titleVal || cropState.editStory.couple_names || 'Blessed Couple',
+            compressed_size_kb: compressedKB
+          })
+          .eq('id', cropState.editStory.id);
+        if (error) throw new Error(error.message);
+        if (oldUrl && oldUrl !== publicUrl && (oldUrl.includes('r2.dev') || oldUrl.includes('r2.cloudflarestorage.com'))) {
+          await deleteBannerFromR2(oldUrl, '').catch(() => {});
+        }
+        showToast(`Happy Story photo re-cropped & saved to R2 (${compressedKB} KB)!`, 'success');
+      } else {
+        const meta = cropState.storyMeta || {};
+        const minOrder = (state.happyStories?.list || []).reduce((min, s) => Math.min(min, Number(s.display_order) || 1), 1);
+        const { error } = await sb.from('happy_stories').insert({
+          couple_names: titleVal || meta.couple_names || 'Blessed Couple',
+          location: meta.location || 'Kerala, India',
+          wedding_date: meta.wedding_date || new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+          story_text: meta.story_text || 'We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey.',
+          photo_url: publicUrl,
+          source: 'admin',
+          is_active: true,
+          display_order: Math.max(0, minOrder - 1),
+          compressed_size_kb: compressedKB
+        });
+        if (error) throw new Error(error.message);
+        ['newStoryCoupleInput', 'newStoryLocationInput', 'newStoryDateInput', 'newStoryTextInput', 'happyStoryFileInput'].forEach(fid => {
+          const el = document.getElementById(fid);
+          if (el) el.value = '';
+        });
+        showToast(`Happy Story uploaded to Cloudflare R2 (${compressedKB} KB)!`, 'success');
+      }
+      try {
+        sb.channel('public:happy_stories_sync').send({ type: 'broadcast', event: 'happy_stories_updated', payload: { timestamp: Date.now() } });
+      } catch (_) {}
+      cropState.mode = 'banner';
+      cropState.editStory = null;
+      cropState.storyMeta = null;
+      closeBannerCropModal();
+      await loadHappyStories();
+      return;
+    }
 
     if (cropState.editBanner) {
       const oldUrl = cropState.editBanner.image_url;
@@ -7620,3 +7683,397 @@ window.adjustCropZoom = adjustCropZoom;
 window.nudgeCropPosition = nudgeCropPosition;
 window.resetCropTransform = resetCropTransform;
 window.applyCropAndUpload = applyCropAndUpload;
+
+// ========================================================
+// HAPPY STORIES MANAGEMENT (CLOUDFLARE R2 + SUPABASE)
+// ========================================================
+
+const BENCHMARK_HAPPY_STORIES = [
+  {
+    couple_names: 'Dr. Ananya & Rohan',
+    location: 'Ernakulam, Kerala',
+    wedding_date: 'October 2026',
+    photo_url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=800',
+    story_text: 'Connected through verified family profiles and celebrated our wedding in Kochi.',
+    source: 'admin',
+    is_active: true,
+    display_order: 1
+  },
+  {
+    couple_names: 'Meera & Siddharth',
+    location: 'Bengaluru, Karnataka',
+    wedding_date: 'September 2026',
+    photo_url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
+    story_text: 'Matched on shared values and family traditions with instant direct chat.',
+    source: 'admin',
+    is_active: true,
+    display_order: 2
+  },
+  {
+    couple_names: 'Priyanka & Arjun',
+    location: 'Thrissur, Kerala',
+    wedding_date: 'August 2026',
+    photo_url: 'https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&q=80&w=800',
+    story_text: 'Our families met within three weeks of connecting on I 4 You Matrimony.',
+    source: 'admin',
+    is_active: true,
+    display_order: 3
+  },
+  {
+    couple_names: 'Aiswarya & Karthik',
+    location: 'Kozhikode, Kerala',
+    wedding_date: 'July 2026',
+    photo_url: 'https://images.unsplash.com/photo-1610173827043-9db50e0d8ef9?auto=format&fit=crop&q=80&w=800',
+    story_text: 'Aadhaar-verified profiles gave both families complete trust from day one.',
+    source: 'admin',
+    is_active: true,
+    display_order: 4
+  },
+  {
+    couple_names: 'Neha & Vikram',
+    location: 'Pune, Maharashtra',
+    wedding_date: 'June 2026',
+    photo_url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=800',
+    story_text: 'Found our ideal life partner with transparent family background details.',
+    source: 'admin',
+    is_active: true,
+    display_order: 5
+  },
+  {
+    couple_names: 'Divya & Pranav',
+    location: 'Chennai, Tamil Nadu',
+    wedding_date: 'May 2026',
+    photo_url: 'https://images.unsplash.com/photo-1595429035839-c99c298ffdde?auto=format&fit=crop&q=80&w=800',
+    story_text: 'Grateful for a respectful, family-first matchmaking journey.',
+    source: 'admin',
+    is_active: true,
+    display_order: 6
+  }
+];
+
+state.happyStories = { list: [] };
+
+function initHappyStoryDropZone() {
+  const dropZone = document.getElementById('happyStoryDropZone');
+  if (!dropZone || dropZone.dataset.bound === '1') return;
+  dropZone.dataset.bound = '1';
+
+  ['dragenter', 'dragover'].forEach(evt => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add('border-[#E6B8A2]', 'bg-[#C58B76]/10');
+    });
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('border-[#E6B8A2]', 'bg-[#C58B76]/10');
+    });
+  });
+  dropZone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer?.files?.[0];
+    if (file) openNewHappyStoryCrop(file);
+  });
+}
+
+function handleHappyStoryFileSelect(event) {
+  const file = event?.target?.files?.[0];
+  if (file) openNewHappyStoryCrop(file);
+}
+
+async function openNewHappyStoryCrop(file) {
+  if (!file || !file.type.startsWith('image/')) {
+    showToast('Please select a valid wedding photo.', 'error');
+    return;
+  }
+  const coupleVal = (document.getElementById('newStoryCoupleInput')?.value || '').trim();
+  const locVal = (document.getElementById('newStoryLocationInput')?.value || '').trim();
+  const dateVal = (document.getElementById('newStoryDateInput')?.value || '').trim();
+  const textVal = (document.getElementById('newStoryTextInput')?.value || '').trim();
+
+  cropState.mode = 'happy_story';
+  cropState.editBanner = null;
+  cropState.editStory = null;
+  cropState.storyMeta = {
+    couple_names: coupleVal || 'Blessed Couple',
+    location: locVal || 'Kerala, India',
+    wedding_date: dateVal || new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+    story_text: textVal || 'We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey.'
+  };
+  cropState.queue = [file];
+  cropState.queueIdx = 0;
+
+  await loadCurrentCropItem();
+  const titleInput = document.getElementById('cropTitleInput');
+  const queueBadge = document.getElementById('cropQueueBadge');
+  const applyLabel = document.getElementById('cropApplyBtnLabel');
+  if (titleInput) titleInput.value = coupleVal || file.name.replace(/\.[^/.]+$/, '');
+  if (queueBadge) {
+    queueBadge.textContent = 'Happy Story Crop (R2)';
+    queueBadge.classList.remove('hidden');
+  }
+  if (applyLabel) applyLabel.textContent = 'Apply & Upload Happy Story';
+}
+
+async function openHappyStoryReCrop(storyId) {
+  const story = (state.happyStories.list || []).find(s => String(s.id) === String(storyId));
+  if (!story) return;
+
+  cropState.mode = 'happy_story';
+  cropState.queue = [];
+  cropState.queueIdx = 0;
+  cropState.editBanner = null;
+  cropState.editStory = story;
+
+  const modal = document.getElementById('bannerCropModal');
+  const queueBadge = document.getElementById('cropQueueBadge');
+  const skipBtn = document.getElementById('cropSkipBtn');
+  const titleInput = document.getElementById('cropTitleInput');
+  const applyLabel = document.getElementById('cropApplyBtnLabel');
+
+  if (queueBadge) {
+    queueBadge.textContent = 'Re-Crop Happy Story';
+    queueBadge.classList.remove('hidden');
+  }
+  if (skipBtn) skipBtn.classList.add('hidden');
+  if (titleInput) titleInput.value = story.couple_names || '';
+  if (applyLabel) applyLabel.textContent = 'Save Cropped Story Photo';
+
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error('Could not load story image for cropping.'));
+      const sep = story.photo_url.includes('?') ? '&' : '?';
+      img.src = `${story.photo_url}${sep}cb=${Date.now()}`;
+    });
+    cropState.img = img;
+    cropState.originalKB = Number(story.compressed_size_kb) || 0;
+    cropState.fileName = story.couple_names || 'story';
+    resetCropTransform();
+    bindCropViewportEvents();
+    modal?.showModal();
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function loadHappyStories() {
+  const container = document.getElementById('happyStoriesGridContainer');
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+
+    let { data, error } = await sb
+      .from('happy_stories')
+      .select('id, couple_names, location, wedding_date, story_text, photo_url, source, is_active, display_order, compressed_size_kb, created_at')
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (container) container.innerHTML = `<div class="col-span-full p-6 rounded-2xl bg-[#2C1A1D] border border-rose-500/30 text-xs text-rose-300">Unable to load happy stories: ${error.message}</div>`;
+      return;
+    }
+
+    // Seed the 6 initial homepage Happy Stories if table is empty
+    if (Array.isArray(data) && data.length === 0) {
+      const seedRes = await sb.from('happy_stories').insert(BENCHMARK_HAPPY_STORIES).select();
+      if (!seedRes.error && Array.isArray(seedRes.data)) {
+        data = seedRes.data;
+      }
+    }
+
+    state.happyStories.list = data || [];
+    const activeCount = state.happyStories.list.filter(s => s.is_active).length;
+    const badge = document.getElementById('happyStoriesBadge');
+    if (badge) {
+      if (activeCount > 0) {
+        badge.textContent = String(activeCount);
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    renderHappyStories();
+  } catch (err) {
+    if (container) container.innerHTML = `<div class="col-span-full p-6 rounded-2xl bg-[#2C1A1D] border border-rose-500/30 text-xs text-rose-300">Error: ${err.message}</div>`;
+  }
+}
+
+function renderHappyStories() {
+  const container = document.getElementById('happyStoriesGridContainer');
+  if (!container) return;
+
+  const list = state.happyStories.list || [];
+  if (list.length === 0) {
+    container.innerHTML = '<div class="col-span-full p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-400">No happy stories found.</div>';
+    return;
+  }
+
+  container.innerHTML = list.map((s, idx) => {
+    const isActive = Boolean(s.is_active);
+    const isUser = s.source === 'user_deletion';
+    const isR2 = String(s.photo_url || '').includes('r2.dev') || String(s.photo_url || '').includes('r2.cloudflarestorage.com');
+    const safeUrl = String(s.photo_url || '').replace(/'/g, "\\'");
+
+    return `
+      <div class="rounded-2xl bg-[#2C1A1D] border ${isActive ? 'border-[#C58B76]/40' : 'border-slate-800 opacity-75'} overflow-hidden shadow-lg flex flex-col">
+        <div class="relative h-48 bg-[#1A1012]">
+          <img src="${s.photo_url}" alt="${escapePlanHtml(s.couple_names)}" class="w-full h-full object-cover" />
+          <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/80 text-[#E6B8A2] border border-[#C58B76]/40 font-mono">#${idx + 1}</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isUser ? 'bg-purple-950/90 text-purple-300 border border-purple-500/40' : 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/40'}">
+              ${isUser ? 'User Submitted' : 'Admin Added'}
+            </span>
+          </div>
+          ${(isR2 || s.compressed_size_kb) ? `
+            <span class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-mono bg-black/80 text-emerald-300">
+              ${s.compressed_size_kb ? `${s.compressed_size_kb} KB &bull; ` : ''}${isR2 ? 'R2' : 'URL'}
+            </span>
+          ` : ''}
+        </div>
+        <div class="p-4 space-y-2.5 flex-1 flex flex-col justify-between">
+          <div class="space-y-1">
+            <h4 class="text-sm font-bold text-white truncate">${escapePlanHtml(s.couple_names)}</h4>
+            <p class="text-[11px] text-[#E6B8A2]">${escapePlanHtml(s.location || 'Kerala, India')} &bull; ${escapePlanHtml(s.wedding_date || 'Recently Married')}</p>
+            <p class="text-xs text-slate-300 line-clamp-2 leading-relaxed">${escapePlanHtml(s.story_text || '')}</p>
+          </div>
+          <div class="flex items-center justify-between pt-2.5 border-t border-slate-800/80 gap-1.5">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleHappyStoryActive('${s.id}', this.checked)" class="sr-only peer" />
+              <div class="w-8 h-4 bg-slate-700 peer-checked:bg-emerald-500 rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:bg-white after:rounded-full after:transition-transform peer-checked:after:translate-x-4"></div>
+              <span class="text-[10px] font-semibold ${isActive ? 'text-emerald-400' : 'text-slate-400'}">${isActive ? 'Active' : 'Hidden'}</span>
+            </label>
+            <div class="flex items-center gap-1">
+              <button type="button" onclick="moveHappyStoryOrder('${s.id}', -1)" ${idx === 0 ? 'disabled' : ''} class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer" title="Move Earlier">
+                <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+              </button>
+              <button type="button" onclick="moveHappyStoryOrder('${s.id}', 1)" ${idx === list.length - 1 ? 'disabled' : ''} class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer" title="Move Later">
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+              </button>
+              <button type="button" onclick="openHappyStoryReCrop('${s.id}')" class="p-1 rounded-lg bg-[#C58B76]/15 hover:bg-[#C58B76]/30 text-[#E6B8A2] border border-[#C58B76]/30 cursor-pointer" title="Re-Crop Photo">
+                <i data-lucide="crop" class="w-3.5 h-3.5"></i>
+              </button>
+              <button type="button" onclick="openHappyStoryEditModal('${s.id}')" class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer" title="Edit Details">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+              </button>
+              <button type="button" onclick="deleteHappyStory('${s.id}', '${safeUrl}')" class="p-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 cursor-pointer" title="Delete Story (R2 + Supabase)">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function toggleHappyStoryActive(id, nextActive) {
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    const { error } = await sb.from('happy_stories').update({ is_active: Boolean(nextActive) }).eq('id', id);
+    if (error) return showToast(`Failed to update story: ${error.message}`, 'error');
+    try { sb.channel('public:happy_stories_sync').send({ type: 'broadcast', event: 'happy_stories_updated', payload: { timestamp: Date.now() } }); } catch (_) {}
+    showToast(nextActive ? 'Happy Story activated on homepage.' : 'Happy Story hidden from homepage.', 'info');
+    await loadHappyStories();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function moveHappyStoryOrder(id, direction) {
+  const list = state.happyStories.list || [];
+  const idx = list.findIndex(s => String(s.id) === String(id));
+  const swapIdx = idx + direction;
+  if (idx === -1 || swapIdx < 0 || swapIdx >= list.length) return;
+
+  const current = list[idx];
+  const target = list[swapIdx];
+  const orderA = Number(current.display_order) || (idx + 1);
+  const orderB = Number(target.display_order) || (swapIdx + 1);
+
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    await Promise.all([
+      sb.from('happy_stories').update({ display_order: orderB === orderA ? swapIdx + 1 : orderB }).eq('id', current.id),
+      sb.from('happy_stories').update({ display_order: orderA === orderB ? idx + 1 : orderA }).eq('id', target.id)
+    ]);
+    try { sb.channel('public:happy_stories_sync').send({ type: 'broadcast', event: 'happy_stories_updated', payload: { timestamp: Date.now() } }); } catch (_) {}
+    await loadHappyStories();
+  } catch (err) {
+    showToast(`Failed to reorder story: ${err.message}`, 'error');
+  }
+}
+
+function openHappyStoryEditModal(storyId) {
+  const s = (state.happyStories.list || []).find(item => String(item.id) === String(storyId));
+  if (!s) return;
+  document.getElementById('editStoryId').value = s.id;
+  document.getElementById('editStoryCouple').value = s.couple_names || '';
+  document.getElementById('editStoryLocation').value = s.location || '';
+  document.getElementById('editStoryDate').value = s.wedding_date || '';
+  document.getElementById('editStoryText').value = s.story_text || '';
+  document.getElementById('happyStoryEditModal')?.showModal();
+  if (window.lucide) lucide.createIcons();
+}
+
+async function saveHappyStoryEdit(e) {
+  e.preventDefault();
+  const id = document.getElementById('editStoryId').value;
+  const payload = {
+    couple_names: document.getElementById('editStoryCouple').value.trim(),
+    location: document.getElementById('editStoryLocation').value.trim() || 'Kerala, India',
+    wedding_date: document.getElementById('editStoryDate').value.trim() || 'Recently Married',
+    story_text: document.getElementById('editStoryText').value.trim()
+  };
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    const { error } = await sb.from('happy_stories').update(payload).eq('id', id);
+    if (error) return showToast(`Failed to update story: ${error.message}`, 'error');
+    try { sb.channel('public:happy_stories_sync').send({ type: 'broadcast', event: 'happy_stories_updated', payload: { timestamp: Date.now() } }); } catch (_) {}
+    document.getElementById('happyStoryEditModal')?.close();
+    showToast('Happy Story updated & synced live!', 'success');
+    await loadHappyStories();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function deleteHappyStory(id, photoUrl) {
+  if (!confirm('Delete this Happy Story? This will remove the record from Supabase and delete the photo from Cloudflare R2.')) {
+    return;
+  }
+  try {
+    if (photoUrl && (photoUrl.includes('r2.dev') || photoUrl.includes('r2.cloudflarestorage.com'))) {
+      await deleteBannerFromR2(photoUrl, '').catch(() => {});
+    }
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    const { error } = await sb.from('happy_stories').delete().eq('id', id);
+    if (error) return showToast(`Failed to delete story: ${error.message}`, 'error');
+    try { sb.channel('public:happy_stories_sync').send({ type: 'broadcast', event: 'happy_stories_updated', payload: { timestamp: Date.now() } }); } catch (_) {}
+    showToast('Happy Story deleted from Cloudflare R2 and Supabase.', 'success');
+    await loadHappyStories();
+  } catch (err) {
+    showToast(`Delete error: ${err.message}`, 'error');
+  }
+}
+
+window.handleHappyStoryFileSelect = handleHappyStoryFileSelect;
+window.openHappyStoryReCrop = openHappyStoryReCrop;
+window.loadHappyStories = loadHappyStories;
+window.toggleHappyStoryActive = toggleHappyStoryActive;
+window.moveHappyStoryOrder = moveHappyStoryOrder;
+window.openHappyStoryEditModal = openHappyStoryEditModal;
+window.saveHappyStoryEdit = saveHappyStoryEdit;
+window.deleteHappyStory = deleteHappyStory;
