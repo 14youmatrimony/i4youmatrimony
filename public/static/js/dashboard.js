@@ -4489,6 +4489,7 @@ async function saveAdminForm(event) {
       `;
     }
 
+    const resolvedAvatar = avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200';
     const payload = {
       id: Number(id) || id,
       full_name: fullName,
@@ -4496,7 +4497,7 @@ async function saveAdminForm(event) {
       username: username,
       email: email,
       role: role,
-      avatar: avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200',
+      avatar: resolvedAvatar,
       permissions: ['*']
     };
     if (password) {
@@ -4507,36 +4508,88 @@ async function saveAdminForm(event) {
     }
 
     let data = null;
-    try {
-      let res;
-      if (mode === 'create') {
-        res = await fetch('/api/admin/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+    const sb = getSupabaseAdminClient();
+    if (sb) {
+      // 1. Update Supabase Auth user metadata (and password if provided)
+      const { data: sessionData } = await sb.auth.getSession();
+      const activeUser = sessionData?.session?.user || null;
+
+      if (activeUser && mode !== 'create') {
+        const { error: metaError } = await sb.auth.updateUser({
+          data: {
+            full_name: fullName,
+            username: username,
+            role: role,
+            avatar_url: resolvedAvatar
+          }
         });
-      } else {
-        res = await fetch(`/api/admin/users/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      }
-      if (res && res.ok) {
-        data = await res.json();
-      } else if (res && !res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || errJson.message || `Server returned ${res.status}`);
-      }
-    } catch (e) {
-      console.warn('Network admin save notice (falling back to local persistence):', e);
-      if (e.message && !e.message.includes('Failed to fetch') && !e.message.includes('NetworkError')) {
-        showAdminModalAlert(e.message, 'error');
-        if (saveBtn) {
-          saveBtn.disabled = false;
-          saveBtn.innerHTML = originalBtnHtml;
+        if (metaError) {
+          throw new Error(metaError.message || 'Failed to update administrator profile in Supabase Auth');
         }
-        return;
+
+        if (password) {
+          const { error: pwError } = await sb.auth.updateUser({ password: password });
+          if (pwError) {
+            throw new Error(pwError.message || 'Failed to update administrator password in Supabase Auth');
+          }
+        }
+
+        // Best-effort sync to profiles table if a matching profile row exists
+        try {
+          await sb
+            .from('profiles')
+            .update({
+              full_name: fullName,
+              avatar_url: resolvedAvatar
+            })
+            .eq('id', activeUser.id);
+        } catch (profileErr) {
+          console.warn('Profiles table sync notice:', profileErr);
+        }
+      }
+
+      // 2. Persist to Supabase admin_users table
+      try {
+        const adminRecord = {
+          full_name: fullName,
+          username: username,
+          email: email,
+          role: role,
+          avatar: resolvedAvatar
+        };
+        if (password) {
+          adminRecord.password_hash = password;
+        }
+
+        if (mode === 'create') {
+          const { data: insertedAdmin, error: insertErr } = await sb
+            .from('admin_users')
+            .insert([{
+              ...adminRecord,
+              password_hash: password || 'supabase-auth'
+            }])
+            .select()
+            .maybeSingle();
+          if (insertErr) throw new Error(insertErr.message || 'Failed to create administrator');
+          if (insertedAdmin) data = { admin: insertedAdmin };
+        } else {
+          const numericId = Number(id);
+          let updateQuery = sb.from('admin_users').update(adminRecord);
+          if (Number.isInteger(numericId) && String(id).trim() !== '') {
+            updateQuery = updateQuery.eq('id', numericId);
+          } else {
+            updateQuery = updateQuery.eq('email', state.admin?.email || email);
+          }
+          const { data: updatedAdmin, error: updateErr } = await updateQuery.select().maybeSingle();
+          if (updateErr) {
+            console.warn('admin_users update notice:', updateErr);
+          } else if (updatedAdmin) {
+            data = { admin: updatedAdmin };
+          }
+        }
+      } catch (dbErr) {
+        if (mode === 'create') throw dbErr;
+        console.warn('Supabase admin_users table sync notice:', dbErr);
       }
     }
 
