@@ -8,14 +8,12 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS public.homepage_banners (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   image_url TEXT NOT NULL,
-  r2_key TEXT,
   title TEXT,
   display_order INTEGER NOT NULL DEFAULT 1,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   original_size_kb INTEGER,
   compressed_size_kb INTEGER,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_homepage_banners_active_order

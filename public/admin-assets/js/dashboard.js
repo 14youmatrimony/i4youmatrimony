@@ -6650,9 +6650,11 @@ const BANNER_R2_CONFIG = {
   region: 'auto'
 };
 
+const MAX_HOMEPAGE_BANNERS = 10;
+
 state.banners = {
   list: [],
-  prepared: null
+  prepared: []
 };
 
 function r2BufferToHex(buffer) {
@@ -6890,20 +6892,33 @@ function initBannerDropZone() {
     });
   });
   dropZone.addEventListener('drop', (e) => {
-    const file = e.dataTransfer?.files?.[0];
-    if (file) prepareBannerFile(file);
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length > 0) prepareBannerFiles(files);
   });
 }
 
 async function handleBannerFileSelect(event) {
-  const file = event?.target?.files?.[0];
-  if (file) await prepareBannerFile(file);
+  const files = Array.from(event?.target?.files || []);
+  if (files.length > 0) await prepareBannerFiles(files);
 }
 
-async function prepareBannerFile(file) {
-  if (!file.type.startsWith('image/')) {
-    showToast('Please select a valid image file.', 'error');
+async function prepareBannerFiles(files) {
+  const currentCount = (state.banners.list || []).length;
+  const remainingSlots = MAX_HOMEPAGE_BANNERS - currentCount;
+  if (remainingSlots <= 0) {
+    showToast('Maximum 10 / 10 banner slots used. Delete an existing banner first.', 'error');
     return;
+  }
+
+  const imageFiles = files.filter(f => f && f.type && f.type.startsWith('image/'));
+  if (imageFiles.length === 0) {
+    showToast('Please select valid image files (JPG, PNG, WebP).', 'error');
+    return;
+  }
+
+  const selectedFiles = imageFiles.slice(0, remainingSlots);
+  if (imageFiles.length > remainingSlots) {
+    showToast(`Only ${remainingSlots} slot(s) remaining. Compressing the first ${remainingSlots} image(s).`, 'info');
   }
 
   const previewBox = document.getElementById('bannerPreviewBox');
@@ -6913,23 +6928,48 @@ async function prepareBannerFile(file) {
   const uploadBtn = document.getElementById('bannerUploadBtn');
 
   if (previewBox) {
-    previewBox.innerHTML = '<div class="text-xs text-[#E6B8A2] animate-pulse">Compressing widescreen image (&lt; 500 KB)...</div>';
+    previewBox.innerHTML = `<div class="text-xs text-[#E6B8A2] animate-pulse">Compressing ${selectedFiles.length} image(s) under 500 KB...</div>`;
   }
   if (uploadBtn) uploadBtn.disabled = true;
 
   try {
-    const compressed = await compressBannerImage(file);
-    state.banners.prepared = compressed;
+    const results = [];
+    for (const file of selectedFiles) {
+      const compressed = await compressBannerImage(file);
+      results.push({ ...compressed, fileName: file.name });
+    }
+    state.banners.prepared = results;
+
+    const totalOrigKB = results.reduce((sum, r) => sum + r.originalKB, 0);
+    const totalCompKB = results.reduce((sum, r) => sum + r.compressedKB, 0);
 
     if (previewBox) {
-      previewBox.innerHTML = `<img src="${compressed.previewUrl}" alt="Compressed Banner Preview" class="w-full h-full object-cover" />`;
+      if (results.length === 1) {
+        previewBox.innerHTML = `<img src="${results[0].previewUrl}" alt="Compressed Banner Preview" class="w-full h-full object-cover rounded-xl" />`;
+      } else {
+        previewBox.innerHTML = `
+          <div class="grid grid-cols-3 gap-1.5 w-full h-full overflow-y-auto">
+            ${results.map(r => `
+              <div class="relative rounded-lg overflow-hidden border border-slate-700 h-16 bg-black/40">
+                <img src="${r.previewUrl}" alt="${escapePlanHtml(r.fileName)}" class="w-full h-full object-cover" />
+                <span class="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/80 text-[9px] text-emerald-300 font-mono">${r.compressedKB}KB</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
     }
+
     if (infoBar) infoBar.classList.remove('hidden');
-    if (origEl) origEl.textContent = `Original: ${compressed.originalKB} KB`;
-    if (compEl) compEl.textContent = `Compressed: ${compressed.compressedKB} KB (${compressed.ext.toUpperCase()})`;
-    if (uploadBtn) uploadBtn.disabled = false;
+    if (origEl) origEl.textContent = `${results.length} file(s) • Orig: ${totalOrigKB} KB`;
+    if (compEl) compEl.textContent = `Compressed: ${totalCompKB} KB`;
+    if (uploadBtn) {
+      uploadBtn.disabled = false;
+      uploadBtn.innerHTML = `<i data-lucide="upload" class="w-4 h-4"></i><span>Upload ${results.length} Banner${results.length > 1 ? 's' : ''}</span>`;
+      if (window.lucide) lucide.createIcons();
+    }
   } catch (err) {
-    state.banners.prepared = null;
+    state.banners.prepared = [];
     if (previewBox) previewBox.innerHTML = `<span class="text-xs text-rose-400 px-3 text-center">${err.message}</span>`;
     if (infoBar) infoBar.classList.add('hidden');
     showToast(err.message, 'error');
@@ -6937,8 +6977,14 @@ async function prepareBannerFile(file) {
 }
 
 async function uploadPreparedBanner() {
-  const prepared = state.banners.prepared;
-  if (!prepared) return;
+  const preparedList = Array.isArray(state.banners.prepared) ? state.banners.prepared : [];
+  if (preparedList.length === 0) return;
+
+  const currentCount = (state.banners.list || []).length;
+  if (currentCount + preparedList.length > MAX_HOMEPAGE_BANNERS) {
+    showToast(`Upload exceeds 10-banner limit (${currentCount}/10 used).`, 'error');
+    return;
+  }
 
   const uploadBtn = document.getElementById('bannerUploadBtn');
   const titleInput = document.getElementById('bannerTitleInput');
@@ -6948,27 +6994,36 @@ async function uploadPreparedBanner() {
 
   if (uploadBtn) {
     uploadBtn.disabled = true;
-    uploadBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Uploading R2...</span>';
+    uploadBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Uploading ${preparedList.length} to R2...</span>`;
     if (window.lucide) lucide.createIcons();
   }
 
   try {
-    const { objectKey, publicUrl } = await uploadBannerToR2(prepared.blob, prepared.ext, prepared.contentType);
     const sb = getSupabaseAdminClient();
     if (!sb) throw new Error('Supabase client not initialized.');
 
-    const maxOrder = (state.banners.list || []).reduce((max, b) => Math.max(max, Number(b.display_order) || 0), 0);
-    const { error } = await sb.from('homepage_banners').insert({
-      image_url: publicUrl,
-      r2_key: objectKey,
-      title: (titleInput?.value || '').trim() || 'Matrimony Couple Banner',
-      display_order: maxOrder + 1,
-      is_active: true,
-      original_size_kb: prepared.originalKB,
-      compressed_size_kb: prepared.compressedKB
-    });
+    let nextOrder = (state.banners.list || []).reduce((max, b) => Math.max(max, Number(b.display_order) || 0), 0) + 1;
+    const baseTitle = (titleInput?.value || '').trim();
 
-    if (error) throw new Error(error.message);
+    for (let i = 0; i < preparedList.length; i++) {
+      const item = preparedList[i];
+      const { publicUrl } = await uploadBannerToR2(item.blob, item.ext, item.contentType);
+      const rowTitle = baseTitle
+        ? (preparedList.length > 1 ? `${baseTitle} (${i + 1})` : baseTitle)
+        : (item.fileName ? item.fileName.replace(/\.[^/.]+$/, '') : `Matrimony Banner #${nextOrder}`);
+
+      const { error } = await sb.from('homepage_banners').insert({
+        image_url: publicUrl,
+        title: rowTitle,
+        display_order: nextOrder,
+        is_active: true,
+        original_size_kb: item.originalKB,
+        compressed_size_kb: item.compressedKB
+      });
+
+      if (error) throw new Error(error.message);
+      nextOrder += 1;
+    }
 
     try {
       sb.channel('public:homepage_banners_sync').send({
@@ -6978,20 +7033,20 @@ async function uploadPreparedBanner() {
       });
     } catch (_) {}
 
-    state.banners.prepared = null;
+    state.banners.prepared = [];
     if (titleInput) titleInput.value = '';
     if (fileInput) fileInput.value = '';
-    if (previewBox) previewBox.innerHTML = '<span class="text-xs text-slate-500">Live compressed preview will appear here</span>';
+    if (previewBox) previewBox.innerHTML = '<span class="text-xs text-slate-500">Live compressed preview(s) will appear here</span>';
     if (infoBar) infoBar.classList.add('hidden');
 
-    showToast(`Banner uploaded to Cloudflare R2 (${prepared.compressedKB} KB) & synced live!`, 'success');
+    showToast(`${preparedList.length} banner(s) uploaded to Cloudflare R2 & synced live!`, 'success');
     await loadHomepageBanners();
   } catch (err) {
-    showToast(err.message || 'Failed to upload banner', 'error');
+    showToast(err.message || 'Failed to upload banner(s)', 'error');
     if (uploadBtn) uploadBtn.disabled = false;
   } finally {
     if (uploadBtn) {
-      uploadBtn.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i><span>Upload Banner</span>';
+      uploadBtn.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i><span>Upload Banners</span>';
       if (window.lucide) lucide.createIcons();
     }
   }
@@ -7004,7 +7059,7 @@ async function loadHomepageBanners() {
     if (!sb) return;
     const { data, error } = await sb
       .from('homepage_banners')
-      .select('*')
+      .select('id, image_url, title, display_order, is_active, original_size_kb, compressed_size_kb, created_at')
       .order('display_order', { ascending: true })
       .order('created_at', { ascending: true });
 
@@ -7013,8 +7068,26 @@ async function loadHomepageBanners() {
       return;
     }
 
-    state.banners.list = data || [];
+    state.banners.list = (data || []).slice(0, MAX_HOMEPAGE_BANNERS);
+    const totalCount = state.banners.list.length;
     const activeCount = state.banners.list.filter(b => b.is_active).length;
+
+    const slotCounter = document.getElementById('bannersSlotCounter');
+    if (slotCounter) {
+      slotCounter.textContent = `Banners: ${totalCount} / ${MAX_HOMEPAGE_BANNERS} Slots Used`;
+    }
+
+    const fullNotice = document.getElementById('bannerFullNotice');
+    const dropZone = document.getElementById('bannerDropZone');
+    const fileInput = document.getElementById('bannerFileInput');
+    const isFull = totalCount >= MAX_HOMEPAGE_BANNERS;
+    if (fullNotice) fullNotice.classList.toggle('hidden', !isFull);
+    if (fileInput) fileInput.disabled = isFull;
+    if (dropZone) {
+      dropZone.classList.toggle('opacity-50', isFull);
+      dropZone.classList.toggle('pointer-events-none', isFull);
+    }
+
     const badge = document.getElementById('bannersCountBadge');
     if (badge) {
       if (activeCount > 0) {
@@ -7036,54 +7109,49 @@ function renderHomepageBanners() {
   if (!container) return;
 
   const list = state.banners.list || [];
-  if (list.length === 0) {
-    container.innerHTML = `
-      <div class="col-span-full p-8 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-center text-xs text-slate-400">
-        No custom homepage banners uploaded yet. Upload a widescreen couple photo above to replace the default hero slides.
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = list.map((b, idx) => {
+  const cardsHtml = list.map((b, idx) => {
     const isActive = Boolean(b.is_active);
     const isR2 = String(b.image_url || '').includes('r2.dev') || String(b.image_url || '').includes('r2.cloudflarestorage.com');
     const safeUrl = String(b.image_url || '').replace(/'/g, "\\'");
-    const safeKey = String(b.r2_key || '').replace(/'/g, "\\'");
+    const currentOrder = Number(b.display_order) || (idx + 1);
+    const orderOptions = Array.from({ length: Math.max(list.length, 10) }, (_, i) => i + 1)
+      .map(num => `<option value="${num}" ${num === currentOrder ? 'selected' : ''}>#${num}</option>`)
+      .join('');
+
     return `
       <div class="rounded-2xl bg-[#2C1A1D] border ${isActive ? 'border-[#C58B76]/40' : 'border-slate-800 opacity-75'} overflow-hidden shadow-lg flex flex-col">
-        <div class="relative h-44 bg-[#1A1012]">
+        <div class="relative aspect-video bg-[#1A1012]">
           <img src="${b.image_url}" alt="${escapePlanHtml(b.title || 'Homepage Banner')}" class="w-full h-full object-cover" />
-          <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/75 text-[#E6B8A2] border border-[#C58B76]/40 font-mono">Order #${b.display_order || (idx + 1)}</span>
+          <div class="absolute top-2 left-2 flex items-center gap-1">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/80 text-[#E6B8A2] border border-[#C58B76]/40 font-mono">#${idx + 1}</span>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isR2 ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/40' : 'bg-slate-900/90 text-slate-300 border border-slate-700'}">
-              ${isR2 ? 'Cloudflare R2' : 'External URL'}
+              ${b.compressed_size_kb ? `${b.compressed_size_kb} KB &bull; R2` : 'R2'}
             </span>
           </div>
-          ${b.compressed_size_kb ? `<span class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-mono bg-black/75 text-emerald-300">${b.compressed_size_kb} KB</span>` : ''}
         </div>
-        <div class="p-3.5 space-y-3 flex-1 flex flex-col justify-between">
+        <div class="p-3 space-y-2.5 flex-1 flex flex-col justify-between">
           <div>
-            <p class="text-xs font-bold text-white truncate">${escapePlanHtml(b.title || 'Matrimony Couple Banner')}</p>
-            <p class="text-[11px] text-slate-400 truncate font-mono mt-0.5" title="${escapePlanHtml(b.image_url)}">${escapePlanHtml(b.image_url)}</p>
+            <p class="text-xs font-bold text-white truncate">${escapePlanHtml(b.title || `Couple Banner #${idx + 1}`)}</p>
+            <p class="text-[10px] text-slate-400 truncate font-mono mt-0.5" title="${escapePlanHtml(b.image_url)}">${escapePlanHtml(b.image_url)}</p>
           </div>
-          <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 gap-2">
-            <!-- Active / Inactive Toggle -->
-            <label class="inline-flex items-center gap-2 cursor-pointer">
+          <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 gap-1.5">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer">
               <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleBannerActive('${b.id}', this.checked)" class="sr-only peer" />
-              <div class="w-9 h-5 bg-slate-700 peer-checked:bg-emerald-500 rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform peer-checked:after:translate-x-4"></div>
-              <span class="text-[11px] font-semibold ${isActive ? 'text-emerald-400' : 'text-slate-400'}">${isActive ? 'Active' : 'Hidden'}</span>
+              <div class="w-8 h-4 bg-slate-700 peer-checked:bg-emerald-500 rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:bg-white after:rounded-full after:transition-transform peer-checked:after:translate-x-4"></div>
+              <span class="text-[10px] font-semibold ${isActive ? 'text-emerald-400' : 'text-slate-400'}">${isActive ? 'On' : 'Off'}</span>
             </label>
 
-            <!-- Order & Delete Controls -->
             <div class="flex items-center gap-1">
-              <button type="button" onclick="moveBannerOrder('${b.id}', -1)" ${idx === 0 ? 'disabled' : ''} class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer" title="Move Up">
-                <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+              <button type="button" onclick="moveBannerOrder('${b.id}', -1)" ${idx === 0 ? 'disabled' : ''} class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer" title="Move Left / Earlier">
+                <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
               </button>
-              <button type="button" onclick="moveBannerOrder('${b.id}', 1)" ${idx === list.length - 1 ? 'disabled' : ''} class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer" title="Move Down">
-                <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+              <select onchange="updateBannerOrder('${b.id}', this.value)" class="py-0.5 px-1 rounded bg-[#1A1012] border border-slate-700 text-[10px] text-white font-mono cursor-pointer" title="Display Order">
+                ${orderOptions}
+              </select>
+              <button type="button" onclick="moveBannerOrder('${b.id}', 1)" ${idx === list.length - 1 ? 'disabled' : ''} class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer" title="Move Right / Later">
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
               </button>
-              <button type="button" onclick="deleteHomepageBanner('${b.id}', '${safeUrl}', '${safeKey}')" class="p-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 cursor-pointer" title="Delete Banner (R2 + Supabase)">
+              <button type="button" onclick="deleteHomepageBanner('${b.id}', '${safeUrl}')" class="p-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 cursor-pointer" title="Delete Banner (R2 + Supabase)">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
             </div>
@@ -7091,8 +7159,28 @@ function renderHomepageBanners() {
         </div>
       </div>
     `;
-  }).join('');
+  });
 
+  const emptySlotsCount = Math.max(0, MAX_HOMEPAGE_BANNERS - list.length);
+  const placeholdersHtml = Array.from({ length: emptySlotsCount }, (_, i) => {
+    const slotNum = list.length + i + 1;
+    return `
+      <button
+        type="button"
+        onclick="document.getElementById('bannerFileInput')?.click()"
+        class="rounded-2xl bg-[#1A1012]/60 border-2 border-dashed border-slate-800 hover:border-[#C58B76]/50 p-4 flex flex-col items-center justify-center text-center min-h-[190px] transition-colors cursor-pointer group"
+        title="Click to upload banner for Slot #${slotNum}"
+      >
+        <div class="w-9 h-9 rounded-xl bg-slate-800/80 group-hover:bg-[#C58B76]/20 text-slate-500 group-hover:text-[#E6B8A2] flex items-center justify-center mb-2 transition-colors">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+        </div>
+        <span class="text-xs font-mono font-bold text-slate-500 group-hover:text-slate-300">Slot #${slotNum}</span>
+        <span class="text-[11px] text-slate-600 mt-0.5">Empty Banner Slot</span>
+      </button>
+    `;
+  });
+
+  container.innerHTML = [...cardsHtml, ...placeholdersHtml].join('');
   if (window.lucide) lucide.createIcons();
 }
 
@@ -7102,17 +7190,42 @@ async function toggleBannerActive(id, nextActive) {
     if (!sb) return;
     const { error } = await sb
       .from('homepage_banners')
-      .update({ is_active: Boolean(nextActive), updated_at: new Date().toISOString() })
+      .update({ is_active: Boolean(nextActive) })
       .eq('id', id);
 
     if (error) {
       showToast(`Failed to update banner status: ${error.message}`, 'error');
       return;
     }
+    try {
+      sb.channel('public:homepage_banners_sync').send({ type: 'broadcast', event: 'banners_updated', payload: { timestamp: Date.now() } });
+    } catch (_) {}
     showToast(nextActive ? 'Banner activated on main homepage.' : 'Banner hidden from main homepage.', 'info');
     await loadHomepageBanners();
   } catch (err) {
     showToast(err.message, 'error');
+  }
+}
+
+async function updateBannerOrder(id, newOrderVal) {
+  const nextOrder = Math.max(1, Math.min(MAX_HOMEPAGE_BANNERS, parseInt(newOrderVal, 10) || 1));
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    const { error } = await sb
+      .from('homepage_banners')
+      .update({ display_order: nextOrder })
+      .eq('id', id);
+    if (error) {
+      showToast(`Failed to update order: ${error.message}`, 'error');
+      return;
+    }
+    try {
+      sb.channel('public:homepage_banners_sync').send({ type: 'broadcast', event: 'banners_updated', payload: { timestamp: Date.now() } });
+    } catch (_) {}
+    await loadHomepageBanners();
+  } catch (err) {
+    showToast(`Failed to reorder banner: ${err.message}`, 'error');
   }
 }
 
@@ -7131,21 +7244,24 @@ async function moveBannerOrder(id, direction) {
     const sb = getSupabaseAdminClient();
     if (!sb) return;
     await Promise.all([
-      sb.from('homepage_banners').update({ display_order: orderB === orderA ? swapIdx + 1 : orderB, updated_at: new Date().toISOString() }).eq('id', current.id),
-      sb.from('homepage_banners').update({ display_order: orderA === orderB ? idx + 1 : orderA, updated_at: new Date().toISOString() }).eq('id', target.id)
+      sb.from('homepage_banners').update({ display_order: orderB === orderA ? swapIdx + 1 : orderB }).eq('id', current.id),
+      sb.from('homepage_banners').update({ display_order: orderA === orderB ? idx + 1 : orderA }).eq('id', target.id)
     ]);
+    try {
+      sb.channel('public:homepage_banners_sync').send({ type: 'broadcast', event: 'banners_updated', payload: { timestamp: Date.now() } });
+    } catch (_) {}
     await loadHomepageBanners();
   } catch (err) {
     showToast(`Failed to reorder banner: ${err.message}`, 'error');
   }
 }
 
-async function deleteHomepageBanner(id, imageUrl, r2Key) {
+async function deleteHomepageBanner(id, imageUrl) {
   if (!confirm('Delete this homepage banner? This will remove the file from Cloudflare R2 and delete the database record.')) {
     return;
   }
   try {
-    await deleteBannerFromR2(imageUrl, r2Key);
+    await deleteBannerFromR2(imageUrl, '');
     const sb = getSupabaseAdminClient();
     if (!sb) return;
     const { error } = await sb.from('homepage_banners').delete().eq('id', id);
@@ -7153,6 +7269,9 @@ async function deleteHomepageBanner(id, imageUrl, r2Key) {
       showToast(`Failed to delete banner record: ${error.message}`, 'error');
       return;
     }
+    try {
+      sb.channel('public:homepage_banners_sync').send({ type: 'broadcast', event: 'banners_updated', payload: { timestamp: Date.now() } });
+    } catch (_) {}
     showToast('Banner deleted from Cloudflare R2 and Supabase.', 'success');
     await loadHomepageBanners();
   } catch (err) {
@@ -7165,4 +7284,5 @@ window.uploadPreparedBanner = uploadPreparedBanner;
 window.loadHomepageBanners = loadHomepageBanners;
 window.toggleBannerActive = toggleBannerActive;
 window.moveBannerOrder = moveBannerOrder;
+window.updateBannerOrder = updateBannerOrder;
 window.deleteHomepageBanner = deleteHomepageBanner;

@@ -9,6 +9,8 @@ import {
   GraduationCap,
   Crown,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   Lock,
   Smartphone,
   Store
@@ -45,18 +47,27 @@ export default function WebsiteHero({
   }, [banners]);
 
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     setActiveSlideIndex(0);
   }, [slides.length]);
 
   useEffect(() => {
-    if (slides.length <= 1) return undefined;
+    if (slides.length <= 1 || isHovered) return undefined;
     const timer = setInterval(() => {
       setActiveSlideIndex((prev) => (prev + 1) % slides.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [slides.length]);
+  }, [slides.length, isHovered]);
+
+  const handlePrevSlide = () => {
+    setActiveSlideIndex((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
+  const handleNextSlide = () => {
+    setActiveSlideIndex((prev) => (prev + 1) % slides.length);
+  };
 
   const activeOffer = Array.isArray(offers)
     ? offers.find(o => o && (o.is_active === 1 || o.is_active === true || o.is_active === '1'))
@@ -65,6 +76,8 @@ export default function WebsiteHero({
   return (
     <section
       id="hero-section"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className="relative w-full min-h-[460px] lg:h-[65vh] lg:min-h-[460px] lg:max-h-[640px] flex items-center py-6 md:py-8 overflow-hidden border-b border-[#E5D0C6]"
     >
       {/* Full-Bleed Rotating Newlywed Indian Couple Slideshow */}
@@ -85,6 +98,44 @@ export default function WebsiteHero({
         {/* Clean dark/warm gradient scrim for crisp foreground legibility */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/35 to-black/45" />
       </div>
+
+      {/* Carousel Left/Right Arrows & Indicator Dots */}
+      {slides.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={handlePrevSlide}
+            aria-label="Previous banner"
+            className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/45 hover:bg-black/70 text-white border border-white/20 items-center justify-center backdrop-blur-sm transition-all cursor-pointer"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleNextSlide}
+            aria-label="Next banner"
+            className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/45 hover:bg-black/70 text-white border border-white/20 items-center justify-center backdrop-blur-sm transition-all cursor-pointer"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 backdrop-blur-sm border border-white/15">
+            {slides.map((_, idx) => {
+              const isDotActive = idx === activeSlideIndex % slides.length;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveSlideIndex(idx)}
+                  aria-label={`Go to banner ${idx + 1}`}
+                  className={`h-2 rounded-full transition-all cursor-pointer ${
+                    isDotActive ? 'w-6 bg-[#E6B8A2]' : 'w-2 bg-white/50 hover:bg-white/80'
+                  }`}
+                />
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* Foreground Content Container */}
       <div className="w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 relative z-10">

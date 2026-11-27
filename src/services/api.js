@@ -1598,10 +1598,11 @@ export async function fetchLiveHomepageBanners() {
   try {
     const { data, error } = await supabase
       .from('homepage_banners')
-      .select('id, image_url, title, display_order, is_active, created_at')
+      .select('id, image_url, title, display_order, is_active, original_size_kb, compressed_size_kb, created_at')
       .eq('is_active', true)
       .order('display_order', { ascending: true })
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(10);
     if (!error && Array.isArray(data)) {
       return data.filter(b => b && b.image_url);
     }
