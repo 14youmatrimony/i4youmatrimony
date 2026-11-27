@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl, fetchActiveStoriesApi, insertStoryApi, deleteStoryApi, deleteExpiredStoriesApi, insertSuccessStoryApi, fetchSuccessStoriesApi } from './services/api';
+import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveHomepageBanners, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl, fetchActiveStoriesApi, insertStoryApi, deleteStoryApi, deleteExpiredStoriesApi, insertSuccessStoryApi, fetchSuccessStoriesApi } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
 import { formatR2PublicUrl, uploadStoryToR2, uploadSuccessStoryToR2, deletePhotoFromR2 } from './utils/r2Upload';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
@@ -731,6 +731,7 @@ export default function App() {
 
   // Synchronize dynamic membership plans & promotional offers from Python Admin Database
   const [membershipPlans, setMembershipPlans] = useState(MEMBERSHIP_PLANS);
+  const [homepageBanners, setHomepageBanners] = useState([]);
   const [activeOffers, setActiveOffers] = useState(() => {
     try {
       const cached = localStorage.getItem('i4u_cached_offers');
@@ -752,10 +753,14 @@ export default function App() {
     }
     lastPlansSyncRef.current = now;
     try {
-      const [livePlans, liveOffers] = await Promise.all([
+      const [livePlans, liveOffers, liveBanners] = await Promise.all([
         fetchLivePlans(),
-        fetchLiveOffers()
+        fetchLiveOffers(),
+        fetchLiveHomepageBanners()
       ]);
+      if (Array.isArray(liveBanners)) {
+        setHomepageBanners(prev => (JSON.stringify(prev) === JSON.stringify(liveBanners) ? prev : liveBanners));
+      }
       if (Array.isArray(livePlans)) {
         const activeOnlyPlans = livePlans.filter(p => p && (p.is_active === undefined || p.is_active === 1 || p.is_active === true || p.is_active === '1'));
         const formatted = activeOnlyPlans.map(formatBackendPlan);
@@ -901,6 +906,13 @@ export default function App() {
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'membership_plans' }, (payload) => {
             console.log('[Supabase Realtime] Plans changed:', payload);
+            syncPlansAndOffers(true);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'homepage_banners' }, (payload) => {
+            console.log('[Supabase Realtime] Homepage banners changed:', payload);
+            syncPlansAndOffers(true);
+          })
+          .on('broadcast', { event: 'banners_updated' }, () => {
             syncPlansAndOffers(true);
           })
           .on('broadcast', { event: 'offers_updated' }, (payload) => {
@@ -5289,6 +5301,7 @@ export default function App() {
               onToggleProductionMode={handleToggleProductionMode}
               membershipPlans={membershipPlans}
               offers={activeOffers}
+              homepageBanners={homepageBanners}
               onOpenAppModal={() => setIsAppModalOpen(true)}
               onOpenEditProfile={() => setIsEditProfileModalOpen(true)}
             />
@@ -5715,6 +5728,7 @@ export default function App() {
               onOpenOffers={handleOpenOffers}
               membershipPlans={membershipPlans}
               offers={activeOffers}
+              homepageBanners={homepageBanners}
               selectedPlanForPayment={selectedPlanForPayment}
               paymentDuration={paymentDuration}
               paymentCoupon={paymentCoupon}

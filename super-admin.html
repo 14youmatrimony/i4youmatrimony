@@ -142,6 +142,18 @@
         </button>
 
         <button 
+          data-tab-target="banners"
+          class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-white/5 border border-transparent group"
+          title="Manage Homepage Top Couple Banners (Cloudflare R2)"
+        >
+          <div class="flex items-center space-x-3">
+            <i data-lucide="image" class="w-4 h-4 text-[#E6B8A2]"></i>
+            <span>Homepage Banners</span>
+          </div>
+          <span id="bannersCountBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">0</span>
+        </button>
+
+        <button 
           data-tab-target="settings"
           class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-white/5 border border-transparent"
         >
@@ -1167,6 +1179,87 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-banners" class="hidden space-y-6">
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2.5">
+              <h2 class="text-2xl font-serif font-bold text-white">Homepage Banners</h2>
+              <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold flex items-center gap-1">
+                <i data-lucide="cloud" class="w-3.5 h-3.5"></i>
+                Cloudflare R2 + Auto &lt;500 KB
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">Upload widescreen couple photos for the main homepage hero carousel. Images are automatically compressed under 500 KB and stored exclusively in Cloudflare R2 (<code class="text-[#E6B8A2]">banners/</code>).</p>
+          </div>
+          <button onclick="loadHomepageBanners()" class="p-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer self-start sm:self-auto" title="Refresh Banners">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        <!-- Drag & Drop Upload + Live Compression Preview Card -->
+        <div class="p-5 sm:p-6 rounded-3xl bg-[#2C1A1D] border border-[#C58B76]/30 shadow-xl space-y-4">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <!-- Drop Zone -->
+            <div class="lg:col-span-7">
+              <label
+                id="bannerDropZone"
+                for="bannerFileInput"
+                class="flex flex-col items-center justify-center w-full h-52 rounded-2xl border-2 border-dashed border-[#C58B76]/40 hover:border-[#E6B8A2] bg-[#1A1012]/80 hover:bg-[#1A1012] transition-all cursor-pointer p-6 text-center group"
+              >
+                <div class="w-12 h-12 rounded-2xl bg-[#C58B76]/15 text-[#E6B8A2] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                  <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+                </div>
+                <p class="text-sm font-bold text-white">Drag &amp; drop widescreen couple photo here</p>
+                <p class="text-xs text-slate-400 mt-1">or <span class="text-[#E6B8A2] underline font-semibold">browse from device</span> (JPG, PNG, WebP &bull; Auto-resized max 1920px &amp; &lt; 500 KB)</p>
+                <input id="bannerFileInput" type="file" accept="image/*" class="hidden" onchange="handleBannerFileSelect(event)" />
+              </label>
+            </div>
+
+            <!-- Live Preview & Compression Stats -->
+            <div class="lg:col-span-5 space-y-3">
+              <div id="bannerPreviewBox" class="rounded-2xl overflow-hidden border border-slate-700/80 bg-[#1A1012] h-36 flex items-center justify-center relative">
+                <span class="text-xs text-slate-500">Live compressed preview will appear here</span>
+              </div>
+              <div id="bannerCompressionInfo" class="hidden p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 flex items-center justify-between font-mono">
+                <span id="bannerSizeOriginal">Original: --</span>
+                <span id="bannerSizeCompressed" class="font-bold">Compressed: --</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <input
+                  type="text"
+                  id="bannerTitleInput"
+                  placeholder="Optional caption / alt text (e.g. Royal Wedding Banner)"
+                  class="flex-1 px-3 py-2 bg-[#1A1012] border border-slate-700 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-none focus:border-[#C58B76]"
+                />
+                <button
+                  type="button"
+                  id="bannerUploadBtn"
+                  onclick="uploadPreparedBanner()"
+                  disabled
+                  class="px-4 py-2 rounded-xl gold-gradient text-white text-xs font-bold shadow-md disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <i data-lucide="upload" class="w-4 h-4"></i>
+                  <span>Upload Banner</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Uploaded Banners Management Grid -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white">Uploaded Homepage Banners</h3>
+            <span class="text-xs text-slate-400">Active banners appear on the main website in ascending Display Order</span>
+          </div>
+          <div id="bannersGridContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-400">Loading homepage banners...</div>
           </div>
         </div>
       </section>

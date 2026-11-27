@@ -41,6 +41,7 @@ export default function WebsiteView({
   onSelectReligion,
   membershipPlans,
   offers = [],
+  homepageBanners = [],
   onLogout,
   onOpenAppModal,
   onOpenVendorPortal,
@@ -102,6 +103,7 @@ export default function WebsiteView({
             onOpenRegister={onOpenRegister}
             onOpenOffers={onOpenOffers}
             offers={offers}
+            banners={homepageBanners}
             onSelectProfile={onSelectProfile}
             featuredProfile={featuredProfile}
             onToggleInterest={onToggleInterest}

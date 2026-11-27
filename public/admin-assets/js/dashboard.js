@@ -228,6 +228,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadPlans();
   loadPayments();
   loadVendorApprovals();
+  loadHomepageBanners();
+  initBannerDropZone();
   startLiveSyncPolling();
   setupRealtimeProfileSync();
 
@@ -275,7 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const hashTab = (window.location.hash || '').replace('#', '').toLowerCase();
     const targetTab = urlParams.get('tab') || hashTab;
-    if (targetTab && ['overview', 'users', 'aadhaar', 'offers', 'plans', 'payments', 'settings'].includes(targetTab)) {
+    if (targetTab && ['overview', 'users', 'aadhaar', 'offers', 'plans', 'payments', 'vendors', 'banners', 'settings'].includes(targetTab)) {
       setTimeout(() => switchTab(targetTab), 50);
     }
   } catch (e) {}
@@ -481,7 +483,7 @@ function canAccessTab(tabId) {
   if (role === 'Super Admin') return true;
   const perms = state.admin.permissions || [];
   if (tabId === 'overview') return true;
-  if (tabId === 'users' || tabId === 'aadhaar' || tabId === 'vendors') return perms.includes('users:view');
+  if (tabId === 'users' || tabId === 'aadhaar' || tabId === 'vendors' || tabId === 'banners') return perms.includes('users:view');
   if (tabId === 'offers') return perms.includes('offers:view');
   if (tabId === 'plans') return perms.includes('plans:view');
   if (tabId === 'payments') return perms.includes('payments:view');
@@ -653,7 +655,7 @@ function switchTab(tabId) {
   });
 
   // Toggle views
-  const viewPanels = ['overview', 'users', 'aadhaar', 'offers', 'plans', 'payments', 'vendors', 'settings'];
+  const viewPanels = ['overview', 'users', 'aadhaar', 'offers', 'plans', 'payments', 'vendors', 'banners', 'settings'];
   viewPanels.forEach(panel => {
     const el = document.getElementById(`view-${panel}`);
     if (el) {
@@ -685,6 +687,8 @@ function switchTab(tabId) {
     loadPayments();
   } else if (tabId === 'vendors') {
     loadVendorApprovals();
+  } else if (tabId === 'banners') {
+    loadHomepageBanners();
   } else if (tabId === 'settings') {
     loadSettings();
   }
@@ -6632,3 +6636,533 @@ window.deleteVendorService = deleteVendorService;
 
 window.loadDailyContactLimit = loadDailyContactLimit;
 window.handleSaveDailyContactLimit = handleSaveDailyContactLimit;
+
+// ========================================================
+// HOMEPAGE BANNERS MANAGEMENT (CLOUDFLARE R2 + <500 KB)
+// ========================================================
+
+const BANNER_R2_CONFIG = {
+  endpoint: 'https://60ba75772b194956aea9a7080138d7e0.r2.cloudflarestorage.com',
+  accessKeyId: '4eb0c79fe5884a7df815017ee19f7171',
+  secretAccessKey: 'f33f804f8d0858ce476bcc6a72ddd54a1a577a7d3072da11672af6b4edb33486',
+  bucketName: 'i4youmatrimony',
+  publicUrl: 'https://pub-aca69ed1690f4d8a898c51f8a3166042.r2.dev',
+  region: 'auto'
+};
+
+state.banners = {
+  list: [],
+  prepared: null
+};
+
+function r2BufferToHex(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
+async function r2Sha256Hex(data) {
+  const enc = new TextEncoder();
+  const buffer = typeof data === 'string' ? enc.encode(data) : data;
+  const hash = await crypto.subtle.digest('SHA-256', buffer);
+  return r2BufferToHex(hash);
+}
+
+async function r2HmacSha256(key, message) {
+  const enc = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    typeof key === 'string' ? enc.encode(key) : key,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  return await crypto.subtle.sign('HMAC', cryptoKey, typeof message === 'string' ? enc.encode(message) : message);
+}
+
+async function compressBannerImage(file) {
+  const MAX_BYTES = 500 * 1024; // Strictly < 500 KB
+  const TARGET_BYTES = 430 * 1024; // Target 350-450 KB
+  const MAX_WIDTH = 1920;
+
+  const originalKB = Math.max(1, Math.round(file.size / 1024));
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const img = await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = dataUrl;
+  });
+
+  let width = img.naturalWidth || img.width || 1920;
+  let height = img.naturalHeight || img.height || 1080;
+  if (width > MAX_WIDTH) {
+    height = Math.round((height * MAX_WIDTH) / width);
+    width = MAX_WIDTH;
+  }
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  const encodeCanvas = (w, h, mime, q) => new Promise((resolve) => {
+    canvas.width = w;
+    canvas.height = h;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    canvas.toBlob((b) => resolve(b), mime, q);
+  });
+
+  // Prefer WebP; fall back to JPEG if browser returns null/non-webp
+  let mime = 'image/webp';
+  let ext = 'webp';
+  let testBlob = await encodeCanvas(width, height, mime, 0.85);
+  if (!testBlob || testBlob.type !== 'image/webp') {
+    mime = 'image/jpeg';
+    ext = 'jpg';
+    testBlob = await encodeCanvas(width, height, mime, 0.85);
+  }
+
+  let bestBlob = testBlob;
+  let quality = 0.85;
+  while (bestBlob && bestBlob.size > TARGET_BYTES && quality > 0.35) {
+    quality -= 0.08;
+    const candidate = await encodeCanvas(width, height, mime, quality);
+    if (candidate) bestBlob = candidate;
+  }
+
+  // If still >= 500 KB, scale down dimensions slightly
+  let scale = 0.9;
+  while (bestBlob && bestBlob.size >= MAX_BYTES && scale >= 0.5) {
+    const sw = Math.round(width * scale);
+    const sh = Math.round(height * scale);
+    const candidate = await encodeCanvas(sw, sh, mime, Math.max(0.45, quality));
+    if (candidate) bestBlob = candidate;
+    scale -= 0.1;
+  }
+
+  if (!bestBlob || bestBlob.size >= MAX_BYTES) {
+    throw new Error('Could not compress image under 500 KB. Please choose a smaller image.');
+  }
+
+  const compressedKB = Math.max(1, Math.round(bestBlob.size / 1024));
+  const previewUrl = URL.createObjectURL(bestBlob);
+  return { blob: bestBlob, ext, contentType: mime, originalKB, compressedKB, previewUrl };
+}
+
+async function uploadBannerToR2(blob, ext, contentType) {
+  const objectKey = `banners/banner_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const arrayBuffer = await blob.arrayBuffer();
+  const payloadHash = await r2Sha256Hex(arrayBuffer);
+
+  const urlObj = new URL(BANNER_R2_CONFIG.endpoint);
+  const host = urlObj.host;
+  const uploadUrl = `${BANNER_R2_CONFIG.endpoint}/${BANNER_R2_CONFIG.bucketName}/${objectKey}`;
+
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const dateStamp = amzDate.substring(0, 8);
+  const canonicalUri = `/${encodeURIComponent(BANNER_R2_CONFIG.bucketName)}/${objectKey.split('/').map(encodeURIComponent).join('/')}`;
+
+  const canonicalHeaders =
+    `content-type:${contentType}\n` +
+    `host:${host}\n` +
+    `x-amz-content-sha256:${payloadHash}\n` +
+    `x-amz-date:${amzDate}\n`;
+  const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+
+  const canonicalRequest =
+    `PUT\n${canonicalUri}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+  const canonicalReqHash = await r2Sha256Hex(canonicalRequest);
+  const credentialScope = `${dateStamp}/${BANNER_R2_CONFIG.region}/s3/aws4_request`;
+  const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${canonicalReqHash}`;
+
+  const kDate = await r2HmacSha256(`AWS4${BANNER_R2_CONFIG.secretAccessKey}`, dateStamp);
+  const kRegion = await r2HmacSha256(kDate, BANNER_R2_CONFIG.region);
+  const kService = await r2HmacSha256(kRegion, 's3');
+  const kSigning = await r2HmacSha256(kService, 'aws4_request');
+  const signature = r2BufferToHex(await r2HmacSha256(kSigning, stringToSign));
+
+  const authHeader = `AWS4-HMAC-SHA256 Credential=${BANNER_R2_CONFIG.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': contentType,
+      'x-amz-date': amzDate,
+      'x-amz-content-sha256': payloadHash,
+      'Authorization': authHeader
+    },
+    body: arrayBuffer
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Cloudflare R2 upload failed (${res.status}): ${errText || res.statusText}`);
+  }
+
+  return {
+    objectKey,
+    publicUrl: `${BANNER_R2_CONFIG.publicUrl}/${objectKey}`
+  };
+}
+
+async function deleteBannerFromR2(imageUrl, r2Key) {
+  let filePath = String(r2Key || imageUrl || '').split('?')[0].trim();
+  if (filePath.includes('r2.dev/')) {
+    filePath = filePath.split('r2.dev/')[1];
+  } else if (filePath.includes('.r2.cloudflarestorage.com/')) {
+    const parts = filePath.split('.r2.cloudflarestorage.com/')[1];
+    const slashIdx = parts.indexOf('/');
+    filePath = slashIdx !== -1 ? parts.substring(slashIdx + 1) : parts;
+  }
+  filePath = filePath.replace(/^\/+/, '');
+  if (filePath.startsWith(`${BANNER_R2_CONFIG.bucketName}/`)) {
+    filePath = filePath.substring(BANNER_R2_CONFIG.bucketName.length + 1);
+  }
+  if (!filePath) return;
+
+  const urlObj = new URL(BANNER_R2_CONFIG.endpoint);
+  const host = urlObj.host;
+  const deleteUrl = `${BANNER_R2_CONFIG.endpoint}/${BANNER_R2_CONFIG.bucketName}/${filePath}`;
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const dateStamp = amzDate.substring(0, 8);
+  const emptyPayloadHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  const canonicalUri = `/${encodeURIComponent(BANNER_R2_CONFIG.bucketName)}/${filePath.split('/').map(encodeURIComponent).join('/')}`;
+
+  const canonicalHeaders =
+    `host:${host}\n` +
+    `x-amz-content-sha256:${emptyPayloadHash}\n` +
+    `x-amz-date:${amzDate}\n`;
+  const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+  const canonicalRequest = `DELETE\n${canonicalUri}\n\n${canonicalHeaders}\n${signedHeaders}\n${emptyPayloadHash}`;
+  const canonicalReqHash = await r2Sha256Hex(canonicalRequest);
+  const credentialScope = `${dateStamp}/${BANNER_R2_CONFIG.region}/s3/aws4_request`;
+  const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${canonicalReqHash}`;
+
+  const kDate = await r2HmacSha256(`AWS4${BANNER_R2_CONFIG.secretAccessKey}`, dateStamp);
+  const kRegion = await r2HmacSha256(kDate, BANNER_R2_CONFIG.region);
+  const kService = await r2HmacSha256(kRegion, 's3');
+  const kSigning = await r2HmacSha256(kService, 'aws4_request');
+  const signature = r2BufferToHex(await r2HmacSha256(kSigning, stringToSign));
+  const authHeader = `AWS4-HMAC-SHA256 Credential=${BANNER_R2_CONFIG.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const res = await fetch(deleteUrl, {
+    method: 'DELETE',
+    headers: {
+      'x-amz-date': amzDate,
+      'x-amz-content-sha256': emptyPayloadHash,
+      'Authorization': authHeader
+    }
+  });
+
+  if (!res.ok && res.status !== 404) {
+    console.warn(`[R2 Delete] Warning (${res.status}) for ${filePath}`);
+  }
+}
+
+function initBannerDropZone() {
+  const dropZone = document.getElementById('bannerDropZone');
+  if (!dropZone || dropZone.dataset.bound === '1') return;
+  dropZone.dataset.bound = '1';
+
+  ['dragenter', 'dragover'].forEach(evt => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add('border-[#E6B8A2]', 'bg-[#C58B76]/10');
+    });
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('border-[#E6B8A2]', 'bg-[#C58B76]/10');
+    });
+  });
+  dropZone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer?.files?.[0];
+    if (file) prepareBannerFile(file);
+  });
+}
+
+async function handleBannerFileSelect(event) {
+  const file = event?.target?.files?.[0];
+  if (file) await prepareBannerFile(file);
+}
+
+async function prepareBannerFile(file) {
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select a valid image file.', 'error');
+    return;
+  }
+
+  const previewBox = document.getElementById('bannerPreviewBox');
+  const infoBar = document.getElementById('bannerCompressionInfo');
+  const origEl = document.getElementById('bannerSizeOriginal');
+  const compEl = document.getElementById('bannerSizeCompressed');
+  const uploadBtn = document.getElementById('bannerUploadBtn');
+
+  if (previewBox) {
+    previewBox.innerHTML = '<div class="text-xs text-[#E6B8A2] animate-pulse">Compressing widescreen image (&lt; 500 KB)...</div>';
+  }
+  if (uploadBtn) uploadBtn.disabled = true;
+
+  try {
+    const compressed = await compressBannerImage(file);
+    state.banners.prepared = compressed;
+
+    if (previewBox) {
+      previewBox.innerHTML = `<img src="${compressed.previewUrl}" alt="Compressed Banner Preview" class="w-full h-full object-cover" />`;
+    }
+    if (infoBar) infoBar.classList.remove('hidden');
+    if (origEl) origEl.textContent = `Original: ${compressed.originalKB} KB`;
+    if (compEl) compEl.textContent = `Compressed: ${compressed.compressedKB} KB (${compressed.ext.toUpperCase()})`;
+    if (uploadBtn) uploadBtn.disabled = false;
+  } catch (err) {
+    state.banners.prepared = null;
+    if (previewBox) previewBox.innerHTML = `<span class="text-xs text-rose-400 px-3 text-center">${err.message}</span>`;
+    if (infoBar) infoBar.classList.add('hidden');
+    showToast(err.message, 'error');
+  }
+}
+
+async function uploadPreparedBanner() {
+  const prepared = state.banners.prepared;
+  if (!prepared) return;
+
+  const uploadBtn = document.getElementById('bannerUploadBtn');
+  const titleInput = document.getElementById('bannerTitleInput');
+  const fileInput = document.getElementById('bannerFileInput');
+  const previewBox = document.getElementById('bannerPreviewBox');
+  const infoBar = document.getElementById('bannerCompressionInfo');
+
+  if (uploadBtn) {
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Uploading R2...</span>';
+    if (window.lucide) lucide.createIcons();
+  }
+
+  try {
+    const { objectKey, publicUrl } = await uploadBannerToR2(prepared.blob, prepared.ext, prepared.contentType);
+    const sb = getSupabaseAdminClient();
+    if (!sb) throw new Error('Supabase client not initialized.');
+
+    const maxOrder = (state.banners.list || []).reduce((max, b) => Math.max(max, Number(b.display_order) || 0), 0);
+    const { error } = await sb.from('homepage_banners').insert({
+      image_url: publicUrl,
+      r2_key: objectKey,
+      title: (titleInput?.value || '').trim() || 'Matrimony Couple Banner',
+      display_order: maxOrder + 1,
+      is_active: true,
+      original_size_kb: prepared.originalKB,
+      compressed_size_kb: prepared.compressedKB
+    });
+
+    if (error) throw new Error(error.message);
+
+    try {
+      sb.channel('public:homepage_banners_sync').send({
+        type: 'broadcast',
+        event: 'banners_updated',
+        payload: { timestamp: Date.now() }
+      });
+    } catch (_) {}
+
+    state.banners.prepared = null;
+    if (titleInput) titleInput.value = '';
+    if (fileInput) fileInput.value = '';
+    if (previewBox) previewBox.innerHTML = '<span class="text-xs text-slate-500">Live compressed preview will appear here</span>';
+    if (infoBar) infoBar.classList.add('hidden');
+
+    showToast(`Banner uploaded to Cloudflare R2 (${prepared.compressedKB} KB) & synced live!`, 'success');
+    await loadHomepageBanners();
+  } catch (err) {
+    showToast(err.message || 'Failed to upload banner', 'error');
+    if (uploadBtn) uploadBtn.disabled = false;
+  } finally {
+    if (uploadBtn) {
+      uploadBtn.innerHTML = '<i data-lucide="upload" class="w-4 h-4"></i><span>Upload Banner</span>';
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+async function loadHomepageBanners() {
+  const container = document.getElementById('bannersGridContainer');
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    const { data, error } = await sb
+      .from('homepage_banners')
+      .select('*')
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      if (container) container.innerHTML = `<div class="col-span-full p-6 rounded-2xl bg-[#2C1A1D] border border-rose-500/30 text-xs text-rose-300">Unable to load banners: ${error.message}</div>`;
+      return;
+    }
+
+    state.banners.list = data || [];
+    const activeCount = state.banners.list.filter(b => b.is_active).length;
+    const badge = document.getElementById('bannersCountBadge');
+    if (badge) {
+      if (activeCount > 0) {
+        badge.textContent = String(activeCount);
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    renderHomepageBanners();
+  } catch (err) {
+    if (container) container.innerHTML = `<div class="col-span-full p-6 rounded-2xl bg-[#2C1A1D] border border-rose-500/30 text-xs text-rose-300">Error: ${err.message}</div>`;
+  }
+}
+
+function renderHomepageBanners() {
+  const container = document.getElementById('bannersGridContainer');
+  if (!container) return;
+
+  const list = state.banners.list || [];
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full p-8 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-center text-xs text-slate-400">
+        No custom homepage banners uploaded yet. Upload a widescreen couple photo above to replace the default hero slides.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = list.map((b, idx) => {
+    const isActive = Boolean(b.is_active);
+    const isR2 = String(b.image_url || '').includes('r2.dev') || String(b.image_url || '').includes('r2.cloudflarestorage.com');
+    const safeUrl = String(b.image_url || '').replace(/'/g, "\\'");
+    const safeKey = String(b.r2_key || '').replace(/'/g, "\\'");
+    return `
+      <div class="rounded-2xl bg-[#2C1A1D] border ${isActive ? 'border-[#C58B76]/40' : 'border-slate-800 opacity-75'} overflow-hidden shadow-lg flex flex-col">
+        <div class="relative h-44 bg-[#1A1012]">
+          <img src="${b.image_url}" alt="${escapePlanHtml(b.title || 'Homepage Banner')}" class="w-full h-full object-cover" />
+          <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/75 text-[#E6B8A2] border border-[#C58B76]/40 font-mono">Order #${b.display_order || (idx + 1)}</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isR2 ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/40' : 'bg-slate-900/90 text-slate-300 border border-slate-700'}">
+              ${isR2 ? 'Cloudflare R2' : 'External URL'}
+            </span>
+          </div>
+          ${b.compressed_size_kb ? `<span class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-mono bg-black/75 text-emerald-300">${b.compressed_size_kb} KB</span>` : ''}
+        </div>
+        <div class="p-3.5 space-y-3 flex-1 flex flex-col justify-between">
+          <div>
+            <p class="text-xs font-bold text-white truncate">${escapePlanHtml(b.title || 'Matrimony Couple Banner')}</p>
+            <p class="text-[11px] text-slate-400 truncate font-mono mt-0.5" title="${escapePlanHtml(b.image_url)}">${escapePlanHtml(b.image_url)}</p>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 gap-2">
+            <!-- Active / Inactive Toggle -->
+            <label class="inline-flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleBannerActive('${b.id}', this.checked)" class="sr-only peer" />
+              <div class="w-9 h-5 bg-slate-700 peer-checked:bg-emerald-500 rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform peer-checked:after:translate-x-4"></div>
+              <span class="text-[11px] font-semibold ${isActive ? 'text-emerald-400' : 'text-slate-400'}">${isActive ? 'Active' : 'Hidden'}</span>
+            </label>
+
+            <!-- Order & Delete Controls -->
+            <div class="flex items-center gap-1">
+              <button type="button" onclick="moveBannerOrder('${b.id}', -1)" ${idx === 0 ? 'disabled' : ''} class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer" title="Move Up">
+                <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+              </button>
+              <button type="button" onclick="moveBannerOrder('${b.id}', 1)" ${idx === list.length - 1 ? 'disabled' : ''} class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer" title="Move Down">
+                <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+              </button>
+              <button type="button" onclick="deleteHomepageBanner('${b.id}', '${safeUrl}', '${safeKey}')" class="p-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 cursor-pointer" title="Delete Banner (R2 + Supabase)">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function toggleBannerActive(id, nextActive) {
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    const { error } = await sb
+      .from('homepage_banners')
+      .update({ is_active: Boolean(nextActive), updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) {
+      showToast(`Failed to update banner status: ${error.message}`, 'error');
+      return;
+    }
+    showToast(nextActive ? 'Banner activated on main homepage.' : 'Banner hidden from main homepage.', 'info');
+    await loadHomepageBanners();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function moveBannerOrder(id, direction) {
+  const list = state.banners.list || [];
+  const idx = list.findIndex(b => String(b.id) === String(id));
+  const swapIdx = idx + direction;
+  if (idx === -1 || swapIdx < 0 || swapIdx >= list.length) return;
+
+  const current = list[idx];
+  const target = list[swapIdx];
+  const orderA = Number(current.display_order) || (idx + 1);
+  const orderB = Number(target.display_order) || (swapIdx + 1);
+
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    await Promise.all([
+      sb.from('homepage_banners').update({ display_order: orderB === orderA ? swapIdx + 1 : orderB, updated_at: new Date().toISOString() }).eq('id', current.id),
+      sb.from('homepage_banners').update({ display_order: orderA === orderB ? idx + 1 : orderA, updated_at: new Date().toISOString() }).eq('id', target.id)
+    ]);
+    await loadHomepageBanners();
+  } catch (err) {
+    showToast(`Failed to reorder banner: ${err.message}`, 'error');
+  }
+}
+
+async function deleteHomepageBanner(id, imageUrl, r2Key) {
+  if (!confirm('Delete this homepage banner? This will remove the file from Cloudflare R2 and delete the database record.')) {
+    return;
+  }
+  try {
+    await deleteBannerFromR2(imageUrl, r2Key);
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    const { error } = await sb.from('homepage_banners').delete().eq('id', id);
+    if (error) {
+      showToast(`Failed to delete banner record: ${error.message}`, 'error');
+      return;
+    }
+    showToast('Banner deleted from Cloudflare R2 and Supabase.', 'success');
+    await loadHomepageBanners();
+  } catch (err) {
+    showToast(`Delete error: ${err.message}`, 'error');
+  }
+}
+
+window.handleBannerFileSelect = handleBannerFileSelect;
+window.uploadPreparedBanner = uploadPreparedBanner;
+window.loadHomepageBanners = loadHomepageBanners;
+window.toggleBannerActive = toggleBannerActive;
+window.moveBannerOrder = moveBannerOrder;
+window.deleteHomepageBanner = deleteHomepageBanner;

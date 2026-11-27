@@ -1590,6 +1590,29 @@ export async function fetchLivePlans() {
 }
 
 /**
+ * Fetch active homepage hero banners directly from Supabase homepage_banners table
+ * ordered by display_order ascending.
+ */
+export async function fetchLiveHomepageBanners() {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    const { data, error } = await supabase
+      .from('homepage_banners')
+      .select('id, image_url, title, display_order, is_active, created_at')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (!error && Array.isArray(data)) {
+      return data.filter(b => b && b.image_url);
+    }
+    return [];
+  } catch (err) {
+    console.warn('[Supabase fetchLiveHomepageBanners error]:', err?.message || err);
+    return [];
+  }
+}
+
+/**
  * Register candidate profile: Directly syncs to Supabase Cloud Database (HTTPS)
  * and simultaneously notifies Admin Verification Queue.
  */

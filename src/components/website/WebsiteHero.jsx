@@ -32,16 +32,31 @@ export default function WebsiteHero({
   onOpenVendorPortal,
   onOpenServices,
   onOpenOffers,
-  offers = []
+  offers = [],
+  banners = []
 }) {
+  const slides = React.useMemo(() => {
+    if (Array.isArray(banners) && banners.length > 0) {
+      return banners
+        .filter(b => b && b.image_url)
+        .map(b => ({ url: b.image_url, alt: b.title || 'Indian wedding couple celebration' }));
+    }
+    return HERO_COUPLE_SLIDES.map(url => ({ url, alt: 'Indian wedding couple celebration' }));
+  }, [banners]);
+
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
 
   useEffect(() => {
+    setActiveSlideIndex(0);
+  }, [slides.length]);
+
+  useEffect(() => {
+    if (slides.length <= 1) return undefined;
     const timer = setInterval(() => {
-      setActiveSlideIndex((prev) => (prev + 1) % HERO_COUPLE_SLIDES.length);
+      setActiveSlideIndex((prev) => (prev + 1) % slides.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
   const activeOffer = Array.isArray(offers)
     ? offers.find(o => o && (o.is_active === 1 || o.is_active === true || o.is_active === '1'))
@@ -54,13 +69,13 @@ export default function WebsiteHero({
     >
       {/* Full-Bleed Rotating Newlywed Indian Couple Slideshow */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#2C1A1D]">
-        {HERO_COUPLE_SLIDES.map((slideUrl, idx) => {
-          const isActive = idx === activeSlideIndex;
+        {slides.map((slide, idx) => {
+          const isActive = idx === activeSlideIndex % slides.length;
           return (
             <img
-              key={slideUrl}
-              src={slideUrl}
-              alt="Indian wedding couple celebration"
+              key={slide.url + '_' + idx}
+              src={slide.url}
+              alt={slide.alt}
               className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-1000 ease-in-out ${
                 isActive ? 'opacity-100 scale-105' : 'opacity-0 scale-100'
               }`}
