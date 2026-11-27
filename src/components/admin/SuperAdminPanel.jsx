@@ -9,6 +9,7 @@ import {
   Check
 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
+import { forceLogout } from '../../services/authService';
 import { dailyContactLimitService } from '../../services/dailyContactLimitService';
 
 /**
@@ -74,31 +75,10 @@ export default function SuperAdminPanel({ onLogout, onBackToSite }) {
 
   const handleAdminLogout = async () => {
     setIsLoggingOut(true);
-    try {
-      // 1. Sign out of Supabase Auth
-      if (supabase?.auth) {
-        await supabase.auth.signOut();
-      }
-    } catch (e) {
-      console.warn('[SuperAdminPanel] Supabase signOut notice:', e);
-    } finally {
-      // 2. Clear all admin tokens and session flags
-      localStorage.removeItem('i4u_admin_token');
-      localStorage.removeItem('i4u_admin_user');
-      localStorage.removeItem('i4u_admin_session');
-      sessionStorage.removeItem('i4u_admin_token');
-      sessionStorage.removeItem('i4u_admin_user');
-      sessionStorage.removeItem('i4u_admin_session');
-      localStorage.setItem('i4u_admin_logged_out', 'true');
-      sessionStorage.setItem('i4u_admin_logged_out', 'true');
-
+    await forceLogout(() => {
+      setAdminEmail('');
       setIsLoggingOut(false);
-      if (typeof onLogout === 'function') {
-        onLogout();
-      } else {
-        window.location.href = '/admin';
-      }
-    }
+    });
   };
 
   return (

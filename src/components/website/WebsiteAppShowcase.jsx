@@ -10,7 +10,7 @@ import AppDownloadCard from '../common/AppDownloadCard';
 
 export default function WebsiteAppShowcase({ onSwitchToAppMode }) {
   return (
-    <section id="download-section" className="py-16 lg:py-24 bg-gradient-to-b from-[#FFF9F6] via-[#FFFBF9] to-[#FDECE4] text-[#5A4649] border-b border-[#E5D0C6] relative overflow-hidden">
+    <section id="download-section" className="py-6 md:py-8 bg-gradient-to-b from-[#FFF9F6] via-[#FFFBF9] to-[#FDECE4] text-[#5A4649] border-b border-[#E5D0C6] relative overflow-hidden">
       
       {/* Background Glows */}
       <div className="absolute top-1/3 right-10 w-96 h-96 bg-[#C58B76]/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -18,10 +18,10 @@ export default function WebsiteAppShowcase({ onSwitchToAppMode }) {
 
       <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 relative z-10">
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           
           {/* Left Column: App Highlights & Download CTAs */}
-          <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+          <div className="lg:col-span-7 space-y-4 text-center lg:text-left">
             
             <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-[#FDECE4] border border-[#E5D0C6] text-[#7A2E43] text-xs font-bold uppercase tracking-wider">
               <Smartphone className="w-3.5 h-3.5 text-[#C58B76]" />

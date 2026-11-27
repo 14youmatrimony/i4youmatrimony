@@ -444,12 +444,26 @@ export default function ProfileModal({
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                   <span className="text-[11px] font-semibold text-slate-400">Body Type</span>
-                  <p className="text-sm font-bold text-slate-800 mt-0.5">{profile.bodyType || 'Average'}</p>
+                  <p className="text-sm font-bold text-slate-800 mt-0.5">{profile.bodyType || profile.body_type || 'Not Specified'}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] font-semibold text-slate-400">Skin Tone</span>
-                  <p className="text-sm font-bold text-slate-800 mt-0.5">{profile.skinColour || 'Fair'}</p>
+                  <span className="text-[11px] font-semibold text-slate-400">Complexion</span>
+                  <p className="text-sm font-bold text-slate-800 mt-0.5">{profile.complexion || profile.skinColour || 'Not Specified'}</p>
                 </div>
+                {profile.weight && (
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[11px] font-semibold text-slate-400">Weight</span>
+                    <p className="text-sm font-bold text-slate-800 mt-0.5">{profile.weight}</p>
+                  </div>
+                )}
+                {(profile.native_place || profile.native_district || profile.native_state) && (
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 col-span-2 sm:col-span-3">
+                    <span className="text-[11px] font-semibold text-slate-400">Native Place</span>
+                    <p className="text-sm font-bold text-slate-800 mt-0.5">
+                      {[profile.native_place, profile.native_district, profile.native_state].filter(Boolean).join(', ')}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Hobbies & Interests Section */}
@@ -483,18 +497,36 @@ export default function ProfileModal({
                     <h5 className="font-bold text-slate-900 text-sm">{profile.education}</h5>
                     <p className="text-xs text-slate-500">{profile.educationCategory}{profile.institute ? ` • ${profile.institute}` : ''}</p>
                     
-                    {/* 12th & 10th Badges */}
-                    {(profile.twelfthSchool || profile.tenthSchool) && (
+                    {/* Detailed Optional Education History */}
+                    {(profile.edu_doctorate || profile.edu_pg || profile.edu_degree || profile.edu_12th || profile.edu_10th || profile.twelfthSchool || profile.tenthSchool) && (
                       <div className="pt-1.5 space-y-1">
-                        {profile.twelfthSchool && (
+                        {profile.edu_doctorate && (
+                          <div className="text-[11px] bg-white p-1.5 rounded-lg border border-slate-200/70">
+                            <span className="font-semibold text-slate-700">Doctorate / PhD: </span>
+                            <span className="text-slate-900">{profile.edu_doctorate}</span>
+                          </div>
+                        )}
+                        {profile.edu_pg && (
+                          <div className="text-[11px] bg-white p-1.5 rounded-lg border border-slate-200/70">
+                            <span className="font-semibold text-slate-700">Post Graduation: </span>
+                            <span className="text-slate-900">{profile.edu_pg}</span>
+                          </div>
+                        )}
+                        {profile.edu_degree && (
+                          <div className="text-[11px] bg-white p-1.5 rounded-lg border border-slate-200/70">
+                            <span className="font-semibold text-slate-700">Degree / Graduation: </span>
+                            <span className="text-slate-900">{profile.edu_degree}</span>
+                          </div>
+                        )}
+                        {(profile.edu_12th || profile.twelfthSchool) && (
                           <div className="flex items-center justify-between text-[11px] bg-white p-1.5 rounded-lg border border-slate-200/70">
-                            <span className="font-semibold text-slate-700">12th / HSC: {profile.twelfthSchool}</span>
+                            <span className="font-semibold text-slate-700">12th / Higher Secondary: {profile.edu_12th || profile.twelfthSchool}</span>
                             <span className="font-bold text-blue-700">{profile.twelfthBoard || (profile.twelfthYear ? `Year ${profile.twelfthYear}` : '')}</span>
                           </div>
                         )}
-                        {profile.tenthSchool && (
+                        {(profile.edu_10th || profile.tenthSchool) && (
                           <div className="flex items-center justify-between text-[11px] bg-white p-1.5 rounded-lg border border-slate-200/70">
-                            <span className="font-semibold text-slate-700">10th / SSC: {profile.tenthSchool}</span>
+                            <span className="font-semibold text-slate-700">10th / SSLC: {profile.edu_10th || profile.tenthSchool}</span>
                             <span className="font-bold text-indigo-700">{profile.tenthBoard || (profile.tenthYear ? `Year ${profile.tenthYear}` : '')}</span>
                           </div>
                         )}
@@ -787,36 +819,92 @@ export default function ProfileModal({
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2 text-xs">
+              <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2.5 text-xs">
                 <h5 className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
                   Partner Preference Criteria
                 </h5>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-slate-600">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-slate-600">
                   <div className="flex justify-between py-1 border-b border-slate-100">
                     <span className="text-slate-400">Preferred Age:</span>
-                    <span className="font-bold text-slate-800">{profile.gender === 'Female' ? `${profile.age} - ${profile.age + 5} yrs` : `${Math.max(21, profile.age - 5)} - ${profile.age} yrs`}</span>
+                    <span className="font-bold text-slate-800">
+                      {profile.pref_min_age && profile.pref_max_age
+                        ? `${profile.pref_min_age} - ${profile.pref_max_age} yrs`
+                        : (profile.gender === 'Female' ? `${profile.age} - ${profile.age + 5} yrs` : `${Math.max(21, profile.age - 5)} - ${profile.age} yrs`)}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-100">
                     <span className="text-slate-400">Preferred Height:</span>
-                    <span className="font-bold text-slate-800">{profile.gender === 'Female' ? "5'7\" to 6'2\"" : "5'2\" to 5'8\""}</span>
+                    <span className="font-bold text-slate-800">
+                      {profile.pref_min_height && profile.pref_max_height
+                        ? `${profile.pref_min_height} - ${profile.pref_max_height} cm`
+                        : (profile.gender === 'Female' ? '165 - 188 cm' : '155 - 175 cm')}
+                    </span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-400">Body Type:</span>
-                    <span className="font-bold text-slate-800">{profile.prefBodyType || "Doesn't Matter / Any"}</span>
+                    <span className="text-slate-400">Complexion:</span>
+                    <span className="font-bold text-slate-800">{profile.pref_complexion || profile.prefSkinTone || 'Any'}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-400">Skin Tone:</span>
-                    <span className="font-bold text-slate-800">{profile.prefSkinTone || profile.prefSkinColour || "Fair / Wheatish"}</span>
+                    <span className="text-slate-400">Marital Status:</span>
+                    <span className="font-bold text-slate-800">{profile.pref_marital_status || 'Any'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Religion:</span>
+                    <span className="font-bold text-slate-800">{profile.pref_religion || 'Any'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Community / Caste:</span>
+                    <span className="font-bold text-slate-800">{profile.pref_caste || 'Any'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Mother Tongue:</span>
+                    <span className="font-bold text-slate-800">{profile.pref_mother_tongue || 'Any'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Education:</span>
+                    <span className="font-bold text-slate-800">{profile.pref_education || 'Any'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Occupation:</span>
+                    <span className="font-bold text-slate-800">{profile.pref_occupation || 'Any'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Annual Income:</span>
+                    <span className="font-bold text-slate-800">{profile.pref_income || 'Any'}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-100">
                     <span className="text-slate-400">Dietary Habit:</span>
-                    <span className="font-bold text-slate-800">{profile.diet?.includes('Vegetarian') ? 'Vegetarian Preferred' : 'Flexible'}</span>
+                    <span className="font-bold text-slate-800">{profile.pref_diet || (profile.diet?.includes('Vegetarian') ? 'Vegetarian' : 'Any')}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-400">Preferred Country:</span>
+                    <span className="text-slate-400">State &amp; District:</span>
                     <span className="font-bold text-slate-800">
-                      {profile.preferred_countries || profile.preferredCountries || (isNri ? 'Open to NRI & India' : 'India / Open')}
+                      {[profile.pref_state, profile.pref_district].filter(v => v && v !== 'Any').join(', ') || 'Any'}
                     </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Physical Status:</span>
+                    <span className="font-bold text-slate-800">{profile.pref_physical_status || 'Any'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Lifestyle (Smoke/Drink):</span>
+                    <span className="font-bold text-slate-800">
+                      {`${profile.pref_smoking || 'Any'} / ${profile.pref_drinking || 'Any'}`}
+                    </span>
+                  </div>
+                  <div className="sm:col-span-2 py-1.5 space-y-1">
+                    <span className="text-slate-400 block">Preferred Countries:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {String(profile.preferred_countries || profile.preferredCountries || 'Any')
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(Boolean)
+                        .map(c => (
+                          <span key={c} className="px-2.5 py-0.5 rounded-full bg-[#FDECE4] border border-[#E6B8A2] text-[#7A2E43] text-[11px] font-semibold">
+                            {c}
+                          </span>
+                        ))}
+                    </div>
                   </div>
                 </div>
               </div>

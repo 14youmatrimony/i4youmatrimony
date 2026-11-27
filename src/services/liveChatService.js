@@ -1029,6 +1029,75 @@ class LiveChatService {
         } catch (intErr) {
           console.warn('[LiveChat] Notice: Error querying interests table:', intErr?.message || intErr);
         }
+        // 5. Fetch two-way wedding vendor inquiry threads for this customer
+        try {
+          const uuidIds = cleanIds.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+          if (uuidIds.length > 0) {
+            const { data: vRows } = await supabase
+              .from('vendor_inquiries')
+              .select('id, vendor_id, customer_id, customer_name, customer_phone, sender_role, sender_name, message, is_read, created_at, wedding_vendors(id, business_name, owner_name, category, district, owner_user_id)')
+              .in('customer_id', uuidIds)
+              .order('created_at', { ascending: true })
+              .limit(200);
+
+            if (Array.isArray(vRows)) {
+              vRows.forEach((vr) => {
+                if (!vr || !vr.vendor_id) return;
+                const vInfo = vr.wedding_vendors || {};
+                const syntheticPartnerId = `vendor:${vr.vendor_id}`;
+                const businessName = vInfo.business_name || vr.sender_name || 'Wedding Service';
+                const isCustomerMsg = (vr.sender_role || 'customer') === 'customer';
+
+                if (!convMap.has(syntheticPartnerId)) {
+                  convMap.set(syntheticPartnerId, {
+                    profileId: syntheticPartnerId,
+                    conversation_id: `vendor_thread_${vr.vendor_id}_${vr.customer_id}`,
+                    conversationId: `vendor_thread_${vr.vendor_id}_${vr.customer_id}`,
+                    isVendorThread: true,
+                    vendorId: vr.vendor_id,
+                    unreadCount: 0,
+                    messages: [],
+                    partnerUser: {
+                      id: syntheticPartnerId,
+                      name: businessName,
+                      isVendor: true,
+                      vendorId: vr.vendor_id,
+                      vendorCategory: vInfo.category || '',
+                      district: vInfo.district || 'Kerala',
+                      ownerUserId: vInfo.owner_user_id || null,
+                      verified: true
+                    },
+                    isAccepted: true,
+                    status: 'accepted',
+                    updated_at: vr.created_at
+                  });
+                }
+
+                const vConv = convMap.get(syntheticPartnerId);
+                if (!isCustomerMsg && !vr.is_read) {
+                  vConv.unreadCount = (vConv.unreadCount || 0) + 1;
+                }
+                vConv.messages.push({
+                  id: `vinq_${vr.id}`,
+                  tempId: `vinq_${vr.id}`,
+                  conversation_id: vConv.conversation_id,
+                  sender_id: isCustomerMsg ? String(vr.customer_id) : syntheticPartnerId,
+                  receiver_id: isCustomerMsg ? syntheticPartnerId : String(vr.customer_id),
+                  sender: isCustomerMsg ? 'me' : 'them',
+                  text: vr.message,
+                  content: vr.message,
+                  time: formatChatTime12Hour(vr.created_at),
+                  timestamp: vr.created_at,
+                  status: vr.is_read ? 'read' : 'delivered',
+                  created_at: vr.created_at
+                });
+                vConv.updated_at = vr.created_at;
+              });
+            }
+          }
+        } catch (vendorChatErr) {
+          console.warn('[LiveChat] Notice: Error fetching vendor_inquiries threads:', vendorChatErr?.message || vendorChatErr);
+        }
       }
     }
 
@@ -1174,6 +1243,9 @@ class LiveChatService {
 
     allPartnerIds.forEach((pid) => {
       const conv = convMap.get(pid);
+      if (conv.isVendorThread || String(pid).startsWith('vendor:')) {
+        return;
+      }
       let p = conv.partnerUser;
       if (!p || isGenericName(p.name || p.full_name || p.fullName)) {
         if (Array.isArray(allProfiles)) {

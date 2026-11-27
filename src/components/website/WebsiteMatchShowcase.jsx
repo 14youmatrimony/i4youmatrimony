@@ -247,16 +247,11 @@ export default function WebsiteMatchShowcase({
   ]);
 
   return (
-    <section id="matches-section" className="py-12 lg:py-20 bg-[#FFF9F6] text-[#5A4649] border-b border-[#E5D0C6]">
-      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-8">
+    <section id="matches-section" className="pt-1 pb-3 md:pt-2 md:pb-4 bg-[#FFF9F6] text-[#5A4649]">
+      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-3">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#FDECE4] border border-[#E5D0C6] text-[#7A2E43] text-xs font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-[#C58B76]" />
-            <span>Curated Matrimonial Feed</span>
-          </div>
-
+        <div className="text-center max-w-3xl mx-auto mt-0 mb-1">
           <h2 className="text-2xl sm:text-4xl font-serif font-extrabold text-[#2C1A1D] tracking-tight">
             Handpicked Matches for You
           </h2>

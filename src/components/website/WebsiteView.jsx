@@ -3,8 +3,6 @@ import WebsiteNavbar from './WebsiteNavbar';
 import WebsiteHero from './WebsiteHero';
 import WebsiteStoriesReel from './WebsiteStoriesReel';
 import WebsiteMatchShowcase from './WebsiteMatchShowcase';
-import WebsitePillarsOfTrust from './WebsitePillarsOfTrust';
-import WebsiteAppShowcase from './WebsiteAppShowcase';
 import WebsitePricingSection from './WebsitePricingSection';
 import WebsiteSuccessStories from './WebsiteSuccessStories';
 import WebsiteFooter from './WebsiteFooter';
@@ -44,7 +42,9 @@ export default function WebsiteView({
   membershipPlans,
   offers = [],
   onLogout,
-  onOpenAppModal
+  onOpenAppModal,
+  onOpenVendorPortal,
+  onOpenServices
 }) {
   const [activeCity, setActiveCity] = useState('');
 
@@ -87,28 +87,33 @@ export default function WebsiteView({
         onToggleProductionMode={onToggleProductionMode}
         onLogout={onLogout}
         onOpenAppModal={onOpenAppModal}
+        onOpenServices={onOpenServices}
       />
 
       <main className="flex-1 flex flex-col">
-        {/* 2. Hero Section with Quick Match Finder & Featured Profile */}
-        <WebsiteHero 
-          onQuickSearch={(filters) => {
-            onQuickSearch?.(filters);
-            handleScrollToSection('matches-section');
-          }}
-          onOpenLogin={onOpenLogin}
-          onOpenRegister={onOpenRegister}
-          onOpenOffers={onOpenOffers}
-          offers={offers}
-          onSelectProfile={onSelectProfile}
-          featuredProfile={featuredProfile}
-          onToggleInterest={onToggleInterest}
-          onRequestSendInterest={onRequestSendInterest}
-          isInterested={interestsSent.includes(featuredProfile?.id)}
-          onScrollToSection={handleScrollToSection}
-          currentUser={currentUser}
-          setViewMode={setViewMode}
-        />
+        {/* 2. Hero Section (Guest View Only - hidden when a Matrimony user is logged in) */}
+        {(!currentUser || currentUser.isGuest) && (
+          <WebsiteHero 
+            onQuickSearch={(filters) => {
+              onQuickSearch?.(filters);
+              handleScrollToSection('matches-section');
+            }}
+            onOpenLogin={onOpenLogin}
+            onOpenRegister={onOpenRegister}
+            onOpenOffers={onOpenOffers}
+            offers={offers}
+            onSelectProfile={onSelectProfile}
+            featuredProfile={featuredProfile}
+            onToggleInterest={onToggleInterest}
+            onRequestSendInterest={onRequestSendInterest}
+            isInterested={interestsSent.includes(featuredProfile?.id)}
+            onScrollToSection={handleScrollToSection}
+            currentUser={currentUser}
+            setViewMode={setViewMode}
+            onOpenVendorPortal={onOpenVendorPortal}
+            onOpenServices={onOpenServices}
+          />
+        )}
 
         {/* 3. Candidate 60-Second Video & Photo Stories Reel (Only visible after login) */}
         {currentUser && (
@@ -140,20 +145,6 @@ export default function WebsiteView({
           externalCity={activeCity}
           onClearExternalCity={() => setActiveCity('')}
           currentUser={currentUser}
-        />
-
-        {/* 5. The 4 Pillars of Matrimonial Trust */}
-        <WebsitePillarsOfTrust />
-
-        {/* 7. Mobile App Interactive Showcase & APK Download */}
-        <WebsiteAppShowcase 
-          onSwitchToAppMode={() => {
-            if (onOpenAppModal) {
-              onOpenAppModal();
-            } else {
-              setViewMode('app');
-            }
-          }}
         />
 
         {/* 8. Festive Vivah Mahotsav 50% Off Membership Plans */}

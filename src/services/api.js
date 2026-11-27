@@ -43,12 +43,39 @@ export const PROFILE_FEED_COLUMNS = [
   'is_nri',
   'residency_status',
   'preferred_countries',
+  'pref_min_age',
+  'pref_max_age',
+  'pref_min_height',
+  'pref_max_height',
+  'pref_complexion',
+  'pref_education',
+  'pref_occupation',
+  'pref_income',
+  'pref_diet',
+  'pref_marital_status',
+  'pref_religion',
+  'pref_caste',
+  'pref_mother_tongue',
+  'pref_state',
+  'pref_district',
+  'pref_physical_status',
+  'pref_smoking',
+  'pref_drinking',
   'state',
   'city',
   'district',
+  'nri_city',
+  'native_state',
+  'native_district',
+  'native_place',
   'native_address',
   'education',
   'education_category',
+  'edu_10th',
+  'edu_12th',
+  'edu_degree',
+  'edu_pg',
+  'edu_doctorate',
   'profession',
   'company',
   'annual_income',
@@ -57,6 +84,8 @@ export const PROFILE_FEED_COLUMNS = [
   'marital_status',
   'partner_expectations',
   'family_details',
+  'weight',
+  'complexion',
   'body_type',
   'smoking',
   'drinking',
@@ -932,19 +961,50 @@ export function mapSupabaseRowToProfile(r) {
     about: r.about || '',
     maritalStatus: r.marital_status || 'Never Married',
     marital_status: r.marital_status || 'Never Married',
-    bodyType: r.body_type || 'Slim',
+    weight: r.weight || '',
+    bodyType: r.body_type || '',
+    body_type: r.body_type || '',
+    complexion: r.complexion || r.skin_colour || '',
+    skinColour: r.complexion || r.skin_colour || r.skinColour || '',
+    nri_city: r.nri_city || r.work_city || '',
+    native_state: r.native_state || '',
+    native_district: r.native_district || '',
+    native_place: r.native_place || '',
+    edu_10th: r.edu_10th || '',
+    edu_12th: r.edu_12th || '',
+    edu_degree: r.edu_degree || '',
+    edu_pg: r.edu_pg || '',
+    edu_doctorate: r.edu_doctorate || '',
     partnerExpectations: r.partner_expectations || '',
     country: r.country || (r.is_nri ? (r.work_country || 'Abroad') : 'India'),
     workCountry: r.work_country || r.country || 'India',
     work_country: r.work_country || r.country || 'India',
-    workCity: r.work_city || '',
-    work_city: r.work_city || '',
+    workCity: r.work_city || r.nri_city || '',
+    work_city: r.work_city || r.nri_city || '',
     isNri: Boolean(r.is_nri || (r.country && r.country !== 'India') || (r.work_country && r.work_country !== 'India')),
     is_nri: Boolean(r.is_nri || (r.country && r.country !== 'India') || (r.work_country && r.work_country !== 'India')),
     residencyStatus: r.residency_status || '',
     residency_status: r.residency_status || '',
     preferredCountries: r.preferred_countries || 'Any',
-    preferred_countries: r.preferred_countries || 'Any'
+    preferred_countries: r.preferred_countries || 'Any',
+    pref_min_age: r.pref_min_age || null,
+    pref_max_age: r.pref_max_age || null,
+    pref_min_height: r.pref_min_height || null,
+    pref_max_height: r.pref_max_height || null,
+    pref_complexion: r.pref_complexion || 'Any',
+    pref_education: r.pref_education || 'Any',
+    pref_occupation: r.pref_occupation || 'Any',
+    pref_income: r.pref_income || 'Any',
+    pref_diet: r.pref_diet || 'Any',
+    pref_marital_status: r.pref_marital_status || 'Any',
+    pref_religion: r.pref_religion || 'Any',
+    pref_caste: r.pref_caste || 'Any',
+    pref_mother_tongue: r.pref_mother_tongue || 'Any',
+    pref_state: r.pref_state || 'Any',
+    pref_district: r.pref_district || 'Any',
+    pref_physical_status: r.pref_physical_status || 'Any',
+    pref_smoking: r.pref_smoking || 'Any',
+    pref_drinking: r.pref_drinking || 'Any'
   };
 }
 
@@ -1087,14 +1147,25 @@ export const CANDIDATE_FEED_COLUMNS = [
   'state',
   'city',
   'district',
+  'nri_city',
+  'native_state',
+  'native_district',
+  'native_place',
   'native_address',
   'education',
   'education_category',
+  'edu_10th',
+  'edu_12th',
+  'edu_degree',
+  'edu_pg',
+  'edu_doctorate',
   'profession',
   'company',
   'annual_income',
   'diet',
   'marital_status',
+  'weight',
+  'complexion',
   'body_type',
   'partner_expectations',
   'about',
@@ -1109,9 +1180,9 @@ export const CANDIDATE_FEED_COLUMNS = [
 ].join(',');
 
 export const PROFILE_DETAIL_COLUMNS = [
-  'id', 'register_id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'skin_colour',
+  'id', 'register_id', 'name', 'email', 'phone', 'age', 'gender', 'height', 'weight', 'complexion', 'skin_colour',
   'photo', 'photo_url', 'profile_photo_url', 'single_photos', 'family_photo_url', 'family_photos', 'religion', 'caste', 'mother_tongue',
-  'state', 'city', 'district', 'native_address', 'education', 'education_category', 'profession',
+  'state', 'city', 'district', 'nri_city', 'native_state', 'native_district', 'native_place', 'native_address', 'education', 'education_category', 'edu_10th', 'edu_12th', 'edu_degree', 'edu_pg', 'edu_doctorate', 'profession',
   'company', 'annual_income', 'diet', 'marital_status', 'body_type', 'smoking', 'drinking',
   'hobbies', 'about', 'partner_expectations', 'family_details', 'verified', 'govt_id_verified',
   'aadhaar_verified', 'aadhaar_status', 'aadhaar_rejection_reason', 'selfie_verified', 'selfie_photo',
@@ -1166,8 +1237,9 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
     }
   }
 
-  // Fallback to localStorage if gender is not yet determined
-  if (!rawUserGender && typeof localStorage !== 'undefined') {
+  // Fallback to localStorage ONLY when not explicitly logged out and an active user context is expected
+  const isLoggedOutFlag = typeof localStorage !== 'undefined' && localStorage.getItem('i4u_logged_out') === 'true';
+  if (!rawUserGender && currentUserOrId !== null && !isLoggedOutFlag && typeof localStorage !== 'undefined') {
     try {
       const saved = localStorage.getItem('i4u_auth_user');
       if (saved) {
@@ -1222,16 +1294,70 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
                      .not('gender', 'ilike', 'female%');
       }
 
-      const fetchPromise = query
-        .order('created_at', { ascending: false })
-        .range(from, to);
+      let data = null;
+      let error = null;
 
-      // 8-second timeout guard to prevent UI stalling on slow connections
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
-      );
+      // In Guest mode (no targetOppositeGender), fetch both Male and Female profiles and interleave them
+      if (!targetOppositeGender) {
+        const halfLimit = Math.max(Math.ceil(safeLimit / 2), 15);
+        const buildGuestQuery = (gType) => {
+          let gq = supabase
+            .from('profiles')
+            .select(PROFILE_FEED_COLUMNS)
+            .not('name', 'is', null)
+            .neq('name', '')
+            .neq('name', 'Google User')
+            .not('gender', 'is', null)
+            .neq('gender', '')
+            .neq('status', 'deleted')
+            .neq('status', 'inactive')
+            .is('deleted_at', null);
+          if (gType === 'male') {
+            gq = gq.in('gender', ['Male', 'male', 'M', 'm', 'Groom', 'groom', 'Male / Groom', 'man', 'men', 'boy'])
+                   .not('gender', 'ilike', 'female%');
+          } else {
+            gq = gq.in('gender', ['Female', 'female', 'F', 'f', 'Bride', 'bride', 'Female / Bride', 'woman', 'women', 'girl'])
+                   .not('gender', 'ilike', 'male%');
+          }
+          return gq.order('created_at', { ascending: false }).range(0, halfLimit - 1);
+        };
 
-      let { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
+        );
+
+        const [maleRes, femaleRes] = await Promise.race([
+          Promise.all([buildGuestQuery('male'), buildGuestQuery('female')]),
+          timeoutPromise
+        ]);
+
+        const males = Array.isArray(maleRes?.data) ? maleRes.data : [];
+        const females = Array.isArray(femaleRes?.data) ? femaleRes.data : [];
+        error = maleRes?.error || femaleRes?.error || null;
+
+        if (!error) {
+          const interleaved = [];
+          const maxLen = Math.max(males.length, females.length);
+          for (let i = 0; i < maxLen; i += 1) {
+            if (males[i]) interleaved.push(males[i]);
+            if (females[i]) interleaved.push(females[i]);
+          }
+          data = interleaved;
+        }
+      } else {
+        const fetchPromise = query
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        // 8-second timeout guard to prevent UI stalling on slow connections
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
+        );
+
+        const res = await Promise.race([fetchPromise, timeoutPromise]);
+        data = res.data;
+        error = res.error;
+      }
 
       // Resilient fallback: if column error or code 42703, immediately retry with select('*')
       if (error && (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist'))) {
@@ -2142,6 +2268,20 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
   if (updateData.marital_status !== undefined) payload.marital_status = updateData.marital_status;
   if (updateData.bodyType !== undefined) payload.body_type = updateData.bodyType;
   if (updateData.body_type !== undefined) payload.body_type = updateData.body_type;
+  if (updateData.weight !== undefined) payload.weight = updateData.weight;
+  if (updateData.complexion !== undefined) {
+    payload.complexion = updateData.complexion;
+    payload.skin_colour = updateData.complexion;
+  }
+  if (updateData.nri_city !== undefined) payload.nri_city = updateData.nri_city;
+  if (updateData.native_state !== undefined) payload.native_state = updateData.native_state;
+  if (updateData.native_district !== undefined) payload.native_district = updateData.native_district;
+  if (updateData.native_place !== undefined) payload.native_place = updateData.native_place;
+  if (updateData.edu_10th !== undefined) payload.edu_10th = updateData.edu_10th;
+  if (updateData.edu_12th !== undefined) payload.edu_12th = updateData.edu_12th;
+  if (updateData.edu_degree !== undefined) payload.edu_degree = updateData.edu_degree;
+  if (updateData.edu_pg !== undefined) payload.edu_pg = updateData.edu_pg;
+  if (updateData.edu_doctorate !== undefined) payload.edu_doctorate = updateData.edu_doctorate;
   if (updateData.partnerExpectations !== undefined) payload.partner_expectations = updateData.partnerExpectations;
   if (updateData.partner_expectations !== undefined) payload.partner_expectations = updateData.partner_expectations;
   if (updateData.country !== undefined) payload.country = updateData.country;
@@ -2155,6 +2295,24 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
   if (updateData.residency_status !== undefined) payload.residency_status = updateData.residency_status;
   if (updateData.preferredCountries !== undefined) payload.preferred_countries = updateData.preferredCountries;
   if (updateData.preferred_countries !== undefined) payload.preferred_countries = updateData.preferred_countries;
+  if (updateData.pref_min_age !== undefined) payload.pref_min_age = updateData.pref_min_age ? parseInt(updateData.pref_min_age, 10) : null;
+  if (updateData.pref_max_age !== undefined) payload.pref_max_age = updateData.pref_max_age ? parseInt(updateData.pref_max_age, 10) : null;
+  if (updateData.pref_min_height !== undefined) payload.pref_min_height = updateData.pref_min_height ? parseInt(updateData.pref_min_height, 10) : null;
+  if (updateData.pref_max_height !== undefined) payload.pref_max_height = updateData.pref_max_height ? parseInt(updateData.pref_max_height, 10) : null;
+  if (updateData.pref_complexion !== undefined) payload.pref_complexion = updateData.pref_complexion;
+  if (updateData.pref_education !== undefined) payload.pref_education = updateData.pref_education;
+  if (updateData.pref_occupation !== undefined) payload.pref_occupation = updateData.pref_occupation;
+  if (updateData.pref_income !== undefined) payload.pref_income = updateData.pref_income;
+  if (updateData.pref_diet !== undefined) payload.pref_diet = updateData.pref_diet;
+  if (updateData.pref_marital_status !== undefined) payload.pref_marital_status = updateData.pref_marital_status;
+  if (updateData.pref_religion !== undefined) payload.pref_religion = updateData.pref_religion;
+  if (updateData.pref_caste !== undefined) payload.pref_caste = updateData.pref_caste;
+  if (updateData.pref_mother_tongue !== undefined) payload.pref_mother_tongue = updateData.pref_mother_tongue;
+  if (updateData.pref_state !== undefined) payload.pref_state = updateData.pref_state;
+  if (updateData.pref_district !== undefined) payload.pref_district = updateData.pref_district;
+  if (updateData.pref_physical_status !== undefined) payload.pref_physical_status = updateData.pref_physical_status;
+  if (updateData.pref_smoking !== undefined) payload.pref_smoking = updateData.pref_smoking;
+  if (updateData.pref_drinking !== undefined) payload.pref_drinking = updateData.pref_drinking;
 
   if (photoUrl) {
     payload.photo = photoUrl;
@@ -2323,9 +2481,38 @@ export async function updateLiveUserProfile(profileIdentifier, updateData) {
         delete fallbackPayload.country;
         delete fallbackPayload.work_country;
         delete fallbackPayload.work_city;
+        delete fallbackPayload.nri_city;
+        delete fallbackPayload.native_state;
+        delete fallbackPayload.native_district;
+        delete fallbackPayload.native_place;
+        delete fallbackPayload.edu_10th;
+        delete fallbackPayload.edu_12th;
+        delete fallbackPayload.edu_degree;
+        delete fallbackPayload.edu_pg;
+        delete fallbackPayload.edu_doctorate;
+        delete fallbackPayload.weight;
+        delete fallbackPayload.complexion;
         delete fallbackPayload.is_nri;
         delete fallbackPayload.residency_status;
         delete fallbackPayload.preferred_countries;
+        delete fallbackPayload.pref_min_age;
+        delete fallbackPayload.pref_max_age;
+        delete fallbackPayload.pref_min_height;
+        delete fallbackPayload.pref_max_height;
+        delete fallbackPayload.pref_complexion;
+        delete fallbackPayload.pref_education;
+        delete fallbackPayload.pref_occupation;
+        delete fallbackPayload.pref_income;
+        delete fallbackPayload.pref_diet;
+        delete fallbackPayload.pref_marital_status;
+        delete fallbackPayload.pref_religion;
+        delete fallbackPayload.pref_caste;
+        delete fallbackPayload.pref_mother_tongue;
+        delete fallbackPayload.pref_state;
+        delete fallbackPayload.pref_district;
+        delete fallbackPayload.pref_physical_status;
+        delete fallbackPayload.pref_smoking;
+        delete fallbackPayload.pref_drinking;
         delete fallbackPayload.profile_photo_url;
         delete fallbackPayload.family_photo_url;
 

@@ -699,3 +699,102 @@ export async function uploadPhotosBatchToR2(filesArray, userId = 'user', folder 
 
 // Re-export compression helper for unified import
 export { compressImageToWebP };
+
+/**
+ * Uploads a vendor photo (WebP compressed) or promotional video (max 20 MB) to Cloudflare R2.
+ *
+ * @param {File|Blob} file - Image or video file
+ * @param {string} vendorId - Vendor UUID or owner ID
+ * @param {'image'|'video'} mediaType - Media type
+ * @returns {Promise<{ success: boolean, publicUrl: string, rawPublicUrl: string, filePath: string }>}
+ */
+export async function uploadVendorMediaToR2(file, vendorId = 'vendor', mediaType = 'image') {
+  if (!file) throw new Error('No file provided for vendor media upload.');
+
+  if (mediaType === 'video') {
+    const maxBytes = 20 * 1024 * 1024; // 20 MB
+    if (file.size > maxBytes) {
+      throw new Error('Video file exceeds the 20 MB maximum size limit.');
+    }
+
+    const { endpoint, accessKeyId, secretAccessKey, bucketName, region } = getR2Config();
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucketName) {
+      throw new Error('Cloudflare R2 credentials are not configured.');
+    }
+
+    const timestamp = Date.now();
+    const rand = Math.random().toString(36).slice(2, 8);
+    const safeVendor = String(vendorId).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const rawExt = (file.name || '').split('.').pop()?.toLowerCase();
+    const ext = ['mp4', 'webm', 'mov', 'm4v'].includes(rawExt) ? rawExt : 'mp4';
+    const contentType = file.type || (ext === 'webm' ? 'video/webm' : 'video/mp4');
+    const filePath = `vendors/${safeVendor}/videos/${timestamp}_${rand}.${ext}`;
+
+    const bodyBuffer = await file.arrayBuffer();
+    const payloadHash = await sha256Hex(bodyBuffer);
+
+    const urlObj = new URL(endpoint);
+    const host = urlObj.host;
+    const uploadUrl = `${endpoint}/${bucketName}/${filePath}`;
+
+    const now = new Date();
+    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+    const dateStamp = amzDate.substring(0, 8);
+
+    const canonicalUri = `/${encodeURIComponent(bucketName)}/${filePath.split('/').map(encodeURIComponent).join('/')}`;
+    const canonicalHeaders =
+      `content-type:${contentType}\n` +
+      `host:${host}\n` +
+      `x-amz-content-sha256:${payloadHash}\n` +
+      `x-amz-date:${amzDate}\n`;
+    const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+
+    const canonicalRequest =
+      `PUT\n` +
+      `${canonicalUri}\n\n` +
+      `${canonicalHeaders}\n` +
+      `${signedHeaders}\n` +
+      `${payloadHash}`;
+
+    const canonicalReqHash = await sha256Hex(canonicalRequest);
+    const credentialScope = `${dateStamp}/${region}/s3/aws4_request`;
+    const stringToSign =
+      `AWS4-HMAC-SHA256\n` +
+      `${amzDate}\n` +
+      `${credentialScope}\n` +
+      `${canonicalReqHash}`;
+
+    const kDate = await hmacSha256(`AWS4${secretAccessKey}`, dateStamp);
+    const kRegion = await hmacSha256(kDate, region);
+    const kService = await hmacSha256(kRegion, 's3');
+    const kSigning = await hmacSha256(kService, 'aws4_request');
+    const signature = bufferToHex(await hmacSha256(kSigning, stringToSign));
+    const authHeader = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+    const res = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+        'x-amz-date': amzDate,
+        'x-amz-content-sha256': payloadHash,
+        'Authorization': authHeader
+      },
+      body: bodyBuffer
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Cloudflare R2 video PUT failed (${res.status}): ${errText || res.statusText}`);
+    }
+
+    const rawPublicUrl = `${PUBLIC_R2_DOMAIN}/${filePath}`;
+    return {
+      success: true,
+      publicUrl: rawPublicUrl,
+      rawPublicUrl,
+      filePath
+    };
+  }
+
+  return uploadPhotoToR2(file, vendorId, `vendors/${String(vendorId).replace(/[^a-zA-Z0-9_-]/g, '_')}/photos`);
+}

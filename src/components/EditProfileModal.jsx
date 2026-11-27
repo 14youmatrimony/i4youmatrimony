@@ -5,7 +5,46 @@ import {
 } from 'lucide-react';
 import { fetchLiveUserProfile, updateLiveUserProfile } from '../services/api';
 import { RESIDENCY_STATUS_OPTIONS } from '../data/locationData';
+import { ALL_INDIA_RELIGIONS, RELIGION_COMMUNITIES } from '../data/religionData';
+import { INDIAN_STATES_AND_UTS, getServiceDistrictsForState } from '../services/vendorService';
 import WorldCountrySearchSelect from './common/WorldCountrySearchSelect';
+import MultiCountrySelect from './common/MultiCountrySelect';
+
+const HEIGHT_CM_OPTIONS = Array.from({ length: 71 }, (_, i) => `${140 + i} cm`);
+const WEIGHT_KG_OPTIONS = Array.from({ length: 116 }, (_, i) => `${35 + i} kg`);
+const BODY_TYPE_OPTIONS = ['Slim', 'Athletic / Fit', 'Average', 'Heavy'];
+const COMPLEXION_OPTIONS = ['Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Dark'];
+
+const NRI_CITY_SUGGESTIONS_BY_COUNTRY = {
+  'United States': ['New York', 'San Francisco', 'Seattle', 'Austin', 'Dallas', 'Chicago', 'Boston', 'Los Angeles', 'Atlanta', 'New Jersey'],
+  'USA': ['New York', 'San Francisco', 'Seattle', 'Austin', 'Dallas', 'Chicago', 'Boston', 'Los Angeles', 'Atlanta', 'New Jersey'],
+  'United Arab Emirates': ['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah'],
+  'UAE': ['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah'],
+  'United Kingdom': ['London', 'Manchester', 'Birmingham', 'Edinburgh', 'Leeds', 'Bristol'],
+  'UK': ['London', 'Manchester', 'Birmingham', 'Edinburgh', 'Leeds', 'Bristol'],
+  'Canada': ['Toronto', 'Vancouver', 'Calgary', 'Ottawa', 'Montreal', 'Mississauga'],
+  'Australia': ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide'],
+  'Germany': ['Berlin', 'Munich', 'Frankfurt', 'Hamburg', 'Stuttgart'],
+  'Singapore': ['Singapore'],
+  'Saudi Arabia': ['Riyadh', 'Jeddah', 'Dammam', 'Khobar'],
+  'Qatar': ['Doha'],
+  'Oman': ['Muscat', 'Salalah'],
+  'Kuwait': ['Kuwait City'],
+  'Bahrain': ['Manama'],
+  'Ireland': ['Dublin', 'Cork'],
+  'New Zealand': ['Auckland', 'Wellington']
+};
+
+const normalizeHeightCm = (raw) => {
+  if (!raw) return '';
+  const str = String(raw).trim();
+  const cmMatch = str.match(/(\d{3})\s*cm/i) || str.match(/^(\d{3})$/);
+  if (cmMatch) {
+    const num = parseInt(cmMatch[1], 10);
+    if (num >= 140 && num <= 210) return `${num} cm`;
+  }
+  return str;
+};
 
 /**
  * EditProfileModal
@@ -45,15 +84,26 @@ export default function EditProfileModal({
       email: source?.email || '',
       age: source?.age ? String(source.age) : (source?.dob ? String(source.dob) : ''),
       gender: source?.gender || '',
-      height: source?.height || '',
+      height: normalizeHeightCm(source?.height),
+      weight: source?.weight || '',
+      body_type: source?.body_type || source?.bodyType || '',
+      complexion: source?.complexion || source?.skin_colour || source?.skinColour || '',
       religion: source?.religion || '',
       caste: source?.caste || '',
       motherTongue: source?.motherTongue || source?.mother_tongue || '',
-      maritalStatus: source?.maritalStatus || source?.marital_status || 'Never Married',
       state: source?.state || '',
       city: source?.city || '',
       district: source?.district || source?.city || '',
+      nri_city: source?.nri_city || source?.work_city || source?.workCity || (source?.city && source?.country && source.country !== 'India' ? source.city : ''),
+      native_state: source?.native_state || '',
+      native_district: source?.native_district || '',
+      native_place: source?.native_place || '',
       education: source?.education || '',
+      edu_10th: source?.edu_10th || source?.tenthSchool || '',
+      edu_12th: source?.edu_12th || source?.twelfthSchool || '',
+      edu_degree: source?.edu_degree || '',
+      edu_pg: source?.edu_pg || '',
+      edu_doctorate: source?.edu_doctorate || '',
       profession: source?.profession || '',
       company: source?.company || '',
       annualIncome: source?.annualIncome || source?.annual_income || '',
@@ -73,6 +123,23 @@ export default function EditProfileModal({
       work_city: source?.work_city || source?.workCity || (source?.city && source?.country && source.country !== 'India' ? source.city : ''),
       residency_status: source?.residency_status || source?.residencyStatus || 'Work Visa',
       preferred_countries: source?.preferred_countries || source?.preferredCountries || 'Any',
+      pref_min_age: source?.pref_min_age ? String(source.pref_min_age) : '21',
+      pref_max_age: source?.pref_max_age ? String(source.pref_max_age) : '35',
+      pref_min_height: source?.pref_min_height ? String(source.pref_min_height) : '150',
+      pref_max_height: source?.pref_max_height ? String(source.pref_max_height) : '185',
+      pref_complexion: source?.pref_complexion || 'Any',
+      pref_education: source?.pref_education || 'Any',
+      pref_occupation: source?.pref_occupation || 'Any',
+      pref_income: source?.pref_income || 'Any',
+      pref_diet: source?.pref_diet || 'Any',
+      pref_religion: source?.pref_religion || 'Any',
+      pref_caste: source?.pref_caste || 'Any',
+      pref_mother_tongue: source?.pref_mother_tongue || 'Any',
+      pref_state: source?.pref_state || 'Any',
+      pref_district: source?.pref_district || 'Any',
+      pref_physical_status: source?.pref_physical_status || 'Any',
+      pref_smoking: source?.pref_smoking || 'Any',
+      pref_drinking: source?.pref_drinking || 'Any',
       partner_expectations: source?.partner_expectations || source?.partnerExpectations || ''
     };
   };
@@ -209,7 +276,6 @@ export default function EditProfileModal({
   const isNameLocked = isFieldSaved('name');
   const isAgeLocked = isFieldSaved('age');
   const isGenderLocked = isFieldSaved('gender');
-  const isHeightLocked = isFieldSaved('height');
   const isReligionLocked = isFieldSaved('religion');
   const isMotherTongueLocked = isFieldSaved('motherTongue');
 
@@ -221,7 +287,6 @@ export default function EditProfileModal({
       (name === 'name' && isNameLocked) ||
       (name === 'age' && isAgeLocked) ||
       (name === 'gender' && isGenderLocked) ||
-      (name === 'height' && isHeightLocked) ||
       (name === 'religion' && isReligionLocked) ||
       ((name === 'motherTongue' || name === 'mother_tongue') && isMotherTongueLocked)
     ) {
@@ -291,9 +356,6 @@ export default function EditProfileModal({
     if (isGenderLocked) {
       safePayload.gender = savedRecord?.gender || currentUser?.gender || formData.gender;
     }
-    if (isHeightLocked) {
-      safePayload.height = savedRecord?.height || currentUser?.height || formData.height;
-    }
     if (isReligionLocked) {
       safePayload.religion = savedRecord?.religion || currentUser?.religion || formData.religion;
     }
@@ -302,18 +364,55 @@ export default function EditProfileModal({
       safePayload.mother_tongue = safePayload.motherTongue;
     }
 
-    // Working Abroad & Partner Location Preferences
+    // Physical & Appearance Details (Optional)
+    safePayload.height = formData.height || '';
+    safePayload.weight = formData.weight || '';
+    safePayload.body_type = formData.body_type || '';
+    safePayload.bodyType = safePayload.body_type;
+    safePayload.complexion = formData.complexion || '';
+    safePayload.skin_colour = safePayload.complexion;
+    safePayload.skinColour = safePayload.complexion;
+
+    // Working Abroad & Native Place Details
     safePayload.is_nri = Boolean(formData.is_nri);
     safePayload.isNri = Boolean(formData.is_nri);
     safePayload.country = formData.is_nri ? (formData.work_country || 'USA') : 'India';
     safePayload.work_country = formData.is_nri ? (formData.work_country || 'USA') : 'India';
     safePayload.workCountry = safePayload.work_country;
-    safePayload.work_city = formData.is_nri ? (formData.work_city || formData.city || '') : '';
-    safePayload.workCity = safePayload.work_city;
+    safePayload.nri_city = formData.is_nri ? (formData.nri_city || formData.work_city || formData.city || '') : '';
+    safePayload.work_city = safePayload.nri_city;
+    safePayload.workCity = safePayload.nri_city;
+    safePayload.native_state = formData.native_state || '';
+    safePayload.native_district = formData.native_district || '';
+    safePayload.native_place = formData.native_place || '';
+
+    // Optional Detailed Education History
+    safePayload.edu_10th = formData.edu_10th || '';
+    safePayload.edu_12th = formData.edu_12th || '';
+    safePayload.edu_degree = formData.edu_degree || '';
+    safePayload.edu_pg = formData.edu_pg || '';
+    safePayload.edu_doctorate = formData.edu_doctorate || '';
     safePayload.residency_status = formData.is_nri ? (formData.residency_status || 'Work Visa') : '';
     safePayload.residencyStatus = safePayload.residency_status;
     safePayload.preferred_countries = formData.preferred_countries || 'Any';
     safePayload.preferredCountries = safePayload.preferred_countries;
+    safePayload.pref_min_age = formData.pref_min_age ? parseInt(formData.pref_min_age, 10) : null;
+    safePayload.pref_max_age = formData.pref_max_age ? parseInt(formData.pref_max_age, 10) : null;
+    safePayload.pref_min_height = formData.pref_min_height ? parseInt(formData.pref_min_height, 10) : null;
+    safePayload.pref_max_height = formData.pref_max_height ? parseInt(formData.pref_max_height, 10) : null;
+    safePayload.pref_complexion = formData.pref_complexion || 'Any';
+    safePayload.pref_education = formData.pref_education || 'Any';
+    safePayload.pref_occupation = formData.pref_occupation || 'Any';
+    safePayload.pref_income = formData.pref_income || 'Any';
+    safePayload.pref_diet = formData.pref_diet || 'Any';
+    safePayload.pref_religion = formData.pref_religion || 'Any';
+    safePayload.pref_caste = formData.pref_caste || 'Any';
+    safePayload.pref_mother_tongue = formData.pref_mother_tongue || 'Any';
+    safePayload.pref_state = formData.pref_state || 'Any';
+    safePayload.pref_district = formData.pref_district || 'Any';
+    safePayload.pref_physical_status = formData.pref_physical_status || 'Any';
+    safePayload.pref_smoking = formData.pref_smoking || 'Any';
+    safePayload.pref_drinking = formData.pref_drinking || 'Any';
     safePayload.partner_expectations = formData.partner_expectations || '';
     safePayload.partnerExpectations = safePayload.partner_expectations;
 
@@ -330,7 +429,7 @@ export default function EditProfileModal({
       setSavedRecord(updatedProfile);
 
       // 2. Show success toast and trigger parent callback
-      setSuccessMsg('Profile updated and saved to Supabase successfully! ✨');
+      setSuccessMsg('Profile updated and saved to Supabase successfully!');
       if (onProfileUpdated) {
         onProfileUpdated(updatedProfile);
       }
@@ -490,7 +589,7 @@ export default function EditProfileModal({
                     </div>
                   </div>
 
-                  {/* 3. Gender & 4. Height */}
+                  {/* 3. Gender & 4. Height (cm) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
@@ -514,24 +613,66 @@ export default function EditProfileModal({
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                        <span>Height</span>
-                        {isHeightLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" aria-label="Permanently locked" />}
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Height (cm)
                       </label>
-                      <input
-                        type="text"
+                      <select
                         name="height"
                         value={formData.height}
                         onChange={handleChange}
-                        disabled={isHeightLocked}
-                        readOnly={isHeightLocked}
-                        className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
-                          isHeightLocked
-                            ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
-                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76]'
-                        }`}
-                        placeholder="e.g. 5'6'' (168 cm)"
-                      />
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        <option value="">Select Height (cm)</option>
+                        {HEIGHT_CM_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Weight, Body Type & Color / Complexion (Optional) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Weight (kg)</label>
+                      <select
+                        name="weight"
+                        value={formData.weight}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        <option value="">Select Weight (kg)</option>
+                        {WEIGHT_KG_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Body Type</label>
+                      <select
+                        name="body_type"
+                        value={formData.body_type}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        <option value="">Select Body Type</option>
+                        {BODY_TYPE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Color / Complexion</label>
+                      <select
+                        name="complexion"
+                        value={formData.complexion}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        <option value="">Select Complexion</option>
+                        {COMPLEXION_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -684,7 +825,7 @@ export default function EditProfileModal({
                               : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
-                          🇮🇳 India
+                          India
                         </button>
                         <button
                           type="button"
@@ -714,7 +855,6 @@ export default function EditProfileModal({
                           <div>
                             <WorldCountrySearchSelect
                               label="Current Country Abroad"
-                              required
                               excludeIndia
                               value={formData.work_country || 'United States'}
                               onChange={(val) => {
@@ -726,16 +866,33 @@ export default function EditProfileModal({
 
                           <div>
                             <label className="block text-xs font-bold text-slate-800 mb-1">
-                              Current City / State Abroad *
+                              Current City / State Abroad
                             </label>
                             <input
                               type="text"
-                              name="work_city"
-                              value={formData.work_city}
-                              onChange={handleChange}
+                              name="nri_city"
+                              list="nri-city-suggestions"
+                              value={formData.nri_city ?? formData.work_city ?? ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  nri_city: val,
+                                  work_city: val,
+                                  workCity: val
+                                }));
+                              }}
                               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
-                              placeholder="e.g. New York, Texas, London, Dubai, Toronto"
+                              placeholder="Select or type city (e.g. Dubai, London, New York)"
                             />
+                            <datalist id="nri-city-suggestions">
+                              {(
+                                NRI_CITY_SUGGESTIONS_BY_COUNTRY[formData.work_country] ||
+                                Object.values(NRI_CITY_SUGGESTIONS_BY_COUNTRY).flat()
+                              ).filter((c, i, arr) => arr.indexOf(c) === i).map((cityOpt) => (
+                                <option key={cityOpt} value={cityOpt} />
+                              ))}
+                            </datalist>
                           </div>
                         </div>
 
@@ -758,7 +915,7 @@ export default function EditProfileModal({
 
                           <div>
                             <label className="block text-xs font-bold text-slate-800 mb-1">
-                              Native State in India (Family Origins)
+                              Current Indian State (If Applicable)
                             </label>
                             <input
                               type="text"
@@ -775,11 +932,10 @@ export default function EditProfileModal({
                       /* Domestic India Details */
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2.5 border-t border-amber-200/70">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">State *</label>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">State</label>
                           <input
                             type="text"
                             name="state"
-                            required
                             value={formData.state}
                             onChange={handleChange}
                             className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
@@ -787,11 +943,10 @@ export default function EditProfileModal({
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">City *</label>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">City</label>
                           <input
                             type="text"
                             name="city"
-                            required
                             value={formData.city}
                             onChange={handleChange}
                             className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
@@ -812,19 +967,84 @@ export default function EditProfileModal({
                       </div>
                     )}
                   </div>
+
+                  {/* Native Place Details (Optional) */}
+                  <div className="p-3.5 rounded-2xl bg-[#FFF9F6] border border-[#E5D0C6] space-y-3">
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-[#7A2E43]" />
+                        <span>Native Place Details (Optional)</span>
+                      </span>
+                      <p className="text-[11px] text-slate-600">
+                        Add your family&apos;s native state, district, and exact town or village.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Native State</label>
+                        <select
+                          name="native_state"
+                          value={formData.native_state || ''}
+                          onChange={(e) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              native_state: e.target.value,
+                              native_district: ''
+                            }));
+                          }}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                        >
+                          <option value="">Select Native State</option>
+                          {INDIAN_STATES_AND_UTS.map((st) => (
+                            <option key={st} value={st}>{st}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Native District</label>
+                        <select
+                          name="native_district"
+                          value={formData.native_district || ''}
+                          onChange={handleChange}
+                          disabled={!formData.native_state}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          <option value="">
+                            {formData.native_state ? 'Select Native District' : 'Select State First'}
+                          </option>
+                          {(formData.native_state ? getServiceDistrictsForState(formData.native_state) : []).map((dist) => (
+                            <option key={dist} value={dist}>{dist}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Native Place / Town / Village</label>
+                        <input
+                          type="text"
+                          name="native_place"
+                          value={formData.native_place || ''}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                          placeholder="e.g. Alakode, Payyanur"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* TAB 3: Education & Career */}
               {activeTab === 'career' && (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Highest Qualification *</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Highest Qualification (Optional)</label>
                       <input
                         type="text"
                         name="education"
-                        required
                         value={formData.education}
                         onChange={handleChange}
                         className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
@@ -832,15 +1052,95 @@ export default function EditProfileModal({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Profession / Role *</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Profession / Role (Optional)</label>
                       <input
                         type="text"
                         name="profession"
-                        required
                         value={formData.profession}
                         onChange={handleChange}
                         className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
                         placeholder="e.g. Software Engineer / Doctor"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Detailed Optional Education History */}
+                  <div className="p-3.5 rounded-2xl bg-[#FFF9F6] border border-[#E5D0C6] space-y-3">
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">
+                        Education History (All Optional)
+                      </span>
+                      <p className="text-[11px] text-slate-600">
+                        Fill in only the qualifications that apply to you and leave the rest blank.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          10th / SSLC (School &amp; Place studied)
+                        </label>
+                        <input
+                          type="text"
+                          name="edu_10th"
+                          value={formData.edu_10th || ''}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                          placeholder="e.g. St. Joseph HSS, Kannur"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          12th / Higher Secondary (School / Stream &amp; Place)
+                        </label>
+                        <input
+                          type="text"
+                          name="edu_12th"
+                          value={formData.edu_12th || ''}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                          placeholder="e.g. Science, Sacred Heart HSS, Kochi"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Degree / Graduation (Course &amp; College / University)
+                        </label>
+                        <input
+                          type="text"
+                          name="edu_degree"
+                          value={formData.edu_degree || ''}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                          placeholder="e.g. B.Tech CSE, CET Trivandrum"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Post Graduation / PG (Course &amp; College / University)
+                        </label>
+                        <input
+                          type="text"
+                          name="edu_pg"
+                          value={formData.edu_pg || ''}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                          placeholder="e.g. MBA, IIM Kozhikode"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Doctorate / PhD (Specialization &amp; University, if applicable)
+                      </label>
+                      <input
+                        type="text"
+                        name="edu_doctorate"
+                        value={formData.edu_doctorate || ''}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                        placeholder="e.g. PhD in Biotechnology, IISc Bengaluru"
                       />
                     </div>
                   </div>
@@ -874,34 +1174,294 @@ export default function EditProfileModal({
 
               {/* TAB 4: Partner Preferences */}
               {activeTab === 'preferences' && (
-                <div className="space-y-3.5">
+                <div className="space-y-4">
+                  {/* Multi-Select Preferred Countries (Minimum 5+) */}
                   <div className="p-3.5 rounded-2xl bg-[#FFF9F6] border border-[#E5D0C6] space-y-2">
-                    <WorldCountrySearchSelect
-                      label="Preferred Country / Location"
-                      required
-                      allowAny
+                    <MultiCountrySelect
+                      label="Preferred Countries (Select 5 or more)"
                       value={formData.preferred_countries || 'Any'}
+                      maxSelections={10}
                       onChange={(val) => {
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          preferred_countries: val, 
-                          preferredCountries: val 
+                        setFormData(prev => ({
+                          ...prev,
+                          preferred_countries: val,
+                          preferredCountries: val
                         }));
                       }}
-                      placeholder="Search or select country..."
                     />
                     <p className="text-[11px] text-slate-600 leading-relaxed">
-                      Select which countries you are open to for your partner (e.g. Any Country, India Only, specific countries like United States, United Arab Emirates, Canada, Australia).
+                      Select multiple preferred countries (e.g. India, United Arab Emirates (UAE), United Kingdom (UK), United States (USA), Canada).
                     </p>
+                  </div>
+
+                  {/* Age Range & Height Range (cm) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Min Age (Yrs)</label>
+                      <select
+                        name="pref_min_age"
+                        value={formData.pref_min_age || '21'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {Array.from({ length: 43 }, (_, i) => 18 + i).map(age => (
+                          <option key={age} value={String(age)}>{age} yrs</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Max Age (Yrs)</label>
+                      <select
+                        name="pref_max_age"
+                        value={formData.pref_max_age || '35'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {Array.from({ length: 43 }, (_, i) => 18 + i).map(age => (
+                          <option key={age} value={String(age)}>{age} yrs</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Min Height (cm)</label>
+                      <select
+                        name="pref_min_height"
+                        value={formData.pref_min_height || '150'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {Array.from({ length: 71 }, (_, i) => 140 + i).map(cm => (
+                          <option key={cm} value={String(cm)}>{cm} cm</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Max Height (cm)</label>
+                      <select
+                        name="pref_max_height"
+                        value={formData.pref_max_height || '185'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {Array.from({ length: 71 }, (_, i) => 140 + i).map(cm => (
+                          <option key={cm} value={String(cm)}>{cm} cm</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Complexion / Skin Tone */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Complexion / Skin Tone</label>
+                    <select
+                      name="pref_complexion"
+                      value={formData.pref_complexion || 'Any'}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                    >
+                      {['Any', 'Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Dark'].map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Religion, Caste / Community & Mother Tongue */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Preferred Religion</label>
+                      <select
+                        name="pref_religion"
+                        value={formData.pref_religion || 'Any'}
+                        onChange={(e) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            pref_religion: e.target.value,
+                            pref_caste: 'Any'
+                          }));
+                        }}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        <option value="Any">Any</option>
+                        {ALL_INDIA_RELIGIONS.map(rel => (
+                          <option key={rel} value={rel}>{rel}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Preferred Community / Caste</label>
+                      <select
+                        name="pref_caste"
+                        value={formData.pref_caste || 'Any'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        <option value="Any">Any</option>
+                        {(RELIGION_COMMUNITIES[formData.pref_religion] || []).map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Mother Tongue</label>
+                      <select
+                        name="pref_mother_tongue"
+                        value={formData.pref_mother_tongue || 'Any'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {['Any', 'Malayalam', 'Tamil', 'Kannada', 'Telugu', 'Hindi', 'Marathi', 'Gujarati', 'Punjabi', 'Bengali', 'Urdu', 'Konkani', 'Tulu', 'English', 'Other'].map(lang => (
+                          <option key={lang} value={lang}>{lang}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Education, Occupation, Income & Diet */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Education</label>
+                      <select
+                        name="pref_education"
+                        value={formData.pref_education || 'Any'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {['Any', 'High School', 'Diploma', "Bachelor's Degree", "Master's Degree", 'Doctorate / PhD', 'Professional Degree'].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Job / Occupation &amp; Sector</label>
+                      <select
+                        name="pref_occupation"
+                        value={formData.pref_occupation || 'Any'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {['Any', 'Private Sector', 'Government / Defence', 'Business / Self-Employed', 'IT / Software', 'Medical / Healthcare', 'Engineering', 'Teaching / Academic', 'Working Abroad / NRI', 'Not Working'].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Annual Income</label>
+                      <select
+                        name="pref_income"
+                        value={formData.pref_income || 'Any'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {['Any', '3 Lakhs+', '5 Lakhs+', '8 Lakhs+', '12 Lakhs+', '20 Lakhs+'].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Dietary Preference</label>
+                      <select
+                        name="pref_diet"
+                        value={formData.pref_diet || 'Any'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {['Any', 'Vegetarian', 'Non-Vegetarian', 'Eggetarian'].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Preferred State & District */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Preferred State</label>
+                      <select
+                        name="pref_state"
+                        value={formData.pref_state || 'Any'}
+                        onChange={(e) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            pref_state: e.target.value,
+                            pref_district: 'Any'
+                          }));
+                        }}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        <option value="Any">Any</option>
+                        {INDIAN_STATES_AND_UTS.filter(s => s !== 'All States').map(st => (
+                          <option key={st} value={st}>{st}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Preferred District</label>
+                      <select
+                        name="pref_district"
+                        value={formData.pref_district || 'Any'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        <option value="Any">Any</option>
+                        {getServiceDistrictsForState(formData.pref_state === 'Any' ? 'All States' : formData.pref_state)
+                          .filter(d => d !== 'All Districts')
+                          .map(dist => (
+                            <option key={dist} value={dist}>{dist}</option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Physical Status & Lifestyle Habits */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Physical Status</label>
+                      <select
+                        name="pref_physical_status"
+                        value={formData.pref_physical_status || 'Any'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {['Any', 'Normal', 'Differently Abled'].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Smoking</label>
+                      <select
+                        name="pref_smoking"
+                        value={formData.pref_smoking || 'Any'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {['Any', 'No', 'Occasionally'].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Drinking</label>
+                      <select
+                        name="pref_drinking"
+                        value={formData.pref_drinking || 'Any'}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"
+                      >
+                        {['Any', 'No', 'Occasionally'].map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Partner Expectations & Qualities
+                      Partner Expectations &amp; Qualities
                     </label>
                     <textarea
                       name="partner_expectations"
-                      rows={4}
+                      rows={3}
                       value={formData.partner_expectations || ''}
                       onChange={handleChange}
                       className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C58B76] bg-white text-slate-800"

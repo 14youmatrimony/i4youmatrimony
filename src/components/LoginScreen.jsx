@@ -16,7 +16,8 @@ import {
   Mail,
   Smartphone,
   RotateCw,
-  MessageSquare
+  MessageSquare,
+  Briefcase
 } from 'lucide-react';
 import { loginWithRegisterId, loginWithMobileOtpSuccess, checkMobileAccountExists } from '../services/authService';
 import { sendPhoneOtp, verifyPhoneOtp } from '../services/phoneAuth';

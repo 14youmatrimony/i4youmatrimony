@@ -13,7 +13,8 @@ import {
   Check, 
   Copy,
   LogOut,
-  Edit3
+  Edit3,
+  Store
 } from 'lucide-react';
 import SafeAvatar from '../common/SafeAvatar';
 import { resolveProfilePhoto } from '../../services/api';
@@ -35,7 +36,8 @@ export default function WebsiteNavbar({
   isProduction = false,
   onToggleProductionMode,
   onLogout,
-  onOpenAppModal
+  onOpenAppModal,
+  onOpenServices
 }) {
   const [copiedCoupon, setCopiedCoupon] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -56,9 +58,7 @@ export default function WebsiteNavbar({
 
   const navLinks = [
     { label: 'Browse Matches', id: 'matches-section' },
-    { label: 'Download App', id: 'download-section' },
     ...(currentUser ? [{ label: 'Candidate Stories', id: 'stories-section' }] : []),
-    { label: 'Why I 4 You', id: 'why-section' },
     { label: 'Success Stories', id: 'testimonials-section' },
     { label: 'Membership Plans', id: 'plans-section' }
   ];
@@ -206,6 +206,17 @@ export default function WebsiteNavbar({
             {/* User Auth: Login/Register or Profile Pill + Logout */}
             {currentUser ? (
               <div className="flex items-center space-x-1.5 shrink-0">
+                {onOpenServices && (
+                  <button
+                    type="button"
+                    onClick={onOpenServices}
+                    className="px-3 py-1.5 rounded-full bg-[#F3EEFA] hover:bg-[#EAE1F7] border border-[#D8CBEF] text-[#5B3E8C] text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all active:scale-95 shrink-0 shadow-xs"
+                    title="Browse Wedding Services"
+                  >
+                    <Store className="w-3.5 h-3.5 text-[#5B3E8C]" />
+                    <span>Services</span>
+                  </button>
+                )}
                 {onOpenEditProfile && (
                   <button
                     type="button"
@@ -323,6 +334,19 @@ export default function WebsiteNavbar({
                       Open App
                     </button>
                   </div>
+                  {onOpenServices && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenServices();
+                        setMobileNavOpen(false);
+                      }}
+                      className="w-full py-2 rounded-xl bg-[#F3EEFA] hover:bg-[#EAE1F7] border border-[#D8CBEF] text-[#5B3E8C] text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer"
+                    >
+                      <Store className="w-4 h-4 text-[#5B3E8C]" />
+                      <span>Services</span>
+                    </button>
+                  )}
                   {onLogout && (
                     <button
                       type="button"

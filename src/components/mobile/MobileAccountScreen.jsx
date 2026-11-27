@@ -28,7 +28,8 @@ import {
   Scan,
   Heart,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Briefcase
 } from 'lucide-react';
 import TermsAndConditionsModal from '../common/TermsAndConditionsModal';
 import LoginScreen from '../LoginScreen';
@@ -39,6 +40,7 @@ import MobilePhotoManagerSheet from './MobilePhotoManagerSheet';
 import EditProfileModal from '../EditProfileModal';
 import SelfieVerificationSection from '../SelfieVerificationSection';
 import { updateLiveUserProfile, syncProfileToSupabase, resolveProfilePhoto, isFakeAvatarUrl } from '../../services/api';
+import { forceLogout } from '../../services/authService';
 import { presenceService, usePresenceSync } from '../../services/presenceService';
 import SafeAvatar from '../common/SafeAvatar';
 import { usePhotoPrivacy } from '../../context/PhotoPrivacyContext';
@@ -1354,10 +1356,8 @@ export default function MobileAccountScreen({
               } catch (err) {}
               if (onLogout) {
                 onLogout();
-              } else if (onOpenLogin) {
-                onOpenLogin();
               } else {
-                setSubView('switch_login');
+                forceLogout();
               }
             }}
             className="w-full p-3.5 flex items-center justify-between hover:bg-rose-50/70 active:bg-rose-100 cursor-pointer text-slate-700 hover:text-rose-700 transition-colors text-left"

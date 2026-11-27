@@ -5,7 +5,7 @@ import { formatR2PublicUrl, uploadStoryToR2, uploadSuccessStoryToR2, deletePhoto
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { profileSyncService } from './services/profileSyncService';
 import { uploadProfilePhoto } from './services/storageService';
-import { logoutUser, persistUserSession } from './services/authService';
+import { logoutUser, forceLogout, persistUserSession } from './services/authService';
 import { signOutGoogleAuth, extractGoogleUserDetails } from './services/googleAuth';
 import DeviceFrameSimulator from './components/mobile/DeviceFrameSimulator';
 import MobileAppShell from './components/mobile/MobileAppShell';
@@ -14,6 +14,8 @@ import MobileSearchScreen from './components/mobile/MobileSearchScreen';
 import MobileInterestsScreen from './components/mobile/MobileInterestsScreen';
 import MobileChatScreen from './components/mobile/MobileChatScreen';
 import MobileAccountScreen from './components/mobile/MobileAccountScreen';
+import MobileServicesScreen from './components/mobile/MobileServicesScreen';
+import VendorPortalScreen from './components/vendor/VendorPortalScreen';
 import MobileProfileDetailSheet from './components/mobile/MobileProfileDetailSheet';
 import MobileFilterBottomSheet from './components/mobile/MobileFilterBottomSheet';
 import MobilePhotoManagerSheet from './components/mobile/MobilePhotoManagerSheet';
@@ -39,13 +41,13 @@ import WebsiteView from './components/website/WebsiteView';
 import AdminRouteGuard from './components/admin/AdminRouteGuard';
 import SuperAdminPanel from './components/admin/SuperAdminPanel';
 import MobileAppModal from './components/mobile/MobileAppModal';
+import SmartDownloadPage from './components/common/SmartDownloadPage';
 import ProfileModal from './components/ProfileModal';
 import EditProfileModal from './components/EditProfileModal';
 import SendInterestModal from './components/SendInterestModal';
 import AudioCallModal from './components/calling/AudioCallModal';
 import VideoCallModal from './components/calling/VideoCallModal';
 import IncomingCallModal from './components/calling/IncomingCallModal';
-import PermissionOnboardingModal, { checkPermissionsGranted } from './components/common/PermissionOnboardingModal';
 import { webrtcCallService } from './services/webrtcCallService';
 import { liveChatService, deduplicateMessageList } from './services/liveChatService';
 import { presenceService } from './services/presenceService';
@@ -80,7 +82,7 @@ const CANDIDATE_STATUSES = {};
 export const checkStoredUserSession = () => {
   try {
     if (typeof window === 'undefined') return null;
-    if (localStorage.getItem('i4u_logged_out') === 'true') {
+    if (sessionStorage.getItem('is_logging_out') === 'true' || localStorage.getItem('i4u_logged_out') === 'true') {
       return null;
     }
 
@@ -340,9 +342,6 @@ export default function App() {
     return initialMode === 'app' ? 'login' : 'app';
   });
 
-  // WhatsApp / Instagram-style One-Time Initial Device Permissions Onboarding State
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
-
   // Smooth post-splash transition handler:
   // Respects parameterized deep-link routes and authenticates state
   const handleSplashFinish = useCallback(() => {
@@ -364,32 +363,7 @@ export default function App() {
         setCurrentScreen('app');
       }
     }
-
-    // Check device permissions onboarding status after splash finishes
-    checkPermissionsGranted().then((granted) => {
-      if (!granted) {
-        setTimeout(() => {
-          setShowPermissionModal(true);
-        }, 1000);
-      }
-    });
   }, []);
-
-  // Proactive check on initial load in case splash is brief or already dismissed
-  useEffect(() => {
-    let isMounted = true;
-    const timer = setTimeout(async () => {
-      if (!isMounted) return;
-      const granted = await checkPermissionsGranted();
-      if (!granted && isMounted && !showSplash) {
-        setShowPermissionModal(true);
-      }
-    }, 2200);
-    return () => {
-      isMounted = false;
-      clearTimeout(timer);
-    };
-  }, [showSplash]);
 
   // Global Native DRM & Anti-Screenshot Initialization
   useEffect(() => {
@@ -497,8 +471,11 @@ export default function App() {
         safeStorage.setJSON('i4u_cached_profiles', cleanList);
       }
 
-      // Always sync fresh user profile directly from Supabase public.profiles on load/refresh (targeted query instead of whole-table scan)
-      const targetUserId = activeUser?.id || activeUser?.registerId || activeUser?.register_id || localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id');
+      // Always sync fresh user profile directly from Supabase public.profiles ONLY when logged in and not logging out
+      const isLoggingOut = sessionStorage.getItem('is_logging_out') === 'true' || localStorage.getItem('i4u_logged_out') === 'true';
+      const targetUserId = !isLoggingOut
+        ? (activeUser?.id || activeUser?.registerId || activeUser?.register_id || localStorage.getItem('i4u_current_user_id') || localStorage.getItem('i4u_register_id'))
+        : null;
       if (targetUserId && isSupabaseConfigured() && supabase) {
         try {
           const freshUser = await fetchLiveUserProfile(targetUserId);
@@ -1229,13 +1206,19 @@ export default function App() {
   // Root-level auth state listener: Synchronizes persistent authentication sessions & tokens across browser sessions and tabs
   useEffect(() => {
     const unsubscribe = initSupabaseAuthListener(async (event, session) => {
+      if (sessionStorage.getItem('is_logging_out') === 'true') {
+        return;
+      }
       if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
+        setCurrentScreen('app');
         localStorage.removeItem('i4u_auth_user');
         localStorage.removeItem('i4u_current_user_id');
         localStorage.removeItem('i4u_register_id');
+        localStorage.removeItem('i4u_auth_token');
+        localStorage.removeItem('i4u_refresh_token');
         localStorage.setItem('i4u_logged_out', 'true');
-      } else if (session?.user) {
+      } else if (session?.user && localStorage.getItem('i4u_logged_out') !== 'true') {
         const googleDetails = extractGoogleUserDetails(session.user);
         const userId = session.user.id;
         const userEmail = session.user.email;
@@ -2692,43 +2675,37 @@ export default function App() {
     showToast('🚀 Live Production Mode is active. Demo accounts are permanently disabled.');
   };
 
-  // Explicit Logout Handler
-  const handleLogout = () => {
-    const uid = currentUser?.id || localStorage.getItem('i4u_current_user_id');
-    logoutUser();
-    signOutGoogleAuth().catch(() => {});
-    if (isSupabaseConfigured() && supabase) {
-      supabase.auth.signOut().catch(() => {});
-    }
-    try {
-      localStorage.removeItem('i4u_auth_token');
-      localStorage.removeItem('i4u_refresh_token');
-      localStorage.removeItem('i4u_cached_profiles');
-      localStorage.removeItem('i4u_interests_sent');
-      localStorage.removeItem('i4u_shortlisted');
-      localStorage.removeItem('i4u_declined_received_ids');
-      if (uid) {
-        localStorage.removeItem(`i4u_interests_sent_${uid}`);
-        localStorage.removeItem(`i4u_shortlisted_${uid}`);
-        localStorage.removeItem(`i4u_conversations_${uid}`);
-      }
-    } catch (e) {}
-    presenceService.untrackUser();
-    setCurrentUser(null);
-    setSelectedProfile(null);
-    setActiveChatProfileId(null);
-    setIsDirectChatOpen(false);
-    setConversations([]);
-    setNotifications([]);
-    setInterestsSent([]);
-    setShortlisted([]);
-    setDeclinedReceivedIds([]);
-    setActiveTab('feed');
-    setCurrentScreen('login');
-    showToast('Logged out successfully');
-    setTimeout(() => {
-      syncLiveProfiles(true);
-    }, 100);
+  // Explicit Logout Handler: Delegates to unified forceLogout()
+  const handleLogout = async () => {
+    await signOutGoogleAuth().catch(() => {});
+    await forceLogout(() => {
+      presenceService.untrackUser();
+      currentUserRef.current = null;
+      setCurrentUser(null);
+      setProfiles([]);
+      setGuestLookingFor('All');
+      setSelectedState('All States');
+      setSelectedDistrict('All Districts');
+      setSelectedReligion('All Religions');
+      setSearchQuery('');
+      setSelectedProfile(null);
+      setActiveChatProfileId(null);
+      setIsDirectChatOpen(false);
+      setIsAppModalOpen(false);
+      setIsEditProfileModalOpen(false);
+      setIsOffersSheetOpen(false);
+      setIsNotificationsOpen(false);
+      setIsFilterSheetOpen(false);
+      setIsPhotoManagerOpen(false);
+      setConversations([]);
+      setNotifications([]);
+      setInterestsSent([]);
+      setShortlisted([]);
+      setDeclinedReceivedIds([]);
+      setActiveTab('feed');
+      setCurrentScreen('app');
+      setViewMode('website');
+    });
   };
 
   const handleOpenOffers = () => {
@@ -3619,9 +3596,11 @@ export default function App() {
   // Register device for FCM & native Push Notifications when user is logged in
   useEffect(() => {
     if (!currentUser) return;
-    fcmNotificationService.registerForPushNotifications(currentUser).catch((err) => {
-      console.warn('[App] Push notification registration note:', err);
-    });
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      fcmNotificationService.registerForPushNotifications(currentUser).catch((err) => {
+        console.warn('[App] Push notification registration note:', err);
+      });
+    }
   }, [currentUser]);
 
   // Register Service Worker for FCM and background Web Push delivery
@@ -4663,15 +4642,6 @@ export default function App() {
     setTimeout(() => {
       syncLiveProfiles(true);
     }, 50);
-
-    // WhatsApp / Instagram-style permission check on login
-    checkPermissionsGranted().then((granted) => {
-      if (!granted) {
-        setTimeout(() => {
-          setShowPermissionModal(true);
-        }, 600);
-      }
-    });
   };
 
   // 1-Click Demo Persona Switcher permanently blocked
@@ -5117,17 +5087,29 @@ export default function App() {
 
   // Profiles for website showcase:
   // - If user is logged in with gender, strictly filter by opposite gender
-  // - If guest / unauthenticated, provide ALL candidates (both Gents and Women) to WebsiteView
+  // - If guest / unauthenticated, provide interleaved Male & Female candidates to WebsiteView
   const websiteProfiles = useMemo(() => {
     const validProfiles = profiles.filter(p => Boolean(p && !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)));
-    if (currentUser?.gender) {
+    if (currentUser && !currentUser.isGuest && currentUser.gender) {
       const targetGender = getTargetCandidateGender(currentUser);
       return validProfiles.filter(p => {
         if (isSelfProfile(p, currentUser)) return false;
         return isCandidateMatchingTarget(p, targetGender);
       });
     }
-    return validProfiles;
+    const males = validProfiles.filter(p => normalizeGender(p.gender) === 'male');
+    const females = validProfiles.filter(p => normalizeGender(p.gender) === 'female');
+    const others = validProfiles.filter(p => {
+      const g = normalizeGender(p.gender);
+      return g !== 'male' && g !== 'female';
+    });
+    const mixed = [];
+    const maxLen = Math.max(males.length, females.length);
+    for (let i = 0; i < maxLen; i += 1) {
+      if (males[i]) mixed.push(males[i]);
+      if (females[i]) mixed.push(females[i]);
+    }
+    return [...mixed, ...others];
   }, [profiles, currentUser]);
 
   const totalUnreadChatCount = useMemo(() => {
@@ -5214,6 +5196,14 @@ export default function App() {
     }).length;
   }, [currentUser, notifications, declinedReceivedIds]);
 
+  const isDownloadRoute =
+    typeof window !== 'undefined' &&
+    window.location.pathname.replace(/\/+$/, '').toLowerCase() === '/download';
+
+  if (isDownloadRoute) {
+    return <SmartDownloadPage />;
+  }
+
   return (
     <ThemeProvider>
       <PhotoPrivacyProvider>
@@ -5225,7 +5215,15 @@ export default function App() {
         {viewMode === 'admin' ? (
           <AdminRouteGuard onBack={() => { setViewModeState('website'); setCurrentScreen('app'); }}>
             <SuperAdminPanel 
-              onLogout={() => { setViewModeState('admin'); }}
+              onLogout={() => {
+                setViewMode('website');
+                setCurrentScreen('app');
+                try {
+                  if (typeof window !== 'undefined' && window.history?.replaceState) {
+                    window.history.replaceState(null, '', '/');
+                  }
+                } catch (e) {}
+              }}
               onBackToSite={() => { setViewModeState('website'); setCurrentScreen('app'); }}
             />
           </AdminRouteGuard>
@@ -5236,6 +5234,8 @@ export default function App() {
               profiles={websiteProfiles}
               currentUser={currentUser}
               currentScreen={currentScreen}
+              onOpenVendorPortal={!currentUser ? () => setCurrentScreen('vendor-portal') : undefined}
+              onOpenServices={() => setCurrentScreen('services')}
               interestsSent={interestsSent}
               acceptedInterests={acceptedInterests}
               receivedInterests={receivedInterests}
@@ -5306,6 +5306,29 @@ export default function App() {
                     onBack={() => setCurrentScreen('app')}
                   />
                 </div>
+              </div>
+            )}
+
+            {/* SCREEN 1B: Business / Vendor Self-Service Portal on Website (Guest Landing Only) */}
+            {!currentUser && currentScreen === 'vendor-portal' && (
+              <div className="fixed inset-0 z-50 overflow-y-auto bg-[#FFF9F6]">
+                <VendorPortalScreen
+                  onBack={() => setCurrentScreen('app')}
+                  showToast={showToast}
+                />
+              </div>
+            )}
+
+            {/* SCREEN 1C: Customer Wedding Services View on Website */}
+            {currentScreen === 'services' && (
+              <div className="fixed inset-0 z-50 overflow-y-auto bg-[#FFF9F6]">
+                <MobileServicesScreen
+                  currentUser={currentUser}
+                  onOpenOffers={handleOpenOffers}
+                  onOpenLogin={() => setCurrentScreen('login')}
+                  onBack={() => setCurrentScreen('app')}
+                  showToast={showToast}
+                />
               </div>
             )}
 
@@ -5791,6 +5814,14 @@ export default function App() {
         />
       )}
 
+      {/* SCREEN 1B: Business / Vendor Self-Service Portal (Guest Only) */}
+      {!currentUser && currentScreen === 'vendor-portal' && (
+        <VendorPortalScreen
+          onBack={() => setCurrentScreen('app')}
+          showToast={showToast}
+        />
+      )}
+
       {/* SCREEN 2: Dedicated Registration Wizard */}
       {currentScreen === 'register' && (
         registeredVerifiedPhone ? (
@@ -6210,6 +6241,16 @@ export default function App() {
             />
           )}
 
+          {/* Tab 3B: Wedding Services Switch */}
+          {activeTab === 'services' && (
+            <MobileServicesScreen
+              currentUser={currentUser}
+              onOpenOffers={handleOpenOffers}
+              onOpenLogin={() => setCurrentScreen('login')}
+              showToast={showToast}
+            />
+          )}
+
           {/* Tab 4: Messages / In-App Chat */}
           {activeTab === 'chat' && (
             <MobileChatScreen 
@@ -6350,18 +6391,6 @@ export default function App() {
           setPremiumPromptFeature(null);
           handleOpenOffers();
         }}
-      />
-    )}
-
-    {/* WhatsApp / Instagram-style One-Time Initial Device Permissions Onboarding Modal */}
-    {showPermissionModal && (
-      <PermissionOnboardingModal
-        isOpen={showPermissionModal}
-        onComplete={() => {
-          setShowPermissionModal(false);
-          showToast('Device permissions enabled successfully! ✨');
-        }}
-        onDismiss={() => setShowPermissionModal(false)}
       />
     )}
 

@@ -26,6 +26,7 @@ import { fcmNotificationService } from '../../services/fcmNotificationService';
 import { fetchLiveUserProfile, isPlaceholderOrIncompleteProfile } from '../../services/api';
 import { supabase, isSupabaseConfigured } from '../../services/supabase';
 import { presenceService, usePresenceSync } from '../../services/presenceService';
+import { sendVendorInquiry } from '../../services/vendorService';
 
 const POPULAR_EMOJIS = ['🙏', '💖', '✨', '🌸', '💐', '💍', '🤝', '😊', '🌺', '🌟', '💫', '🕊️', '❤️', '🌹'];
 
@@ -174,6 +175,16 @@ export default function MobileChatScreen({
               if (payload?.new) {
                 liveChatService.syncNotificationMessages([payload.new], currentUser, profiles, setConversations);
               }
+            }
+          );
+        }
+
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId)) {
+          realtimeChannel.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'vendor_inquiries', filter: `customer_id=eq.${targetId}` },
+            () => {
+              loadLiveConversations();
             }
           );
         }
@@ -923,13 +934,29 @@ export default function MobileChatScreen({
 
     setInputText('');
 
-    // Transmit strictly via LiveChatService with canonical fields
-    liveChatService.sendLiveMessage({
-      sender: currentUser,
-      recipient: partnerUser,
-      message: newMsg,
-      conversationId: activeConversationId
-    });
+    // If this is a Wedding Service Vendor thread, insert into vendor_inquiries
+    if (partnerUser.isVendor || String(partnerUser.id).startsWith('vendor:')) {
+      const vId = partnerUser.vendorId || String(partnerUser.id).replace(/^vendor:/, '');
+      sendVendorInquiry({
+        vendorId: vId,
+        vendorOwnerUserId: partnerUser.ownerUserId || null,
+        businessName: partnerUser.name,
+        customerId: currentUser.id,
+        customerName: currentUser.name || 'Member',
+        customerPhone: currentUser.phone || currentUser.mobile || '',
+        message: cleanText
+      }).catch((err) => {
+        console.warn('[MobileChatScreen] Vendor reply send error:', err?.message || err);
+      });
+    } else {
+      // Transmit strictly via LiveChatService with canonical fields
+      liveChatService.sendLiveMessage({
+        sender: currentUser,
+        recipient: partnerUser,
+        message: newMsg,
+        conversationId: activeConversationId
+      });
+    }
 
     // 1. Live status: Sending -> Sent (single tick)
     setTimeout(() => {
@@ -1060,6 +1087,11 @@ export default function MobileChatScreen({
                 <h3 className="font-serif font-bold text-xs sm:text-sm text-[#2C1A1D] truncate">
                   {partnerUser.name}
                 </h3>
+                {(partnerUser.isVendor || String(partnerUser.id).startsWith('vendor:')) && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#F3EEFA] border border-[#D8CBEF] text-[#5B3E8C] text-[9px] font-bold shrink-0">
+                    Wedding Service
+                  </span>
+                )}
                 {partnerUser.verified && (
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 )}
@@ -1421,6 +1453,11 @@ export default function MobileChatScreen({
                       <h4 className={`font-serif font-bold text-sm truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                         {profile.name}
                       </h4>
+                      {(conv.isVendorThread || profile.isVendor || String(profile.id).startsWith('vendor:')) && (
+                        <span className="px-2 py-0.5 rounded-full bg-[#F3EEFA] border border-[#D8CBEF] text-[#5B3E8C] text-[9px] font-bold shrink-0">
+                          Wedding Service
+                        </span>
+                      )}
                       {profile.verified && (
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                       )}

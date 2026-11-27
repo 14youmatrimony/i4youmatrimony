@@ -130,6 +130,18 @@
 
 
         <button 
+          data-tab-target="vendors"
+          class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-white/5 border border-transparent group"
+          title="Verify and Approve Wedding Service Vendors"
+        >
+          <div class="flex items-center space-x-3">
+            <i data-lucide="store" class="w-4 h-4 text-[#E6B8A2]"></i>
+            <span>Vendor Verification</span>
+          </div>
+          <span id="vendorPendingBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">0</span>
+        </button>
+
+        <button 
           data-tab-target="settings"
           class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-white/5 border border-transparent"
         >
@@ -1055,6 +1067,48 @@
       <!-- ========================================================
            VIEW 5: SETTINGS
            ======================================================== -->
+      <section id="view-vendors" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-serif font-bold text-white">Vendor Verification &amp; Approvals</h2>
+            <p class="text-xs text-slate-400">Inspect vendor Mobile OTP status, owner ID / shop license documents, and portfolio media before verifying and publishing to Services.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="filterVendorApprovals('all')" id="vendorFilterAllBtn" class="px-3 py-1.5 rounded-xl bg-[#C58B76]/20 text-[#E6B8A2] border border-[#C58B76]/40 text-xs font-semibold cursor-pointer">All</button>
+            <button onclick="filterVendorApprovals('pending')" id="vendorFilterPendingBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer">Pending</button>
+            <button onclick="filterVendorApprovals('approved')" id="vendorFilterApprovedBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer">Verified &amp; Approved</button>
+            <button onclick="filterVendorApprovals('rejected')" id="vendorFilterRejectedBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer">Rejected</button>
+            <button onclick="loadVendorApprovals()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors flex items-center gap-1.5 text-xs cursor-pointer" title="Refresh Vendors">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary Metrics (Matching Profile Verification UI) -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800">
+            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Vendors</p>
+            <p id="vendorMetricTotal" class="text-2xl font-extrabold text-white font-mono mt-1">0</p>
+          </div>
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-amber-500/30">
+            <p class="text-[11px] font-bold text-amber-300 uppercase tracking-wider">Pending Review</p>
+            <p id="vendorMetricPending" class="text-2xl font-extrabold text-amber-300 font-mono mt-1">0</p>
+          </div>
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-emerald-500/30">
+            <p class="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Verified &amp; Approved</p>
+            <p id="vendorMetricApproved" class="text-2xl font-extrabold text-emerald-300 font-mono mt-1">0</p>
+          </div>
+          <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-rose-500/30">
+            <p class="text-[11px] font-bold text-rose-300 uppercase tracking-wider">Rejected</p>
+            <p id="vendorMetricRejected" class="text-2xl font-extrabold text-rose-300 font-mono mt-1">0</p>
+          </div>
+        </div>
+
+        <div id="vendorApprovalsContainer" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-400">Loading vendor profiles...</div>
+        </div>
+      </section>
+
       <section id="view-settings" class="hidden space-y-6">
         
         <div>

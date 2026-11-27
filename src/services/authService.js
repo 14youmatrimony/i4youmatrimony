@@ -606,25 +606,56 @@ export function getStoredUserSession() {
  */
 export function logoutUser() {
   try {
-    localStorage.removeItem('i4u_auth_user');
-    localStorage.removeItem('i4u_current_user_id');
-    localStorage.removeItem('i4u_register_id');
-    localStorage.removeItem('i4u_auth_token');
-    localStorage.removeItem('i4u_refresh_token');
-    localStorage.removeItem('i4u_saved_google_user');
-    localStorage.removeItem('i4u_aadhaar_verified');
-    localStorage.removeItem('i4u_my_status');
-    localStorage.removeItem('i4u_conversations');
-    localStorage.removeItem('i4u_notifications');
-    localStorage.removeItem('i4u_interests_sent');
-    localStorage.removeItem('i4u_shortlisted');
-    localStorage.removeItem('i4u_declined_received_ids');
+    localStorage.clear();
+    sessionStorage.clear();
     localStorage.setItem('i4u_logged_out', 'true');
+    if (typeof document !== 'undefined' && document.cookie) {
+      document.cookie.split(';').forEach((cookie) => {
+        const eqPos = cookie.indexOf('=');
+        const name = (eqPos > -1 ? cookie.slice(0, eqPos) : cookie).trim();
+        if (name) {
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+        }
+      });
+    }
     if (typeof window !== 'undefined') {
       window.__currentUserId = null;
     }
   } catch (e) {
     console.warn('[authService] Logout storage cleanup error:', e);
+  }
+}
+
+/**
+ * Unified forceLogout() handler used by ALL Logout buttons across the app
+ * (Header, Profile screen, Mobile menu/drawer, Vendor dashboard, Admin panel).
+ */
+export async function forceLogout(onClearReactState) {
+  // 1. Set temporary flag so active onAuthStateChange listeners ignore stale events during teardown
+  try {
+    sessionStorage.setItem('is_logging_out', 'true');
+  } catch (e) {}
+
+  // 2. Synchronously clear all React auth/user states
+  if (typeof onClearReactState === 'function') {
+    try {
+      onClearReactState();
+    } catch (e) {}
+  }
+
+  // 3. Sign out of Supabase Auth safely (never blocks custom ID logins)
+  try {
+    if (isSupabaseConfigured() && supabase?.auth) {
+      await supabase.auth.signOut();
+    }
+  } catch (e) {}
+
+  // 4. Wipe all localStorage, sessionStorage, and document.cookie entries (including sb-* cookies)
+  logoutUser();
+
+  // 5. Redirect cleanly to the public Guest Landing Page after teardown completes
+  if (typeof window !== 'undefined') {
+    window.location.replace('/');
   }
 }
 

@@ -477,25 +477,41 @@ export default function MobileProfileDetailSheet({
                 ) : null}
               </div>
 
-              <p className="text-sm text-slate-200 font-medium mt-1 flex items-center gap-2">
+              <p className="text-sm text-slate-200 font-medium mt-1 flex items-center flex-wrap gap-2">
                 <span>{profile.age} yrs</span>
-                <span>•</span>
-                <span>{profile.height}</span>
-                {profile.bodyType && (
+                {profile.height && (
                   <>
                     <span>•</span>
-                    <span>{profile.bodyType}</span>
+                    <span>{profile.height}</span>
                   </>
                 )}
-                {profile.skinColour && (
+                {profile.weight && (
                   <>
                     <span>•</span>
-                    <span>{profile.skinColour}</span>
+                    <span>{profile.weight}</span>
+                  </>
+                )}
+                {(profile.bodyType || profile.body_type) && (
+                  <>
+                    <span>•</span>
+                    <span>{profile.bodyType || profile.body_type}</span>
+                  </>
+                )}
+                {(profile.complexion || profile.skinColour) && (
+                  <>
+                    <span>•</span>
+                    <span>{profile.complexion || profile.skinColour}</span>
                   </>
                 )}
                 <span>•</span>
                 <span>{profile.religion}</span>
               </p>
+
+              {(profile.native_place || profile.native_district || profile.native_state) && (
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  Native: {[profile.native_place, profile.native_district, profile.native_state].filter(Boolean).join(', ')}
+                </p>
+              )}
 
               <div className="flex items-center space-x-1.5 text-xs text-slate-300 mt-1">
                 <MapPin className="w-3.5 h-3.5 text-[#C58B76] shrink-0" />
@@ -1246,12 +1262,42 @@ export default function MobileProfileDetailSheet({
                     )}
                   </div>
 
+                  {/* Doctorate / PhD */}
+                  {profile.edu_doctorate && (
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                      <span className="text-[10px] font-bold text-[#7A2E43] uppercase tracking-wider bg-[#FDECE4] px-2 py-0.5 rounded border border-[#E5D0C6]">
+                        Doctorate / PhD
+                      </span>
+                      <h5 className="font-bold text-slate-900 text-xs">{profile.edu_doctorate}</h5>
+                    </div>
+                  )}
+
+                  {/* Post Graduation */}
+                  {profile.edu_pg && (
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                      <span className="text-[10px] font-bold text-[#7A2E43] uppercase tracking-wider bg-[#FDECE4] px-2 py-0.5 rounded border border-[#E5D0C6]">
+                        Post Graduation / PG
+                      </span>
+                      <h5 className="font-bold text-slate-900 text-xs">{profile.edu_pg}</h5>
+                    </div>
+                  )}
+
+                  {/* Degree / Graduation */}
+                  {profile.edu_degree && (
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                      <span className="text-[10px] font-bold text-[#7A2E43] uppercase tracking-wider bg-[#FDECE4] px-2 py-0.5 rounded border border-[#E5D0C6]">
+                        Degree / Graduation
+                      </span>
+                      <h5 className="font-bold text-slate-900 text-xs">{profile.edu_degree}</h5>
+                    </div>
+                  )}
+
                   {/* 12th Standard / HSC / Junior College / +2 */}
-                  {(profile.twelfthSchool || profile.twelfthBoard || profile.twelfthYear) && (
+                  {(profile.edu_12th || profile.twelfthSchool || profile.twelfthBoard || profile.twelfthYear) && (
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                          12th Standard (HSC / +2)
+                          12th Standard (Higher Secondary)
                         </span>
                         {profile.twelfthYear && (
                           <span className="text-[11px] text-slate-500 font-semibold">
@@ -1259,9 +1305,9 @@ export default function MobileProfileDetailSheet({
                           </span>
                         )}
                       </div>
-                      {profile.twelfthSchool && (
+                      {(profile.edu_12th || profile.twelfthSchool) && (
                         <h5 className="font-bold text-slate-900 text-xs mt-0.5">
-                          {profile.twelfthSchool}
+                          {profile.edu_12th || profile.twelfthSchool}
                         </h5>
                       )}
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
@@ -1280,11 +1326,11 @@ export default function MobileProfileDetailSheet({
                   )}
 
                   {/* 10th Standard / SSC / Matriculation */}
-                  {(profile.tenthSchool || profile.tenthBoard || profile.tenthYear) && (
+                  {(profile.edu_10th || profile.tenthSchool || profile.tenthBoard || profile.tenthYear) && (
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                          10th Standard (SSC / Matric)
+                          10th Standard (SSLC / Matric)
                         </span>
                         {profile.tenthYear && (
                           <span className="text-[11px] text-slate-500 font-semibold">
@@ -1292,9 +1338,9 @@ export default function MobileProfileDetailSheet({
                           </span>
                         )}
                       </div>
-                      {profile.tenthSchool && (
+                      {(profile.edu_10th || profile.tenthSchool) && (
                         <h5 className="font-bold text-slate-900 text-xs mt-0.5">
-                          {profile.tenthSchool}
+                          {profile.edu_10th || profile.tenthSchool}
                         </h5>
                       )}
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
@@ -1492,59 +1538,87 @@ export default function MobileProfileDetailSheet({
                   <div className="py-2.5 flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Preferred Age:</span>
                     <span className="font-semibold text-slate-900 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200/60">
-                      {profile.gender === 'Female' ? `${profile.age} - ${profile.age + 5} yrs` : `${Math.max(21, profile.age - 5)} - ${profile.age} yrs`}
+                      {profile.pref_min_age && profile.pref_max_age
+                        ? `${profile.pref_min_age} - ${profile.pref_max_age} yrs`
+                        : (profile.gender === 'Female' ? `${profile.age} - ${profile.age + 5} yrs` : `${Math.max(21, profile.age - 5)} - ${profile.age} yrs`)}
                     </span>
                   </div>
                   <div className="py-2.5 flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Preferred Height:</span>
                     <span className="font-semibold text-slate-900">
-                      {profile.gender === 'Female' ? "5'7\" to 6'2\"" : "5'2\" to 5'8\""}
+                      {profile.pref_min_height && profile.pref_max_height
+                        ? `${profile.pref_min_height} - ${profile.pref_max_height} cm`
+                        : (profile.gender === 'Female' ? '165 - 188 cm' : '155 - 175 cm')}
                     </span>
                   </div>
                   <div className="py-2.5 flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Body Type:</span>
-                    <span className="font-semibold text-slate-900">
-                      {profile.prefBodyType || "Doesn't Matter / Any Body Type"}
+                    <span className="text-slate-500 font-medium">Complexion / Skin Tone:</span>
+                    <span className="font-semibold text-slate-900">{profile.pref_complexion || profile.prefSkinTone || 'Any'}</span>
+                  </div>
+                  <div className="py-2.5 flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Marital Status:</span>
+                    <span className="font-semibold text-slate-900">{profile.pref_marital_status || 'Any'}</span>
+                  </div>
+                  <div className="py-2.5 flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Religion &amp; Community:</span>
+                    <span className="font-semibold text-slate-900 text-right max-w-[60%]">
+                      {[profile.pref_religion, profile.pref_caste].filter(v => v && v !== 'Any').join(' • ') || 'Any'}
                     </span>
                   </div>
                   <div className="py-2.5 flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Skin Tone:</span>
-                    <span className="font-semibold text-slate-900">
-                      {profile.prefSkinTone || profile.prefSkinColour || "Fair / Wheatish"}
-                    </span>
+                    <span className="text-slate-500 font-medium">Mother Tongue:</span>
+                    <span className="font-semibold text-slate-900">{profile.pref_mother_tongue || 'Any'}</span>
                   </div>
                   <div className="py-2.5 flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Education:</span>
                     <span className="font-semibold text-slate-900 text-right max-w-[60%]">
-                      Graduate / Professional Degree (Doctor, Engg, CA, MBA)
+                      {profile.pref_education || 'Any'}
                     </span>
                   </div>
                   <div className="py-2.5 flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Profession:</span>
+                    <span className="text-slate-500 font-medium">Profession / Sector:</span>
                     <span className="font-semibold text-slate-900 text-right max-w-[60%]">
-                      Working Professional / Self-Employed
+                      {profile.pref_occupation || 'Any'}
                     </span>
                   </div>
                   <div className="py-2.5 flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Income Expectation:</span>
-                    <span className="font-semibold text-slate-900">₹ 15 LPA+ / Open</span>
+                    <span className="font-semibold text-slate-900">{profile.pref_income || 'Any'}</span>
                   </div>
                   <div className="py-2.5 flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Location Preference:</span>
+                    <span className="text-slate-500 font-medium">Preferred State &amp; District:</span>
                     <span className="font-semibold text-slate-900 text-right max-w-[60%]">
-                      {profile.preferred_countries || profile.preferredCountries || (isNriProfile(profile) ? 'Open to NRI & India' : `${profile.district || ''} & Pan-India / Open`)}
+                      {[profile.pref_state, profile.pref_district].filter(v => v && v !== 'Any').join(', ') || 'Any'}
                     </span>
+                  </div>
+                  <div className="py-2.5 space-y-1.5">
+                    <span className="text-slate-500 font-medium block">Preferred Countries:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {String(profile.preferred_countries || profile.preferredCountries || 'Any')
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(Boolean)
+                        .map(c => (
+                          <span key={c} className="px-2.5 py-0.5 rounded-full bg-[#FDECE4] border border-[#E6B8A2] text-[#7A2E43] text-[11px] font-semibold">
+                            {c}
+                          </span>
+                        ))}
+                    </div>
                   </div>
                   <div className="py-2.5 flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Dietary Habit:</span>
                     <span className="font-semibold text-slate-900">
-                      {profile.diet.includes('Vegetarian') ? 'Vegetarian / Eggetarian Preferred' : 'Flexible / Non-Veg OK'}
+                      {profile.pref_diet || (profile.diet?.includes('Vegetarian') ? 'Vegetarian' : 'Any')}
                     </span>
                   </div>
                   <div className="py-2.5 flex justify-between items-center">
-                    <span className="text-slate-500 font-medium">Manglik Status:</span>
+                    <span className="text-slate-500 font-medium">Physical Status:</span>
+                    <span className="font-semibold text-slate-900">{profile.pref_physical_status || 'Any'}</span>
+                  </div>
+                  <div className="py-2.5 flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Smoking / Drinking:</span>
                     <span className="font-semibold text-slate-900">
-                      {profile.manglik === 'Manglik' ? 'Manglik Preferred' : "Doesn't Matter / Non-Manglik"}
+                      {`${profile.pref_smoking || 'Any'} / ${profile.pref_drinking || 'Any'}`}
                     </span>
                   </div>
                 </div>

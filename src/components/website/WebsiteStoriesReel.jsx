@@ -80,18 +80,14 @@ export default function WebsiteStoriesReel({
   }, [activeStories, profiles, candidateStatuses, currentUser, targetCandidateGender]);
 
   return (
-    <section id="stories-section" className="py-7 sm:py-9 bg-[#FFFBF9] border-b border-[#E5D0C6] text-[#5A4649] select-none">
+    <section id="stories-section" className="pt-3 pb-1 sm:pt-4 sm:pb-1 bg-[#FFFBF9] text-[#5A4649] select-none">
       <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4">
         
         {/* Section Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4 sm:mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
           <div>
-            <div className="inline-flex items-center space-x-1.5 text-[10px] sm:text-xs font-semibold text-[#7A2E43] uppercase tracking-wider mb-0.5">
-              <Sparkles className="w-3 h-3 text-[#C58B76]" />
-              <span>Authentic Video & Photo Status Updates</span>
-            </div>
             <h2 className="text-base sm:text-xl md:text-2xl font-serif font-bold text-[#2C1A1D]">
-              Glimpses into Real Lives & Family Values
+              Glimpses into Real Lives &amp; Family Values
             </h2>
           </div>
         </div>
@@ -104,7 +100,7 @@ export default function WebsiteStoriesReel({
               reelRef.current.scrollLeft += e.deltaY;
             }
           }}
-          className="flex items-center space-x-3.5 sm:space-x-4.5 overflow-x-auto pb-4 pt-2 no-scrollbar scroll-smooth"
+          className="flex items-center space-x-3.5 sm:space-x-4.5 overflow-x-auto pb-1 pt-1 no-scrollbar scroll-smooth"
         >
           
           {/* User's Own Status Card or Guest Story Prompt */}

@@ -480,7 +480,7 @@ function canAccessTab(tabId) {
   if (role === 'Super Admin') return true;
   const perms = state.admin.permissions || [];
   if (tabId === 'overview') return true;
-  if (tabId === 'users' || tabId === 'aadhaar') return perms.includes('users:view');
+  if (tabId === 'users' || tabId === 'aadhaar' || tabId === 'vendors') return perms.includes('users:view');
   if (tabId === 'offers') return perms.includes('offers:view');
   if (tabId === 'plans') return perms.includes('plans:view');
   if (tabId === 'payments') return perms.includes('payments:view');
@@ -652,7 +652,7 @@ function switchTab(tabId) {
   });
 
   // Toggle views
-  const viewPanels = ['overview', 'users', 'aadhaar', 'offers', 'plans', 'payments', 'settings'];
+  const viewPanels = ['overview', 'users', 'aadhaar', 'offers', 'plans', 'payments', 'vendors', 'settings'];
   viewPanels.forEach(panel => {
     const el = document.getElementById(`view-${panel}`);
     if (el) {
@@ -682,6 +682,8 @@ function switchTab(tabId) {
     loadPlans();
   } else if (tabId === 'payments') {
     loadPayments();
+  } else if (tabId === 'vendors') {
+    loadVendorApprovals();
   } else if (tabId === 'settings') {
     loadSettings();
   }
@@ -6174,6 +6176,250 @@ async function handleSaveDailyContactLimit() {
     }
   }
 }
+
+// ========================================================
+// WEDDING VENDOR APPROVALS MANAGEMENT
+// ========================================================
+
+state.vendors = {
+  list: [],
+  filter: 'all'
+};
+
+function filterVendorApprovals(filterMode) {
+  state.vendors.filter = filterMode || 'all';
+  ['all', 'pending', 'approved', 'rejected'].forEach(key => {
+    const btn = document.getElementById(`vendorFilter${key.charAt(0).toUpperCase() + key.slice(1)}Btn`);
+    if (btn) {
+      btn.className = key === state.vendors.filter
+        ? 'px-3 py-1.5 rounded-xl bg-[#C58B76]/20 text-[#E6B8A2] border border-[#C58B76]/40 text-xs font-semibold cursor-pointer'
+        : 'px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer';
+    }
+  });
+  renderVendorApprovals();
+}
+
+async function loadVendorApprovals() {
+  const container = document.getElementById('vendorApprovalsContainer');
+  if (!container) return;
+  container.innerHTML = '<div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-400">Loading wedding service vendors from Supabase...</div>';
+
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) {
+      container.innerHTML = '<div class="p-6 rounded-2xl bg-[#2C1A1D] border border-rose-500/30 text-xs text-rose-300">Supabase client not initialized.</div>';
+      return;
+    }
+
+    const { data, error } = await sb
+      .from('wedding_vendors')
+      .select('*, vendor_media(id, media_type, media_url, sort_order)')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      container.innerHTML = `<div class="p-6 rounded-2xl bg-[#2C1A1D] border border-rose-500/30 text-xs text-rose-300">Unable to load vendors: ${error.message}</div>`;
+      return;
+    }
+
+    state.vendors.list = data || [];
+    const totalCount = state.vendors.list.length;
+    const approvedCount = state.vendors.list.filter(v => Boolean(v.is_verified && v.is_approved)).length;
+    const rejectedCount = state.vendors.list.filter(v => !(v.is_verified && v.is_approved) && Boolean(v.rejection_reason)).length;
+    const pendingCount = state.vendors.list.filter(v => !(v.is_verified && v.is_approved) && !v.rejection_reason).length;
+
+    const elTotal = document.getElementById('vendorMetricTotal');
+    const elPending = document.getElementById('vendorMetricPending');
+    const elApproved = document.getElementById('vendorMetricApproved');
+    const elRejected = document.getElementById('vendorMetricRejected');
+    if (elTotal) elTotal.textContent = String(totalCount);
+    if (elPending) elPending.textContent = String(pendingCount);
+    if (elApproved) elApproved.textContent = String(approvedCount);
+    if (elRejected) elRejected.textContent = String(rejectedCount);
+
+    const badge = document.getElementById('vendorPendingBadge');
+    if (badge) {
+      if (pendingCount > 0) {
+        badge.textContent = String(pendingCount);
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    renderVendorApprovals();
+  } catch (err) {
+    container.innerHTML = `<div class="p-6 rounded-2xl bg-[#2C1A1D] border border-rose-500/30 text-xs text-rose-300">Error: ${err.message}</div>`;
+  }
+}
+
+function renderVendorApprovals() {
+  const container = document.getElementById('vendorApprovalsContainer');
+  if (!container) return;
+
+  const filtered = (state.vendors.list || []).filter(v => {
+    const isLive = Boolean(v.is_verified && v.is_approved);
+    const isRejected = !isLive && Boolean(v.rejection_reason);
+    if (state.vendors.filter === 'pending') return !isLive && !isRejected;
+    if (state.vendors.filter === 'approved') return isLive;
+    if (state.vendors.filter === 'rejected') return isRejected;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-400">No vendor profiles match the selected filter.</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(v => {
+    const isLive = Boolean(v.is_verified && v.is_approved);
+    const isRejected = !isLive && Boolean(v.rejection_reason);
+    const media = Array.isArray(v.vendor_media) ? v.vendor_media : [];
+    const images = media.filter(m => m.media_type === 'image');
+    const videos = media.filter(m => m.media_type === 'video');
+    const thumbsHtml = images.slice(0, 6).map(img => (
+      `<a href="${img.media_url}" target="_blank" rel="noopener noreferrer"><img src="${img.media_url}" alt="Vendor media" class="w-14 h-14 rounded-xl object-cover border border-slate-700 hover:border-[#E6B8A2]" /></a>`
+    )).join('');
+
+    const statusBadge = isLive
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Verified &amp; Approved</span>'
+      : isRejected
+        ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/15 text-rose-300 border border-rose-500/30">Rejected</span>'
+        : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30">Pending Review</span>';
+
+    const otpBadge = v.is_mobile_verified
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Mobile OTP Verified</span>'
+      : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-700/60 text-slate-300 border border-slate-600">Mobile Unverified</span>';
+
+    return `
+      <div class="p-5 rounded-2xl bg-[#2C1A1D] border ${isLive ? 'border-emerald-500/30' : isRejected ? 'border-rose-500/30' : 'border-amber-500/30'} space-y-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="space-y-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-sm font-bold text-white">${v.business_name || 'Unnamed Business'}</h3>
+              ${statusBadge}
+              ${otpBadge}
+            </div>
+            <p class="text-xs text-[#E6B8A2]">${v.category || ''} &bull; ${[v.district, v.state].filter(Boolean).join(', ')}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            ${!isLive ? `
+              <button
+                type="button"
+                onclick="verifyAndApproveVendor('${v.id}')"
+                class="px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40"
+              >
+                Verify &amp; Approve
+              </button>
+            ` : ''}
+            <button
+              type="button"
+              onclick="rejectVendorPrompt('${v.id}')"
+              class="px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40"
+            >
+              ${isLive ? 'Revoke / Reject' : 'Reject'}
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs text-slate-300 bg-[#1A1012] p-3 rounded-xl border border-slate-800">
+          <div><span class="text-slate-500">Owner:</span> ${v.owner_name || 'N/A'}</div>
+          <div><span class="text-slate-500">Phone:</span> ${v.phone || 'N/A'}</div>
+          <div><span class="text-slate-500">WhatsApp:</span> ${v.whatsapp_number || 'N/A'}</div>
+          <div><span class="text-slate-500">Pricing:</span> ${v.pricing_range || 'N/A'}</div>
+          <div><span class="text-slate-500">Service Area:</span> ${v.service_area || 'N/A'}</div>
+          <div><span class="text-slate-500">Experience:</span> ${v.experience_years || 'N/A'}</div>
+          ${v.license_number ? `<div class="col-span-2"><span class="text-slate-500">License / Udyam:</span> ${v.license_number}</div>` : ''}
+          <div class="col-span-2"><span class="text-slate-500">Address:</span> ${[v.address, v.city_address, v.district, v.state].filter(Boolean).join(', ') || 'N/A'}</div>
+        </div>
+
+        ${v.description ? `<p class="text-xs text-slate-300 leading-relaxed">${v.description}</p>` : ''}
+        ${v.staff_details ? `<p class="text-xs text-purple-200 bg-purple-500/10 border border-purple-500/20 p-2.5 rounded-xl"><strong>Service / Fleet / Crew Details:</strong> ${v.staff_details}</p>` : ''}
+        ${v.rejection_reason ? `<p class="text-xs text-rose-200 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl"><strong>Rejection Reason:</strong> ${v.rejection_reason}</p>` : ''}
+
+        ${v.verification_doc_url ? `
+          <div class="p-3 rounded-xl bg-[#1A1012] border border-slate-800 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <a href="${v.verification_doc_url}" target="_blank" rel="noopener noreferrer">
+                <img src="${v.verification_doc_url}" alt="Verification document" class="w-14 h-14 rounded-lg object-cover border border-slate-700" />
+              </a>
+              <div>
+                <p class="text-xs font-bold text-white">Owner ID / Shop License Document</p>
+                <p class="text-[11px] text-slate-400">Click thumbnail to inspect full-size document</p>
+              </div>
+            </div>
+            <a href="${v.verification_doc_url}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold border border-slate-700">Open</a>
+          </div>
+        ` : '<p class="text-[11px] text-amber-300">No verification document uploaded.</p>'}
+
+        ${(images.length > 0 || videos.length > 0) ? `
+          <div class="space-y-2 pt-1">
+            <p class="text-[11px] text-slate-400 font-semibold">Portfolio Media: ${images.length} photo(s), ${videos.length} video(s)</p>
+            ${thumbsHtml ? `<div class="flex flex-wrap gap-2">${thumbsHtml}</div>` : ''}
+            ${videos.length > 0 ? `<div class="flex flex-wrap gap-2">${videos.map((vid, idx) => `<a href="${vid.media_url}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200 text-[11px] border border-slate-700 hover:border-[#E6B8A2]">Video ${idx + 1}</a>`).join('')}</div>` : ''}
+          </div>
+        ` : '<p class="text-[11px] text-slate-500">No portfolio media uploaded yet.</p>'}
+      </div>
+    `;
+  }).join('');
+}
+
+async function verifyAndApproveVendor(vendorId) {
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    const { error } = await sb
+      .from('wedding_vendors')
+      .update({
+        is_verified: true,
+        is_approved: true,
+        rejection_reason: null
+      })
+      .eq('id', vendorId);
+
+    if (error) {
+      showToast(`Failed to verify & approve vendor: ${error.message}`, 'error');
+      return;
+    }
+
+    showToast('Vendor verified, approved, and published to Services.', 'success');
+    await loadVendorApprovals();
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+}
+
+async function rejectVendorPrompt(vendorId) {
+  const reason = window.prompt('Enter rejection reason for the vendor (e.g. Unclear shop license or incomplete address):');
+  if (reason === null) return;
+  const cleanReason = String(reason || '').trim() || 'Rejected by Super Admin during verification review.';
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    const { error } = await sb
+      .from('wedding_vendors')
+      .update({
+        is_verified: false,
+        is_approved: false,
+        rejection_reason: cleanReason
+      })
+      .eq('id', vendorId);
+
+    if (error) {
+      showToast(`Failed to reject vendor: ${error.message}`, 'error');
+      return;
+    }
+
+    showToast('Vendor rejected and removed from public Services.', 'success');
+    await loadVendorApprovals();
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+}
+
+window.verifyAndApproveVendor = verifyAndApproveVendor;
+window.rejectVendorPrompt = rejectVendorPrompt;
+window.filterVendorApprovals = filterVendorApprovals;
+window.loadVendorApprovals = loadVendorApprovals;
 
 window.loadDailyContactLimit = loadDailyContactLimit;
 window.handleSaveDailyContactLimit = handleSaveDailyContactLimit;

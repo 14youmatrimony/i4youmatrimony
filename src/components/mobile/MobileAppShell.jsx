@@ -5,7 +5,8 @@ import {
   User, 
   Search,
   Flame,
-  Bell
+  Bell,
+  Store
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -40,6 +41,7 @@ export default function MobileAppShell({
     { id: 'feed', label: 'Discover', icon: Flame, badge: null },
     { id: 'search', label: 'Search', icon: Search, badge: null },
     { id: 'interests', label: 'Interests', icon: Heart, badge: currentUser && interestCount > 0 ? interestCount : null },
+    { id: 'services', label: 'Services', icon: Store, badge: null },
     { id: 'chat', label: 'Messages', icon: MessageCircle, badge: currentUser && unreadCount > 0 ? unreadCount : null },
     { id: 'account', label: 'Profile', icon: User, badge: currentUser && unreadNotificationsCount > 0 ? unreadNotificationsCount : null }
   ];
@@ -122,13 +124,13 @@ export default function MobileAppShell({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all duration-200 cursor-pointer select-none group active:scale-90 ${
+                className={`relative flex flex-col items-center justify-center py-1 px-1.5 sm:px-2.5 rounded-2xl transition-all duration-200 cursor-pointer select-none group active:scale-90 ${
                   isTransparentBar
                     ? isActive
-                      ? 'bg-white/90 backdrop-blur-md text-[#7A2E43] border border-[#E5D0C6] shadow-sm px-3'
-                      : 'bg-white/40 backdrop-blur-sm text-[#5A4649] hover:bg-white/60 hover:text-[#7A2E43] px-2.5'
+                      ? 'bg-white/90 backdrop-blur-md text-[#7A2E43] border border-[#E5D0C6] shadow-sm px-2 sm:px-3'
+                      : 'bg-white/40 backdrop-blur-sm text-[#5A4649] hover:bg-white/60 hover:text-[#7A2E43] px-1.5 sm:px-2.5'
                     : isActive
-                      ? 'bg-[#FDECE4] px-3.5 shadow-xs border border-[#E5D0C6]'
+                      ? 'bg-[#FDECE4] px-2 sm:px-3.5 shadow-xs border border-[#E5D0C6]'
                       : 'hover:bg-[#FDECE4]/50'
                 }`}
               >

@@ -180,7 +180,7 @@ export default function WebsitePricingSection({
   };
 
   return (
-    <section id="plans-section" className="py-12 lg:py-20 bg-[#FFF9F6] text-[#5A4649] border-b border-[#E5D0C6] relative overflow-hidden">
+    <section id="plans-section" className="py-3 md:py-4 bg-[#FFF9F6] text-[#5A4649] relative overflow-hidden">
       
       {/* Dynamic Toast Feedback */}
       {infoToast && (
@@ -192,10 +192,10 @@ export default function WebsitePricingSection({
         </div>
       )}
 
-      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-8 sm:space-y-10">
+      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-3 sm:space-y-4">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-2.5">
+        <div className="text-center max-w-3xl mx-auto space-y-1.5">
           <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-[#FDECE4] border border-[#E5D0C6] text-[#7A2E43] text-xs font-bold uppercase tracking-wider">
             <Crown className="w-3.5 h-3.5 text-[#C58B76]" />
             <span>Transparent Matrimonial Memberships</span>
@@ -204,19 +204,6 @@ export default function WebsitePricingSection({
           <h2 className="text-2xl sm:text-4xl lg:text-5xl font-serif font-extrabold tracking-tight text-[#2C1A1D]">
             Invest in a Lifetime of Happiness
           </h2>
-
-          <p className="text-xs sm:text-sm text-[#5A4649] font-normal leading-relaxed max-w-2xl mx-auto">
-            Unlock direct candidate telephone numbers, verified family horoscopes, and unlimited chats with zero hidden fees.
-          </p>
-
-          {!currentUser && (
-            <div className="pt-2">
-              <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-[#FFFBF9] border border-[#E5D0C6] text-[#7A2E43] text-xs font-semibold shadow-xs">
-                <Lock className="w-3.5 h-3.5 text-[#7A2E43] shrink-0" />
-                <span>View-Only Mode: Please log in or register to select and activate membership plans</span>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Dynamic Admin-Managed Festive Offer Banner */}
@@ -587,20 +574,6 @@ export default function WebsitePricingSection({
             );
           }))}
         </div>
-
-        {/* Payment Assurance Banner */}
-        <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-500 pt-4">
-          <span className="flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" /> 100% Safe UPI & 256-Bit SSL Checkout
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Zap className="w-4 h-4 text-amber-600" /> Instant Contact Unlock & GST Invoice
-          </span>
-          <span className="flex items-center gap-1.5">
-            <HeartHandshake className="w-4 h-4 text-blue-600" /> 30-Day Matrimony Guarantee
-          </span>
-        </div>
-
       </div>
 
     </section>
