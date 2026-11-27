@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { fetchLiveProfiles, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveHomepageBanners, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl, fetchActiveStoriesApi, insertStoryApi, deleteStoryApi, deleteExpiredStoriesApi, insertSuccessStoryApi, fetchSuccessStoriesApi } from './services/api';
+import { fetchLiveProfiles, detectVisitorLocation, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveHomepageBanners, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl, fetchActiveStoriesApi, insertStoryApi, deleteStoryApi, deleteExpiredStoriesApi, insertSuccessStoryApi, fetchSuccessStoriesApi } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
 import { formatR2PublicUrl, uploadStoryToR2, uploadSuccessStoryToR2, deletePhotoFromR2 } from './utils/r2Upload';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
@@ -451,6 +451,7 @@ export default function App() {
 
   const profilesRef = useRef(profiles);
   profilesRef.current = profiles;
+  const [visitorLocation, setVisitorLocation] = useState({ city: '', district: '', state: '', source: 'none' });
 
   // Synchronize candidate profiles from Supabase Cloud & Python Admin Backend
   const lastProfilesSyncRef = useRef(0);
@@ -464,7 +465,14 @@ export default function App() {
     try {
       const activeUser = currentUser || currentUserRef.current;
       const currentAuthId = activeUser?.id || activeUser?.user_id;
-      const liveList = await fetchLiveProfiles(activeUser || currentAuthId);
+      const detectedLoc = await detectVisitorLocation(activeUser).catch(() => ({ city: '', district: '', state: '', source: 'none' }));
+      if (detectedLoc && (detectedLoc.city || detectedLoc.state)) {
+        setVisitorLocation(detectedLoc);
+      }
+      const liveList = await fetchLiveProfiles(activeUser || currentAuthId, {
+        visitorLocation: detectedLoc,
+        nearestShowcase: true
+      });
       if (Array.isArray(liveList)) {
         const cleanList = liveList.filter(p => p && !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p));
         setProfiles(cleanList);
@@ -5302,6 +5310,7 @@ export default function App() {
               membershipPlans={membershipPlans}
               offers={activeOffers}
               homepageBanners={homepageBanners}
+              visitorLocation={visitorLocation}
               onOpenAppModal={() => setIsAppModalOpen(true)}
               onOpenEditProfile={() => setIsEditProfileModalOpen(true)}
             />
@@ -5729,6 +5738,7 @@ export default function App() {
               membershipPlans={membershipPlans}
               offers={activeOffers}
               homepageBanners={homepageBanners}
+              visitorLocation={visitorLocation}
               selectedPlanForPayment={selectedPlanForPayment}
               paymentDuration={paymentDuration}
               paymentCoupon={paymentCoupon}

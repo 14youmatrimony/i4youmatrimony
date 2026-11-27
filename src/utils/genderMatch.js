@@ -42,6 +42,8 @@ export function normalizeGender(genderVal) {
   if (
     s === 'female' ||
     s === 'f' ||
+    s === 'lady' ||
+    s === 'ladies' ||
     s === 'woman' ||
     s === 'women' ||
     s === 'bride' ||
@@ -57,6 +59,8 @@ export function normalizeGender(genderVal) {
   if (
     s === 'male' ||
     s === 'm' ||
+    s === 'gent' ||
+    s === 'gents' ||
     s === 'man' ||
     s === 'men' ||
     s === 'groom' ||

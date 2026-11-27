@@ -86,7 +86,8 @@ export default function WebsiteMatchShowcase({
   onSelectReligion,
   externalCity = '',
   onClearExternalCity,
-  currentUser
+  currentUser,
+  visitorLocation = null
 }) {
   const [searchTerm, setSearchTerm] = useState(externalCity || '');
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
@@ -251,10 +252,22 @@ export default function WebsiteMatchShowcase({
       <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-3">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mt-0 mb-1">
+        <div className="text-center max-w-3xl mx-auto mt-0 mb-1 space-y-1">
           <h2 className="text-2xl sm:text-4xl font-serif font-extrabold text-[#2C1A1D] tracking-tight">
             Handpicked Matches for You
           </h2>
+          {(() => {
+            const locParts = [visitorLocation?.city || visitorLocation?.district, visitorLocation?.state]
+              .filter(Boolean)
+              .filter((v, i, arr) => arr.findIndex(x => x.toLowerCase() === v.toLowerCase()) === i);
+            const locText = locParts.length > 0 ? locParts.join(', ') : 'India';
+            return (
+              <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#7A2E43] bg-[#FDECE4]/80 px-3 py-1 rounded-full border border-[#E5D0C6]">
+                <MapPin className="w-3.5 h-3.5 text-[#7A2E43]" />
+                <span>Showing latest profiles in {locText}</span>
+              </p>
+            );
+          })()}
         </div>
 
         {/* Search & Category Filter Bar */}
@@ -651,8 +664,14 @@ export default function WebsiteMatchShowcase({
                   {/* Photo Container */}
                   <div className="relative h-72 sm:h-80 overflow-hidden bg-slate-100">
                     <img
-                      src={profile.photo}
+                      src={profile.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600'}
                       alt={profile.name}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = String(profile.gender || '').toLowerCase().includes('male') && !String(profile.gender || '').toLowerCase().includes('female')
+                          ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=600'
+                          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600';
+                      }}
                       className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700"
                       loading="lazy"
                     />

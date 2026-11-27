@@ -42,6 +42,7 @@ export default function WebsiteView({
   membershipPlans,
   offers = [],
   homepageBanners = [],
+  visitorLocation = null,
   onLogout,
   onOpenAppModal,
   onOpenVendorPortal,
@@ -147,6 +148,7 @@ export default function WebsiteView({
           externalCity={activeCity}
           onClearExternalCity={() => setActiveCity('')}
           currentUser={currentUser}
+          visitorLocation={visitorLocation}
         />
 
         {/* 8. Festive Vivah Mahotsav 50% Off Membership Plans */}

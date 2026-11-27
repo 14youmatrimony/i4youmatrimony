@@ -763,8 +763,15 @@ export function isPlaceholderOrIncompleteProfile(profile, options = {}) {
     }
   }
 
-  // 5. Exclude deleted or inactive profiles
-  if (profile.status === 'deleted' || profile.status === 'inactive' || Boolean(profile.deleted_at)) {
+  // 5. Exclude deleted, inactive, suspended, or blocked profiles (keep active, pending, or null)
+  const lowerStatus = String(profile.status || '').trim().toLowerCase();
+  if (
+    lowerStatus === 'deleted' ||
+    lowerStatus === 'inactive' ||
+    lowerStatus === 'suspended' ||
+    lowerStatus === 'blocked' ||
+    Boolean(profile.deleted_at)
+  ) {
     return true;
   }
 
@@ -781,8 +788,8 @@ export function isPlaceholderOrIncompleteProfile(profile, options = {}) {
     }
   }
 
-  // 7. Strict Profile Photo Requirement for Candidate Profiles
-  if (options.requirePhoto !== false) {
+  // 7. Only enforce photo requirement when explicitly requested
+  if (options.requirePhoto === true) {
     const photo = resolveProfilePhoto(profile);
     if (!photo || isFakeAvatarUrl(photo)) {
       return true;
@@ -1218,12 +1225,193 @@ export function deduplicateProfiles(list) {
   });
 }
 
+const MALE_GENDER_VALUES = [
+  'Male', 'male', 'MALE', 'M', 'm', 'Gent', 'gent', 'Gents', 'gents', 'GENT', 'GENTS',
+  'Man', 'man', 'Men', 'men', 'Groom', 'groom', 'GROOM', 'Male / Groom', 'boy'
+];
+
+const FEMALE_GENDER_VALUES = [
+  'Female', 'female', 'FEMALE', 'F', 'f', 'Lady', 'lady', 'Ladies', 'ladies', 'LADY', 'LADIES',
+  'Woman', 'woman', 'Women', 'women', 'Bride', 'bride', 'BRIDE', 'Female / Bride', 'girl'
+];
+
+const EXCLUDED_STATUS_OR = 'status.is.null,status.not.in.(deleted,inactive,suspended,blocked,Deleted,Inactive,Suspended,Blocked)';
+
+/**
+ * Automatically detect visitor location:
+ * - Uses logged-in user's profile city/district/state when available
+ * - Falls back to IP geolocation (ipapi.co / ipwho.is) for Guest visitors or empty profile locations
+ */
+export async function detectVisitorLocation(currentUser = null) {
+  if (currentUser && typeof currentUser === 'object' && !currentUser.isGuest) {
+    const pCity = String(currentUser.city || '').trim();
+    const pDistrict = String(currentUser.district || '').trim();
+    const pState = String(currentUser.state || '').trim();
+    if (pCity || pDistrict || pState) {
+      return {
+        city: pCity || pDistrict,
+        district: pDistrict || pCity,
+        state: pState,
+        source: 'profile'
+      };
+    }
+  }
+
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      const cached = sessionStorage.getItem('i4u_visitor_geo');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && (parsed.city || parsed.state) && Date.now() - (parsed.ts || 0) < 30 * 60 * 1000) {
+          return parsed;
+        }
+      }
+    } catch (_) {}
+  }
+
+  const fetchWithTimeout = async (url, ms = 3500) => {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), ms) : null;
+    try {
+      const res = await fetch(url, controller ? { signal: controller.signal } : {});
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (_) {
+      return null;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+
+  let geo = null;
+  const ipapi = await fetchWithTimeout('https://ipapi.co/json/', 3500);
+  if (ipapi && (ipapi.city || ipapi.region)) {
+    geo = {
+      city: String(ipapi.city || '').trim(),
+      district: String(ipapi.city || '').trim(),
+      state: String(ipapi.region || '').trim(),
+      source: 'ip'
+    };
+  } else {
+    const ipwho = await fetchWithTimeout('https://ipwho.is/', 3500);
+    if (ipwho && ipwho.success !== false && (ipwho.city || ipwho.region)) {
+      geo = {
+        city: String(ipwho.city || '').trim(),
+        district: String(ipwho.city || '').trim(),
+        state: String(ipwho.region || '').trim(),
+        source: 'ip'
+      };
+    }
+  }
+
+  if (geo && (geo.city || geo.state)) {
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.setItem('i4u_visitor_geo', JSON.stringify({ ...geo, ts: Date.now() }));
+      } catch (_) {}
+    }
+    return geo;
+  }
+
+  return { city: '', district: '', state: '', source: 'none' };
+}
+
+/**
+ * 3-Tier Nearest-Location Query for a specific gender ('male' or 'female'):
+ * Priority 1: Same City / District (created_at DESC)
+ * Priority 2: Same State (created_at DESC, excluding Priority 1 IDs)
+ * Priority 3: Pan-India Latest Fallback (created_at DESC, excluding Priority 1 & 2 IDs)
+ */
+async function fetchGender3TierNearest({ genderType, loc, excludeSelfId, maxCount = 10 }) {
+  const collected = [];
+  const seenIds = new Set();
+  if (excludeSelfId) seenIds.add(String(excludeSelfId).trim());
+
+  const runTierQuery = async (applyLocationFilter, needed) => {
+    if (needed <= 0) return [];
+    let q = supabase
+      .from('profiles')
+      .select(PROFILE_FEED_COLUMNS)
+      .not('name', 'is', null)
+      .neq('name', '')
+      .neq('name', 'Google User')
+      .not('gender', 'is', null)
+      .neq('gender', '')
+      .is('deleted_at', null)
+      .or(EXCLUDED_STATUS_OR);
+
+    if (excludeSelfId) {
+      q = q.neq('id', String(excludeSelfId).trim());
+    }
+
+    if (genderType === 'male') {
+      q = q.in('gender', MALE_GENDER_VALUES).not('gender', 'ilike', 'female%');
+    } else if (genderType === 'female') {
+      q = q.in('gender', FEMALE_GENDER_VALUES).not('gender', 'ilike', 'male%');
+    }
+
+    if (applyLocationFilter) {
+      q = applyLocationFilter(q);
+    }
+
+    const fetchLimit = Math.min(needed + seenIds.size + 5, 50);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(fetchLimit);
+    if (error || !Array.isArray(data)) return [];
+    return data;
+  };
+
+  const pushUnique = (rows) => {
+    for (const row of rows) {
+      if (collected.length >= maxCount) break;
+      const rid = String(row?.id || '').trim();
+      if (!rid || seenIds.has(rid)) continue;
+      seenIds.add(rid);
+      collected.push(row);
+    }
+  };
+
+  const cityTerm = String(loc?.city || loc?.district || '').trim();
+  const stateTerm = String(loc?.state || '').trim();
+
+  // Priority 1: Same City / District
+  if (cityTerm) {
+    const safeCity = cityTerm.replace(/[%_,]/g, '');
+    if (safeCity) {
+      const tier1 = await runTierQuery(
+        (q) => q.or(`city.ilike.%${safeCity}%,district.ilike.%${safeCity}%`),
+        maxCount
+      );
+      pushUnique(tier1);
+    }
+  }
+
+  // Priority 2: Same State
+  if (collected.length < maxCount && stateTerm) {
+    const safeState = stateTerm.replace(/[%_,]/g, '');
+    if (safeState) {
+      const tier2 = await runTierQuery(
+        (q) => q.ilike('state', `%${safeState}%`),
+        maxCount - collected.length
+      );
+      pushUnique(tier2);
+    }
+  }
+
+  // Priority 3: Pan-India Latest Fallback
+  if (collected.length < maxCount) {
+    const tier3 = await runTierQuery(null, maxCount - collected.length);
+    pushUnique(tier3);
+  }
+
+  return collected;
+}
+
 /**
  * Fetch all active profiles from Supabase first, with fallback to Flask backend & offline cache
- * Excludes all demo profiles - returns only real registered candidates.
- * Explicitly filters out currently authenticated user (WHERE user_id != current_user_id AND id != current_user_id).
+ * Excludes all demo/deleted/suspended/blocked profiles - returns real registered candidates.
+ * Uses 3-tier nearest-location cascade (City/District -> State -> Pan-India) for up to 20 latest profiles (10 Gents + 10 Ladies).
  */
-export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, page = 0, gender = null, targetGender = null } = {}) {
+export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, page = 0, gender = null, targetGender = null, visitorLocation = null, nearestShowcase = false } = {}) {
   // Determine current logged-in user ID & gender
   let cleanId = null;
   let rawUserGender = gender || null;
@@ -1253,9 +1441,6 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
   }
 
   const normalizedUserGender = normalizeGender(rawUserGender);
-  // Strict opposite gender matchmaking rule:
-  // If user is Male -> fetch ONLY Female profiles, strictly filtering out Male
-  // If user is Female -> fetch ONLY Male profiles, strictly filtering out Female
   const targetOppositeGender = targetGender 
     ? normalizeGender(targetGender) 
     : (normalizedUserGender === 'male' ? 'female' : (normalizedUserGender === 'female' ? 'male' : null));
@@ -1263,6 +1448,55 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
   // 1. Direct Supabase PostgreSQL query (Port 443 HTTPS - Works universally without backend)
   if (isSupabaseConfigured()) {
     try {
+      const loc = visitorLocation || await detectVisitorLocation(typeof currentUserOrId === 'object' ? currentUserOrId : null);
+
+      // 3-Tier Nearest-Location Showcase Query (up to 10 Gents + 10 Ladies = 20 latest profiles)
+      if (!targetOppositeGender || nearestShowcase) {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
+        );
+
+        let data = null;
+        if (!targetOppositeGender) {
+          const [males, females] = await Promise.race([
+            Promise.all([
+              fetchGender3TierNearest({ genderType: 'male', loc, excludeSelfId: cleanId, maxCount: 10 }),
+              fetchGender3TierNearest({ genderType: 'female', loc, excludeSelfId: cleanId, maxCount: 10 })
+            ]),
+            timeoutPromise
+          ]);
+
+          const interleaved = [];
+          const maxLen = Math.max(males.length, females.length);
+          for (let i = 0; i < maxLen; i += 1) {
+            if (males[i]) interleaved.push(males[i]);
+            if (females[i]) interleaved.push(females[i]);
+          }
+          data = interleaved;
+        } else {
+          data = await Promise.race([
+            fetchGender3TierNearest({ genderType: targetOppositeGender, loc, excludeSelfId: cleanId, maxCount: 20 }),
+            timeoutPromise
+          ]);
+        }
+
+        if (Array.isArray(data)) {
+          const rawList = data
+            .map(mapSupabaseRowToProfile)
+            .filter(p => {
+              if (!p || isDemoProfile(p) || isPlaceholderOrIncompleteProfile(p)) return false;
+              if (cleanId) {
+                const uidStr = String(cleanId).trim().toLowerCase();
+                const pId = String(p.id || '').toLowerCase();
+                const pRegId = String(p.register_id || p.registerId || '').toLowerCase();
+                if (pId === uidStr || pRegId === uidStr || (pRegId && uidStr.includes(pRegId)) || (pId && uidStr.includes(pId))) return false;
+              }
+              return true;
+            });
+          return deduplicateProfiles(rawList);
+        }
+      }
+
       const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 200);
       const safePage = Math.max(Number(page) || 0, 0);
       const from = safePage * safeLimit;
@@ -1276,88 +1510,29 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
         .neq('name', 'Google User')
         .not('gender', 'is', null)
         .neq('gender', '')
-        .neq('status', 'deleted')
-        .neq('status', 'inactive')
-        .is('deleted_at', null);
+        .is('deleted_at', null)
+        .or(EXCLUDED_STATUS_OR);
 
       if (cleanId) {
         const uidStr = String(cleanId).trim();
         query = query.neq('id', uidStr);
       }
 
-      // Globally enforce opposite gender filtering directly in Supabase query
       if (targetOppositeGender === 'female') {
-        query = query.in('gender', ['Female', 'female', 'F', 'f', 'Bride', 'bride', 'Female / Bride', 'woman', 'women', 'girl'])
-                     .not('gender', 'ilike', 'male%');
+        query = query.in('gender', FEMALE_GENDER_VALUES).not('gender', 'ilike', 'male%');
       } else if (targetOppositeGender === 'male') {
-        query = query.in('gender', ['Male', 'male', 'M', 'm', 'Groom', 'groom', 'Male / Groom', 'man', 'men', 'boy'])
-                     .not('gender', 'ilike', 'female%');
+        query = query.in('gender', MALE_GENDER_VALUES).not('gender', 'ilike', 'female%');
       }
 
-      let data = null;
-      let error = null;
+      const fetchPromise = query
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-      // In Guest mode (no targetOppositeGender), fetch both Male and Female profiles and interleave them
-      if (!targetOppositeGender) {
-        const halfLimit = Math.max(Math.ceil(safeLimit / 2), 15);
-        const buildGuestQuery = (gType) => {
-          let gq = supabase
-            .from('profiles')
-            .select(PROFILE_FEED_COLUMNS)
-            .not('name', 'is', null)
-            .neq('name', '')
-            .neq('name', 'Google User')
-            .not('gender', 'is', null)
-            .neq('gender', '')
-            .neq('status', 'deleted')
-            .neq('status', 'inactive')
-            .is('deleted_at', null);
-          if (gType === 'male') {
-            gq = gq.in('gender', ['Male', 'male', 'M', 'm', 'Groom', 'groom', 'Male / Groom', 'man', 'men', 'boy'])
-                   .not('gender', 'ilike', 'female%');
-          } else {
-            gq = gq.in('gender', ['Female', 'female', 'F', 'f', 'Bride', 'bride', 'Female / Bride', 'woman', 'women', 'girl'])
-                   .not('gender', 'ilike', 'male%');
-          }
-          return gq.order('created_at', { ascending: false }).range(0, halfLimit - 1);
-        };
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
+      );
 
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
-        );
-
-        const [maleRes, femaleRes] = await Promise.race([
-          Promise.all([buildGuestQuery('male'), buildGuestQuery('female')]),
-          timeoutPromise
-        ]);
-
-        const males = Array.isArray(maleRes?.data) ? maleRes.data : [];
-        const females = Array.isArray(femaleRes?.data) ? femaleRes.data : [];
-        error = maleRes?.error || femaleRes?.error || null;
-
-        if (!error) {
-          const interleaved = [];
-          const maxLen = Math.max(males.length, females.length);
-          for (let i = 0; i < maxLen; i += 1) {
-            if (males[i]) interleaved.push(males[i]);
-            if (females[i]) interleaved.push(females[i]);
-          }
-          data = interleaved;
-        }
-      } else {
-        const fetchPromise = query
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        // 8-second timeout guard to prevent UI stalling on slow connections
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
-        );
-
-        const res = await Promise.race([fetchPromise, timeoutPromise]);
-        data = res.data;
-        error = res.error;
-      }
+      let { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
       // Resilient fallback: if column error or code 42703, immediately retry with select('*')
       if (error && (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist'))) {
@@ -1370,19 +1545,16 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
           .neq('name', 'Google User')
           .not('gender', 'is', null)
           .neq('gender', '')
-          .neq('status', 'deleted')
-          .neq('status', 'inactive')
-          .is('deleted_at', null);
+          .is('deleted_at', null)
+          .or(EXCLUDED_STATUS_OR);
         if (cleanId) {
           const uidStr = String(cleanId).trim();
           fallbackQuery = fallbackQuery.neq('id', uidStr);
         }
         if (targetOppositeGender === 'female') {
-          fallbackQuery = fallbackQuery.in('gender', ['Female', 'female', 'F', 'f', 'Bride', 'bride', 'Female / Bride', 'woman', 'women', 'girl'])
-                                       .not('gender', 'ilike', 'male%');
+          fallbackQuery = fallbackQuery.in('gender', FEMALE_GENDER_VALUES).not('gender', 'ilike', 'male%');
         } else if (targetOppositeGender === 'male') {
-          fallbackQuery = fallbackQuery.in('gender', ['Male', 'male', 'M', 'm', 'Groom', 'groom', 'Male / Groom', 'man', 'men', 'boy'])
-                                       .not('gender', 'ilike', 'female%');
+          fallbackQuery = fallbackQuery.in('gender', MALE_GENDER_VALUES).not('gender', 'ilike', 'female%');
         }
         const retryRes = await fallbackQuery
           .order('created_at', { ascending: false })
