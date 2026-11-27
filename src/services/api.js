@@ -4017,7 +4017,7 @@ export async function fetchSuccessStoriesApi() {
   try {
     const { data, error } = await supabase
       .from('happy_stories')
-      .select('id, couple_names, wedding_date, story_text, photo_url, location, source, is_active, display_order, created_at')
+      .select('id, image_url, couple_name, wedding_date, story_text, location, source, is_active, display_order, compressed_size_kb, created_at')
       .eq('is_active', true)
       .order('display_order', { ascending: true })
       .order('created_at', { ascending: false });
@@ -4051,11 +4051,11 @@ export async function insertSuccessStoryApi({ coupleNames, location, weddingDate
   }
 
   const payload = {
-    couple_names: String(coupleNames).trim(),
+    image_url: photoUrl,
+    couple_name: String(coupleNames).trim(),
     location: location ? String(location).trim() : 'Kerala, India',
     wedding_date: weddingDate ? String(weddingDate).trim() : new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
     story_text: storyText ? String(storyText).trim() : 'We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey.',
-    photo_url: photoUrl,
     source: source || 'user_deletion',
     is_active: true,
     display_order: 0
@@ -4065,7 +4065,7 @@ export async function insertSuccessStoryApi({ coupleNames, location, weddingDate
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_SUCCESS_STORIES_KEY);
     const existing = raw ? JSON.parse(raw) : [];
-    const updated = [payload, ...existing.filter(s => s.photo_url !== photoUrl)];
+    const updated = [payload, ...existing.filter(s => (s.image_url || s.photo_url) !== photoUrl)];
     localStorage.setItem(LOCAL_STORAGE_SUCCESS_STORIES_KEY, JSON.stringify(updated));
   } catch (e) {}
 
@@ -4075,7 +4075,7 @@ export async function insertSuccessStoryApi({ coupleNames, location, weddingDate
       const { data, error } = await supabase
         .from('happy_stories')
         .insert(payload)
-        .select('id, couple_names, wedding_date, story_text, photo_url, location, source, is_active, display_order, created_at')
+        .select('id, image_url, couple_name, wedding_date, story_text, location, source, is_active, display_order, compressed_size_kb, created_at')
         .single();
 
       if (error) {

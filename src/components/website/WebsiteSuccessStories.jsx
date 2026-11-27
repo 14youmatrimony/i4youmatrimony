@@ -104,10 +104,10 @@ export default function WebsiteSuccessStories() {
     if (hasLoadedLive) {
       return (liveStories || []).map(row => ({
         id: row.id || `live-${row.created_at || Math.random()}`,
-        couple: row.couple_names || 'Blessed Couple',
+        couple: row.couple_name || row.couple_names || 'Blessed Couple',
         location: row.location || 'Kerala, India',
         weddingDate: row.wedding_date || 'Recently Married',
-        photo: row.photo_url || BENCHMARK_STORIES[0].photo,
+        photo: row.image_url || row.photo_url || BENCHMARK_STORIES[0].photo,
         note: row.story_text
           ? row.story_text.replace(/^[“"]+|[”"]+$/g, '')
           : 'Found our life partner through I 4 You Matrimony.'

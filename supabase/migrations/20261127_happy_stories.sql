@@ -1,21 +1,21 @@
 -- ============================================================================
 -- I 4 YOU MATRIMONY - HAPPY STORIES (SUCCESS STORIES) MIGRATION
 -- Stores Cloudflare R2 URLs (happy-stories/ prefix), couple details, source,
--- display_order, and is_active approval status.
+-- display_order, is_active, and compressed_size_kb.
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS public.happy_stories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  couple_names TEXT NOT NULL,
+  image_url TEXT NOT NULL,
+  couple_name TEXT NOT NULL,
   location TEXT NOT NULL DEFAULT 'Kerala, India',
   wedding_date TEXT,
   story_text TEXT NOT NULL,
-  photo_url TEXT NOT NULL,
   source TEXT NOT NULL DEFAULT 'admin',
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   display_order INTEGER NOT NULL DEFAULT 1,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   compressed_size_kb INTEGER,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

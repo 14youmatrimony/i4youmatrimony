@@ -6764,56 +6764,12 @@ async function compressBannerImage(file) {
   return { blob: bestBlob, ext, contentType: mime, originalKB, compressedKB, previewUrl };
 }
 
-async function blobToBase64(blob) {
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('Failed to encode image for upload'));
-    reader.readAsDataURL(blob);
-  });
-}
-
 async function uploadBannerToR2(blob, ext, contentType, prefix = 'banners') {
   const cleanPrefix = String(prefix || 'banners').replace(/^\/+|\/+$/g, '');
   const cleanExt = String(ext || 'webp').replace(/[^a-zA-Z0-9]/g, '') || 'webp';
   const cleanMime = contentType || (cleanExt === 'jpg' || cleanExt === 'jpeg' ? 'image/jpeg' : 'image/webp');
-
-  // 1. Primary: Server-side /api/r2-upload route (zero browser CORS issues, uses .env R2 credentials)
-  try {
-    const base64 = await blobToBase64(blob);
-    const apiRes = await fetch('/api/r2-upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        base64,
-        contentType: cleanMime,
-        prefix: cleanPrefix,
-        ext: cleanExt
-      })
-    });
-    const apiJson = await apiRes.json().catch(() => null);
-    if (apiRes.ok && apiJson && apiJson.success && apiJson.publicUrl) {
-      return {
-        objectKey: apiJson.objectKey,
-        publicUrl: apiJson.publicUrl
-      };
-    }
-    if (apiJson && apiJson.error && apiRes.status !== 404) {
-      throw new Error(apiJson.error);
-    }
-  } catch (apiErr) {
-    if (apiErr && apiErr.message && apiErr.message.includes('Cloudflare R2')) {
-      throw apiErr;
-    }
-    console.warn('[R2 Upload] /api/r2-upload fallback notice:', apiErr?.message || apiErr);
-  }
-
-  // 2. Fallback: Direct browser AWS SigV4 PUT to Cloudflare R2
-  if (typeof crypto === 'undefined' || !crypto.subtle) {
-    throw new Error('R2 upload failed: /api/r2-upload is unreachable and browser WebCrypto is unavailable.');
-  }
-
   const objectKey = `${cleanPrefix}/${cleanPrefix === 'happy-stories' ? 'story' : 'banner'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${cleanExt}`;
+
   const arrayBuffer = await blob.arrayBuffer();
   const payloadHash = await r2Sha256Hex(arrayBuffer);
 
@@ -6870,15 +6826,6 @@ async function uploadBannerToR2(blob, ext, contentType, prefix = 'banners') {
 }
 
 async function deleteBannerFromR2(imageUrl, r2Key) {
-  try {
-    const apiRes = await fetch('/api/r2-delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: imageUrl, objectKey: r2Key })
-    });
-    if (apiRes.ok) return;
-  } catch (_) {}
-
   let filePath = String(r2Key || imageUrl || '').split('?')[0].trim();
   if (filePath.includes('r2.dev/')) {
     filePath = filePath.split('r2.dev/')[1];
@@ -7622,58 +7569,9 @@ async function applyCropAndUpload() {
     const { blob, ext, contentType, compressedKB } = await exportCroppedCanvasUnder500KB();
     if (sizeEstimate) sizeEstimate.textContent = `Compressed: ${compressedKB} KB (${ext.toUpperCase()})`;
 
-    const r2Prefix = cropState.mode === 'happy_story' ? 'happy-stories' : 'banners';
-    const { publicUrl } = await uploadBannerToR2(blob, ext, contentType, r2Prefix);
+    const { publicUrl } = await uploadBannerToR2(blob, ext, contentType, 'banners');
     const sb = getSupabaseAdminClient();
     if (!sb) throw new Error('Supabase client not initialized.');
-
-    if (cropState.mode === 'happy_story') {
-      if (cropState.editStory) {
-        const oldUrl = cropState.editStory.photo_url;
-        const { error } = await sb
-          .from('happy_stories')
-          .update({
-            photo_url: publicUrl,
-            couple_names: titleVal || cropState.editStory.couple_names || 'Blessed Couple',
-            compressed_size_kb: compressedKB
-          })
-          .eq('id', cropState.editStory.id);
-        if (error) throw new Error(error.message);
-        if (oldUrl && oldUrl !== publicUrl && (oldUrl.includes('r2.dev') || oldUrl.includes('r2.cloudflarestorage.com'))) {
-          await deleteBannerFromR2(oldUrl, '').catch(() => {});
-        }
-        showToast(`Happy Story photo re-cropped & saved to R2 (${compressedKB} KB)!`, 'success');
-      } else {
-        const meta = cropState.storyMeta || {};
-        const minOrder = (state.happyStories?.list || []).reduce((min, s) => Math.min(min, Number(s.display_order) || 1), 1);
-        const { error } = await sb.from('happy_stories').insert({
-          couple_names: titleVal || meta.couple_names || 'Blessed Couple',
-          location: meta.location || 'Kerala, India',
-          wedding_date: meta.wedding_date || new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
-          story_text: meta.story_text || 'We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey.',
-          photo_url: publicUrl,
-          source: 'admin',
-          is_active: true,
-          display_order: Math.max(0, minOrder - 1),
-          compressed_size_kb: compressedKB
-        });
-        if (error) throw new Error(error.message);
-        ['newStoryCoupleInput', 'newStoryLocationInput', 'newStoryDateInput', 'newStoryTextInput', 'happyStoryFileInput'].forEach(fid => {
-          const el = document.getElementById(fid);
-          if (el) el.value = '';
-        });
-        showToast(`Happy Story uploaded to Cloudflare R2 (${compressedKB} KB)!`, 'success');
-      }
-      try {
-        sb.channel('public:happy_stories_sync').send({ type: 'broadcast', event: 'happy_stories_updated', payload: { timestamp: Date.now() } });
-      } catch (_) {}
-      cropState.mode = 'banner';
-      cropState.editStory = null;
-      cropState.storyMeta = null;
-      closeBannerCropModal();
-      await loadHappyStories();
-      return;
-    }
 
     if (cropState.editBanner) {
       const oldUrl = cropState.editBanner.image_url;
@@ -7746,65 +7644,65 @@ window.resetCropTransform = resetCropTransform;
 window.applyCropAndUpload = applyCropAndUpload;
 
 // ========================================================
-// HAPPY STORIES MANAGEMENT (CLOUDFLARE R2 + SUPABASE)
+// HAPPY STORIES MANAGEMENT (ISOLATED: R2 happy-stories/ + public.happy_stories)
 // ========================================================
 
 const BENCHMARK_HAPPY_STORIES = [
   {
-    couple_names: 'Dr. Ananya & Rohan',
+    couple_name: 'Dr. Ananya & Rohan',
     location: 'Ernakulam, Kerala',
     wedding_date: 'October 2026',
-    photo_url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=800',
+    image_url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=800',
     story_text: 'Connected through verified family profiles and celebrated our wedding in Kochi.',
     source: 'admin',
     is_active: true,
     display_order: 1
   },
   {
-    couple_names: 'Meera & Siddharth',
+    couple_name: 'Meera & Siddharth',
     location: 'Bengaluru, Karnataka',
     wedding_date: 'September 2026',
-    photo_url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
+    image_url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
     story_text: 'Matched on shared values and family traditions with instant direct chat.',
     source: 'admin',
     is_active: true,
     display_order: 2
   },
   {
-    couple_names: 'Priyanka & Arjun',
+    couple_name: 'Priyanka & Arjun',
     location: 'Thrissur, Kerala',
     wedding_date: 'August 2026',
-    photo_url: 'https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&q=80&w=800',
+    image_url: 'https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&q=80&w=800',
     story_text: 'Our families met within three weeks of connecting on I 4 You Matrimony.',
     source: 'admin',
     is_active: true,
     display_order: 3
   },
   {
-    couple_names: 'Aiswarya & Karthik',
+    couple_name: 'Aiswarya & Karthik',
     location: 'Kozhikode, Kerala',
     wedding_date: 'July 2026',
-    photo_url: 'https://images.unsplash.com/photo-1610173827043-9db50e0d8ef9?auto=format&fit=crop&q=80&w=800',
+    image_url: 'https://images.unsplash.com/photo-1610173827043-9db50e0d8ef9?auto=format&fit=crop&q=80&w=800',
     story_text: 'Aadhaar-verified profiles gave both families complete trust from day one.',
     source: 'admin',
     is_active: true,
     display_order: 4
   },
   {
-    couple_names: 'Neha & Vikram',
+    couple_name: 'Neha & Vikram',
     location: 'Pune, Maharashtra',
     wedding_date: 'June 2026',
-    photo_url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=800',
+    image_url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=800',
     story_text: 'Found our ideal life partner with transparent family background details.',
     source: 'admin',
     is_active: true,
     display_order: 5
   },
   {
-    couple_names: 'Divya & Pranav',
+    couple_name: 'Divya & Pranav',
     location: 'Chennai, Tamil Nadu',
     wedding_date: 'May 2026',
-    photo_url: 'https://images.unsplash.com/photo-1595429035839-c99c298ffdde?auto=format&fit=crop&q=80&w=800',
+    image_url: 'https://images.unsplash.com/photo-1595429035839-c99c298ffdde?auto=format&fit=crop&q=80&w=800',
     story_text: 'Grateful for a respectful, family-first matchmaking journey.',
     source: 'admin',
     is_active: true,
@@ -7813,6 +7711,185 @@ const BENCHMARK_HAPPY_STORIES = [
 ];
 
 state.happyStories = { list: [] };
+
+const HAPPY_STORY_CROP_W = 1200;
+const HAPPY_STORY_CROP_H = 750; // 16:10 widescreen couple card frame
+
+const happyStoryCropState = {
+  editStory: null,
+  storyMeta: null,
+  img: null,
+  fileName: '',
+  zoom: 1,
+  offsetX: 0,
+  offsetY: 0,
+  isDragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  startOffsetX: 0,
+  startOffsetY: 0
+};
+
+function bindHappyStoryViewportEvents() {
+  const viewport = document.getElementById('happyStoryCropViewport');
+  if (!viewport || viewport.dataset.bound === '1') return;
+  viewport.dataset.bound = '1';
+
+  viewport.addEventListener('pointerdown', (e) => {
+    if (!happyStoryCropState.img) return;
+    happyStoryCropState.isDragging = true;
+    happyStoryCropState.dragStartX = e.clientX;
+    happyStoryCropState.dragStartY = e.clientY;
+    happyStoryCropState.startOffsetX = happyStoryCropState.offsetX;
+    happyStoryCropState.startOffsetY = happyStoryCropState.offsetY;
+    viewport.setPointerCapture?.(e.pointerId);
+  });
+
+  viewport.addEventListener('pointermove', (e) => {
+    if (!happyStoryCropState.isDragging || !happyStoryCropState.img) return;
+    const rect = viewport.getBoundingClientRect();
+    const scaleRatio = HAPPY_STORY_CROP_W / Math.max(1, rect.width);
+    happyStoryCropState.offsetX = happyStoryCropState.startOffsetX + (e.clientX - happyStoryCropState.dragStartX) * scaleRatio;
+    happyStoryCropState.offsetY = happyStoryCropState.startOffsetY + (e.clientY - happyStoryCropState.dragStartY) * scaleRatio;
+    clampHappyStoryOffsets();
+    renderHappyStoryCropCanvas();
+  });
+
+  const endDrag = () => { happyStoryCropState.isDragging = false; };
+  viewport.addEventListener('pointerup', endDrag);
+  viewport.addEventListener('pointercancel', endDrag);
+}
+
+function getHappyStoryBaseScale() {
+  if (!happyStoryCropState.img) return 1;
+  const iw = happyStoryCropState.img.naturalWidth || happyStoryCropState.img.width || HAPPY_STORY_CROP_W;
+  const ih = happyStoryCropState.img.naturalHeight || happyStoryCropState.img.height || HAPPY_STORY_CROP_H;
+  return Math.max(HAPPY_STORY_CROP_W / iw, HAPPY_STORY_CROP_H / ih);
+}
+
+function clampHappyStoryOffsets() {
+  if (!happyStoryCropState.img) return;
+  const iw = happyStoryCropState.img.naturalWidth || happyStoryCropState.img.width || HAPPY_STORY_CROP_W;
+  const ih = happyStoryCropState.img.naturalHeight || happyStoryCropState.img.height || HAPPY_STORY_CROP_H;
+  const scale = getHappyStoryBaseScale() * happyStoryCropState.zoom;
+  const maxX = Math.max(0, (iw * scale - HAPPY_STORY_CROP_W) / 2);
+  const maxY = Math.max(0, (ih * scale - HAPPY_STORY_CROP_H) / 2);
+  happyStoryCropState.offsetX = Math.max(-maxX, Math.min(maxX, happyStoryCropState.offsetX));
+  happyStoryCropState.offsetY = Math.max(-maxY, Math.min(maxY, happyStoryCropState.offsetY));
+}
+
+function renderHappyStoryCropCanvas() {
+  const canvas = document.getElementById('happyStoryCropCanvas');
+  if (!canvas || !happyStoryCropState.img) return;
+  canvas.width = HAPPY_STORY_CROP_W;
+  canvas.height = HAPPY_STORY_CROP_H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, HAPPY_STORY_CROP_W, HAPPY_STORY_CROP_H);
+
+  const iw = happyStoryCropState.img.naturalWidth || happyStoryCropState.img.width || HAPPY_STORY_CROP_W;
+  const ih = happyStoryCropState.img.naturalHeight || happyStoryCropState.img.height || HAPPY_STORY_CROP_H;
+  const scale = getHappyStoryBaseScale() * happyStoryCropState.zoom;
+  const drawW = iw * scale;
+  const drawH = ih * scale;
+  const dx = (HAPPY_STORY_CROP_W - drawW) / 2 + happyStoryCropState.offsetX;
+  const dy = (HAPPY_STORY_CROP_H - drawH) / 2 + happyStoryCropState.offsetY;
+  ctx.drawImage(happyStoryCropState.img, dx, dy, drawW, drawH);
+}
+
+function setHappyStoryZoom(val) {
+  happyStoryCropState.zoom = Math.max(1, Math.min(3, parseFloat(val) || 1));
+  const slider = document.getElementById('happyStoryCropZoomSlider');
+  const label = document.getElementById('happyStoryCropZoomLabel');
+  if (slider) slider.value = String(happyStoryCropState.zoom);
+  if (label) label.textContent = `${happyStoryCropState.zoom.toFixed(2)}x`;
+  clampHappyStoryOffsets();
+  renderHappyStoryCropCanvas();
+}
+
+function adjustHappyStoryZoom(delta) {
+  setHappyStoryZoom(happyStoryCropState.zoom + delta);
+}
+
+function nudgeHappyStoryPosition(dx, dy) {
+  happyStoryCropState.offsetX += dx;
+  happyStoryCropState.offsetY += dy;
+  clampHappyStoryOffsets();
+  renderHappyStoryCropCanvas();
+}
+
+function resetHappyStoryTransform() {
+  happyStoryCropState.offsetX = 0;
+  happyStoryCropState.offsetY = 0;
+  setHappyStoryZoom(1);
+}
+
+function closeHappyStoryCropModal() {
+  const modal = document.getElementById('happyStoryCropModal');
+  if (modal && modal.open) modal.close();
+  const fileInput = document.getElementById('happyStoryFileInput');
+  if (fileInput) fileInput.value = '';
+  happyStoryCropState.editStory = null;
+  happyStoryCropState.storyMeta = null;
+  happyStoryCropState.img = null;
+}
+
+async function exportHappyStoryCanvasUnder500KB() {
+  const MAX_BYTES = 500 * 1024;
+  const TARGET_BYTES = 420 * 1024;
+  const sourceCanvas = document.getElementById('happyStoryCropCanvas');
+  if (!sourceCanvas) throw new Error('Happy Story crop canvas not ready');
+
+  const offscreen = document.createElement('canvas');
+  const ctx = offscreen.getContext('2d');
+  const encode = (w, h, mime, q) => new Promise((resolve) => {
+    offscreen.width = w;
+    offscreen.height = h;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(sourceCanvas, 0, 0, w, h);
+    offscreen.toBlob((b) => resolve(b), mime, q);
+  });
+
+  let mime = 'image/webp';
+  let ext = 'webp';
+  let bestBlob = await encode(HAPPY_STORY_CROP_W, HAPPY_STORY_CROP_H, mime, 0.86);
+  if (!bestBlob || bestBlob.type !== 'image/webp') {
+    mime = 'image/jpeg';
+    ext = 'jpg';
+    bestBlob = await encode(HAPPY_STORY_CROP_W, HAPPY_STORY_CROP_H, mime, 0.86);
+  }
+
+  let quality = 0.86;
+  while (bestBlob && bestBlob.size > TARGET_BYTES && quality > 0.35) {
+    quality -= 0.08;
+    const candidate = await encode(HAPPY_STORY_CROP_W, HAPPY_STORY_CROP_H, mime, quality);
+    if (candidate) bestBlob = candidate;
+  }
+
+  let scale = 0.9;
+  while (bestBlob && bestBlob.size >= MAX_BYTES && scale >= 0.5) {
+    const sw = Math.round(HAPPY_STORY_CROP_W * scale);
+    const sh = Math.round(HAPPY_STORY_CROP_H * scale);
+    const candidate = await encode(sw, sh, mime, Math.max(0.45, quality));
+    if (candidate) bestBlob = candidate;
+    scale -= 0.1;
+  }
+
+  if (!bestBlob || bestBlob.size >= MAX_BYTES) {
+    throw new Error('Could not compress Happy Story photo under 500 KB.');
+  }
+
+  const fileName = `story_${Date.now()}.${ext}`;
+  const finalFile = typeof File !== 'undefined'
+    ? new File([bestBlob], fileName, { type: mime })
+    : bestBlob;
+
+  return {
+    blob: finalFile,
+    ext,
+    contentType: mime,
+    compressedKB: Math.max(1, Math.round(bestBlob.size / 1024))
+  };
+}
 
 function initHappyStoryDropZone() {
   const dropZone = document.getElementById('happyStoryDropZone');
@@ -7854,53 +7931,49 @@ async function openNewHappyStoryCrop(file) {
   const dateVal = (document.getElementById('newStoryDateInput')?.value || '').trim();
   const textVal = (document.getElementById('newStoryTextInput')?.value || '').trim();
 
-  cropState.mode = 'happy_story';
-  cropState.editBanner = null;
-  cropState.editStory = null;
-  cropState.storyMeta = {
-    couple_names: coupleVal || 'Blessed Couple',
+  happyStoryCropState.editStory = null;
+  happyStoryCropState.storyMeta = {
+    couple_name: coupleVal || 'Blessed Couple',
     location: locVal || 'Kerala, India',
     wedding_date: dateVal || new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
     story_text: textVal || 'We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey.'
   };
-  cropState.queue = [file];
-  cropState.queueIdx = 0;
 
-  await loadCurrentCropItem();
-  const titleInput = document.getElementById('cropTitleInput');
-  const queueBadge = document.getElementById('cropQueueBadge');
-  const applyLabel = document.getElementById('cropApplyBtnLabel');
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+
+  happyStoryCropState.img = img;
+  happyStoryCropState.fileName = file.name;
+  resetHappyStoryTransform();
+  bindHappyStoryViewportEvents();
+
+  const titleInput = document.getElementById('happyStoryCropTitleInput');
+  const applyLabel = document.getElementById('happyStoryCropApplyLabel');
   if (titleInput) titleInput.value = coupleVal || file.name.replace(/\.[^/.]+$/, '');
-  if (queueBadge) {
-    queueBadge.textContent = 'Happy Story Crop (R2)';
-    queueBadge.classList.remove('hidden');
-  }
   if (applyLabel) applyLabel.textContent = 'Apply & Upload Happy Story';
+
+  document.getElementById('happyStoryCropModal')?.showModal();
+  if (window.lucide) lucide.createIcons();
 }
 
 async function openHappyStoryReCrop(storyId) {
   const story = (state.happyStories.list || []).find(s => String(s.id) === String(storyId));
   if (!story) return;
 
-  cropState.mode = 'happy_story';
-  cropState.queue = [];
-  cropState.queueIdx = 0;
-  cropState.editBanner = null;
-  cropState.editStory = story;
-
-  const modal = document.getElementById('bannerCropModal');
-  const queueBadge = document.getElementById('cropQueueBadge');
-  const skipBtn = document.getElementById('cropSkipBtn');
-  const titleInput = document.getElementById('cropTitleInput');
-  const applyLabel = document.getElementById('cropApplyBtnLabel');
-
-  if (queueBadge) {
-    queueBadge.textContent = 'Re-Crop Happy Story';
-    queueBadge.classList.remove('hidden');
-  }
-  if (skipBtn) skipBtn.classList.add('hidden');
-  if (titleInput) titleInput.value = story.couple_names || '';
-  if (applyLabel) applyLabel.textContent = 'Save Cropped Story Photo';
+  happyStoryCropState.editStory = story;
+  happyStoryCropState.storyMeta = null;
+  const imgUrl = story.image_url || story.photo_url || '';
 
   try {
     const img = new Image();
@@ -7908,18 +7981,94 @@ async function openHappyStoryReCrop(storyId) {
     await new Promise((resolve, reject) => {
       img.onload = resolve;
       img.onerror = () => reject(new Error('Could not load story image for cropping.'));
-      const sep = story.photo_url.includes('?') ? '&' : '?';
-      img.src = `${story.photo_url}${sep}cb=${Date.now()}`;
+      const sep = imgUrl.includes('?') ? '&' : '?';
+      img.src = `${imgUrl}${sep}cb=${Date.now()}`;
     });
-    cropState.img = img;
-    cropState.originalKB = Number(story.compressed_size_kb) || 0;
-    cropState.fileName = story.couple_names || 'story';
-    resetCropTransform();
-    bindCropViewportEvents();
-    modal?.showModal();
+    happyStoryCropState.img = img;
+    happyStoryCropState.fileName = story.couple_name || story.couple_names || 'story';
+    resetHappyStoryTransform();
+    bindHappyStoryViewportEvents();
+
+    const titleInput = document.getElementById('happyStoryCropTitleInput');
+    const applyLabel = document.getElementById('happyStoryCropApplyLabel');
+    if (titleInput) titleInput.value = story.couple_name || story.couple_names || '';
+    if (applyLabel) applyLabel.textContent = 'Save Cropped Story Photo';
+
+    document.getElementById('happyStoryCropModal')?.showModal();
     if (window.lucide) lucide.createIcons();
   } catch (err) {
     showToast(err.message, 'error');
+  }
+}
+
+async function applyHappyStoryCropAndUpload() {
+  const btn = document.getElementById('happyStoryCropApplyBtn');
+  const labelEl = document.getElementById('happyStoryCropApplyLabel');
+  const sizeEstimate = document.getElementById('happyStorySizeEstimate');
+  const titleVal = (document.getElementById('happyStoryCropTitleInput')?.value || '').trim();
+
+  if (btn) btn.disabled = true;
+  if (labelEl) labelEl.textContent = 'Compressing & Uploading R2...';
+
+  try {
+    const { blob, ext, contentType, compressedKB } = await exportHappyStoryCanvasUnder500KB();
+    if (sizeEstimate) sizeEstimate.textContent = `Compressed: ${compressedKB} KB (${ext.toUpperCase()})`;
+
+    // Use the exact same working direct client-side R2 upload helper, isolated to happy-stories/
+    const { publicUrl } = await uploadBannerToR2(blob, ext, contentType, 'happy-stories');
+    const sb = getSupabaseAdminClient();
+    if (!sb) throw new Error('Supabase client not initialized.');
+
+    if (happyStoryCropState.editStory) {
+      const oldUrl = happyStoryCropState.editStory.image_url || happyStoryCropState.editStory.photo_url;
+      const { error } = await sb
+        .from('happy_stories')
+        .update({
+          image_url: publicUrl,
+          couple_name: titleVal || happyStoryCropState.editStory.couple_name || happyStoryCropState.editStory.couple_names || 'Blessed Couple',
+          compressed_size_kb: compressedKB
+        })
+        .eq('id', happyStoryCropState.editStory.id);
+      if (error) throw new Error(`Supabase update error: ${error.message}`);
+
+      if (oldUrl && oldUrl !== publicUrl && (oldUrl.includes('r2.dev') || oldUrl.includes('r2.cloudflarestorage.com'))) {
+        await deleteBannerFromR2(oldUrl, '').catch(() => {});
+      }
+      showToast(`Happy Story photo updated in R2 (${compressedKB} KB)!`, 'success');
+    } else {
+      const meta = happyStoryCropState.storyMeta || {};
+      const minOrder = (state.happyStories?.list || []).reduce((min, s) => Math.min(min, Number(s.display_order) || 1), 1);
+      const { error } = await sb.from('happy_stories').insert({
+        image_url: publicUrl,
+        couple_name: titleVal || meta.couple_name || 'Blessed Couple',
+        location: meta.location || 'Kerala, India',
+        wedding_date: meta.wedding_date || new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+        story_text: meta.story_text || 'We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey.',
+        source: 'admin',
+        display_order: Math.max(0, minOrder - 1),
+        is_active: true,
+        compressed_size_kb: compressedKB
+      });
+      if (error) throw new Error(`Supabase insert error: ${error.message}`);
+
+      ['newStoryCoupleInput', 'newStoryLocationInput', 'newStoryDateInput', 'newStoryTextInput', 'happyStoryFileInput'].forEach(fid => {
+        const el = document.getElementById(fid);
+        if (el) el.value = '';
+      });
+      showToast(`Happy Story uploaded to Cloudflare R2 (${compressedKB} KB)!`, 'success');
+    }
+
+    try {
+      sb.channel('public:happy_stories_sync').send({ type: 'broadcast', event: 'happy_stories_updated', payload: { timestamp: Date.now() } });
+    } catch (_) {}
+
+    closeHappyStoryCropModal();
+    await loadHappyStories();
+  } catch (err) {
+    showToast(err.message || 'Happy Story upload failed', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (labelEl) labelEl.textContent = happyStoryCropState.editStory ? 'Save Cropped Story Photo' : 'Apply & Upload Happy Story';
   }
 }
 
@@ -7931,7 +8080,7 @@ async function loadHappyStories() {
 
     let { data, error } = await sb
       .from('happy_stories')
-      .select('id, couple_names, location, wedding_date, story_text, photo_url, source, is_active, display_order, compressed_size_kb, created_at')
+      .select('id, image_url, couple_name, location, wedding_date, story_text, source, display_order, is_active, compressed_size_kb, created_at')
       .order('display_order', { ascending: true })
       .order('created_at', { ascending: false });
 
@@ -7940,7 +8089,6 @@ async function loadHappyStories() {
       return;
     }
 
-    // Seed the 6 initial homepage Happy Stories if table is empty
     if (Array.isArray(data) && data.length === 0) {
       const seedRes = await sb.from('happy_stories').insert(BENCHMARK_HAPPY_STORIES).select();
       if (!seedRes.error && Array.isArray(seedRes.data)) {
@@ -7979,13 +8127,15 @@ function renderHappyStories() {
   container.innerHTML = list.map((s, idx) => {
     const isActive = Boolean(s.is_active);
     const isUser = s.source === 'user_deletion';
-    const isR2 = String(s.photo_url || '').includes('r2.dev') || String(s.photo_url || '').includes('r2.cloudflarestorage.com');
-    const safeUrl = String(s.photo_url || '').replace(/'/g, "\\'");
+    const imgUrl = s.image_url || s.photo_url || '';
+    const coupleName = s.couple_name || s.couple_names || 'Blessed Couple';
+    const isR2 = String(imgUrl).includes('r2.dev') || String(imgUrl).includes('r2.cloudflarestorage.com');
+    const safeUrl = String(imgUrl).replace(/'/g, "\\'");
 
     return `
       <div class="rounded-2xl bg-[#2C1A1D] border ${isActive ? 'border-[#C58B76]/40' : 'border-slate-800 opacity-75'} overflow-hidden shadow-lg flex flex-col">
         <div class="relative h-48 bg-[#1A1012]">
-          <img src="${s.photo_url}" alt="${escapePlanHtml(s.couple_names)}" class="w-full h-full object-cover" />
+          <img src="${imgUrl}" alt="${escapePlanHtml(coupleName)}" class="w-full h-full object-cover" />
           <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/80 text-[#E6B8A2] border border-[#C58B76]/40 font-mono">#${idx + 1}</span>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isUser ? 'bg-purple-950/90 text-purple-300 border border-purple-500/40' : 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/40'}">
@@ -8000,7 +8150,7 @@ function renderHappyStories() {
         </div>
         <div class="p-4 space-y-2.5 flex-1 flex flex-col justify-between">
           <div class="space-y-1">
-            <h4 class="text-sm font-bold text-white truncate">${escapePlanHtml(s.couple_names)}</h4>
+            <h4 class="text-sm font-bold text-white truncate">${escapePlanHtml(coupleName)}</h4>
             <p class="text-[11px] text-[#E6B8A2]">${escapePlanHtml(s.location || 'Kerala, India')} &bull; ${escapePlanHtml(s.wedding_date || 'Recently Married')}</p>
             <p class="text-xs text-slate-300 line-clamp-2 leading-relaxed">${escapePlanHtml(s.story_text || '')}</p>
           </div>
@@ -8079,7 +8229,7 @@ function openHappyStoryEditModal(storyId) {
   const s = (state.happyStories.list || []).find(item => String(item.id) === String(storyId));
   if (!s) return;
   document.getElementById('editStoryId').value = s.id;
-  document.getElementById('editStoryCouple').value = s.couple_names || '';
+  document.getElementById('editStoryCouple').value = s.couple_name || s.couple_names || '';
   document.getElementById('editStoryLocation').value = s.location || '';
   document.getElementById('editStoryDate').value = s.wedding_date || '';
   document.getElementById('editStoryText').value = s.story_text || '';
@@ -8091,7 +8241,7 @@ async function saveHappyStoryEdit(e) {
   e.preventDefault();
   const id = document.getElementById('editStoryId').value;
   const payload = {
-    couple_names: document.getElementById('editStoryCouple').value.trim(),
+    couple_name: document.getElementById('editStoryCouple').value.trim(),
     location: document.getElementById('editStoryLocation').value.trim() || 'Kerala, India',
     wedding_date: document.getElementById('editStoryDate').value.trim() || 'Recently Married',
     story_text: document.getElementById('editStoryText').value.trim()
@@ -8130,6 +8280,12 @@ async function deleteHappyStory(id, photoUrl) {
   }
 }
 
+window.closeHappyStoryCropModal = closeHappyStoryCropModal;
+window.setHappyStoryZoom = setHappyStoryZoom;
+window.adjustHappyStoryZoom = adjustHappyStoryZoom;
+window.nudgeHappyStoryPosition = nudgeHappyStoryPosition;
+window.resetHappyStoryTransform = resetHappyStoryTransform;
+window.applyHappyStoryCropAndUpload = applyHappyStoryCropAndUpload;
 window.handleHappyStoryFileSelect = handleHappyStoryFileSelect;
 window.openHappyStoryReCrop = openHappyStoryReCrop;
 window.loadHappyStories = loadHappyStories;

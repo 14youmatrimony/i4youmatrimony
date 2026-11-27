@@ -503,44 +503,6 @@ export async function uploadSuccessStoryToR2(file) {
   const filePath = `happy-stories/${timestamp}-${randomSuffix}.webp`;
   const contentType = 'image/webp';
 
-  // 2b. Primary: Server-side /api/r2-upload route (avoids browser CORS issues on web & localhost)
-  try {
-    let base64Str = compressed?.dataUrl;
-    if (!base64Str && compressed?.blob) {
-      base64Str = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = reject;
-        reader.readAsDataURL(compressed.blob);
-      });
-    }
-    if (base64Str && typeof window !== 'undefined' && window.location?.protocol?.startsWith('http')) {
-      const apiRes = await fetch('/api/r2-upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          base64: base64Str,
-          contentType,
-          prefix: 'happy-stories',
-          ext: 'webp'
-        })
-      });
-      const apiJson = await apiRes.json().catch(() => null);
-      if (apiRes.ok && apiJson?.success && apiJson?.publicUrl) {
-        return {
-          success: true,
-          publicUrl: apiJson.publicUrl,
-          rawPublicUrl: apiJson.publicUrl,
-          filePath: apiJson.objectKey,
-          sizeKB: compressed.sizeKB || apiJson.sizeKB || 0,
-          isFallback: false
-        };
-      }
-    }
-  } catch (apiErr) {
-    console.warn('[r2Upload] /api/r2-upload happy-stories fallback notice:', apiErr?.message || apiErr);
-  }
-
   try {
     // 3. Extract ArrayBuffer from WebP Blob or DataURL
     let bodyBuffer;
