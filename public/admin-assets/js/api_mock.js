@@ -973,8 +973,8 @@
   window.fetch = async function(input, init) {
     const urlStr = typeof input === 'string' ? input : (input ? input.url : '');
     
-    // Only intercept /api/ calls
-    if (!urlStr.includes('/api/')) {
+    // Only intercept /api/ calls (never intercept /api/r2-upload or /api/r2-delete)
+    if (!urlStr.includes('/api/') || urlStr.includes('/api/r2-upload') || urlStr.includes('/api/r2-delete')) {
       return originalFetch.apply(this, arguments);
     }
 

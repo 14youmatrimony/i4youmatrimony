@@ -6764,9 +6764,56 @@ async function compressBannerImage(file) {
   return { blob: bestBlob, ext, contentType: mime, originalKB, compressedKB, previewUrl };
 }
 
+async function blobToBase64(blob) {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Failed to encode image for upload'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function uploadBannerToR2(blob, ext, contentType, prefix = 'banners') {
   const cleanPrefix = String(prefix || 'banners').replace(/^\/+|\/+$/g, '');
-  const objectKey = `${cleanPrefix}/${cleanPrefix === 'happy-stories' ? 'story' : 'banner'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const cleanExt = String(ext || 'webp').replace(/[^a-zA-Z0-9]/g, '') || 'webp';
+  const cleanMime = contentType || (cleanExt === 'jpg' || cleanExt === 'jpeg' ? 'image/jpeg' : 'image/webp');
+
+  // 1. Primary: Server-side /api/r2-upload route (zero browser CORS issues, uses .env R2 credentials)
+  try {
+    const base64 = await blobToBase64(blob);
+    const apiRes = await fetch('/api/r2-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base64,
+        contentType: cleanMime,
+        prefix: cleanPrefix,
+        ext: cleanExt
+      })
+    });
+    const apiJson = await apiRes.json().catch(() => null);
+    if (apiRes.ok && apiJson && apiJson.success && apiJson.publicUrl) {
+      return {
+        objectKey: apiJson.objectKey,
+        publicUrl: apiJson.publicUrl
+      };
+    }
+    if (apiJson && apiJson.error && apiRes.status !== 404) {
+      throw new Error(apiJson.error);
+    }
+  } catch (apiErr) {
+    if (apiErr && apiErr.message && apiErr.message.includes('Cloudflare R2')) {
+      throw apiErr;
+    }
+    console.warn('[R2 Upload] /api/r2-upload fallback notice:', apiErr?.message || apiErr);
+  }
+
+  // 2. Fallback: Direct browser AWS SigV4 PUT to Cloudflare R2
+  if (typeof crypto === 'undefined' || !crypto.subtle) {
+    throw new Error('R2 upload failed: /api/r2-upload is unreachable and browser WebCrypto is unavailable.');
+  }
+
+  const objectKey = `${cleanPrefix}/${cleanPrefix === 'happy-stories' ? 'story' : 'banner'}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${cleanExt}`;
   const arrayBuffer = await blob.arrayBuffer();
   const payloadHash = await r2Sha256Hex(arrayBuffer);
 
@@ -6780,7 +6827,7 @@ async function uploadBannerToR2(blob, ext, contentType, prefix = 'banners') {
   const canonicalUri = `/${encodeURIComponent(BANNER_R2_CONFIG.bucketName)}/${objectKey.split('/').map(encodeURIComponent).join('/')}`;
 
   const canonicalHeaders =
-    `content-type:${contentType}\n` +
+    `content-type:${cleanMime}\n` +
     `host:${host}\n` +
     `x-amz-content-sha256:${payloadHash}\n` +
     `x-amz-date:${amzDate}\n`;
@@ -6803,7 +6850,7 @@ async function uploadBannerToR2(blob, ext, contentType, prefix = 'banners') {
   const res = await fetch(uploadUrl, {
     method: 'PUT',
     headers: {
-      'Content-Type': contentType,
+      'Content-Type': cleanMime,
       'x-amz-date': amzDate,
       'x-amz-content-sha256': payloadHash,
       'Authorization': authHeader
@@ -6823,6 +6870,15 @@ async function uploadBannerToR2(blob, ext, contentType, prefix = 'banners') {
 }
 
 async function deleteBannerFromR2(imageUrl, r2Key) {
+  try {
+    const apiRes = await fetch('/api/r2-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: imageUrl, objectKey: r2Key })
+    });
+    if (apiRes.ok) return;
+  } catch (_) {}
+
   let filePath = String(r2Key || imageUrl || '').split('?')[0].trim();
   if (filePath.includes('r2.dev/')) {
     filePath = filePath.split('r2.dev/')[1];
@@ -6835,7 +6891,7 @@ async function deleteBannerFromR2(imageUrl, r2Key) {
   if (filePath.startsWith(`${BANNER_R2_CONFIG.bucketName}/`)) {
     filePath = filePath.substring(BANNER_R2_CONFIG.bucketName.length + 1);
   }
-  if (!filePath) return;
+  if (!filePath || typeof crypto === 'undefined' || !crypto.subtle) return;
 
   const urlObj = new URL(BANNER_R2_CONFIG.endpoint);
   const host = urlObj.host;
@@ -7540,8 +7596,13 @@ async function exportCroppedCanvasUnder500KB() {
     throw new Error('Could not compress cropped banner under 500 KB.');
   }
 
+  const fileName = `${cropState.mode === 'happy_story' ? 'story' : 'banner'}_${Date.now()}.${ext}`;
+  const finalFile = typeof File !== 'undefined'
+    ? new File([bestBlob], fileName, { type: mime })
+    : bestBlob;
+
   return {
-    blob: bestBlob,
+    blob: finalFile,
     ext,
     contentType: mime,
     compressedKB: Math.max(1, Math.round(bestBlob.size / 1024))

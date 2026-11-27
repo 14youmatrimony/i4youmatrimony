@@ -50,7 +50,7 @@
       "destination": "/super-admin.html"
     },
     {
-      "source": "/((?!assets|static|admin-assets|super-admin\\.html|admin\\.html|firebase-messaging-sw\\.js|sw\\.js|.*\\..*).*)",
+      "source": "/((?!api|assets|static|admin-assets|super-admin\\.html|admin\\.html|firebase-messaging-sw\\.js|sw\\.js|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]
