@@ -765,7 +765,7 @@ export default function VideoCallModal({
       />
 
       {/* Main Remote Video Container */}
-      <div className="relative flex-1 min-h-0 w-full bg-gradient-to-b from-[#2C1A1D] to-[#0D0708] overflow-hidden flex items-center justify-center">
+      <div className="relative flex-1 min-h-0 w-full bg-gradient-to-b from-[#380817] to-[#0D0708] overflow-hidden flex items-center justify-center">
         {/* Remote Video Feed */}
         <video
           ref={remoteVideoRef}
@@ -872,7 +872,7 @@ export default function VideoCallModal({
         {callStatus !== 'connected' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-10 bg-black/40 backdrop-blur-xs px-4">
             <div className="relative">
-              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-[#C58B76] overflow-hidden shadow-2xl bg-slate-900">
+              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-[#8E5766] overflow-hidden shadow-2xl bg-slate-900">
                 <SafeAvatar
                   src={candidatePhoto}
                   alt={candidateProfile?.name || candidate?.name || 'Candidate'}
@@ -886,7 +886,7 @@ export default function VideoCallModal({
 
             <div className="text-center text-white space-y-1">
               <h3 className="font-serif font-bold text-base sm:text-xl">{candidateProfile?.name || candidate?.name || 'Candidate'}</h3>
-              <p className="text-xs sm:text-sm text-[#E6B8A2] font-semibold animate-pulse">
+              <p className="text-xs sm:text-sm text-[#E4C1CA] font-semibold animate-pulse">
                 {callStatus === 'calling' && 'Calling...'}
                 {callStatus === 'ringing' && 'Ringing...'}
                 {callStatus === 'ended' && 'Call Ended'}
@@ -914,10 +914,10 @@ export default function VideoCallModal({
             transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
             touchAction: 'none'
           }}
-          className={`absolute bottom-3 right-3 sm:bottom-5 sm:right-5 w-24 h-32 sm:w-32 sm:h-44 md:w-36 md:h-48 max-h-[35%] rounded-2xl overflow-hidden bg-slate-950 border-2 border-[#C58B76] shadow-2xl z-30 group select-none ${
+          className={`absolute bottom-3 right-3 sm:bottom-5 sm:right-5 w-24 h-32 sm:w-32 sm:h-44 md:w-36 md:h-48 max-h-[35%] rounded-2xl overflow-hidden bg-slate-950 border-2 border-[#8E5766] shadow-2xl z-30 group select-none ${
             dockedSide
-              ? 'cursor-pointer ring-2 ring-[#C58B76]/80 ring-offset-2 ring-offset-slate-950 shadow-[0_0_20px_rgba(197,139,118,0.4)]'
-              : 'cursor-grab active:cursor-grabbing hover:border-[#E6B8A2]'
+              ? 'cursor-pointer ring-2 ring-[#8E5766]/80 ring-offset-2 ring-offset-slate-950 shadow-[0_0_20px_rgba(197,139,118,0.4)]'
+              : 'cursor-grab active:cursor-grabbing hover:border-[#E4C1CA]'
           }`}
           title={dockedSide ? 'Tap or swipe to restore camera preview' : 'Swipe left or right to dock to edge'}
         >
@@ -939,7 +939,7 @@ export default function VideoCallModal({
           {/* Fallback Display: Shown strictly when camera is off or initializing */}
           {!showCameraFeed && (
             <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-2 text-center bg-slate-900 text-slate-300 space-y-1.5 z-20 pointer-events-none">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border border-[#C58B76]/50 shadow-md flex items-center justify-center bg-slate-800">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border border-[#8E5766]/50 shadow-md flex items-center justify-center bg-slate-800">
                 <SafeAvatar
                   src={currentUserPhoto}
                   alt={currentUser?.name || 'You'}
@@ -962,7 +962,7 @@ export default function VideoCallModal({
           >
             {/* Top drag hint bar */}
             <div className="absolute top-1.5 inset-x-0 flex justify-center">
-              <div className="w-6 h-1 rounded-full bg-white/40 group-hover:bg-[#E6B8A2] transition-colors" />
+              <div className="w-6 h-1 rounded-full bg-white/40 group-hover:bg-[#E4C1CA] transition-colors" />
             </div>
 
             {/* Bottom-left You label with active status dot */}
@@ -982,7 +982,7 @@ export default function VideoCallModal({
 
           {/* Right-Edge Dock Pull-Tab Handle (Visible on screen's right edge when docked to right) */}
           <div
-            className={`absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#2C1A1D] via-[#2C1A1D]/95 to-slate-950/80 border-r border-[#C58B76]/70 flex flex-col items-center justify-center cursor-pointer transition-opacity z-40 ${
+            className={`absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#380817] via-[#380817]/95 to-slate-950/80 border-r border-[#8E5766]/70 flex flex-col items-center justify-center cursor-pointer transition-opacity z-40 ${
               dockedSide === 'right' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
             onClick={(e) => {
@@ -992,15 +992,15 @@ export default function VideoCallModal({
             title="Restore camera preview"
           >
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mb-1" />
-            <ChevronLeft className="w-4 h-4 text-[#E6B8A2] animate-pulse" />
-            <span className="text-[8px] font-bold text-[#E6B8A2] tracking-tighter mt-1 [writing-mode:vertical-rl] rotate-180">
+            <ChevronLeft className="w-4 h-4 text-[#E4C1CA] animate-pulse" />
+            <span className="text-[8px] font-bold text-[#E4C1CA] tracking-tighter mt-1 [writing-mode:vertical-rl] rotate-180">
               YOU
             </span>
           </div>
 
           {/* Left-Edge Dock Pull-Tab Handle (Visible on screen's left edge when docked to left) */}
           <div
-            className={`absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#2C1A1D] via-[#2C1A1D]/95 to-slate-950/80 border-l border-[#C58B76]/70 flex flex-col items-center justify-center cursor-pointer transition-opacity z-40 ${
+            className={`absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#380817] via-[#380817]/95 to-slate-950/80 border-l border-[#8E5766]/70 flex flex-col items-center justify-center cursor-pointer transition-opacity z-40 ${
               dockedSide === 'left' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
             onClick={(e) => {
@@ -1010,8 +1010,8 @@ export default function VideoCallModal({
             title="Restore camera preview"
           >
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mb-1" />
-            <ChevronRight className="w-4 h-4 text-[#E6B8A2] animate-pulse" />
-            <span className="text-[8px] font-bold text-[#E6B8A2] tracking-tighter mt-1 [writing-mode:vertical-rl] rotate-180">
+            <ChevronRight className="w-4 h-4 text-[#E4C1CA] animate-pulse" />
+            <span className="text-[8px] font-bold text-[#E4C1CA] tracking-tighter mt-1 [writing-mode:vertical-rl] rotate-180">
               YOU
             </span>
           </div>

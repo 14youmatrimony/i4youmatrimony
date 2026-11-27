@@ -3,18 +3,18 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 export const ACCENT_PALETTES = {
   gold: {
     id: 'gold',
-    name: 'Blush Peach & Rose Gold',
-    desc: 'Soft Blush Peach & Rose Gold (Modern Light Pastel)',
-    primary: '#7A2E43',
-    primaryLight: '#C58B76',
-    primaryDark: '#612234',
-    bgGradient: 'from-[#7A2E43] to-[#C58B76]',
-    textClass: 'text-[#7A2E43]',
-    borderClass: 'border-[#E5D0C6]',
-    bgClass: 'bg-[#7A2E43]',
-    ringClass: 'ring-[#C58B76]',
-    glowColor: 'rgba(122, 46, 67, 0.2)',
-    badgeBg: 'bg-gradient-to-tr from-[#7A2E43] to-[#C58B76]',
+    name: 'Deep Wine & Blush Rose',
+    desc: 'Deep Wine, Burgundy & Soft Blush Rose',
+    primary: '#4E0C22',
+    primaryLight: '#8E5766',
+    primaryDark: '#6B1230',
+    bgGradient: 'from-[#5A0C26] to-[#7C1435]',
+    textClass: 'text-[#4E0C22]',
+    borderClass: 'border-[#E7CCD3]',
+    bgClass: 'bg-[#4E0C22]',
+    ringClass: 'ring-[#6B1230]',
+    glowColor: 'rgba(78, 12, 34, 0.2)',
+    badgeBg: 'bg-gradient-to-tr from-[#5A0C26] to-[#7C1435]',
     badgeText: 'text-white'
   },
   rose: {
@@ -63,7 +63,7 @@ export const ACCENT_PALETTES = {
     ringClass: 'ring-amber-400',
     glowColor: 'rgba(217, 119, 6, 0.4)',
     badgeBg: 'bg-gradient-to-tr from-[#D97706] to-[#FBBF24]',
-    badgeText: 'text-[#2C1A1D]'
+    badgeText: 'text-[#380817]'
   },
   sapphire: {
     id: 'sapphire',

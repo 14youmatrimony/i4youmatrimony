@@ -669,15 +669,15 @@ export default function VendorPortalScreen({ onBack, showToast }) {
   const isVendorLive = Boolean(vendorProfile?.is_verified && vendorProfile?.is_approved);
 
   return (
-    <div className="min-h-screen bg-[#FFF9F6] text-[#2C1A1D] pb-24">
+    <div className="min-h-screen bg-[#F5E1E6] text-[#380817] pb-24">
       {/* Top Bar */}
-      <header className="sticky top-0 z-20 bg-[#FFFBF9]/95 backdrop-blur-md border-b border-[#E5D0C6] px-4 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-20 bg-[#FAF0F2]/95 backdrop-blur-md border-b border-[#E7CCD3] px-4 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className="p-2 rounded-xl bg-white border border-[#E5D0C6] text-[#7A2E43] hover:bg-[#FDECE4] transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-white border border-[#E7CCD3] text-[#4E0C22] hover:bg-[#F7E2E7] transition-colors cursor-pointer"
               aria-label="Back"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -688,10 +688,10 @@ export default function VendorPortalScreen({ onBack, showToast }) {
               <Briefcase className="w-4 h-4" />
             </div>
             <div>
-              <h1 className="text-sm sm:text-base font-bold text-[#2C1A1D]">
+              <h1 className="text-sm sm:text-base font-bold text-[#380817]">
                 Business / Vendor Portal
               </h1>
-              <p className="text-[11px] text-[#7B6568]">
+              <p className="text-[11px] text-[#7B4A57]">
                 Manage your wedding service listing, verification &amp; inquiries
               </p>
             </div>
@@ -702,7 +702,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
           <button
             type="button"
             onClick={handleVendorSignOut}
-            className="px-3 py-1.5 rounded-xl bg-white border border-[#E5D0C6] text-xs font-semibold text-[#7A2E43] hover:bg-[#FDECE4] flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-1.5 rounded-xl bg-white border border-[#E7CCD3] text-xs font-semibold text-[#4E0C22] hover:bg-[#F7E2E7] flex items-center gap-1.5 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Sign Out</span>
@@ -712,27 +712,27 @@ export default function VendorPortalScreen({ onBack, showToast }) {
 
       <div className="max-w-3xl mx-auto p-4 space-y-5">
         {authLoading && (
-          <div className="rounded-3xl bg-white border border-[#E5D0C6] p-8 text-center text-xs text-[#7B6568]">
+          <div className="rounded-3xl bg-white border border-[#E7CCD3] p-8 text-center text-xs text-[#7B4A57]">
             Checking vendor session...
           </div>
         )}
 
         {/* Vendor Auth & 2-Step Registration Screen */}
         {!authLoading && !authUser && (
-          <div className={`rounded-3xl bg-white border border-[#E5D0C6] p-5 sm:p-6 shadow-sm space-y-5 mx-auto mt-3 ${authMode === 'signup' && regStep === 2 ? 'max-w-2xl' : 'max-w-md'}`}>
+          <div className={`rounded-3xl bg-white border border-[#E7CCD3] p-5 sm:p-6 shadow-sm space-y-5 mx-auto mt-3 ${authMode === 'signup' && regStep === 2 ? 'max-w-2xl' : 'max-w-md'}`}>
             <div className="text-center space-y-1.5">
-              <div className="w-12 h-12 rounded-2xl bg-[#FDECE4] border border-[#E6B8A2] text-[#7A2E43] flex items-center justify-center mx-auto">
+              <div className="w-12 h-12 rounded-2xl bg-[#F7E2E7] border border-[#E4C1CA] text-[#4E0C22] flex items-center justify-center mx-auto">
                 <Store className="w-5 h-5" />
               </div>
-              <h2 className="text-base font-bold text-[#2C1A1D]">
+              <h2 className="text-base font-bold text-[#380817]">
                 {authMode === 'login' ? 'Vendor Partner Sign In' : 'Vendor Business Registration'}
               </h2>
-              <p className="text-xs text-[#7B6568]">
+              <p className="text-xs text-[#7B4A57]">
                 Showcase your services to verified Premium Matrimony families across Kerala &amp; India.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[#FFF9F6] border border-[#E5D0C6]">
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[#F5E1E6] border border-[#E7CCD3]">
               <button
                 type="button"
                 onClick={() => {
@@ -740,7 +740,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                   setAuthError('');
                 }}
                 className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  authMode === 'login' ? 'bg-[#7A2E43] text-white' : 'text-[#5A4649]'
+                  authMode === 'login' ? 'bg-[#4E0C22] text-white' : 'text-[#4A2E37]'
                 }`}
               >
                 Sign In
@@ -752,7 +752,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                   setAuthError('');
                 }}
                 className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  authMode === 'signup' ? 'bg-[#7A2E43] text-white' : 'text-[#5A4649]'
+                  authMode === 'signup' ? 'bg-[#4E0C22] text-white' : 'text-[#4A2E37]'
                 }`}
               >
                 Register Business
@@ -770,7 +770,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
             {authMode === 'login' && (
               <form onSubmit={handleVendorLoginSubmit} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                  <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                     Business Email
                   </label>
                   <div className="relative">
@@ -781,13 +781,13 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       value={authEmail}
                       onChange={(e) => setAuthEmail(e.target.value)}
                       placeholder="contact@yourbusiness.com"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                  <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                     Password
                   </label>
                   <div className="relative">
@@ -799,7 +799,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       value={authPassword}
                       onChange={(e) => setAuthPassword(e.target.value)}
                       placeholder="Minimum 6 characters"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                     />
                   </div>
                 </div>
@@ -807,7 +807,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                 <button
                   type="submit"
                   disabled={authBusy}
-                  className="w-full py-2.5 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-60"
+                  className="w-full py-2.5 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-60"
                 >
                   {authBusy ? 'Please wait...' : 'Sign In to Vendor Portal'}
                 </button>
@@ -820,13 +820,13 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                 {/* Step Indicator */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className={`p-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
-                    regStep === 1 ? 'bg-[#FDECE4] border-[#C58B76] text-[#7A2E43]' : 'bg-[#E7F6EF] border-[#BBE5D3] text-[#1E7F5C]'
+                    regStep === 1 ? 'bg-[#F7E2E7] border-[#8E5766] text-[#4E0C22]' : 'bg-[#E7F6EF] border-[#BBE5D3] text-[#1E7F5C]'
                   }`}>
                     <span className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-[11px] font-extrabold shrink-0">1</span>
                     <span>Mobile OTP</span>
                   </div>
                   <div className={`p-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
-                    regStep === 2 ? 'bg-[#FDECE4] border-[#C58B76] text-[#7A2E43]' : 'bg-[#FFF9F6] border-[#E5D0C6] text-[#7B6568]'
+                    regStep === 2 ? 'bg-[#F7E2E7] border-[#8E5766] text-[#4E0C22]' : 'bg-[#F5E1E6] border-[#E7CCD3] text-[#7B4A57]'
                   }`}>
                     <span className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-[11px] font-extrabold shrink-0">2</span>
                     <span>Business Details</span>
@@ -837,12 +837,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                 {regStep === 1 && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                      <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                         10-Digit Indian Mobile Number *
                       </label>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7A2E43]">+91</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#4E0C22]">+91</span>
                           <input
                             type="tel"
                             maxLength={10}
@@ -850,7 +850,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                             value={regMobile}
                             onChange={(e) => setRegMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
                             placeholder="9847000000"
-                            className="w-full pl-11 pr-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs font-medium focus:outline-none focus:border-[#C58B76] disabled:opacity-70"
+                            className="w-full pl-11 pr-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs font-medium focus:outline-none focus:border-[#8E5766] disabled:opacity-70"
                           />
                         </div>
                         {!regMobileVerified && (
@@ -858,7 +858,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                             type="button"
                             onClick={handleSendVendorOtp}
                             disabled={regOtpBusy || regCountdown > 0 || regMobile.replace(/\D/g, '').length !== 10}
-                            className="px-3.5 py-2.5 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-bold whitespace-nowrap cursor-pointer disabled:opacity-50"
+                            className="px-3.5 py-2.5 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold whitespace-nowrap cursor-pointer disabled:opacity-50"
                           >
                             {regOtpBusy ? 'Sending...' : regCountdown > 0 ? `Resend (${regCountdown}s)` : regOtpSent ? 'Resend OTP' : 'Send OTP'}
                           </button>
@@ -867,14 +867,14 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                     </div>
 
                     {regOtpSent && !regMobileVerified && (
-                      <div className="space-y-3 p-3.5 rounded-2xl bg-[#FFF9F6] border border-[#E5D0C6]">
+                      <div className="space-y-3 p-3.5 rounded-2xl bg-[#F5E1E6] border border-[#E7CCD3]">
                         {regIsSimulatedOtp && regDemoOtpCode && (
                           <div className="p-2.5 rounded-xl bg-[#F3EEFA] border border-[#D8CBEF] text-[#5B3E8C] text-[11px] font-semibold">
                             Localhost Test Mode: Enter verification OTP <span className="font-mono font-bold underline">{regDemoOtpCode}</span>
                           </div>
                         )}
                         <div>
-                          <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                          <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                             Enter 6-Digit OTP
                           </label>
                           <div className="flex gap-2">
@@ -885,7 +885,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                               value={regOtpInput}
                               onChange={(e) => setRegOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
                               placeholder="6-digit OTP"
-                              className="flex-1 px-3 py-2.5 rounded-xl bg-white border border-[#E5D0C6] text-xs font-mono tracking-widest focus:outline-none focus:border-[#C58B76]"
+                              className="flex-1 px-3 py-2.5 rounded-xl bg-white border border-[#E7CCD3] text-xs font-mono tracking-widest focus:outline-none focus:border-[#8E5766]"
                             />
                             <button
                               type="button"
@@ -916,7 +916,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       type="button"
                       disabled={!regMobileVerified}
                       onClick={() => setRegStep(2)}
-                      className="w-full py-2.5 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
+                      className="w-full py-2.5 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
                     >
                       <span>Next: Business &amp; Service Details</span>
                       <ArrowRight className="w-4 h-4" />
@@ -927,11 +927,11 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                 {/* STEP 2: COMPLETE BUSINESS & SERVICE DETAILS */}
                 {regStep === 2 && (
                   <form onSubmit={handleCompleteRegistration} className="space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-[#FDECE4]">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#F7E2E7]">
                       <button
                         type="button"
                         onClick={() => setRegStep(1)}
-                        className="text-xs font-semibold text-[#7A2E43] flex items-center gap-1 hover:underline cursor-pointer"
+                        className="text-xs font-semibold text-[#4E0C22] flex items-center gap-1 hover:underline cursor-pointer"
                       >
                         <ArrowLeft className="w-3.5 h-3.5" />
                         <span>Back to Step 1</span>
@@ -945,7 +945,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                     {/* Account Login Credentials */}
                     <div className="p-3.5 rounded-2xl bg-[#F3EEFA]/60 border border-[#D8CBEF] grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Business Login Email *
                         </label>
                         <input
@@ -954,11 +954,11 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={authEmail}
                           onChange={(e) => setAuthEmail(e.target.value)}
                           placeholder="owner@yourbusiness.com"
-                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Portal Password *
                         </label>
                         <input
@@ -968,14 +968,14 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={authPassword}
                           onChange={(e) => setAuthPassword(e.target.value)}
                           placeholder="Min 6 characters"
-                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Business / Shop Name *
                         </label>
                         <input
@@ -984,12 +984,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.business_name}
                           onChange={(e) => setForm({ ...form, business_name: e.target.value })}
                           placeholder="e.g. Royal Malabar Events"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Owner Full Name *
                         </label>
                         <input
@@ -998,18 +998,18 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.owner_name}
                           onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
                           placeholder="Full name of business owner"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Service Category *
                         </label>
                         <select
                           value={form.category}
                           onChange={(e) => setForm({ ...form, category: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         >
                           {VENDOR_CATEGORY_OPTIONS.map((c) => (
                             <option key={c.id} value={c.id}>{c.label}</option>
@@ -1018,13 +1018,13 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Service Coverage Area *
                         </label>
                         <select
                           value={form.service_area}
                           onChange={(e) => setForm({ ...form, service_area: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         >
                           {SERVICE_AREA_OPTIONS.map((area) => (
                             <option key={area} value={area}>{area}</option>
@@ -1033,7 +1033,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Verified Mobile Number *
                         </label>
                         <input
@@ -1045,7 +1045,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           WhatsApp Number *
                         </label>
                         <input
@@ -1054,12 +1054,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.whatsapp_number}
                           onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })}
                           placeholder="+91 9847000000"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           State *
                         </label>
                         <select
@@ -1073,7 +1073,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                               district: nextDistricts[0] || 'All India'
                             });
                           }}
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         >
                           {VENDOR_STATE_OPTIONS.map((st) => (
                             <option key={st} value={st}>{st}</option>
@@ -1082,13 +1082,13 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           District *
                         </label>
                         <select
                           value={form.district}
                           onChange={(e) => setForm({ ...form, district: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         >
                           {districtOptionsForState.map((d) => (
                             <option key={d} value={d}>{d}</option>
@@ -1097,7 +1097,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Town / City *
                         </label>
                         <input
@@ -1106,12 +1106,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.city_address}
                           onChange={(e) => setForm({ ...form, city_address: e.target.value })}
                           placeholder="e.g. Edappally, Kochi"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Full Street Address *
                         </label>
                         <input
@@ -1120,12 +1120,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.address}
                           onChange={(e) => setForm({ ...form, address: e.target.value })}
                           placeholder="Building No, Street, Landmark, PIN"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Years of Experience *
                         </label>
                         <input
@@ -1134,12 +1134,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.experience_years}
                           onChange={(e) => setForm({ ...form, experience_years: e.target.value })}
                           placeholder="e.g. 8 Years"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Starting Price Range *
                         </label>
                         <input
@@ -1148,12 +1148,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.pricing_range}
                           onChange={(e) => setForm({ ...form, pricing_range: e.target.value })}
                           placeholder="e.g. INR 15,000 - INR 1,20,000"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Business Registration / Udyam / License Number (Optional)
                         </label>
                         <input
@@ -1161,13 +1161,13 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.license_number}
                           onChange={(e) => setForm({ ...form, license_number: e.target.value })}
                           placeholder="e.g. UDYAM-KL-00-0000000"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                      <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                         Detailed Service / Fleet / Package Description *
                       </label>
                       <textarea
@@ -1176,12 +1176,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                         value={form.description}
                         onChange={(e) => setForm({ ...form, description: e.target.value })}
                         placeholder={getCategoryDetailPlaceholder(form.category)}
-                        className="w-full p-3 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                        className="w-full p-3 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-[#5A4649] mb-1 flex items-center gap-1.5">
+                      <label className="block text-xs font-semibold text-[#4A2E37] mb-1 flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5 text-[#5B3E8C]" />
                         <span>Team / Crew / Vehicle Capacity Details</span>
                       </label>
@@ -1190,23 +1190,23 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                         value={form.staff_details}
                         onChange={(e) => setForm({ ...form, staff_details: e.target.value })}
                         placeholder="Specify crew strength, uniformed staff, fleet count, or seating capacity..."
-                        className="w-full p-3 rounded-xl bg-[#F3EEFA]/50 border border-[#D8CBEF] text-xs focus:outline-none focus:border-[#C58B76]"
+                        className="w-full p-3 rounded-xl bg-[#F3EEFA]/50 border border-[#D8CBEF] text-xs focus:outline-none focus:border-[#8E5766]"
                       />
                     </div>
 
                     {/* Verification Document Upload (R2) */}
-                    <div className="p-4 rounded-2xl bg-[#FDECE4]/50 border border-[#E6B8A2] space-y-2.5">
+                    <div className="p-4 rounded-2xl bg-[#F7E2E7]/50 border border-[#E4C1CA] space-y-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <p className="text-xs font-bold text-[#7A2E43] flex items-center gap-1.5">
+                          <p className="text-xs font-bold text-[#4E0C22] flex items-center gap-1.5">
                             <FileText className="w-4 h-4" />
                             <span>Verification Document (Owner ID or Shop License) *</span>
                           </p>
-                          <p className="text-[11px] text-[#7B6568]">
+                          <p className="text-[11px] text-[#7B4A57]">
                             Uploaded securely to Cloudflare R2 for Super Admin verification.
                           </p>
                         </div>
-                        <label className="px-3 py-2 rounded-xl bg-white border border-[#E6B8A2] text-[#7A2E43] text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-[#FDECE4]">
+                        <label className="px-3 py-2 rounded-xl bg-white border border-[#E4C1CA] text-[#4E0C22] text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-[#F7E2E7]">
                           <Upload className="w-3.5 h-3.5" />
                           <span>{uploadingDoc ? 'Uploading...' : form.verification_doc_url ? 'Replace Document' : 'Upload Photo'}</span>
                           <input
@@ -1219,8 +1219,8 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                         </label>
                       </div>
                       {form.verification_doc_url && (
-                        <div className="flex items-center gap-3 p-2 rounded-xl bg-white border border-[#E5D0C6]">
-                          <img src={form.verification_doc_url} alt="Verification document" className="w-14 h-14 rounded-lg object-cover border border-[#E5D0C6]" />
+                        <div className="flex items-center gap-3 p-2 rounded-xl bg-white border border-[#E7CCD3]">
+                          <img src={form.verification_doc_url} alt="Verification document" className="w-14 h-14 rounded-lg object-cover border border-[#E7CCD3]" />
                           <div className="text-xs text-[#1E7F5C] font-semibold flex items-center gap-1.5">
                             <CheckCircle2 className="w-4 h-4" />
                             <span>Document attached for Super Admin review</span>
@@ -1230,10 +1230,10 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                     </div>
 
                     {/* Portfolio Photos & Videos (Optional during registration, max 10 photos & 2 videos) */}
-                    <div className="p-4 rounded-2xl bg-[#FFF9F6] border border-[#E5D0C6] space-y-3">
-                      <p className="text-xs font-bold text-[#2C1A1D]">Portfolio Photos &amp; Promotional Videos (Optional)</p>
+                    <div className="p-4 rounded-2xl bg-[#F5E1E6] border border-[#E7CCD3] space-y-3">
+                      <p className="text-xs font-bold text-[#380817]">Portfolio Photos &amp; Promotional Videos (Optional)</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label className="p-3 rounded-xl bg-white border border-dashed border-[#C58B76] text-xs font-semibold text-[#7A2E43] flex items-center justify-center gap-2 cursor-pointer hover:bg-[#FDECE4]/40">
+                        <label className="p-3 rounded-xl bg-white border border-dashed border-[#8E5766] text-xs font-semibold text-[#4E0C22] flex items-center justify-center gap-2 cursor-pointer hover:bg-[#F7E2E7]/40">
                           <ImageIcon className="w-4 h-4" />
                           <span>Photos ({stagedPhotos.length}/10)</span>
                           <input
@@ -1269,7 +1269,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                     <button
                       type="submit"
                       disabled={savingProfile || uploadingDoc}
-                      className="w-full py-3 rounded-2xl bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
+                      className="w-full py-3 rounded-2xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
                     >
                       <Save className="w-4 h-4" />
                       <span>{savingProfile ? 'Submitting Registration...' : 'Submit for Super Admin Verification'}</span>
@@ -1285,10 +1285,10 @@ export default function VendorPortalScreen({ onBack, showToast }) {
         {!authLoading && authUser && (
           <>
             {/* Status Header Card */}
-            <div className="rounded-3xl bg-white border border-[#E5D0C6] p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="rounded-3xl bg-white border border-[#E7CCD3] p-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs text-[#7B6568]">Signed in as {authUser.email || authUser.phone}</p>
-                <h2 className="text-sm font-bold text-[#2C1A1D]">
+                <p className="text-xs text-[#7B4A57]">Signed in as {authUser.email || authUser.phone}</p>
+                <h2 className="text-sm font-bold text-[#380817]">
                   {vendorProfile?.business_name || 'New Business Profile'}
                 </h2>
               </div>
@@ -1304,7 +1304,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                     className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
                       isVendorLive
                         ? 'bg-[#E7F6EF] text-[#1E7F5C] border-[#BBE5D3]'
-                        : 'bg-[#FDECE4] text-[#7A2E43] border-[#E6B8A2]'
+                        : 'bg-[#F7E2E7] text-[#4E0C22] border-[#E4C1CA]'
                     }`}
                   >
                     {isVendorLive ? (
@@ -1329,8 +1329,8 @@ export default function VendorPortalScreen({ onBack, showToast }) {
 
             {/* Strict Pending Lock Banner */}
             {vendorProfile && !isVendorLive && (
-              <div className="rounded-2xl bg-[#FDECE4] border border-[#E6B8A2] p-4 space-y-2">
-                <div className="flex items-start gap-2.5 text-[#7A2E43]">
+              <div className="rounded-2xl bg-[#F7E2E7] border border-[#E4C1CA] p-4 space-y-2">
+                <div className="flex items-start gap-2.5 text-[#4E0C22]">
                   <Clock className="w-4 h-4 mt-0.5 shrink-0" />
                   <p className="text-xs font-bold leading-relaxed">
                     Account Under Review: Your profile and documents are awaiting Super Admin verification and approval.
@@ -1345,14 +1345,14 @@ export default function VendorPortalScreen({ onBack, showToast }) {
             )}
 
             {/* Sub-navigation Tabs */}
-            <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-white border border-[#E5D0C6]">
+            <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-white border border-[#E7CCD3]">
               <button
                 type="button"
                 onClick={() => setActivePortalTab('profile')}
                 className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   activePortalTab === 'profile'
-                    ? 'bg-[#7A2E43] text-white shadow-xs'
-                    : 'text-[#5A4649] hover:bg-[#FDECE4]/50'
+                    ? 'bg-[#4E0C22] text-white shadow-xs'
+                    : 'text-[#4A2E37] hover:bg-[#F7E2E7]/50'
                 }`}
               >
                 <Store className="w-3.5 h-3.5" />
@@ -1364,8 +1364,8 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                 disabled={!vendorProfile}
                 className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 ${
                   activePortalTab === 'media'
-                    ? 'bg-[#7A2E43] text-white shadow-xs'
-                    : 'text-[#5A4649] hover:bg-[#FDECE4]/50'
+                    ? 'bg-[#4E0C22] text-white shadow-xs'
+                    : 'text-[#4A2E37] hover:bg-[#F7E2E7]/50'
                 }`}
               >
                 <ImageIcon className="w-3.5 h-3.5" />
@@ -1377,8 +1377,8 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                 disabled={!vendorProfile}
                 className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 ${
                   activePortalTab === 'inbox'
-                    ? 'bg-[#7A2E43] text-white shadow-xs'
-                    : 'text-[#5A4649] hover:bg-[#FDECE4]/50'
+                    ? 'bg-[#4E0C22] text-white shadow-xs'
+                    : 'text-[#4A2E37] hover:bg-[#F7E2E7]/50'
                 }`}
               >
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -1404,15 +1404,15 @@ export default function VendorPortalScreen({ onBack, showToast }) {
             {activePortalTab === 'profile' && (
               <form
                 onSubmit={handleSaveProfile}
-                className="rounded-3xl bg-white border border-[#E5D0C6] p-5 space-y-4 shadow-xs"
+                className="rounded-3xl bg-white border border-[#E7CCD3] p-5 space-y-4 shadow-xs"
               >
                 {loadingVendor ? (
-                  <p className="text-xs text-[#7B6568]">Loading your vendor profile...</p>
+                  <p className="text-xs text-[#7B4A57]">Loading your vendor profile...</p>
                 ) : (
                   <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Business / Shop Name *
                         </label>
                         <input
@@ -1421,12 +1421,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.business_name}
                           onChange={(e) => setForm({ ...form, business_name: e.target.value })}
                           placeholder="e.g. Royal Malabar Bridal Studio"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Owner Full Name *
                         </label>
                         <input
@@ -1435,18 +1435,18 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.owner_name}
                           onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
                           placeholder="Full name of business owner"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Service Category *
                         </label>
                         <select
                           value={form.category}
                           onChange={(e) => setForm({ ...form, category: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         >
                           {VENDOR_CATEGORY_OPTIONS.map((c) => (
                             <option key={c.id} value={c.id}>{c.label}</option>
@@ -1455,13 +1455,13 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Service Coverage Area
                         </label>
                         <select
                           value={form.service_area}
                           onChange={(e) => setForm({ ...form, service_area: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         >
                           {SERVICE_AREA_OPTIONS.map((area) => (
                             <option key={area} value={area}>{area}</option>
@@ -1470,7 +1470,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           State *
                         </label>
                         <select
@@ -1484,7 +1484,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                               district: nextDistricts[0] || 'All India'
                             });
                           }}
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         >
                           {VENDOR_STATE_OPTIONS.map((st) => (
                             <option key={st} value={st}>{st}</option>
@@ -1493,13 +1493,13 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           District *
                         </label>
                         <select
                           value={form.district}
                           onChange={(e) => setForm({ ...form, district: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         >
                           {districtOptionsForState.map((d) => (
                             <option key={d} value={d}>{d}</option>
@@ -1508,7 +1508,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Contact Phone *
                         </label>
                         <input
@@ -1518,12 +1518,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.phone}
                           onChange={(e) => setForm({ ...form, phone: e.target.value })}
                           placeholder="+91 98470 00000"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76] read-only:bg-[#E7F6EF]/60 read-only:text-[#1E7F5C]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766] read-only:bg-[#E7F6EF]/60 read-only:text-[#1E7F5C]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           WhatsApp Number *
                         </label>
                         <input
@@ -1532,12 +1532,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.whatsapp_number}
                           onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })}
                           placeholder="+91 98470 00000"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Town / City *
                         </label>
                         <input
@@ -1546,12 +1546,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.city_address}
                           onChange={(e) => setForm({ ...form, city_address: e.target.value })}
                           placeholder="MG Road, Kochi"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Full Street Address
                         </label>
                         <input
@@ -1559,12 +1559,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.address}
                           onChange={(e) => setForm({ ...form, address: e.target.value })}
                           placeholder="Building No, Street, Landmark, PIN"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Years of Experience
                         </label>
                         <input
@@ -1572,12 +1572,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.experience_years}
                           onChange={(e) => setForm({ ...form, experience_years: e.target.value })}
                           placeholder="e.g. 5 Years"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Starting Price Range
                         </label>
                         <input
@@ -1585,12 +1585,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.pricing_range}
                           onChange={(e) => setForm({ ...form, pricing_range: e.target.value })}
                           placeholder="e.g. INR 25,000 - INR 1,50,000"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                        <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                           Business Registration / Udyam / License Number (Optional)
                         </label>
                         <input
@@ -1598,13 +1598,13 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           value={form.license_number}
                           onChange={(e) => setForm({ ...form, license_number: e.target.value })}
                           placeholder="e.g. UDYAM-KL-00-0000000"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-[#5A4649] mb-1">
+                      <label className="block text-xs font-semibold text-[#4A2E37] mb-1">
                         Detailed Service / Fleet / Package Description
                       </label>
                       <textarea
@@ -1612,12 +1612,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                         value={form.description}
                         onChange={(e) => setForm({ ...form, description: e.target.value })}
                         placeholder={getCategoryDetailPlaceholder(form.category)}
-                        className="w-full p-3 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                        className="w-full p-3 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-[#5A4649] mb-1 flex items-center gap-1.5">
+                      <label className="block text-xs font-semibold text-[#4A2E37] mb-1 flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5 text-[#5B3E8C]" />
                         <span>Team / Crew / Vehicle Capacity Details</span>
                       </label>
@@ -1626,21 +1626,21 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                         value={form.staff_details}
                         onChange={(e) => setForm({ ...form, staff_details: e.target.value })}
                         placeholder="Specify crew size, uniformed serving staff, vehicle fleet capacity, or on-site team details..."
-                        className="w-full p-3 rounded-xl bg-[#F3EEFA]/50 border border-[#D8CBEF] text-xs focus:outline-none focus:border-[#C58B76]"
+                        className="w-full p-3 rounded-xl bg-[#F3EEFA]/50 border border-[#D8CBEF] text-xs focus:outline-none focus:border-[#8E5766]"
                       />
                     </div>
 
                     {/* Verification Document Upload */}
-                    <div className="p-4 rounded-2xl bg-[#FDECE4]/50 border border-[#E6B8A2] space-y-2.5">
+                    <div className="p-4 rounded-2xl bg-[#F7E2E7]/50 border border-[#E4C1CA] space-y-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <p className="text-xs font-bold text-[#7A2E43] flex items-center gap-1.5">
+                          <p className="text-xs font-bold text-[#4E0C22] flex items-center gap-1.5">
                             <FileText className="w-4 h-4" />
                             <span>Verification Document (Owner ID / Shop License)</span>
                           </p>
-                          <p className="text-[11px] text-[#7B6568]">Uploaded to Cloudflare R2 for Super Admin verification.</p>
+                          <p className="text-[11px] text-[#7B4A57]">Uploaded to Cloudflare R2 for Super Admin verification.</p>
                         </div>
-                        <label className="px-3 py-2 rounded-xl bg-white border border-[#E6B8A2] text-[#7A2E43] text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-[#FDECE4]">
+                        <label className="px-3 py-2 rounded-xl bg-white border border-[#E4C1CA] text-[#4E0C22] text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-[#F7E2E7]">
                           <Upload className="w-3.5 h-3.5" />
                           <span>{uploadingDoc ? 'Uploading...' : form.verification_doc_url ? 'Replace Document' : 'Upload Photo'}</span>
                           <input
@@ -1653,8 +1653,8 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                         </label>
                       </div>
                       {form.verification_doc_url && (
-                        <div className="flex items-center gap-3 p-2 rounded-xl bg-white border border-[#E5D0C6]">
-                          <img src={form.verification_doc_url} alt="Verification document" className="w-14 h-14 rounded-lg object-cover border border-[#E5D0C6]" />
+                        <div className="flex items-center gap-3 p-2 rounded-xl bg-white border border-[#E7CCD3]">
+                          <img src={form.verification_doc_url} alt="Verification document" className="w-14 h-14 rounded-lg object-cover border border-[#E7CCD3]" />
                           <span className="text-xs text-[#1E7F5C] font-semibold">Verification document attached</span>
                         </div>
                       )}
@@ -1663,7 +1663,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                     <button
                       type="submit"
                       disabled={savingProfile || uploadingDoc}
-                      className="w-full py-3 rounded-2xl bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
+                      className="w-full py-3 rounded-2xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
                     >
                       <Save className="w-4 h-4" />
                       <span>{savingProfile ? 'Saving...' : vendorProfile ? 'Update Business Profile' : 'Create Business Profile'}</span>
@@ -1676,13 +1676,13 @@ export default function VendorPortalScreen({ onBack, showToast }) {
             {/* TAB 2: Media Upload & Delete */}
             {activePortalTab === 'media' && vendorProfile && (
               <div className="space-y-4">
-                <div className="rounded-3xl bg-white border border-[#E5D0C6] p-5 space-y-3.5">
+                <div className="rounded-3xl bg-white border border-[#E7CCD3] p-5 space-y-3.5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-bold text-[#2C1A1D]">Portfolio Photos ({photos.length} / 10)</h3>
-                      <p className="text-[11px] text-[#7B6568]">Uploaded directly to Cloudflare R2 in WebP format.</p>
+                      <h3 className="text-sm font-bold text-[#380817]">Portfolio Photos ({photos.length} / 10)</h3>
+                      <p className="text-[11px] text-[#7B4A57]">Uploaded directly to Cloudflare R2 in WebP format.</p>
                     </div>
-                    <label className="px-3.5 py-2 rounded-xl bg-[#FDECE4] hover:bg-[#FADCD0] border border-[#E6B8A2] text-[#7A2E43] text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+                    <label className="px-3.5 py-2 rounded-xl bg-[#F7E2E7] hover:bg-[#FADCD0] border border-[#E4C1CA] text-[#4E0C22] text-xs font-bold flex items-center gap-1.5 cursor-pointer">
                       <Upload className="w-3.5 h-3.5" />
                       <span>{uploadingPhoto ? 'Uploading...' : 'Add Photos'}</span>
                       <input
@@ -1697,13 +1697,13 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                   </div>
 
                   {photos.length === 0 ? (
-                    <div className="p-6 rounded-2xl bg-[#FFF9F6] border border-dashed border-[#E5D0C6] text-center text-xs text-[#7B6568]">
+                    <div className="p-6 rounded-2xl bg-[#F5E1E6] border border-dashed border-[#E7CCD3] text-center text-xs text-[#7B4A57]">
                       No photos uploaded yet. Add up to 10 photos of your work.
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {photos.map((photo) => (
-                        <div key={photo.id} className="relative group rounded-2xl overflow-hidden border border-[#E5D0C6] aspect-square bg-[#FFF9F6]">
+                        <div key={photo.id} className="relative group rounded-2xl overflow-hidden border border-[#E7CCD3] aspect-square bg-[#F5E1E6]">
                           <img src={photo.media_url} alt="Vendor portfolio" className="w-full h-full object-cover" />
                           <button
                             type="button"
@@ -1719,11 +1719,11 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                   )}
                 </div>
 
-                <div className="rounded-3xl bg-white border border-[#E5D0C6] p-5 space-y-4">
+                <div className="rounded-3xl bg-white border border-[#E7CCD3] p-5 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <h3 className="text-sm font-bold text-[#2C1A1D]">Promotional Videos ({videos.length} / 2)</h3>
-                      <p className="text-[11px] text-[#7B6568]">Upload short videos (max 20 MB each) or attach a YouTube URL.</p>
+                      <h3 className="text-sm font-bold text-[#380817]">Promotional Videos ({videos.length} / 2)</h3>
+                      <p className="text-[11px] text-[#7B4A57]">Upload short videos (max 20 MB each) or attach a YouTube URL.</p>
                     </div>
                     <label className="px-3.5 py-2 rounded-xl bg-[#F3EEFA] hover:bg-[#EAE1F7] border border-[#D8CBEF] text-[#5B3E8C] text-xs font-bold flex items-center gap-1.5 cursor-pointer">
                       <Video className="w-3.5 h-3.5" />
@@ -1740,20 +1740,20 @@ export default function VendorPortalScreen({ onBack, showToast }) {
 
                   <form onSubmit={handleAddYouTube} className="flex flex-col sm:flex-row gap-2">
                     <div className="relative flex-1">
-                      <Link className="w-4 h-4 text-[#7A2E43] absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Link className="w-4 h-4 text-[#4E0C22] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="url"
                         value={youtubeInput}
                         onChange={(e) => setYoutubeInput(e.target.value)}
                         placeholder="Optional YouTube video URL (https://youtube.com/watch?v=...)"
                         disabled={videos.length >= 2}
-                        className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                        className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                       />
                     </div>
                     <button
                       type="submit"
                       disabled={savingYoutube || videos.length >= 2 || !youtubeInput.trim()}
-                      className="px-4 py-2 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>{savingYoutube ? 'Adding...' : 'Add YouTube'}</span>
@@ -1765,7 +1765,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       {videos.map((vid) => {
                         const ytEmbed = isYouTubeUrl(vid.media_url) ? getYouTubeEmbedUrl(vid.media_url) : null;
                         return (
-                          <div key={vid.id} className="relative rounded-2xl overflow-hidden border border-[#E5D0C6] bg-black">
+                          <div key={vid.id} className="relative rounded-2xl overflow-hidden border border-[#E7CCD3] bg-black">
                             {ytEmbed ? (
                               <iframe src={ytEmbed} title="Vendor YouTube" className="w-full aspect-video border-0" allowFullScreen />
                             ) : (
@@ -1790,20 +1790,20 @@ export default function VendorPortalScreen({ onBack, showToast }) {
 
             {/* TAB 3: Vendor Message Box */}
             {activePortalTab === 'inbox' && vendorProfile && (
-              <div className="rounded-3xl bg-white border border-[#E5D0C6] p-5 space-y-4">
+              <div className="rounded-3xl bg-white border border-[#E7CCD3] p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-[#2C1A1D]">
+                  <h3 className="text-sm font-bold text-[#380817]">
                     Message Box ({groupedThreads.length})
                   </h3>
-                  <span className="text-[11px] text-[#7B6568]">
+                  <span className="text-[11px] text-[#7B4A57]">
                     Replies are delivered directly to the member&apos;s Messages tab
                   </span>
                 </div>
 
                 {loadingInquiries ? (
-                  <p className="text-xs text-[#7B6568]">Loading messages...</p>
+                  <p className="text-xs text-[#7B4A57]">Loading messages...</p>
                 ) : groupedThreads.length === 0 ? (
-                  <div className="p-6 rounded-2xl bg-[#FFF9F6] border border-dashed border-[#E5D0C6] text-center text-xs text-[#7B6568]">
+                  <div className="p-6 rounded-2xl bg-[#F5E1E6] border border-dashed border-[#E7CCD3] text-center text-xs text-[#7B4A57]">
                     No customer inquiries yet. Verified &amp; approved listings appear to all Premium Members.
                   </div>
                 ) : (
@@ -1824,21 +1824,21 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                             }}
                             className={`w-full text-left p-3 rounded-2xl border transition-all cursor-pointer ${
                               isSelected
-                                ? 'bg-[#FDECE4] border-[#7A2E43]'
-                                : 'bg-[#FFF9F6] border-[#E5D0C6] hover:border-[#C58B76]'
+                                ? 'bg-[#F7E2E7] border-[#4E0C22]'
+                                : 'bg-[#F5E1E6] border-[#E7CCD3] hover:border-[#8E5766]'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-bold text-[#2C1A1D] truncate">
+                              <span className="text-xs font-bold text-[#380817] truncate">
                                 {thread.customerName}
                               </span>
                               {thread.unreadCount > 0 && (
-                                <span className="px-1.5 py-0.5 rounded-full bg-[#7A2E43] text-white text-[10px] font-bold">
+                                <span className="px-1.5 py-0.5 rounded-full bg-[#4E0C22] text-white text-[10px] font-bold">
                                   {thread.unreadCount}
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-[#7B6568] truncate mt-0.5">
+                            <p className="text-[11px] text-[#7B4A57] truncate mt-0.5">
                               {lastMsg?.message || ''}
                             </p>
                           </button>
@@ -1847,11 +1847,11 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                     </div>
 
                     {activeThread && (
-                      <div className="md:col-span-7 flex flex-col rounded-2xl bg-[#FFF9F6] border border-[#E5D0C6] overflow-hidden">
-                        <div className="px-4 py-3 bg-white border-b border-[#E5D0C6] flex flex-wrap items-center justify-between gap-2">
+                      <div className="md:col-span-7 flex flex-col rounded-2xl bg-[#F5E1E6] border border-[#E7CCD3] overflow-hidden">
+                        <div className="px-4 py-3 bg-white border-b border-[#E7CCD3] flex flex-wrap items-center justify-between gap-2">
                           <div>
-                            <p className="text-xs font-bold text-[#2C1A1D]">{activeThread.customerName}</p>
-                            <p className="text-[11px] text-[#7B6568] flex items-center gap-1">
+                            <p className="text-xs font-bold text-[#380817]">{activeThread.customerName}</p>
+                            <p className="text-[11px] text-[#7B4A57] flex items-center gap-1">
                               <Phone className="w-3 h-3" />
                               <span>{activeThread.customerPhone || 'Not provided'}</span>
                             </p>
@@ -1881,12 +1881,12 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                                 <div
                                   className={`max-w-[82%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed ${
                                     isVendorMsg
-                                      ? 'bg-[#7A2E43] text-white rounded-br-none'
-                                      : 'bg-white border border-[#E5D0C6] text-[#2C1A1D] rounded-bl-none'
+                                      ? 'bg-[#4E0C22] text-white rounded-br-none'
+                                      : 'bg-white border border-[#E7CCD3] text-[#380817] rounded-bl-none'
                                   }`}
                                 >
                                   <p>{m.message}</p>
-                                  <p className={`text-[9px] mt-1 ${isVendorMsg ? 'text-white/75' : 'text-[#7B6568]'}`}>
+                                  <p className={`text-[9px] mt-1 ${isVendorMsg ? 'text-white/75' : 'text-[#7B4A57]'}`}>
                                     {m.created_at ? new Date(m.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
                                   </p>
                                 </div>
@@ -1895,18 +1895,18 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           })}
                         </div>
 
-                        <form onSubmit={handleSendReply} className="p-3 bg-white border-t border-[#E5D0C6] flex items-center gap-2">
+                        <form onSubmit={handleSendReply} className="p-3 bg-white border-t border-[#E7CCD3] flex items-center gap-2">
                           <input
                             type="text"
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
                             placeholder="Type your reply to the customer..."
-                            className="flex-1 px-3 py-2 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-xs focus:outline-none focus:border-[#C58B76]"
+                            className="flex-1 px-3 py-2 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs focus:outline-none focus:border-[#8E5766]"
                           />
                           <button
                             type="submit"
                             disabled={sendingReply || !replyText.trim()}
-                            className="px-3.5 py-2 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                            className="px-3.5 py-2 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                           >
                             <Send className="w-3.5 h-3.5" />
                             <span>{sendingReply ? 'Sending...' : 'Send'}</span>

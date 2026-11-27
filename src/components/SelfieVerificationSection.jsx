@@ -478,7 +478,7 @@ export default function SelfieVerificationSection({
   const currentChallenge = LIVENESS_STEPS[trackerState.stepIndex] || LIVENESS_STEPS[0];
 
   return (
-    <div className="bg-gradient-to-br from-[#FFF9F6] via-white to-[#FDECE4] rounded-2xl p-4 border border-[#E5D0C6] shadow-xs space-y-3">
+    <div className="bg-gradient-to-br from-[#F5E1E6] via-white to-[#F7E2E7] rounded-2xl p-4 border border-[#E7CCD3] shadow-xs space-y-3">
       {/* Hidden file inputs for native camera & upload fallback */}
       <input
         ref={deviceCameraInputRef}
@@ -499,12 +499,12 @@ export default function SelfieVerificationSection({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-[#7A2E43] flex items-center justify-center text-white shadow-xs">
+          <div className="w-8 h-8 rounded-xl bg-[#4E0C22] flex items-center justify-center text-white shadow-xs">
             <Scan className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="font-serif font-bold text-sm text-[#2C1A1D]">
+              <h3 className="font-serif font-bold text-sm text-[#380817]">
                 Active AI Selfie Verification
               </h3>
               <span className="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
@@ -524,8 +524,8 @@ export default function SelfieVerificationSection({
             <span>Verified ({verifyResult.similarityScore || 92}%)</span>
           </div>
         ) : (
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF9F6] text-[#7A2E43] border border-[#E5D0C6] text-[10px] font-semibold">
-            <Sparkles className="w-3 h-3 text-[#C58B76]" />
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F5E1E6] text-[#4E0C22] border border-[#E7CCD3] text-[10px] font-semibold">
+            <Sparkles className="w-3 h-3 text-[#8E5766]" />
             <span>Mandatory</span>
           </div>
         )}
@@ -579,11 +579,11 @@ export default function SelfieVerificationSection({
         // State 3: Ready for active liveness verification
         <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#C58B76]/15 border border-[#C58B76]/30 text-[#7A2E43] flex items-center justify-center shrink-0">
-              <Scan className="w-5 h-5 text-[#7A2E43]" />
+            <div className="w-10 h-10 rounded-xl bg-[#8E5766]/15 border border-[#8E5766]/30 text-[#4E0C22] flex items-center justify-center shrink-0">
+              <Scan className="w-5 h-5 text-[#4E0C22]" />
             </div>
             <div className="space-y-0.5 min-w-0">
-              <h4 className="text-xs font-bold text-[#2C1A1D]">
+              <h4 className="text-xs font-bold text-[#380817]">
                 Active Liveness Face Match
               </h4>
               <p className="text-[11px] text-slate-600 leading-relaxed">
@@ -595,7 +595,7 @@ export default function SelfieVerificationSection({
           <button
             type="button"
             onClick={handleOpenModal}
-            className="w-full py-2.5 px-4 rounded-xl bg-[#7A2E43] hover:bg-[#612234] active:scale-[0.99] text-white font-extrabold text-xs shadow-sm shadow-[#7A2E43]/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-2.5 px-4 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] active:scale-[0.99] text-white font-extrabold text-xs shadow-sm shadow-[#4E0C22]/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Camera className="w-4 h-4" />
             <span>Start Active Liveness Selfie</span>
@@ -607,7 +607,7 @@ export default function SelfieVerificationSection({
             <button
               type="button"
               onClick={() => deviceCameraInputRef.current?.click()}
-              className="text-[#7A2E43] hover:text-[#612234] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+              className="text-[#4E0C22] hover:text-[#6B1230] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
             >
               <Smartphone className="w-3.5 h-3.5" />
               <span>Use Device Camera</span>
@@ -642,12 +642,12 @@ export default function SelfieVerificationSection({
       {/* Interactive Active Liveness Camera Modal */}
       {isModalActive && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-[#E5D0C6] relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[94vh]">
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-[#E7CCD3] relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[94vh]">
             
             {/* Modal Header */}
-            <div className="bg-[#2C1A1D] text-white px-4 py-3 flex items-center justify-between border-b border-[#C58B76]/30">
+            <div className="bg-[#380817] text-white px-4 py-3 flex items-center justify-between border-b border-[#8E5766]/30">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#C58B76]/20 border border-[#C58B76]/40 flex items-center justify-center text-[#E6B8A2]">
+                <div className="w-7 h-7 rounded-lg bg-[#8E5766]/20 border border-[#8E5766]/40 flex items-center justify-center text-[#E4C1CA]">
                   <Scan className="w-4 h-4" />
                 </div>
                 <div>
@@ -679,14 +679,14 @@ export default function SelfieVerificationSection({
                   <img 
                     src={profilePhoto} 
                     alt="Target Portrait" 
-                    className="w-8 h-8 rounded-lg object-cover border border-[#C58B76]" 
+                    className="w-8 h-8 rounded-lg object-cover border border-[#8E5766]" 
                   />
                   <div>
                     <div className="text-[10px] font-bold text-slate-800">Reference Portrait</div>
                     <div className="text-[9px] text-slate-500">Target photo to match against</div>
                   </div>
                 </div>
-                <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md bg-[#C58B76]/20 text-[#7A2E43]">
+                <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md bg-[#8E5766]/20 text-[#4E0C22]">
                   Profile Face
                 </span>
               </div>
@@ -714,7 +714,7 @@ export default function SelfieVerificationSection({
                           ? 'border-purple-400 shadow-[0_0_20px_rgba(192,132,252,0.5)]'
                           : currentChallenge.id === 'blink_or_smile'
                           ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.5)]'
-                          : 'border-[#E6B8A2] border-dashed shadow-[0_0_0_9999px_rgba(44,26,29,0.55)]'
+                          : 'border-[#E4C1CA] border-dashed shadow-[0_0_0_9999px_rgba(44,26,29,0.55)]'
                       }`}>
                         {/* Directional Turn Left Arrow Overlay */}
                         {currentChallenge.id === 'turn_left' && (
@@ -742,8 +742,8 @@ export default function SelfieVerificationSection({
                       </div>
                       
                       {/* Dynamic Live Instruction Pill */}
-                      <div className="absolute bottom-2.5 bg-[#2C1A1D]/90 backdrop-blur-md px-4 py-2 rounded-full text-center border border-[#C58B76]/40 shadow-lg max-w-[90%]">
-                        <p className="text-xs font-bold text-[#E6B8A2]">
+                      <div className="absolute bottom-2.5 bg-[#380817]/90 backdrop-blur-md px-4 py-2 rounded-full text-center border border-[#8E5766]/40 shadow-lg max-w-[90%]">
+                        <p className="text-xs font-bold text-[#E4C1CA]">
                           {frameFeedback.feedbackEn || currentChallenge.instructionEn}
                         </p>
                       </div>
@@ -763,8 +763,8 @@ export default function SelfieVerificationSection({
                     {/* AI Scanning Overlay */}
                     {isVerifying && (
                       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                        <div className="w-full h-1 bg-gradient-to-r from-transparent via-[#E6B8A2] to-transparent shadow-[0_0_20px_#E6B8A2] animate-bounce" />
-                        <div className="absolute inset-0 bg-[#C58B76]/10 backdrop-contrast-125" />
+                        <div className="w-full h-1 bg-gradient-to-r from-transparent via-[#E4C1CA] to-transparent shadow-[0_0_20px_#E4C1CA] animate-bounce" />
+                        <div className="absolute inset-0 bg-[#8E5766]/10 backdrop-contrast-125" />
                         <div className="absolute bottom-3 inset-x-3 bg-black/75 backdrop-blur-md p-2 rounded-xl text-center text-white text-xs font-bold border border-amber-400/40">
                           <span>Biometric Face Matching in progress...</span>
                         </div>
@@ -794,7 +794,7 @@ export default function SelfieVerificationSection({
                       <button
                         type="button"
                         onClick={() => startCamera()}
-                        className="w-full py-2 px-3 rounded-xl bg-[#7A2E43] hover:bg-[#612234] active:scale-[0.99] text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
+                        className="w-full py-2 px-3 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] active:scale-[0.99] text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                         <span>Retry Camera</span>
@@ -804,7 +804,7 @@ export default function SelfieVerificationSection({
                         <button
                           type="button"
                           onClick={() => deviceCameraInputRef.current?.click()}
-                          className="py-2 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-[#E6B8A2] border border-[#C58B76]/30 text-[10.5px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                          className="py-2 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-[#E4C1CA] border border-[#8E5766]/30 text-[10.5px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                         >
                           <Smartphone className="w-3.5 h-3.5 shrink-0" />
                           <span>Device Camera</span>
@@ -849,7 +849,7 @@ export default function SelfieVerificationSection({
                         executeAiVerification(snapshot);
                       }
                     }}
-                    className="text-[#7A2E43] hover:text-[#612234] font-bold underline cursor-pointer flex items-center gap-1"
+                    className="text-[#4E0C22] hover:text-[#6B1230] font-bold underline cursor-pointer flex items-center gap-1"
                   >
                     <Camera className="w-3.5 h-3.5" />
                     <span>Snap Selfie Now & Verify</span>
@@ -862,18 +862,18 @@ export default function SelfieVerificationSection({
                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
                     <span className="flex items-center gap-1.5">
-                      <span className="w-4 h-4 rounded-full bg-[#7A2E43] text-white text-[9px] flex items-center justify-center font-extrabold">
+                      <span className="w-4 h-4 rounded-full bg-[#4E0C22] text-white text-[9px] flex items-center justify-center font-extrabold">
                         {currentChallenge.stepNumber}
                       </span>
                       <span>{currentChallenge.titleEn}</span>
                     </span>
-                    <span className="text-[#7A2E43] font-mono">{trackerState.stepProgress}%</span>
+                    <span className="text-[#4E0C22] font-mono">{trackerState.stepProgress}%</span>
                   </div>
 
                   {/* Progress bar line */}
                   <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-[#7A2E43] to-emerald-500 transition-all duration-150"
+                      className="h-full bg-gradient-to-r from-[#4E0C22] to-emerald-500 transition-all duration-150"
                       style={{ width: `${trackerState.stepProgress}%` }}
                     />
                   </div>
@@ -901,7 +901,7 @@ export default function SelfieVerificationSection({
                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2 animate-in fade-in">
                   <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
                     <span>Biometric Face Analysis</span>
-                    <RefreshCw className="w-3.5 h-3.5 text-[#E6B8A2] animate-spin" />
+                    <RefreshCw className="w-3.5 h-3.5 text-[#E4C1CA] animate-spin" />
                   </div>
                   <div className="space-y-1.5 text-[10px] text-slate-600">
                     <div className="flex items-center gap-1.5">
@@ -1016,7 +1016,7 @@ export default function SelfieVerificationSection({
                   <button
                     type="button"
                     onClick={handleRetake}
-                    className="flex-2 py-2 px-4 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-2 py-2 px-4 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <RefreshCw className="w-4 h-4" />
                     <span>Try Again</span>

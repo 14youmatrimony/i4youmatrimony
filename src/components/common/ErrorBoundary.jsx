@@ -40,17 +40,17 @@ export default class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#FFF9F6] text-[#5A4649] flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white border border-[#E5D0C6] rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-xl">
-            <div className="w-14 h-14 rounded-full bg-[#7A2E43]/10 text-[#7A2E43] border border-[#E5D0C6] flex items-center justify-center mx-auto">
-              <AlertCircle className="w-7 h-7 text-[#7A2E43]" />
+        <div className="min-h-screen bg-[#F5E1E6] text-[#4A2E37] flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white border border-[#E7CCD3] rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-xl">
+            <div className="w-14 h-14 rounded-full bg-[#4E0C22]/10 text-[#4E0C22] border border-[#E7CCD3] flex items-center justify-center mx-auto">
+              <AlertCircle className="w-7 h-7 text-[#4E0C22]" />
             </div>
 
-            <h2 className="text-xl font-serif font-bold text-[#2C1A1D]">
+            <h2 className="text-xl font-serif font-bold text-[#380817]">
               Something went wrong
             </h2>
 
-            <p className="text-xs text-[#5A4649] leading-relaxed">
+            <p className="text-xs text-[#4A2E37] leading-relaxed">
               We encountered an unexpected display issue. Please reload the page to continue exploring verified matrimonial profiles.
             </p>
 
@@ -63,14 +63,14 @@ export default class ErrorBoundary extends React.Component {
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
               <button
                 onClick={this.handleReload}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white font-bold text-xs hover:opacity-95 transition-all shadow-md shadow-[#7A2E43]/20 flex items-center justify-center space-x-1.5 cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-bold text-xs hover:opacity-95 transition-all shadow-md shadow-[#4E0C22]/20 flex items-center justify-center space-x-1.5 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Reload Website</span>
               </button>
               <button
                 onClick={this.handleResetApp}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white hover:bg-[#FFF9F6] text-[#7A2E43] border border-[#7A2E43] font-semibold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white hover:bg-[#F5E1E6] text-[#4E0C22] border border-[#4E0C22] font-semibold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
               >
                 <span>Reset Cache & Reopen</span>
               </button>

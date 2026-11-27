@@ -1,39 +1,39 @@
 @import "tailwindcss";
 
 @theme {
-  --color-royal-950: #2c1a1d;
-  --color-royal-900: #7a2e43;
-  --color-royal-850: #612234;
-  --color-royal-800: #7a2e43;
-  --color-royal-700: #8f374f;
-  --color-royal-600: #a2425b;
-  --color-royal-500: #c58b76;
-  --color-royal-100: #fdece4;
-  --color-royal-50: #fff9f6;
+  --color-royal-950: #2B0813;
+  --color-royal-900: #4E0C22;
+  --color-royal-850: #6B1230;
+  --color-royal-800: #4E0C22;
+  --color-royal-700: #5E112B;
+  --color-royal-600: #7C1435;
+  --color-royal-500: #8E5766;
+  --color-royal-100: #F7E2E7;
+  --color-royal-50: #F5E1E6;
 
-  --color-gold-50: #fffbf9;
-  --color-gold-100: #fff9f6;
-  --color-gold-200: #fdece4;
-  --color-gold-300: #f7ddd4;
-  --color-gold-400: #e6b8a2;
-  --color-gold-500: #c58b76;
-  --color-gold-600: #b37662;
-  --color-gold-700: #8e4a5b;
-  --color-gold-800: #7a2e43;
+  --color-gold-50: #FAF0F2;
+  --color-gold-100: #F5E1E6;
+  --color-gold-200: #F7E2E7;
+  --color-gold-300: #F4DCE2;
+  --color-gold-400: #E4C1CA;
+  --color-gold-500: #8E5766;
+  --color-gold-600: #7B4A57;
+  --color-gold-700: #5E112B;
+  --color-gold-800: #4E0C22;
 
-  --color-plum-900: #612234;
-  --color-plum-800: #7a2e43;
-  --color-plum-700: #8f374f;
-  --color-rosegold-500: #c58b76;
-  --color-rosegold-400: #e6b8a2;
-  --color-rosegold-100: #fdece4;
-  --color-rosegold-border: #e5d0c6;
-  --color-espresso: #2c1a1d;
-  --color-charcoal-brown: #5a4649;
-  --color-taupe: #8e797c;
-  --color-warm-ivory: #fff9f6;
-  --color-soft-ivory: #fffbf9;
-  --color-blush-peach: #fdece4;
+  --color-plum-900: #380817;
+  --color-plum-800: #4E0C22;
+  --color-plum-700: #6B1230;
+  --color-rosegold-500: #8E5766;
+  --color-rosegold-400: #E4C1CA;
+  --color-rosegold-100: #F7E2E7;
+  --color-rosegold-border: #E7CCD3;
+  --color-espresso: #380817;
+  --color-charcoal-brown: #4A2E37;
+  --color-taupe: #7B4A57;
+  --color-warm-ivory: #F5E1E6;
+  --color-soft-ivory: #FAF0F2;
+  --color-blush-peach: #F7E2E7;
 
   --font-serif: 'Playfair Display', 'Cinzel', Georgia, serif;
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -42,8 +42,8 @@
 :root {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light;
-  background-color: #fff9f6;
-  color: #5a4649;
+  background-color: #F5E1E6;
+  color: #4A2E37;
 }
 
 html {
@@ -62,10 +62,8 @@ body {
   padding: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  background: radial-gradient(circle at 10% 20%, rgba(197, 139, 118, 0.04) 0%, transparent 40%),
-              radial-gradient(circle at 90% 80%, rgba(122, 46, 67, 0.03) 0%, transparent 40%),
-              linear-gradient(135deg, #fff9f6 0%, #fdece4 100%);
-  color: #5a4649;
+  background-color: #F5E1E6;
+  color: #4A2E37;
 }
 
 #root {
@@ -99,33 +97,33 @@ body {
   z-index: 50 !important;
 }
 
-/* Custom rose gold & rose plum gradient utilities */
+/* Custom deep wine & burgundy gradient utilities */
 .gold-gradient-text {
-  background: linear-gradient(135deg, #7a2e43 0%, #c58b76 50%, #612234 100%);
+  background: linear-gradient(135deg, #4E0C22 0%, #7C1435 50%, #380817 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .gold-gradient-bg {
-  background: linear-gradient(135deg, #7a2e43 0%, #c58b76 50%, #612234 100%);
+  background: linear-gradient(135deg, #5A0C26 0%, #7C1435 100%);
 }
 
 .gold-gradient-subtle {
-  background: linear-gradient(135deg, #fff9f6 0%, #ffffff 50%, #fdece4 100%);
+  background: linear-gradient(135deg, #F5E1E6 0%, #FFFFFF 50%, #FAF0F2 100%);
 }
 
 .royal-gradient-bg {
-  background: linear-gradient(135deg, #7a2e43 0%, #612234 50%, #2c1a1d 100%);
+  background: linear-gradient(135deg, #5A0C26 0%, #4E0C22 50%, #2B0813 100%);
 }
 
 .royal-glass {
-  background: rgba(255, 251, 249, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .gold-glass {
-  background: rgba(255, 249, 246, 0.92);
+  background: rgba(250, 240, 242, 0.94);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -136,14 +134,14 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #fff9f6;
+  background: #FAF0F2;
 }
 ::-webkit-scrollbar-thumb {
-  background: #e5d0c6;
+  background: #E4C1CA;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #c58b76;
+  background: #8E5766;
 }
 
 /* Hide horizontal scrollbars cleanly for mobile & web */
@@ -259,7 +257,7 @@ img {
   width: 20px;
   height: 20px;
   border-radius: 9999px;
-  background: #7a2e43;
+  background: #4E0C22;
   border: 2.5px solid #ffffff;
   box-shadow: 0 2px 6px rgba(122, 46, 67, 0.28), 0 0 0 1px rgba(197, 139, 118, 0.35);
   cursor: grab;
@@ -284,7 +282,7 @@ img {
   width: 20px;
   height: 20px;
   border-radius: 9999px;
-  background: #7a2e43;
+  background: #4E0C22;
   border: 2.5px solid #ffffff;
   box-shadow: 0 2px 6px rgba(122, 46, 67, 0.28), 0 0 0 1px rgba(197, 139, 118, 0.35);
   cursor: grab;
@@ -387,12 +385,12 @@ iframe[title*="recaptcha"] {
   background: #ffffff;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid #e5d0c6;
+  border: 1px solid #E7CCD3;
   box-shadow: 0 10px 25px -5px rgba(122, 46, 67, 0.06);
 }
 
 .luxury-glass-card:hover {
-  border-color: #c58b76;
+  border-color: #8E5766;
   box-shadow: 0 15px 35px -10px rgba(122, 46, 67, 0.12), 0 0 25px -5px rgba(197, 139, 118, 0.2);
 }
 

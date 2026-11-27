@@ -129,11 +129,11 @@ export default function PermissionOnboardingModal({
       onClick={handleDismiss}
     >
       <div 
-        className="w-full max-w-sm sm:max-w-md bg-gradient-to-b from-[#2C1A1D] via-[#1A0E10] to-[#0D0708] text-white rounded-3xl border border-[#C58B76]/30 shadow-2xl p-5 sm:p-6 relative overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-sm sm:max-w-md bg-gradient-to-b from-[#380817] via-[#1A0E10] to-[#0D0708] text-white rounded-3xl border border-[#8E5766]/30 shadow-2xl p-5 sm:p-6 relative overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Glow Ambient Top Highlight */}
-        <div className="absolute top-0 inset-x-0 h-28 bg-gradient-to-b from-[#C58B76]/20 to-transparent pointer-events-none" />
+        <div className="absolute top-0 inset-x-0 h-28 bg-gradient-to-b from-[#8E5766]/20 to-transparent pointer-events-none" />
 
         {/* Close Button */}
         <button
@@ -147,8 +147,8 @@ export default function PermissionOnboardingModal({
 
         {/* Modal Header */}
         <div className="text-center pt-2 pb-4 relative z-10 space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#C58B76]/20 to-[#7A2E43]/10 border border-[#C58B76]/40 mx-auto flex items-center justify-center text-[#E6B8A2] shadow-lg shadow-[#7A2E43]/10">
-            <Sparkles className="w-7 h-7 text-[#E6B8A2]" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#8E5766]/20 to-[#4E0C22]/10 border border-[#8E5766]/40 mx-auto flex items-center justify-center text-[#E4C1CA] shadow-lg shadow-[#4E0C22]/10">
+            <Sparkles className="w-7 h-7 text-[#E4C1CA]" />
           </div>
 
           <h3 className="font-serif font-bold text-xl text-white tracking-wide">
@@ -183,13 +183,13 @@ export default function PermissionOnboardingModal({
 
           {/* Tile 2: Location */}
           <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-start space-x-3 hover:bg-white/10 transition-colors">
-            <div className="w-9 h-9 rounded-xl bg-[#C58B76]/20 text-[#E6B8A2] flex items-center justify-center shrink-0 mt-0.5 border border-[#C58B76]/30">
+            <div className="w-9 h-9 rounded-xl bg-[#8E5766]/20 text-[#E4C1CA] flex items-center justify-center shrink-0 mt-0.5 border border-[#8E5766]/30">
               <MapPin className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-white">Location Access</h4>
-                <span className="text-[10px] font-semibold text-[#E6B8A2] bg-[#2C1A1D]/60 px-2 py-0.5 rounded-full border border-[#C58B76]/30">
+                <span className="text-[10px] font-semibold text-[#E4C1CA] bg-[#380817]/60 px-2 py-0.5 rounded-full border border-[#8E5766]/30">
                   Matches
                 </span>
               </div>
@@ -230,7 +230,7 @@ export default function PermissionOnboardingModal({
             type="button"
             onClick={handleRequestAllPermissions}
             disabled={isRequesting || isDone}
-            className="w-full py-3.5 px-4 rounded-2xl font-bold text-sm bg-[#7A2E43] hover:bg-[#612234] text-white shadow-md shadow-[#7A2E43]/20 hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-80"
+            className="w-full py-3.5 px-4 rounded-2xl font-bold text-sm bg-[#4E0C22] hover:bg-[#6B1230] text-white shadow-md shadow-[#4E0C22]/20 hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-80"
           >
             {isDone ? (
               <>

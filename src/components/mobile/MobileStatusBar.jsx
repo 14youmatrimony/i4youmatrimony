@@ -26,48 +26,48 @@ export function MobileBottomNavigationIndicator({
     }
 
     if (currentScreen === 'login') {
-      return { containerBg: 'bg-[#FFF9F6]', indicatorLine: 'bg-[#C58B76]/60' };
+      return { containerBg: 'bg-[#F5E1E6]', indicatorLine: 'bg-[#8E5766]/60' };
     }
 
     if (currentScreen === 'register') {
-      return { containerBg: 'bg-[#FFF9F6]', indicatorLine: 'bg-[#C58B76]/50' };
+      return { containerBg: 'bg-[#F5E1E6]', indicatorLine: 'bg-[#8E5766]/50' };
     }
 
     if (currentScreen === 'verify-mobile' || currentScreen === 'verify-aadhaar') {
-      return { containerBg: 'bg-[#FFF9F6]', indicatorLine: 'bg-[#E5D0C6]' };
+      return { containerBg: 'bg-[#F5E1E6]', indicatorLine: 'bg-[#E7CCD3]' };
     }
 
     if (currentScreen === 'app') {
       if (bottomBarStyle === 'classic') {
         return { 
-          containerBg: 'bg-[#FFFBF9]', 
-          indicatorLine: 'bg-[#C58B76]/50' 
+          containerBg: 'bg-[#FAF0F2]', 
+          indicatorLine: 'bg-[#8E5766]/50' 
         };
       }
       if (bottomBarStyle === 'glass') {
         return { 
-          containerBg: 'bg-[#FFFBF9]/95 backdrop-blur-xl', 
-          indicatorLine: 'bg-[#C58B76]/50' 
+          containerBg: 'bg-[#FAF0F2]/95 backdrop-blur-xl', 
+          indicatorLine: 'bg-[#8E5766]/50' 
         };
       }
       if (bottomBarStyle === 'dock') {
         return { 
           containerBg: 'bg-transparent', 
-          indicatorLine: isDarkMode ? 'bg-[#C58B76]/60' : 'bg-[#C58B76]/50' 
+          indicatorLine: isDarkMode ? 'bg-[#8E5766]/60' : 'bg-[#8E5766]/50' 
         };
       }
       // transparent
       return { 
         containerBg: 'bg-transparent', 
-        indicatorLine: isDarkMode ? 'bg-[#C58B76]/60' : 'bg-[#C58B76]/50' 
+        indicatorLine: isDarkMode ? 'bg-[#8E5766]/60' : 'bg-[#8E5766]/50' 
       };
     }
 
     if (theme === 'dark' || isDarkMode) {
-      return { containerBg: 'bg-[#2C1A1D]', indicatorLine: 'bg-[#C58B76]/60' };
+      return { containerBg: 'bg-[#380817]', indicatorLine: 'bg-[#8E5766]/60' };
     }
 
-    return { containerBg: 'bg-transparent', indicatorLine: 'bg-[#C58B76]/50' };
+    return { containerBg: 'bg-transparent', indicatorLine: 'bg-[#8E5766]/50' };
   }, [theme, currentScreen, activeStoryViewer, bottomBarStyle, isDarkMode]);
 
   if (deviceType === 'android') {

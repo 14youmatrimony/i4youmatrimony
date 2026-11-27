@@ -69,7 +69,7 @@ export default function SafeAvatar({
   if (imgFailed || !imgSrc) {
     return (
       <div 
-        className={`relative inline-flex items-center justify-center shrink-0 rounded-full select-none bg-gradient-to-tr from-[#7A2E43] via-[#8E354F] to-[#612234] text-[#E6B8A2] border border-[#E6B8A2]/40 font-bold ${sizeClasses} ${className}`}
+        className={`relative inline-flex items-center justify-center shrink-0 rounded-full select-none bg-gradient-to-tr from-[#4E0C22] via-[#8E354F] to-[#6B1230] text-[#E4C1CA] border border-[#E4C1CA]/40 font-bold ${sizeClasses} ${className}`}
         onClick={onClick}
         title={alt}
       >

@@ -53,8 +53,8 @@ export function generateCandidateAadhaarFront(name, aadhaarNo, dob, gender, phot
       <stop offset="100%" stop-color="#F4ECE1"/>
     </linearGradient>
     <pattern id="guilloche" width="30" height="30" patternUnits="userSpaceOnUse">
-      <path d="M0,15 Q7.5,0 15,15 T30,15" fill="none" stroke="#C58B76" stroke-width="0.6" opacity="0.18"/>
-      <path d="M15,0 Q22.5,15 15,30" fill="none" stroke="#C58B76" stroke-width="0.6" opacity="0.18"/>
+      <path d="M0,15 Q7.5,0 15,15 T30,15" fill="none" stroke="#8E5766" stroke-width="0.6" opacity="0.18"/>
+      <path d="M15,0 Q22.5,15 15,30" fill="none" stroke="#8E5766" stroke-width="0.6" opacity="0.18"/>
     </pattern>
   </defs>
   <rect x="4" y="4" width="692" height="432" rx="18" fill="url(#cardBg)" stroke="#94A3B8" stroke-width="1.8"/>
@@ -63,7 +63,7 @@ export function generateCandidateAadhaarFront(name, aadhaarNo, dob, gender, phot
   <rect x="234" y="4" width="232" height="12" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="0.5"/>
   <rect x="466" y="4" width="230" height="12" rx="4" fill="#138808"/>
   <g transform="translate(25, 26)">
-    <circle cx="24" cy="24" r="22" fill="#E6B8A2" opacity="0.25" stroke="#C58B76" stroke-width="1.2"/>
+    <circle cx="24" cy="24" r="22" fill="#E4C1CA" opacity="0.25" stroke="#8E5766" stroke-width="1.2"/>
     <text x="24" y="29" font-family="serif" font-size="13" font-weight="bold" fill="#78350F" text-anchor="middle">सत्यमेव</text>
     <text x="58" y="24" font-family="sans-serif" font-size="16" font-weight="900" fill="#0F172A">GOVERNMENT OF INDIA</text>
     <text x="58" y="40" font-family="sans-serif" font-size="12" font-weight="800" fill="#334155" letter-spacing="1">UNIQUE IDENTIFICATION AUTHORITY OF INDIA</text>
@@ -77,7 +77,7 @@ export function generateCandidateAadhaarFront(name, aadhaarNo, dob, gender, phot
   </g>
   <line x1="25" y1="84" x2="675" y2="84" stroke="#CBD5E1" stroke-width="1.5"/>
   <g transform="translate(35, 100)">
-    <rect width="150" height="190" rx="12" fill="#F1F5F9" stroke="#C58B76" stroke-width="2.5"/>
+    <rect width="150" height="190" rx="12" fill="#F1F5F9" stroke="#8E5766" stroke-width="2.5"/>
     <circle cx="75" cy="68" r="32" fill="#CBD5E1"/>
     <path d="M25,160 C25,115 125,115 125,160 Z" fill="#94A3B8"/>
     <image href="${safePhoto}" x="3" y="3" width="144" height="184" preserveAspectRatio="xMidYMid slice"/>
@@ -123,8 +123,8 @@ export function generateCandidateAadhaarBack(name, aadhaarNo, district, state, p
       <stop offset="100%" stop-color="#F4ECE1"/>
     </linearGradient>
     <pattern id="guillocheBack" width="30" height="30" patternUnits="userSpaceOnUse">
-      <path d="M0,15 Q7.5,0 15,15 T30,15" fill="none" stroke="#C58B76" stroke-width="0.6" opacity="0.18"/>
-      <path d="M15,0 Q22.5,15 15,30" fill="none" stroke="#C58B76" stroke-width="0.6" opacity="0.18"/>
+      <path d="M0,15 Q7.5,0 15,15 T30,15" fill="none" stroke="#8E5766" stroke-width="0.6" opacity="0.18"/>
+      <path d="M15,0 Q22.5,15 15,30" fill="none" stroke="#8E5766" stroke-width="0.6" opacity="0.18"/>
     </pattern>
   </defs>
   <rect x="4" y="4" width="692" height="432" rx="18" fill="url(#cardBgBack)" stroke="#94A3B8" stroke-width="1.8"/>
@@ -633,7 +633,7 @@ export default function AadhaarVerificationScreen({
                 onClick={onBack}
                 className="flex items-center space-x-1 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4 text-[#7A2E43]" />
+                <ChevronLeft className="w-4 h-4 text-[#4E0C22]" />
                 <span>Back</span>
               </button>
             ) : <div />}
@@ -668,7 +668,7 @@ export default function AadhaarVerificationScreen({
                 <button
                   type="button"
                   onClick={handleAutoFillDemo}
-                  className="text-[10px] font-bold text-[#E6B8A2] hover:underline flex items-center space-x-1 cursor-pointer"
+                  className="text-[10px] font-bold text-[#E4C1CA] hover:underline flex items-center space-x-1 cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Tap to auto-fill UIDAI code into boxes</span>
@@ -691,10 +691,10 @@ export default function AadhaarVerificationScreen({
             
             {/* National Identity Header Motif */}
             <div className="text-center space-y-1">
-              <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-[#7A2E43] via-[#8E354F] to-[#7A2E43] text-[#E6B8A2] border border-[#C58B76]/40 flex items-center justify-center mx-auto shadow-md">
-                <FileCheck2 className="w-7 h-7 text-[#E6B8A2]" />
+              <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-[#4E0C22] via-[#8E354F] to-[#4E0C22] text-[#E4C1CA] border border-[#8E5766]/40 flex items-center justify-center mx-auto shadow-md">
+                <FileCheck2 className="w-7 h-7 text-[#E4C1CA]" />
               </div>
-              <h2 className="font-serif font-bold text-lg text-[#2C1A1D]">
+              <h2 className="font-serif font-bold text-lg text-[#380817]">
                 Aadhaar Authentication
               </h2>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
@@ -785,7 +785,7 @@ export default function AadhaarVerificationScreen({
                   }}
                   className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer ${
                     verificationMethod === 'otp'
-                      ? 'bg-[#7A2E43] text-white shadow-md shadow-[#7A2E43]/20'
+                      ? 'bg-[#4E0C22] text-white shadow-md shadow-[#4E0C22]/20'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                   }`}
                 >
@@ -801,7 +801,7 @@ export default function AadhaarVerificationScreen({
                   }}
                   className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer ${
                     verificationMethod === 'manual'
-                      ? 'bg-[#7A2E43] text-white shadow-md shadow-[#7A2E43]/20'
+                      ? 'bg-[#4E0C22] text-white shadow-md shadow-[#4E0C22]/20'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                   }`}
                 >
@@ -823,12 +823,12 @@ export default function AadhaarVerificationScreen({
             {verificationMethod === 'otp' && (
               <>
                 {/* Quick Demo Pre-fill Box for OTP */}
-                <div className="bg-[#FFF9F6] border border-[#E5D0C6] rounded-2xl p-3 text-xs text-[#5A4649] space-y-1.5">
-                  <div className="flex items-center space-x-1.5 font-bold text-[#7A2E43]">
-                    <Sparkles className="w-3.5 h-3.5 text-[#C58B76]" />
+                <div className="bg-[#F5E1E6] border border-[#E7CCD3] rounded-2xl p-3 text-xs text-[#4A2E37] space-y-1.5">
+                  <div className="flex items-center space-x-1.5 font-bold text-[#4E0C22]">
+                    <Sparkles className="w-3.5 h-3.5 text-[#8E5766]" />
                     <span>Quick Test: Demo Aadhaar Number</span>
                   </div>
-                  <p className="text-[11px] text-[#5A4649]">
+                  <p className="text-[11px] text-[#4A2E37]">
                     Test with pre-configured verified credentials:
                   </p>
                   <button
@@ -837,7 +837,7 @@ export default function AadhaarVerificationScreen({
                       setAadhaarInput('492081735928');
                       setError('');
                     }}
-                    className="px-2.5 py-1 rounded-xl bg-[#7A2E43] text-white font-bold text-[11px] hover:bg-[#612234] transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-xl bg-[#4E0C22] text-white font-bold text-[11px] hover:bg-[#6B1230] transition-colors cursor-pointer"
                   >
                     ⚡ Use Demo Aadhaar: 4920 8173 5928
                   </button>
@@ -856,7 +856,7 @@ export default function AadhaarVerificationScreen({
                         </span>
                       </div>
 
-                      <div className="relative rounded-xl border border-slate-300 focus-within:ring-2 focus-within:ring-[#C58B76] focus-within:border-[#C58B76] overflow-hidden bg-slate-50 flex items-center">
+                      <div className="relative rounded-xl border border-slate-300 focus-within:ring-2 focus-within:ring-[#8E5766] focus-within:border-[#8E5766] overflow-hidden bg-slate-50 flex items-center">
                         <div className="px-3 py-3 bg-slate-100 border-r border-slate-300 text-slate-600 font-bold text-xs flex items-center space-x-1">
                           <span>🇮🇳</span>
                           <span>UID</span>
@@ -881,7 +881,7 @@ export default function AadhaarVerificationScreen({
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full py-3.5 px-4 rounded-xl text-xs font-bold text-white bg-[#7A2E43] hover:bg-[#612234] shadow-md shadow-[#7A2E43]/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-70 cursor-pointer"
+                      className="w-full py-3.5 px-4 rounded-xl text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] shadow-md shadow-[#4E0C22]/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-70 cursor-pointer"
                     >
                       {loading ? (
                         <RotateCw className="w-4 h-4 animate-spin text-white" />
@@ -909,7 +909,7 @@ export default function AadhaarVerificationScreen({
                         <button
                           type="button"
                           onClick={() => setStep('number')}
-                          className="text-xs text-[#7A2E43] hover:underline font-semibold cursor-pointer shrink-0"
+                          className="text-xs text-[#4E0C22] hover:underline font-semibold cursor-pointer shrink-0"
                         >
                           Change UID
                         </button>
@@ -927,7 +927,7 @@ export default function AadhaarVerificationScreen({
                             onChange={(e) => handleOtpChange(idx, e.target.value)}
                             onKeyDown={(e) => handleKeyDown(idx, e)}
                             aria-label={`UIDAI Digit ${idx + 1}`}
-                            className="w-full h-11 sm:h-12 text-center text-lg sm:text-xl font-bold bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-[#C58B76] focus:ring-2 focus:ring-[#C58B76]/40 focus:outline-none transition-all shadow-inner min-w-0 p-0"
+                            className="w-full h-11 sm:h-12 text-center text-lg sm:text-xl font-bold bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-[#8E5766] focus:ring-2 focus:ring-[#8E5766]/40 focus:outline-none transition-all shadow-inner min-w-0 p-0"
                           />
                         ))}
                       </div>
@@ -944,7 +944,7 @@ export default function AadhaarVerificationScreen({
                           type="button"
                           onClick={handleResendOtp}
                           disabled={isResending}
-                          className="font-bold text-[#7A2E43] hover:text-[#612234] flex items-center space-x-1 cursor-pointer"
+                          className="font-bold text-[#4E0C22] hover:text-[#6B1230] flex items-center space-x-1 cursor-pointer"
                         >
                           {isResending ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <span>Resend OTP</span>}
                         </button>
@@ -956,9 +956,9 @@ export default function AadhaarVerificationScreen({
                       <button
                         type="button"
                         onClick={handleAutoFillDemo}
-                        className="w-full py-2 px-3 rounded-xl bg-[#FFF9F6] border border-[#E5D0C6] text-[#7A2E43] text-xs font-semibold hover:bg-[#FDF2EE] transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                        className="w-full py-2 px-3 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-[#4E0C22] text-xs font-semibold hover:bg-[#F7E2E7] transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-[#C58B76]" />
+                        <Sparkles className="w-3.5 h-3.5 text-[#8E5766]" />
                         <span>Quick Test: Auto-fill UIDAI OTP (739201)</span>
                       </button>
                     </div>
@@ -966,7 +966,7 @@ export default function AadhaarVerificationScreen({
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full py-3.5 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 via-[#7A2E43] to-emerald-600 hover:from-emerald-700 hover:to-[#612234] shadow-md shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-70 cursor-pointer"
+                      className="w-full py-3.5 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 via-[#4E0C22] to-emerald-600 hover:from-emerald-700 hover:to-[#6B1230] shadow-md shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-70 cursor-pointer"
                     >
                       {loading ? (
                         <RotateCw className="w-4 h-4 animate-spin text-white" />
@@ -987,21 +987,21 @@ export default function AadhaarVerificationScreen({
               <form onSubmit={handleSubmitManualVerification} className="space-y-4">
                 
                 {/* Quick Test Demo Pre-fill for Manual Upload */}
-                <div className="bg-[#FFF9F6] border border-[#E5D0C6] rounded-2xl p-3 text-xs text-[#5A4649] space-y-1.5">
+                <div className="bg-[#F5E1E6] border border-[#E7CCD3] rounded-2xl p-3 text-xs text-[#4A2E37] space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-1.5 font-bold text-[#7A2E43]">
-                      <Sparkles className="w-3.5 h-3.5 text-[#C58B76]" />
+                    <div className="flex items-center space-x-1.5 font-bold text-[#4E0C22]">
+                      <Sparkles className="w-3.5 h-3.5 text-[#8E5766]" />
                       <span>Quick Test: Auto-fill Sample Aadhaar Card</span>
                     </div>
                     <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">1-Click Test</span>
                   </div>
-                  <p className="text-[11px] text-[#5A4649]">
+                  <p className="text-[11px] text-[#4A2E37]">
                     Instantly load verified sample Front & Back cards and sample cardholder details:
                   </p>
                   <button
                     type="button"
                     onClick={handleAutoFillManualDemo}
-                    className="w-full py-2 px-3 rounded-xl bg-[#7A2E43] text-white font-bold text-xs hover:bg-[#612234] transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
+                    className="w-full py-2 px-3 rounded-xl bg-[#4E0C22] text-white font-bold text-xs hover:bg-[#6B1230] transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
                   >
                     <FileCheck2 className="w-4 h-4 text-white" />
                     <span>⚡ Auto-fill Sample Aadhaar Card & Documents</span>
@@ -1013,7 +1013,7 @@ export default function AadhaarVerificationScreen({
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Name as on Aadhaar Card *
                   </label>
-                  <div className="relative rounded-xl border border-slate-300 focus-within:ring-2 focus-within:ring-[#C58B76] focus-within:border-[#C58B76] overflow-hidden bg-slate-50 flex items-center">
+                  <div className="relative rounded-xl border border-slate-300 focus-within:ring-2 focus-within:ring-[#8E5766] focus-within:border-[#8E5766] overflow-hidden bg-slate-50 flex items-center">
                     <div className="px-3 py-2.5 bg-slate-100 border-r border-slate-300 text-slate-500">
                       <User className="w-4 h-4" />
                     </div>
@@ -1037,7 +1037,7 @@ export default function AadhaarVerificationScreen({
                       {cleanManualAadhaar.length}/12 Digits
                     </span>
                   </div>
-                  <div className="relative rounded-xl border border-slate-300 focus-within:ring-2 focus-within:ring-[#C58B76] focus-within:border-[#C58B76] overflow-hidden bg-slate-50 flex items-center">
+                  <div className="relative rounded-xl border border-slate-300 focus-within:ring-2 focus-within:ring-[#8E5766] focus-within:border-[#8E5766] overflow-hidden bg-slate-50 flex items-center">
                     <div className="px-3 py-2.5 bg-slate-100 border-r border-slate-300 text-slate-600 font-bold text-xs flex items-center space-x-1">
                       <span>🇮🇳</span>
                       <span>UID</span>
@@ -1107,14 +1107,14 @@ export default function AadhaarVerificationScreen({
                       /* Front Upload Dropzone */
                       <div
                         onClick={() => frontFileInputRef.current?.click()}
-                        className="rounded-2xl border-2 border-dashed border-slate-300 hover:border-[#C58B76] bg-slate-50/70 hover:bg-[#FFF9F6] p-3.5 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[126px]"
+                        className="rounded-2xl border-2 border-dashed border-slate-300 hover:border-[#8E5766] bg-slate-50/70 hover:bg-[#F5E1E6] p-3.5 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[126px]"
                       >
                         <div className="w-9 h-9 rounded-full bg-slate-200/70 text-slate-600 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
                           <UploadCloud className="w-5 h-5 text-slate-600" />
                         </div>
                         <span className="text-xs font-bold text-slate-800">Upload Front Side</span>
                         <span className="text-[10px] text-slate-500 mt-0.5">PNG, JPG, PDF (max 15MB)</span>
-                        <span className="mt-1.5 inline-flex items-center space-x-1 text-[10px] text-[#7A2E43] font-semibold bg-[#FFF9F6] border border-[#E5D0C6] px-2 py-0.5 rounded-md">
+                        <span className="mt-1.5 inline-flex items-center space-x-1 text-[10px] text-[#4E0C22] font-semibold bg-[#F5E1E6] border border-[#E7CCD3] px-2 py-0.5 rounded-md">
                           <Camera className="w-3 h-3" />
                           <span>Tap to Browse</span>
                         </span>
@@ -1172,14 +1172,14 @@ export default function AadhaarVerificationScreen({
                       /* Back Upload Dropzone */
                       <div
                         onClick={() => backFileInputRef.current?.click()}
-                        className="rounded-2xl border-2 border-dashed border-slate-300 hover:border-[#C58B76] bg-slate-50/70 hover:bg-[#FFF9F6] p-3.5 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[126px]"
+                        className="rounded-2xl border-2 border-dashed border-slate-300 hover:border-[#8E5766] bg-slate-50/70 hover:bg-[#F5E1E6] p-3.5 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[126px]"
                       >
                         <div className="w-9 h-9 rounded-full bg-slate-200/70 text-slate-600 flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
                           <UploadCloud className="w-5 h-5 text-slate-600" />
                         </div>
                         <span className="text-xs font-bold text-slate-800">Upload Back Side</span>
                         <span className="text-[10px] text-slate-500 mt-0.5">Address proof & QR Code</span>
-                        <span className="mt-1.5 inline-flex items-center space-x-1 text-[10px] text-[#7A2E43] font-semibold bg-[#FFF9F6] border border-[#E5D0C6] px-2 py-0.5 rounded-md">
+                        <span className="mt-1.5 inline-flex items-center space-x-1 text-[10px] text-[#4E0C22] font-semibold bg-[#F5E1E6] border border-[#E7CCD3] px-2 py-0.5 rounded-md">
                           <Camera className="w-3 h-3" />
                           <span>Tap to Browse</span>
                         </span>
@@ -1193,7 +1193,7 @@ export default function AadhaarVerificationScreen({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 via-[#7A2E43] to-emerald-600 hover:from-emerald-700 hover:to-[#612234] shadow-md shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-70 cursor-pointer"
+                  className="w-full py-3.5 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 via-[#4E0C22] to-emerald-600 hover:from-emerald-700 hover:to-[#6B1230] shadow-md shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-70 cursor-pointer"
                 >
                   {loading ? (
                     <RotateCw className="w-4 h-4 animate-spin text-white" />
@@ -1233,7 +1233,7 @@ export default function AadhaarVerificationScreen({
                 <span>Document Submitted • Review Pending</span>
               </div>
 
-              <h2 className="text-xl font-serif font-bold text-[#2C1A1D] mt-2">
+              <h2 className="text-xl font-serif font-bold text-[#380817] mt-2">
                 Aadhaar Card Submitted for Verification
               </h2>
               <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed">
@@ -1294,7 +1294,7 @@ export default function AadhaarVerificationScreen({
             <button
               type="button"
               onClick={handleCompleteAndProceed}
-              className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#7A2E43] hover:bg-[#612234] shadow-lg shadow-[#7A2E43]/25 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+              className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] shadow-lg shadow-[#4E0C22]/25 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
             >
               <span>Continue to Profile & Account</span>
               <ArrowRight className="w-4 h-4" />
@@ -1328,7 +1328,7 @@ export default function AadhaarVerificationScreen({
                 <span>Aadhaar Verified</span>
               </div>
 
-              <h2 className="text-xl font-serif font-bold text-[#2C1A1D] mt-2">
+              <h2 className="text-xl font-serif font-bold text-[#380817] mt-2">
                 Identity Successfully Authenticated!
               </h2>
               <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed">
@@ -1382,7 +1382,7 @@ export default function AadhaarVerificationScreen({
             <button
               type="button"
               onClick={handleCompleteAndProceed}
-              className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#7A2E43] hover:bg-[#612234] shadow-lg shadow-[#7A2E43]/25 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+              className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] shadow-lg shadow-[#4E0C22]/25 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
             >
               <Flame className="w-4 h-4 text-white" />
               <span>Explore Verified Matches</span>
@@ -1395,7 +1395,7 @@ export default function AadhaarVerificationScreen({
       {/* Real UIDAI SMS Gateway Setup Modal */}
       {showApiSetupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#2C1A1D] text-white border-2 border-[#C58B76]/50 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#380817] text-white border-2 border-[#8E5766]/50 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
             
             <button
               type="button"
@@ -1445,7 +1445,7 @@ export default function AadhaarVerificationScreen({
                     value={inputSandboxKey}
                     onChange={(e) => setInputSandboxKey(e.target.value)}
                     placeholder="e.g. key_live_..."
-                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs font-mono focus:border-[#C58B76] focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs font-mono focus:border-[#8E5766] focus:outline-none"
                   />
                 </div>
 
@@ -1458,14 +1458,14 @@ export default function AadhaarVerificationScreen({
                     value={inputSandboxSecret}
                     onChange={(e) => setInputSandboxSecret(e.target.value)}
                     placeholder="e.g. secret_live_..."
-                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs font-mono focus:border-[#C58B76] focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs font-mono focus:border-[#8E5766] focus:outline-none"
                   />
                 </div>
 
                 <div className="pt-2 flex flex-col gap-2">
                   <button
                     type="submit"
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#7A2E43] hover:bg-[#612234] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Save & Activate Real SMS</span>

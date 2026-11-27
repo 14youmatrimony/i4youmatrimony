@@ -366,10 +366,10 @@ export default function NotificationCard({
   return (
     <div
       onClick={handleCardClick}
-      className={`p-2.5 sm:p-3 rounded-xl border transition-all relative cursor-pointer hover:border-[#C58B76] hover:shadow-xs group ${
+      className={`p-2.5 sm:p-3 rounded-xl border transition-all relative cursor-pointer hover:border-[#8E5766] hover:shadow-xs group ${
         isRead
           ? 'bg-white border-slate-200/90 shadow-2xs hover:bg-slate-50/70'
-          : 'bg-gradient-to-r from-[#FFF9F6] via-white to-[#FDECE4]/50 border-[#E5D0C6] shadow-xs hover:border-[#C58B76]'
+          : 'bg-gradient-to-r from-[#F5E1E6] via-white to-[#F7E2E7]/50 border-[#E7CCD3] shadow-xs hover:border-[#8E5766]'
       }`}
       title={
         isPayment
@@ -406,7 +406,7 @@ export default function NotificationCard({
 
       {/* Notification Content Body */}
       <div className="space-y-1 pl-6 sm:pl-7">
-        <h4 className="text-[11px] sm:text-[12px] font-bold text-slate-900 leading-snug group-hover:text-[#7A2E43] transition-colors">
+        <h4 className="text-[11px] sm:text-[12px] font-bold text-slate-900 leading-snug group-hover:text-[#4E0C22] transition-colors">
           {computedTitle}
         </h4>
         {computedMessage && (
@@ -423,7 +423,7 @@ export default function NotificationCard({
               if (!isRead && onMarkAsRead) onMarkAsRead(notif.notification_id || notif.id);
               if (onOpenProfile) onOpenProfile(profile || notif.sender || notif);
             }}
-            className="my-1.5 p-1.5 bg-slate-50 hover:bg-[#FFF9F6] rounded-lg border border-slate-200 hover:border-[#C58B76]/70 flex items-center justify-between gap-1.5 cursor-pointer transition-colors group/card shadow-2xs"
+            className="my-1.5 p-1.5 bg-slate-50 hover:bg-[#F5E1E6] rounded-lg border border-slate-200 hover:border-[#8E5766]/70 flex items-center justify-between gap-1.5 cursor-pointer transition-colors group/card shadow-2xs"
             title="Click to view full candidate profile"
           >
             <div className="flex items-center space-x-1.5 min-w-0 flex-1">
@@ -436,7 +436,7 @@ export default function NotificationCard({
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-1">
-                  <span className="text-[10.5px] sm:text-[11.5px] font-bold text-slate-900 truncate group-hover/card:text-[#7A2E43] transition-colors">
+                  <span className="text-[10.5px] sm:text-[11.5px] font-bold text-slate-900 truncate group-hover/card:text-[#4E0C22] transition-colors">
                     {candidateName}
                   </span>
                   {isVerified && (
@@ -459,7 +459,7 @@ export default function NotificationCard({
               </div>
             </div>
 
-            <div className="flex items-center space-x-0.5 text-[#7A2E43] text-[9px] sm:text-[10px] font-bold shrink-0 pr-1">
+            <div className="flex items-center space-x-0.5 text-[#4E0C22] text-[9px] sm:text-[10px] font-bold shrink-0 pr-1">
               <span>Profile</span>
               <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 group-hover/card:translate-x-0.5 transition-transform" />
             </div>
@@ -568,7 +568,7 @@ export default function NotificationCard({
                           notif.chat_id || notif.chatId || notif.conversation_id
                         );
                       }}
-                      className="text-[9px] sm:text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#7A2E43] text-white hover:bg-[#612234] transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                      className="text-[9px] sm:text-[10px] font-bold px-2.5 py-1 rounded-lg bg-[#4E0C22] text-white hover:bg-[#6B1230] transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                     >
                       <MessageCircle className="w-2.5 h-2.5" /> Chat
                     </button>
@@ -672,7 +672,7 @@ export default function NotificationCard({
                     }
                         onOpenProfile(profile);
                       }}
-                      className="px-2.5 py-1 rounded-lg border border-[#E5D0C6] hover:border-[#C58B76] bg-white text-slate-800 text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer ml-auto flex items-center gap-0.5 shadow-2xs"
+                      className="px-2.5 py-1 rounded-lg border border-[#E7CCD3] hover:border-[#8E5766] bg-white text-slate-800 text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer ml-auto flex items-center gap-0.5 shadow-2xs"
                     >
                       <span>View Profile</span>
                       <ChevronRight className="w-2.5 h-2.5" />
@@ -692,7 +692,7 @@ export default function NotificationCard({
                   e.stopPropagation();
                   if (onSendInterest) onSendInterest(profile?.id || notif.profileId);
                 }}
-                className="px-2 sm:px-2.5 py-1 rounded-lg bg-[#7A2E43] text-white font-bold text-[9px] sm:text-[10px] shadow-2xs hover:bg-[#612234] active:scale-95 transition-all cursor-pointer flex items-center gap-0.5"
+                className="px-2 sm:px-2.5 py-1 rounded-lg bg-[#4E0C22] text-white font-bold text-[9px] sm:text-[10px] shadow-2xs hover:bg-[#6B1230] active:scale-95 transition-all cursor-pointer flex items-center gap-0.5"
               >
                 <Heart className="w-2.5 h-2.5 fill-white" /> Express Interest
               </button>
@@ -733,7 +733,7 @@ export default function NotificationCard({
                       notif.chat_id || notif.chatId || notif.conversation_id
                     );
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-[#7A2E43] text-white hover:bg-[#612234] font-bold text-[9px] sm:text-[10px] transition-colors cursor-pointer flex items-center gap-0.5"
+                  className="px-2.5 py-1 rounded-lg bg-[#4E0C22] text-white hover:bg-[#6B1230] font-bold text-[9px] sm:text-[10px] transition-colors cursor-pointer flex items-center gap-0.5"
                 >
                   <MessageCircle className="w-2.5 h-2.5" /> Chat
                 </button>
@@ -781,7 +781,7 @@ export default function NotificationCard({
                       notif.chat_id || notif.chatId || notif.conversation_id
                     );
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-[#7A2E43] hover:bg-[#612234] text-white font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                  className="px-2.5 py-1 rounded-lg bg-[#4E0C22] hover:bg-[#6B1230] text-white font-bold text-[9px] sm:text-[10px] shadow-2xs active:scale-95 transition-all cursor-pointer flex items-center gap-1"
                 >
                   <MessageCircle className="w-2.5 h-2.5" /> Start Chat
                 </button>
