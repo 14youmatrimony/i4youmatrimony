@@ -6918,62 +6918,10 @@ async function prepareBannerFiles(files) {
 
   const selectedFiles = imageFiles.slice(0, remainingSlots);
   if (imageFiles.length > remainingSlots) {
-    showToast(`Only ${remainingSlots} slot(s) remaining. Compressing the first ${remainingSlots} image(s).`, 'info');
+    showToast(`Only ${remainingSlots} slot(s) remaining. Opening crop editor for the first ${remainingSlots} image(s).`, 'info');
   }
 
-  const previewBox = document.getElementById('bannerPreviewBox');
-  const infoBar = document.getElementById('bannerCompressionInfo');
-  const origEl = document.getElementById('bannerSizeOriginal');
-  const compEl = document.getElementById('bannerSizeCompressed');
-  const uploadBtn = document.getElementById('bannerUploadBtn');
-
-  if (previewBox) {
-    previewBox.innerHTML = `<div class="text-xs text-[#E6B8A2] animate-pulse">Compressing ${selectedFiles.length} image(s) under 500 KB...</div>`;
-  }
-  if (uploadBtn) uploadBtn.disabled = true;
-
-  try {
-    const results = [];
-    for (const file of selectedFiles) {
-      const compressed = await compressBannerImage(file);
-      results.push({ ...compressed, fileName: file.name });
-    }
-    state.banners.prepared = results;
-
-    const totalOrigKB = results.reduce((sum, r) => sum + r.originalKB, 0);
-    const totalCompKB = results.reduce((sum, r) => sum + r.compressedKB, 0);
-
-    if (previewBox) {
-      if (results.length === 1) {
-        previewBox.innerHTML = `<img src="${results[0].previewUrl}" alt="Compressed Banner Preview" class="w-full h-full object-cover rounded-xl" />`;
-      } else {
-        previewBox.innerHTML = `
-          <div class="grid grid-cols-3 gap-1.5 w-full h-full overflow-y-auto">
-            ${results.map(r => `
-              <div class="relative rounded-lg overflow-hidden border border-slate-700 h-16 bg-black/40">
-                <img src="${r.previewUrl}" alt="${escapePlanHtml(r.fileName)}" class="w-full h-full object-cover" />
-                <span class="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/80 text-[9px] text-emerald-300 font-mono">${r.compressedKB}KB</span>
-              </div>
-            `).join('')}
-          </div>
-        `;
-      }
-    }
-
-    if (infoBar) infoBar.classList.remove('hidden');
-    if (origEl) origEl.textContent = `${results.length} file(s) • Orig: ${totalOrigKB} KB`;
-    if (compEl) compEl.textContent = `Compressed: ${totalCompKB} KB`;
-    if (uploadBtn) {
-      uploadBtn.disabled = false;
-      uploadBtn.innerHTML = `<i data-lucide="upload" class="w-4 h-4"></i><span>Upload ${results.length} Banner${results.length > 1 ? 's' : ''}</span>`;
-      if (window.lucide) lucide.createIcons();
-    }
-  } catch (err) {
-    state.banners.prepared = [];
-    if (previewBox) previewBox.innerHTML = `<span class="text-xs text-rose-400 px-3 text-center">${err.message}</span>`;
-    if (infoBar) infoBar.classList.add('hidden');
-    showToast(err.message, 'error');
-  }
+  openNewBannersCropQueue(selectedFiles);
 }
 
 async function uploadPreparedBanner() {
@@ -7142,6 +7090,9 @@ function renderHomepageBanners() {
             </label>
 
             <div class="flex items-center gap-1">
+              <button type="button" onclick="openExistingBannerCrop('${b.id}')" class="p-1 rounded-lg bg-[#C58B76]/15 hover:bg-[#C58B76]/30 text-[#E6B8A2] border border-[#C58B76]/30 cursor-pointer" title="Edit / Crop Framing">
+                <i data-lucide="crop" class="w-3.5 h-3.5"></i>
+              </button>
               <button type="button" onclick="moveBannerOrder('${b.id}', -1)" ${idx === 0 ? 'disabled' : ''} class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer" title="Move Left / Earlier">
                 <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
               </button>
@@ -7286,3 +7237,386 @@ window.toggleBannerActive = toggleBannerActive;
 window.moveBannerOrder = moveBannerOrder;
 window.updateBannerOrder = updateBannerOrder;
 window.deleteHomepageBanner = deleteHomepageBanner;
+
+// ========================================================
+// BANNER CROP & FACE-FRAMING EDITOR (16:6 + <500 KB + R2)
+// ========================================================
+
+const BANNER_CROP_W = 1920;
+const BANNER_CROP_H = 720; // Exact 16:6 hero aspect ratio
+
+const cropState = {
+  queue: [],
+  queueIdx: 0,
+  editBanner: null,
+  img: null,
+  originalKB: 0,
+  fileName: '',
+  zoom: 1,
+  offsetX: 0,
+  offsetY: 0,
+  isDragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  startOffsetX: 0,
+  startOffsetY: 0
+};
+
+function bindCropViewportEvents() {
+  const viewport = document.getElementById('cropViewport');
+  if (!viewport || viewport.dataset.bound === '1') return;
+  viewport.dataset.bound = '1';
+
+  viewport.addEventListener('pointerdown', (e) => {
+    if (!cropState.img) return;
+    cropState.isDragging = true;
+    cropState.dragStartX = e.clientX;
+    cropState.dragStartY = e.clientY;
+    cropState.startOffsetX = cropState.offsetX;
+    cropState.startOffsetY = cropState.offsetY;
+    viewport.setPointerCapture?.(e.pointerId);
+  });
+
+  viewport.addEventListener('pointermove', (e) => {
+    if (!cropState.isDragging || !cropState.img) return;
+    const rect = viewport.getBoundingClientRect();
+    const scaleRatio = BANNER_CROP_W / Math.max(1, rect.width);
+    const dx = (e.clientX - cropState.dragStartX) * scaleRatio;
+    const dy = (e.clientY - cropState.dragStartY) * scaleRatio;
+    cropState.offsetX = cropState.startOffsetX + dx;
+    cropState.offsetY = cropState.startOffsetY + dy;
+    clampCropOffsets();
+    renderCropCanvas();
+  });
+
+  const endDrag = () => { cropState.isDragging = false; };
+  viewport.addEventListener('pointerup', endDrag);
+  viewport.addEventListener('pointercancel', endDrag);
+}
+
+function getBaseCoverScale() {
+  if (!cropState.img) return 1;
+  const iw = cropState.img.naturalWidth || cropState.img.width || BANNER_CROP_W;
+  const ih = cropState.img.naturalHeight || cropState.img.height || BANNER_CROP_H;
+  return Math.max(BANNER_CROP_W / iw, BANNER_CROP_H / ih);
+}
+
+function clampCropOffsets() {
+  if (!cropState.img) return;
+  const iw = cropState.img.naturalWidth || cropState.img.width || BANNER_CROP_W;
+  const ih = cropState.img.naturalHeight || cropState.img.height || BANNER_CROP_H;
+  const scale = getBaseCoverScale() * cropState.zoom;
+  const drawW = iw * scale;
+  const drawH = ih * scale;
+  const maxOffsetX = Math.max(0, (drawW - BANNER_CROP_W) / 2);
+  const maxOffsetY = Math.max(0, (drawH - BANNER_CROP_H) / 2);
+  cropState.offsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, cropState.offsetX));
+  cropState.offsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, cropState.offsetY));
+}
+
+function renderCropCanvas() {
+  const canvas = document.getElementById('cropPreviewCanvas');
+  if (!canvas || !cropState.img) return;
+  canvas.width = BANNER_CROP_W;
+  canvas.height = BANNER_CROP_H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, BANNER_CROP_W, BANNER_CROP_H);
+
+  const iw = cropState.img.naturalWidth || cropState.img.width || BANNER_CROP_W;
+  const ih = cropState.img.naturalHeight || cropState.img.height || BANNER_CROP_H;
+  const scale = getBaseCoverScale() * cropState.zoom;
+  const drawW = iw * scale;
+  const drawH = ih * scale;
+  const dx = (BANNER_CROP_W - drawW) / 2 + cropState.offsetX;
+  const dy = (BANNER_CROP_H - drawH) / 2 + cropState.offsetY;
+
+  ctx.drawImage(cropState.img, dx, dy, drawW, drawH);
+}
+
+function setCropZoom(val) {
+  cropState.zoom = Math.max(1, Math.min(3, parseFloat(val) || 1));
+  const slider = document.getElementById('cropZoomSlider');
+  const label = document.getElementById('cropZoomLabel');
+  if (slider) slider.value = String(cropState.zoom);
+  if (label) label.textContent = `${cropState.zoom.toFixed(2)}x`;
+  clampCropOffsets();
+  renderCropCanvas();
+}
+
+function adjustCropZoom(delta) {
+  setCropZoom(cropState.zoom + delta);
+}
+
+function nudgeCropPosition(dx, dy) {
+  cropState.offsetX += dx;
+  cropState.offsetY += dy;
+  clampCropOffsets();
+  renderCropCanvas();
+}
+
+function resetCropTransform() {
+  cropState.offsetX = 0;
+  cropState.offsetY = 0;
+  setCropZoom(1);
+}
+
+function openNewBannersCropQueue(files) {
+  cropState.queue = files;
+  cropState.queueIdx = 0;
+  cropState.editBanner = null;
+  loadCurrentCropItem();
+}
+
+async function openExistingBannerCrop(bannerId) {
+  const banner = (state.banners.list || []).find(b => String(b.id) === String(bannerId));
+  if (!banner) return;
+  cropState.queue = [];
+  cropState.queueIdx = 0;
+  cropState.editBanner = banner;
+
+  const modal = document.getElementById('bannerCropModal');
+  const queueBadge = document.getElementById('cropQueueBadge');
+  const skipBtn = document.getElementById('cropSkipBtn');
+  const titleInput = document.getElementById('cropTitleInput');
+  const applyLabel = document.getElementById('cropApplyBtnLabel');
+
+  if (queueBadge) {
+    queueBadge.textContent = 'Re-Crop Existing Banner';
+    queueBadge.classList.remove('hidden');
+  }
+  if (skipBtn) skipBtn.classList.add('hidden');
+  if (titleInput) titleInput.value = banner.title || '';
+  if (applyLabel) applyLabel.textContent = 'Save Cropped Banner';
+
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error('Could not load image for cropping (check R2 CORS settings).'));
+      const sep = banner.image_url.includes('?') ? '&' : '?';
+      img.src = `${banner.image_url}${sep}cb=${Date.now()}`;
+    });
+    cropState.img = img;
+    cropState.originalKB = Number(banner.original_size_kb) || Number(banner.compressed_size_kb) || 0;
+    cropState.fileName = banner.title || 'banner';
+    resetCropTransform();
+    bindCropViewportEvents();
+    modal?.showModal();
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function loadCurrentCropItem() {
+  const file = cropState.queue[cropState.queueIdx];
+  if (!file) {
+    closeBannerCropModal();
+    return;
+  }
+
+  const modal = document.getElementById('bannerCropModal');
+  const queueBadge = document.getElementById('cropQueueBadge');
+  const skipBtn = document.getElementById('cropSkipBtn');
+  const titleInput = document.getElementById('cropTitleInput');
+  const applyLabel = document.getElementById('cropApplyBtnLabel');
+
+  const total = cropState.queue.length;
+  if (queueBadge) {
+    queueBadge.textContent = `Image ${cropState.queueIdx + 1} of ${total}`;
+    queueBadge.classList.remove('hidden');
+  }
+  if (skipBtn) skipBtn.classList.toggle('hidden', total <= 1);
+  if (titleInput) {
+    titleInput.value = (document.getElementById('bannerTitleInput')?.value || '').trim() || file.name.replace(/\.[^/.]+$/, '');
+  }
+  if (applyLabel) {
+    applyLabel.textContent = total > 1 && cropState.queueIdx < total - 1
+      ? 'Apply, Upload & Next'
+      : 'Apply & Upload Banner';
+  }
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+
+  cropState.img = img;
+  cropState.originalKB = Math.max(1, Math.round(file.size / 1024));
+  cropState.fileName = file.name;
+  resetCropTransform();
+  bindCropViewportEvents();
+  if (modal && !modal.open) modal.showModal();
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeBannerCropModal() {
+  const modal = document.getElementById('bannerCropModal');
+  if (modal && modal.open) modal.close();
+  const fileInput = document.getElementById('bannerFileInput');
+  if (fileInput) fileInput.value = '';
+  cropState.queue = [];
+  cropState.queueIdx = 0;
+  cropState.editBanner = null;
+  cropState.img = null;
+}
+
+function skipCurrentCropItem() {
+  if (cropState.queueIdx + 1 < cropState.queue.length) {
+    cropState.queueIdx += 1;
+    loadCurrentCropItem();
+  } else {
+    closeBannerCropModal();
+  }
+}
+
+async function exportCroppedCanvasUnder500KB() {
+  const MAX_BYTES = 500 * 1024;
+  const TARGET_BYTES = 430 * 1024;
+  const sourceCanvas = document.getElementById('cropPreviewCanvas');
+  if (!sourceCanvas) throw new Error('Crop canvas not ready');
+
+  const offscreen = document.createElement('canvas');
+  const ctx = offscreen.getContext('2d');
+
+  const encode = (w, h, mime, q) => new Promise((resolve) => {
+    offscreen.width = w;
+    offscreen.height = h;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(sourceCanvas, 0, 0, w, h);
+    offscreen.toBlob((b) => resolve(b), mime, q);
+  });
+
+  let mime = 'image/webp';
+  let ext = 'webp';
+  let bestBlob = await encode(BANNER_CROP_W, BANNER_CROP_H, mime, 0.88);
+  if (!bestBlob || bestBlob.type !== 'image/webp') {
+    mime = 'image/jpeg';
+    ext = 'jpg';
+    bestBlob = await encode(BANNER_CROP_W, BANNER_CROP_H, mime, 0.88);
+  }
+
+  let quality = 0.88;
+  while (bestBlob && bestBlob.size > TARGET_BYTES && quality > 0.35) {
+    quality -= 0.08;
+    const candidate = await encode(BANNER_CROP_W, BANNER_CROP_H, mime, quality);
+    if (candidate) bestBlob = candidate;
+  }
+
+  let scale = 0.9;
+  while (bestBlob && bestBlob.size >= MAX_BYTES && scale >= 0.5) {
+    const sw = Math.round(BANNER_CROP_W * scale);
+    const sh = Math.round(BANNER_CROP_H * scale);
+    const candidate = await encode(sw, sh, mime, Math.max(0.45, quality));
+    if (candidate) bestBlob = candidate;
+    scale -= 0.1;
+  }
+
+  if (!bestBlob || bestBlob.size >= MAX_BYTES) {
+    throw new Error('Could not compress cropped banner under 500 KB.');
+  }
+
+  return {
+    blob: bestBlob,
+    ext,
+    contentType: mime,
+    compressedKB: Math.max(1, Math.round(bestBlob.size / 1024))
+  };
+}
+
+async function applyCropAndUpload() {
+  const btn = document.getElementById('cropApplyUploadBtn');
+  const labelEl = document.getElementById('cropApplyBtnLabel');
+  const sizeEstimate = document.getElementById('cropSizeEstimate');
+  const titleVal = (document.getElementById('cropTitleInput')?.value || '').trim();
+
+  if (btn) btn.disabled = true;
+  if (labelEl) labelEl.textContent = 'Compressing & Uploading R2...';
+
+  try {
+    const { blob, ext, contentType, compressedKB } = await exportCroppedCanvasUnder500KB();
+    if (sizeEstimate) sizeEstimate.textContent = `Compressed: ${compressedKB} KB (${ext.toUpperCase()})`;
+
+    const { publicUrl } = await uploadBannerToR2(blob, ext, contentType);
+    const sb = getSupabaseAdminClient();
+    if (!sb) throw new Error('Supabase client not initialized.');
+
+    if (cropState.editBanner) {
+      const oldUrl = cropState.editBanner.image_url;
+      const { error } = await sb
+        .from('homepage_banners')
+        .update({
+          image_url: publicUrl,
+          title: titleVal || cropState.editBanner.title || 'Matrimony Couple Banner',
+          compressed_size_kb: compressedKB
+        })
+        .eq('id', cropState.editBanner.id);
+
+      if (error) throw new Error(error.message);
+      if (oldUrl && oldUrl !== publicUrl) {
+        await deleteBannerFromR2(oldUrl, '').catch(() => {});
+      }
+      try {
+        sb.channel('public:homepage_banners_sync').send({ type: 'broadcast', event: 'banners_updated', payload: { timestamp: Date.now() } });
+      } catch (_) {}
+
+      showToast(`Banner re-cropped & updated in R2 (${compressedKB} KB)!`, 'success');
+      closeBannerCropModal();
+      await loadHomepageBanners();
+    } else {
+      const nextOrder = (state.banners.list || []).reduce((max, b) => Math.max(max, Number(b.display_order) || 0), 0) + 1;
+      const { error } = await sb.from('homepage_banners').insert({
+        image_url: publicUrl,
+        title: titleVal || cropState.fileName.replace(/\.[^/.]+$/, '') || `Matrimony Banner #${nextOrder}`,
+        display_order: nextOrder,
+        is_active: true,
+        original_size_kb: cropState.originalKB || compressedKB,
+        compressed_size_kb: compressedKB
+      });
+
+      if (error) throw new Error(error.message);
+      try {
+        sb.channel('public:homepage_banners_sync').send({ type: 'broadcast', event: 'banners_updated', payload: { timestamp: Date.now() } });
+      } catch (_) {}
+
+      showToast(`Cropped banner uploaded to R2 (${compressedKB} KB)!`, 'success');
+      await loadHomepageBanners();
+
+      if (cropState.queueIdx + 1 < cropState.queue.length && (state.banners.list || []).length < MAX_HOMEPAGE_BANNERS) {
+        cropState.queueIdx += 1;
+        await loadCurrentCropItem();
+      } else {
+        closeBannerCropModal();
+      }
+    }
+  } catch (err) {
+    showToast(err.message || 'Crop & upload failed', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (labelEl && !cropState.editBanner) {
+      const total = cropState.queue.length;
+      labelEl.textContent = total > 1 && cropState.queueIdx < total - 1 ? 'Apply, Upload & Next' : 'Apply & Upload Banner';
+    } else if (labelEl && cropState.editBanner) {
+      labelEl.textContent = 'Save Cropped Banner';
+    }
+  }
+}
+
+window.openExistingBannerCrop = openExistingBannerCrop;
+window.closeBannerCropModal = closeBannerCropModal;
+window.skipCurrentCropItem = skipCurrentCropItem;
+window.setCropZoom = setCropZoom;
+window.adjustCropZoom = adjustCropZoom;
+window.nudgeCropPosition = nudgeCropPosition;
+window.resetCropTransform = resetCropTransform;
+window.applyCropAndUpload = applyCropAndUpload;

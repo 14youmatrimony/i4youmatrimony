@@ -89,8 +89,8 @@ export default function WebsiteHero({
               key={slide.url + '_' + idx}
               src={slide.url}
               alt={slide.alt}
-              className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-1000 ease-in-out ${
-                isActive ? 'opacity-100 scale-105' : 'opacity-0 scale-100'
+              className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-1000 ease-in-out ${
+                isActive ? 'opacity-100' : 'opacity-0'
               }`}
             />
           );
