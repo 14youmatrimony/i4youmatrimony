@@ -80,13 +80,13 @@ export default function WebsiteStoriesReel({
   }, [activeStories, profiles, candidateStatuses, currentUser, targetCandidateGender]);
 
   return (
-    <section id="stories-section" className="pt-3 pb-1 sm:pt-4 sm:pb-1 bg-[#FAF0F2] text-[#4A2E37] select-none">
+    <section id="stories-section" className="pt-3 pb-1 sm:pt-4 sm:pb-1 bg-[#FDF2F6] text-[#5A4463] select-none">
       <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4">
         
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
           <div>
-            <h2 className="text-base sm:text-xl md:text-2xl font-serif font-bold text-[#380817]">
+            <h2 className="text-base sm:text-xl md:text-2xl font-serif font-bold text-[#2E1A36]">
               Glimpses into Real Lives &amp; Family Values
             </h2>
           </div>
@@ -115,7 +115,7 @@ export default function WebsiteStoriesReel({
               }}
               className="flex flex-col items-center space-y-1.5 shrink-0 cursor-pointer group"
             >
-              <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-0.5 sm:p-1 bg-gradient-to-tr from-[#4E0C22] via-[#8E5766] to-[#E4C1CA] shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300">
+              <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-0.5 sm:p-1 bg-gradient-to-tr from-[#C76B85] via-[#8064A2] to-[#E8C6D1] shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300">
                 {myStatus?.mediaUrl || currentUser?.photo ? (
                   <img 
                     src={myStatus?.mediaUrl || currentUser?.photo} 
@@ -129,39 +129,39 @@ export default function WebsiteStoriesReel({
                     }}
                   />
                 ) : myStatus?.type === 'text' ? (
-                  <div className={`w-full h-full flex items-center justify-center p-3 text-center text-xs font-semibold text-white rounded-xl sm:rounded-2xl bg-gradient-to-br ${myStatus?.bgGradient || 'from-[#4E0C22] to-[#6B1230]'}`}>
+                  <div className={`w-full h-full flex items-center justify-center p-3 text-center text-xs font-semibold text-white rounded-xl sm:rounded-2xl bg-gradient-to-br ${myStatus?.bgGradient || 'from-[#C76B85] to-[#B35872]'}`}>
                     "{myStatus?.caption || myStatus?.text || 'My Status'}"
                   </div>
                 ) : (
-                  <div className="w-full h-full rounded-xl sm:rounded-2xl bg-gradient-to-b from-[#F5E1E6] to-[#F7E2E7] flex flex-col items-center justify-center text-[#4E0C22] p-2">
-                    <Camera className="w-7 h-7 mb-1 text-[#4E0C22]" />
+                  <div className="w-full h-full rounded-xl sm:rounded-2xl bg-gradient-to-b from-[#FFF7FA] to-[#F9EBF0] flex flex-col items-center justify-center text-[#C76B85] p-2">
+                    <Camera className="w-7 h-7 mb-1 text-[#C76B85]" />
                     <span className="text-[10px]">Add Status</span>
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent rounded-xl sm:rounded-2xl"></div>
                 
                 <div className="absolute bottom-2.5 left-2 right-2 sm:bottom-3 flex flex-col items-center text-center">
-                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#4E0C22] text-white flex items-center justify-center font-bold shadow-md group-hover:scale-110 transition-transform">
+                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#C76B85] text-white flex items-center justify-center font-bold shadow-md group-hover:scale-110 transition-transform">
                     <Plus className="w-3.5 h-3.5 stroke-[3]" />
                   </span>
                   <span className="text-[10px] sm:text-[11px] font-semibold text-white mt-1 drop-shadow">My Story</span>
                 </div>
               </div>
-              <span className="text-[10px] sm:text-[11px] font-medium text-[#4A2E37]">Your Status</span>
+              <span className="text-[10px] sm:text-[11px] font-medium text-[#5A4463]">Your Status</span>
             </div>
           ) : (
             <div 
               onClick={() => onOpenLogin?.()}
               className="flex flex-col items-center space-y-1.5 shrink-0 cursor-pointer group"
             >
-              <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-1 bg-gradient-to-tr from-[#4E0C22]/40 via-white/10 to-[#8E5766]/30 shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300 border border-[#E7CCD3] flex flex-col items-center justify-center text-center bg-white">
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#F7E2E7] border border-[#E7CCD3] flex items-center justify-center text-[#4E0C22] mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform">
+              <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-1 bg-gradient-to-tr from-[#C76B85]/40 via-white/10 to-[#8064A2]/30 shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300 border border-[#E8C6D1] flex flex-col items-center justify-center text-center bg-white">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#F9EBF0] border border-[#E8C6D1] flex items-center justify-center text-[#C76B85] mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform">
                   <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
-                <span className="text-[11px] sm:text-xs font-semibold text-[#380817] leading-tight px-1">Share Intro</span>
-                <span className="text-[8.5px] sm:text-[9.5px] text-[#4E0C22] font-mono mt-0.5">60s Video</span>
+                <span className="text-[11px] sm:text-xs font-semibold text-[#2E1A36] leading-tight px-1">Share Intro</span>
+                <span className="text-[8.5px] sm:text-[9.5px] text-[#C76B85] font-mono mt-0.5">60s Video</span>
               </div>
-              <span className="text-[10px] sm:text-[11px] font-medium text-[#4E0C22]">Post Story</span>
+              <span className="text-[10px] sm:text-[11px] font-medium text-[#C76B85]">Post Story</span>
             </div>
           )}
 
@@ -179,7 +179,7 @@ export default function WebsiteStoriesReel({
                 }}
                 className="flex flex-col items-center space-y-1.5 shrink-0 cursor-pointer group"
               >
-                <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-0.5 sm:p-1 bg-gradient-to-tr from-[#4E0C22] via-[#8E5766] to-[#E4C1CA] shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300">
+                <div className="relative w-32 h-52 sm:w-40 sm:h-64 md:w-44 md:h-72 lg:w-48 lg:h-76 rounded-2xl sm:rounded-3xl overflow-hidden p-0.5 sm:p-1 bg-gradient-to-tr from-[#C76B85] via-[#8064A2] to-[#E8C6D1] shadow-xl group-hover:scale-105 group-hover:shadow-2xl transition-all duration-300">
                   
                   {status?.type === 'video' ? (
                     <div className="w-full h-full rounded-xl sm:rounded-2xl overflow-hidden relative bg-slate-900">
@@ -189,7 +189,7 @@ export default function WebsiteStoriesReel({
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                       />
                       <div className="absolute inset-0 bg-black/35 flex items-center justify-center">
-                        <span className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#4E0C22]/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform backdrop-blur-xs">
+                        <span className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#C76B85]/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform backdrop-blur-xs">
                           <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white translate-x-0.5" />
                         </span>
                       </div>
@@ -203,7 +203,7 @@ export default function WebsiteStoriesReel({
                       />
                     </div>
                   ) : (
-                    <div className={`w-full h-full rounded-xl sm:rounded-2xl bg-gradient-to-br ${status?.bgGradient || 'from-[#4E0C22] to-[#6B1230]'} p-3 sm:p-3.5 flex items-center justify-center text-center`}>
+                    <div className={`w-full h-full rounded-xl sm:rounded-2xl bg-gradient-to-br ${status?.bgGradient || 'from-[#C76B85] to-[#B35872]'} p-3 sm:p-3.5 flex items-center justify-center text-center`}>
                       <p className="text-[10px] sm:text-[11px] md:text-xs text-white/90 italic font-serif line-clamp-4 leading-normal px-1">
                         "{status?.text}"
                       </p>
@@ -217,7 +217,7 @@ export default function WebsiteStoriesReel({
                         <Video className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {status?.duration ? `${status.duration}s` : 'Video'}
                       </span>
                     ) : status?.type === 'photo' ? (
-                      <span className="px-1.5 py-0.5 rounded-full bg-[#4E0C22]/90 text-white text-[8px] sm:text-[9px] font-semibold flex items-center gap-1 shadow-xs backdrop-blur-xs">
+                      <span className="px-1.5 py-0.5 rounded-full bg-[#C76B85]/90 text-white text-[8px] sm:text-[9px] font-semibold flex items-center gap-1 shadow-xs backdrop-blur-xs">
                         <Camera className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> Photo
                       </span>
                     ) : (
@@ -228,7 +228,7 @@ export default function WebsiteStoriesReel({
                   </div>
 
                   {/* Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#380817] via-[#380817]/30 to-transparent rounded-xl sm:rounded-2xl pointer-events-none"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#2E1A36] via-[#2E1A36]/30 to-transparent rounded-xl sm:rounded-2xl pointer-events-none"></div>
 
                   {/* Candidate Name & Timestamp */}
                   <div className="absolute bottom-2 left-2 right-2 sm:bottom-2.5 sm:left-2.5 sm:right-2.5 text-left pointer-events-none">
@@ -237,10 +237,10 @@ export default function WebsiteStoriesReel({
                         {profile.name.split(' ')[0]}
                       </p>
                       {profile.verified && (
-                        <ShieldCheck className="w-3 h-3 text-[#E4C1CA] shrink-0" />
+                        <ShieldCheck className="w-3 h-3 text-[#E8C6D1] shrink-0" />
                       )}
                     </div>
-                    <p className="text-[8.5px] sm:text-[9.5px] text-[#F7E2E7]/85 font-mono leading-tight mt-0.5">
+                    <p className="text-[8.5px] sm:text-[9.5px] text-[#F9EBF0]/85 font-mono leading-tight mt-0.5">
                       {status.timestamp || 'Today'}
                     </p>
                   </div>
@@ -248,7 +248,7 @@ export default function WebsiteStoriesReel({
                 </div>
 
                 {/* Location text under card */}
-                <span className="text-[10px] sm:text-[11px] text-[#4A2E37] max-w-[120px] sm:max-w-[150px] md:max-w-[180px] truncate text-center font-normal">
+                <span className="text-[10px] sm:text-[11px] text-[#5A4463] max-w-[120px] sm:max-w-[150px] md:max-w-[180px] truncate text-center font-normal">
                   {profile.district || profile.city}
                 </span>
 

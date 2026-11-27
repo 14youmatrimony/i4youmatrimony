@@ -452,21 +452,21 @@ export default function EditProfileModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
-        className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-[#E7CCD3] flex flex-col relative animate-in zoom-in-95 duration-200 text-slate-800"
+        className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-[#E8C6D1] flex flex-col relative animate-in zoom-in-95 duration-200 text-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <header className="bg-[#FAF0F2] text-[#380817] px-5 py-4 flex items-center justify-between border-b border-[#E7CCD3] shrink-0">
+        <header className="bg-[#FDF2F6] text-[#2E1A36] px-5 py-4 flex items-center justify-between border-b border-[#E8C6D1] shrink-0">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-full bg-[#4E0C22]/10 flex items-center justify-center border border-[#8E5766]/40 text-[#4E0C22]">
+            <div className="w-8 h-8 rounded-full bg-[#C76B85]/10 flex items-center justify-center border border-[#8064A2]/40 text-[#C76B85]">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-base text-[#380817]">Edit Matrimony Profile</h2>
-              <div className="flex items-center space-x-1.5 text-[11px] text-[#4E0C22]">
+              <h2 className="font-serif font-bold text-base text-[#2E1A36]">Edit Matrimony Profile</h2>
+              <div className="flex items-center space-x-1.5 text-[11px] text-[#C76B85]">
                 {isSyncing ? (
                   <>
-                    <Loader2 className="w-3 h-3 animate-spin text-[#4E0C22]" />
+                    <Loader2 className="w-3 h-3 animate-spin text-[#C76B85]" />
                     <span>Syncing with Supabase...</span>
                   </>
                 ) : (
@@ -502,7 +502,7 @@ export default function EditProfileModal({
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   isActive
-                    ? 'bg-[#4E0C22] text-white shadow-sm'
+                    ? 'bg-[#C76B85] text-white shadow-sm'
                     : 'text-slate-600 hover:bg-slate-200/70'
                 }`}
               >
@@ -533,7 +533,7 @@ export default function EditProfileModal({
 
           {loading ? (
             <div className="py-16 text-center space-y-3">
-              <Loader2 className="w-8 h-8 text-[#4E0C22] animate-spin mx-auto" />
+              <Loader2 className="w-8 h-8 text-[#C76B85] animate-spin mx-auto" />
               <p className="text-xs text-slate-500 font-medium">Fetching fresh profile from Supabase...</p>
             </div>
           ) : (
@@ -559,7 +559,7 @@ export default function EditProfileModal({
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isNameLocked
                             ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
-                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766]'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2]'
                         }`}
                         placeholder="Candidate Name"
                       />
@@ -582,7 +582,7 @@ export default function EditProfileModal({
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isAgeLocked
                             ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
-                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766]'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2]'
                         }`}
                         placeholder="e.g. 26"
                       />
@@ -604,7 +604,7 @@ export default function EditProfileModal({
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isGenderLocked
                             ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
-                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766]'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2]'
                         }`}
                       >
                         {!formData.gender && <option value="">Select Gender</option>}
@@ -620,7 +620,7 @@ export default function EditProfileModal({
                         name="height"
                         value={formData.height}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         <option value="">Select Height (cm)</option>
                         {HEIGHT_CM_OPTIONS.map((opt) => (
@@ -638,7 +638,7 @@ export default function EditProfileModal({
                         name="weight"
                         value={formData.weight}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         <option value="">Select Weight (kg)</option>
                         {WEIGHT_KG_OPTIONS.map((opt) => (
@@ -652,7 +652,7 @@ export default function EditProfileModal({
                         name="body_type"
                         value={formData.body_type}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         <option value="">Select Body Type</option>
                         {BODY_TYPE_OPTIONS.map((opt) => (
@@ -666,7 +666,7 @@ export default function EditProfileModal({
                         name="complexion"
                         value={formData.complexion}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         <option value="">Select Complexion</option>
                         {COMPLEXION_OPTIONS.map((opt) => (
@@ -693,7 +693,7 @@ export default function EditProfileModal({
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isReligionLocked
                             ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
-                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766]'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2]'
                         }`}
                         placeholder="Hindu / Christian / Muslim"
                       />
@@ -713,7 +713,7 @@ export default function EditProfileModal({
                         className={`w-full px-3 py-2 text-xs rounded-xl border transition-colors ${
                           isMotherTongueLocked
                             ? 'bg-slate-100/90 text-slate-600 border-slate-200 cursor-not-allowed select-none'
-                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766]'
+                            : 'bg-white text-slate-800 border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2]'
                         }`}
                         placeholder="Malayalam / Marathi / Hindi"
                       />
@@ -728,7 +728,7 @@ export default function EditProfileModal({
                         name="diet"
                         value={formData.diet}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         <option value="Vegetarian">Vegetarian</option>
                         <option value="Non-Vegetarian">Non-Vegetarian</option>
@@ -742,7 +742,7 @@ export default function EditProfileModal({
                         name="manglik"
                         value={formData.manglik}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         <option value="Non-Manglik">Non-Manglik</option>
                         <option value="Manglik">Manglik</option>
@@ -759,7 +759,7 @@ export default function EditProfileModal({
                       rows={3}
                       value={formData.about}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       placeholder="Brief matrimonial introduction, values, and lifestyle..."
                     />
                   </div>
@@ -778,7 +778,7 @@ export default function EditProfileModal({
                         required
                         value={formData.phone}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                         placeholder="10-digit Phone Number"
                       />
                     </div>
@@ -789,18 +789,18 @@ export default function EditProfileModal({
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                         placeholder="candidate@example.com"
                       />
                     </div>
                   </div>
 
                   {/* Living / Working In: India vs Abroad (NRI) Toggle */}
-                  <div className="p-3.5 rounded-2xl bg-[#F5E1E6] border border-[#E7CCD3] space-y-3">
+                  <div className="p-3.5 rounded-2xl bg-[#FFF7FA] border border-[#E8C6D1] space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
                         <span className="text-xs font-bold text-slate-900 block flex items-center gap-1.5">
-                          <Globe className="w-3.5 h-3.5 text-[#4E0C22]" />
+                          <Globe className="w-3.5 h-3.5 text-[#C76B85]" />
                           <span>Current Working & Living Country</span>
                         </span>
                         <p className="text-[11px] text-slate-600">
@@ -821,7 +821,7 @@ export default function EditProfileModal({
                           }))}
                           className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                             !formData.is_nri 
-                              ? 'bg-[#4E0C22] text-white shadow-xs' 
+                              ? 'bg-[#C76B85] text-white shadow-xs' 
                               : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
@@ -838,7 +838,7 @@ export default function EditProfileModal({
                           }))}
                           className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
                             formData.is_nri 
-                              ? 'bg-[#4E0C22] text-white shadow-xs font-extrabold' 
+                              ? 'bg-[#C76B85] text-white shadow-xs font-extrabold' 
                               : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
@@ -882,7 +882,7 @@ export default function EditProfileModal({
                                   workCity: val
                                 }));
                               }}
-                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                               placeholder="Select or type city (e.g. Dubai, London, New York)"
                             />
                             <datalist id="nri-city-suggestions">
@@ -905,7 +905,7 @@ export default function EditProfileModal({
                               name="residency_status"
                               value={formData.residency_status || 'Work Visa'}
                               onChange={handleChange}
-                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                             >
                               {RESIDENCY_STATUS_OPTIONS.map((opt) => (
                                 <option key={opt} value={opt}>{opt}</option>
@@ -922,7 +922,7 @@ export default function EditProfileModal({
                               name="state"
                               value={formData.state}
                               onChange={handleChange}
-                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                               placeholder="e.g. Kerala / Maharashtra / Punjab"
                             />
                           </div>
@@ -938,7 +938,7 @@ export default function EditProfileModal({
                             name="state"
                             value={formData.state}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                             placeholder="e.g. Kerala / Maharashtra"
                           />
                         </div>
@@ -949,7 +949,7 @@ export default function EditProfileModal({
                             name="city"
                             value={formData.city}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                             placeholder="e.g. Kochi / Mumbai"
                           />
                         </div>
@@ -960,7 +960,7 @@ export default function EditProfileModal({
                             name="district"
                             value={formData.district}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                             placeholder="e.g. Ernakulam / Nashik"
                           />
                         </div>
@@ -969,10 +969,10 @@ export default function EditProfileModal({
                   </div>
 
                   {/* Native Place Details (Optional) */}
-                  <div className="p-3.5 rounded-2xl bg-[#F5E1E6] border border-[#E7CCD3] space-y-3">
+                  <div className="p-3.5 rounded-2xl bg-[#FFF7FA] border border-[#E8C6D1] space-y-3">
                     <div>
                       <span className="text-xs font-bold text-slate-900 block flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-[#4E0C22]" />
+                        <MapPin className="w-3.5 h-3.5 text-[#C76B85]" />
                         <span>Native Place Details (Optional)</span>
                       </span>
                       <p className="text-[11px] text-slate-600">
@@ -993,7 +993,7 @@ export default function EditProfileModal({
                               native_district: ''
                             }));
                           }}
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                         >
                           <option value="">Select Native State</option>
                           {INDIAN_STATES_AND_UTS.map((st) => (
@@ -1009,7 +1009,7 @@ export default function EditProfileModal({
                           value={formData.native_district || ''}
                           onChange={handleChange}
                           disabled={!formData.native_state}
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
                         >
                           <option value="">
                             {formData.native_state ? 'Select Native District' : 'Select State First'}
@@ -1027,7 +1027,7 @@ export default function EditProfileModal({
                           name="native_place"
                           value={formData.native_place || ''}
                           onChange={handleChange}
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                           placeholder="e.g. Alakode, Payyanur"
                         />
                       </div>
@@ -1047,7 +1047,7 @@ export default function EditProfileModal({
                         name="education"
                         value={formData.education}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                         placeholder="e.g. B.Tech / MBBS / MBA"
                       />
                     </div>
@@ -1058,14 +1058,14 @@ export default function EditProfileModal({
                         name="profession"
                         value={formData.profession}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                         placeholder="e.g. Software Engineer / Doctor"
                       />
                     </div>
                   </div>
 
                   {/* Detailed Optional Education History */}
-                  <div className="p-3.5 rounded-2xl bg-[#F5E1E6] border border-[#E7CCD3] space-y-3">
+                  <div className="p-3.5 rounded-2xl bg-[#FFF7FA] border border-[#E8C6D1] space-y-3">
                     <div>
                       <span className="text-xs font-bold text-slate-900 block">
                         Education History (All Optional)
@@ -1085,7 +1085,7 @@ export default function EditProfileModal({
                           name="edu_10th"
                           value={formData.edu_10th || ''}
                           onChange={handleChange}
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                           placeholder="e.g. St. Joseph HSS, Kannur"
                         />
                       </div>
@@ -1098,7 +1098,7 @@ export default function EditProfileModal({
                           name="edu_12th"
                           value={formData.edu_12th || ''}
                           onChange={handleChange}
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                           placeholder="e.g. Science, Sacred Heart HSS, Kochi"
                         />
                       </div>
@@ -1111,7 +1111,7 @@ export default function EditProfileModal({
                           name="edu_degree"
                           value={formData.edu_degree || ''}
                           onChange={handleChange}
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                           placeholder="e.g. B.Tech CSE, CET Trivandrum"
                         />
                       </div>
@@ -1124,7 +1124,7 @@ export default function EditProfileModal({
                           name="edu_pg"
                           value={formData.edu_pg || ''}
                           onChange={handleChange}
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                           placeholder="e.g. MBA, IIM Kozhikode"
                         />
                       </div>
@@ -1139,7 +1139,7 @@ export default function EditProfileModal({
                         name="edu_doctorate"
                         value={formData.edu_doctorate || ''}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                         placeholder="e.g. PhD in Biotechnology, IISc Bengaluru"
                       />
                     </div>
@@ -1153,7 +1153,7 @@ export default function EditProfileModal({
                         name="company"
                         value={formData.company}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                         placeholder="e.g. TCS / Private Hospital"
                       />
                     </div>
@@ -1164,7 +1164,7 @@ export default function EditProfileModal({
                         name="annualIncome"
                         value={formData.annualIncome}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                         placeholder="e.g. ₹ 15 - 25 LPA or $140,000"
                       />
                     </div>
@@ -1176,7 +1176,7 @@ export default function EditProfileModal({
               {activeTab === 'preferences' && (
                 <div className="space-y-4">
                   {/* Multi-Select Preferred Countries (Minimum 5+) */}
-                  <div className="p-3.5 rounded-2xl bg-[#F5E1E6] border border-[#E7CCD3] space-y-2">
+                  <div className="p-3.5 rounded-2xl bg-[#FFF7FA] border border-[#E8C6D1] space-y-2">
                     <MultiCountrySelect
                       label="Preferred Countries (Select 5 or more)"
                       value={formData.preferred_countries || 'Any'}
@@ -1202,7 +1202,7 @@ export default function EditProfileModal({
                         name="pref_min_age"
                         value={formData.pref_min_age || '21'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {Array.from({ length: 43 }, (_, i) => 18 + i).map(age => (
                           <option key={age} value={String(age)}>{age} yrs</option>
@@ -1215,7 +1215,7 @@ export default function EditProfileModal({
                         name="pref_max_age"
                         value={formData.pref_max_age || '35'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {Array.from({ length: 43 }, (_, i) => 18 + i).map(age => (
                           <option key={age} value={String(age)}>{age} yrs</option>
@@ -1228,7 +1228,7 @@ export default function EditProfileModal({
                         name="pref_min_height"
                         value={formData.pref_min_height || '150'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {Array.from({ length: 71 }, (_, i) => 140 + i).map(cm => (
                           <option key={cm} value={String(cm)}>{cm} cm</option>
@@ -1241,7 +1241,7 @@ export default function EditProfileModal({
                         name="pref_max_height"
                         value={formData.pref_max_height || '185'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {Array.from({ length: 71 }, (_, i) => 140 + i).map(cm => (
                           <option key={cm} value={String(cm)}>{cm} cm</option>
@@ -1257,7 +1257,7 @@ export default function EditProfileModal({
                       name="pref_complexion"
                       value={formData.pref_complexion || 'Any'}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                     >
                       {['Any', 'Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Dark'].map(opt => (
                         <option key={opt} value={opt}>{opt}</option>
@@ -1279,7 +1279,7 @@ export default function EditProfileModal({
                             pref_caste: 'Any'
                           }));
                         }}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         <option value="Any">Any</option>
                         {ALL_INDIA_RELIGIONS.map(rel => (
@@ -1293,7 +1293,7 @@ export default function EditProfileModal({
                         name="pref_caste"
                         value={formData.pref_caste || 'Any'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         <option value="Any">Any</option>
                         {(RELIGION_COMMUNITIES[formData.pref_religion] || []).map(c => (
@@ -1307,7 +1307,7 @@ export default function EditProfileModal({
                         name="pref_mother_tongue"
                         value={formData.pref_mother_tongue || 'Any'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {['Any', 'Malayalam', 'Tamil', 'Kannada', 'Telugu', 'Hindi', 'Marathi', 'Gujarati', 'Punjabi', 'Bengali', 'Urdu', 'Konkani', 'Tulu', 'English', 'Other'].map(lang => (
                           <option key={lang} value={lang}>{lang}</option>
@@ -1324,7 +1324,7 @@ export default function EditProfileModal({
                         name="pref_education"
                         value={formData.pref_education || 'Any'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {['Any', 'High School', 'Diploma', "Bachelor's Degree", "Master's Degree", 'Doctorate / PhD', 'Professional Degree'].map(opt => (
                           <option key={opt} value={opt}>{opt}</option>
@@ -1337,7 +1337,7 @@ export default function EditProfileModal({
                         name="pref_occupation"
                         value={formData.pref_occupation || 'Any'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {['Any', 'Private Sector', 'Government / Defence', 'Business / Self-Employed', 'IT / Software', 'Medical / Healthcare', 'Engineering', 'Teaching / Academic', 'Working Abroad / NRI', 'Not Working'].map(opt => (
                           <option key={opt} value={opt}>{opt}</option>
@@ -1350,7 +1350,7 @@ export default function EditProfileModal({
                         name="pref_income"
                         value={formData.pref_income || 'Any'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {['Any', '3 Lakhs+', '5 Lakhs+', '8 Lakhs+', '12 Lakhs+', '20 Lakhs+'].map(opt => (
                           <option key={opt} value={opt}>{opt}</option>
@@ -1363,7 +1363,7 @@ export default function EditProfileModal({
                         name="pref_diet"
                         value={formData.pref_diet || 'Any'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {['Any', 'Vegetarian', 'Non-Vegetarian', 'Eggetarian'].map(opt => (
                           <option key={opt} value={opt}>{opt}</option>
@@ -1386,7 +1386,7 @@ export default function EditProfileModal({
                             pref_district: 'Any'
                           }));
                         }}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         <option value="Any">Any</option>
                         {INDIAN_STATES_AND_UTS.filter(s => s !== 'All States').map(st => (
@@ -1400,7 +1400,7 @@ export default function EditProfileModal({
                         name="pref_district"
                         value={formData.pref_district || 'Any'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         <option value="Any">Any</option>
                         {getServiceDistrictsForState(formData.pref_state === 'Any' ? 'All States' : formData.pref_state)
@@ -1420,7 +1420,7 @@ export default function EditProfileModal({
                         name="pref_physical_status"
                         value={formData.pref_physical_status || 'Any'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {['Any', 'Normal', 'Differently Abled'].map(opt => (
                           <option key={opt} value={opt}>{opt}</option>
@@ -1433,7 +1433,7 @@ export default function EditProfileModal({
                         name="pref_smoking"
                         value={formData.pref_smoking || 'Any'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {['Any', 'No', 'Occasionally'].map(opt => (
                           <option key={opt} value={opt}>{opt}</option>
@@ -1446,7 +1446,7 @@ export default function EditProfileModal({
                         name="pref_drinking"
                         value={formData.pref_drinking || 'Any'}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       >
                         {['Any', 'No', 'Occasionally'].map(opt => (
                           <option key={opt} value={opt}>{opt}</option>
@@ -1464,7 +1464,7 @@ export default function EditProfileModal({
                       rows={3}
                       value={formData.partner_expectations || ''}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8E5766] bg-white text-slate-800"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8064A2] bg-white text-slate-800"
                       placeholder="Describe what you are looking for in your life partner (values, lifestyle, education, mindset, openness to settle abroad)..."
                     />
                   </div>
@@ -1486,7 +1486,7 @@ export default function EditProfileModal({
             <button
               type="submit"
               disabled={saving || loading}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] shadow-md shadow-[#4E0C22]/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#C76B85] hover:bg-[#B35872] shadow-md shadow-[#C76B85]/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               {saving ? (
                 <>

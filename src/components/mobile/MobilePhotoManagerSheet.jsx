@@ -314,20 +314,20 @@ export default function MobilePhotoManagerSheet({
       className="absolute inset-0 z-50 flex flex-col bg-slate-50 animate-in fade-in duration-200 overflow-hidden"
     >
       {/* 1. Top Header with Title and Close Button */}
-      <div className="px-4 py-3 bg-[#FAF0F2] text-[#380817] flex items-center justify-between border-b border-[#E7CCD3] shrink-0 z-20">
+      <div className="px-4 py-3 bg-[#FDF2F6] text-[#2E1A36] flex items-center justify-between border-b border-[#E8C6D1] shrink-0 z-20">
         <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-full bg-[#4E0C22]/10 flex items-center justify-center text-[#4E0C22]">
+          <div className="w-8 h-8 rounded-full bg-[#C76B85]/10 flex items-center justify-center text-[#C76B85]">
             <Camera className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="font-bold text-sm text-[#380817] leading-tight">Photo & Album Manager</h3>
-            <p className="text-[10px] text-[#4A2E37]">Manage profile portraits & family pictures</p>
+            <h3 className="font-bold text-sm text-[#2E1A36] leading-tight">Photo & Album Manager</h3>
+            <p className="text-[10px] text-[#5A4463]">Manage profile portraits & family pictures</p>
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-[#380817] transition-colors cursor-pointer"
+          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-[#2E1A36] transition-colors cursor-pointer"
           title="Close"
         >
           <X className="w-4 h-4" />
@@ -343,14 +343,14 @@ export default function MobilePhotoManagerSheet({
       )}
 
       {/* 2. Segmented 3-Tab Switcher */}
-      <div className="px-3 pt-2 pb-1.5 bg-[#F5E1E6] border-b border-[#E7CCD3] grid grid-cols-3 gap-1.5 shrink-0 z-10">
+      <div className="px-3 pt-2 pb-1.5 bg-[#FFF7FA] border-b border-[#E8C6D1] grid grid-cols-3 gap-1.5 shrink-0 z-10">
         <button
           type="button"
           onClick={() => setActiveTab('single')}
           className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1 cursor-pointer ${
             activeTab === 'single'
-              ? 'bg-[#4E0C22] text-white shadow-sm font-extrabold'
-              : 'bg-white text-slate-600 border border-[#E7CCD3] hover:bg-[#F7E2E7]'
+              ? 'bg-[#C76B85] text-white shadow-sm font-extrabold'
+              : 'bg-white text-slate-600 border border-[#E8C6D1] hover:bg-[#F9EBF0]'
           }`}
         >
           <Camera className="w-3.5 h-3.5 shrink-0" />
@@ -362,8 +362,8 @@ export default function MobilePhotoManagerSheet({
           onClick={() => setActiveTab('family')}
           className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1 cursor-pointer ${
             activeTab === 'family'
-              ? 'bg-[#4E0C22] text-white shadow-sm font-extrabold'
-              : 'bg-white text-slate-600 border border-[#E7CCD3] hover:bg-[#F7E2E7]'
+              ? 'bg-[#C76B85] text-white shadow-sm font-extrabold'
+              : 'bg-white text-slate-600 border border-[#E8C6D1] hover:bg-[#F9EBF0]'
           }`}
         >
           <Users className="w-3.5 h-3.5 shrink-0" />
@@ -375,8 +375,8 @@ export default function MobilePhotoManagerSheet({
           onClick={() => setActiveTab('privacy')}
           className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1 cursor-pointer relative ${
             activeTab === 'privacy'
-              ? 'bg-[#4E0C22] text-white shadow-sm font-extrabold'
-              : 'bg-white text-slate-600 border border-[#E7CCD3] hover:bg-[#F7E2E7]'
+              ? 'bg-[#C76B85] text-white shadow-sm font-extrabold'
+              : 'bg-white text-slate-600 border border-[#E8C6D1] hover:bg-[#F9EBF0]'
           }`}
         >
           {hidePhotos ? (
@@ -386,7 +386,7 @@ export default function MobilePhotoManagerSheet({
           )}
           <span className="truncate">Privacy & Hide</span>
           {hidePhotos && (
-            <span className="w-2 h-2 rounded-full bg-rose-500 absolute top-1 right-1.5 ring-2 ring-[#F5E1E6]"></span>
+            <span className="w-2 h-2 rounded-full bg-rose-500 absolute top-1 right-1.5 ring-2 ring-[#FFF7FA]"></span>
           )}
         </button>
       </div>
@@ -401,7 +401,7 @@ export default function MobilePhotoManagerSheet({
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Camera className="w-3.5 h-3.5 text-[#4E0C22]" /> Candidate Portraits
+                  <Camera className="w-3.5 h-3.5 text-[#C76B85]" /> Candidate Portraits
                 </h4>
                 <p className="text-[10.5px] text-slate-500">
                   Slot #1 is your primary display photo shown across search & match feed.
@@ -421,7 +421,7 @@ export default function MobilePhotoManagerSheet({
               {singlePhotos.map((url, idx) => (
                 <div 
                   key={idx} 
-                  className="relative rounded-2xl overflow-hidden aspect-square border-2 border-[#E7CCD3] bg-slate-900 shadow-sm flex flex-col justify-between photo-protected select-none"
+                  className="relative rounded-2xl overflow-hidden aspect-square border-2 border-[#E8C6D1] bg-slate-900 shadow-sm flex flex-col justify-between photo-protected select-none"
                   onContextMenu={(e) => e.preventDefault()}
                 >
                   <img 
@@ -442,8 +442,8 @@ export default function MobilePhotoManagerSheet({
                   {/* Badge */}
                   <div className="absolute top-1.5 left-1.5 z-10">
                     {idx === 0 ? (
-                      <span className="px-1.5 py-0.5 rounded-md bg-[#4E0C22]/90 text-white text-[8.5px] font-extrabold flex items-center gap-0.5 shadow-xs border border-[#E7CCD3]/40">
-                        <Star className="w-2.5 h-2.5 fill-[#8E5766]" /> Main
+                      <span className="px-1.5 py-0.5 rounded-md bg-[#C76B85]/90 text-white text-[8.5px] font-extrabold flex items-center gap-0.5 shadow-xs border border-[#E8C6D1]/40">
+                        <Star className="w-2.5 h-2.5 fill-[#8064A2]" /> Main
                       </span>
                     ) : (
                       <span className="px-1.5 py-0.5 rounded-md bg-black/70 text-white text-[8px] font-bold">
@@ -468,7 +468,7 @@ export default function MobilePhotoManagerSheet({
                       <button
                         type="button"
                         onClick={() => handleSetMainPhoto(idx)}
-                        className="w-full py-0.5 rounded-lg text-[8px] font-bold bg-[#4E0C22] hover:bg-[#6B1230] text-white transition-colors cursor-pointer shadow-xs"
+                        className="w-full py-0.5 rounded-lg text-[8px] font-bold bg-[#C76B85] hover:bg-[#B35872] text-white transition-colors cursor-pointer shadow-xs"
                       >
                         Make Main
                       </button>
@@ -479,7 +479,7 @@ export default function MobilePhotoManagerSheet({
 
               {/* Empty Upload Slot */}
               {singlePhotos.length < 5 && (
-                <label className="rounded-2xl border-2 border-dashed border-[#E7CCD3] hover:border-[#8E5766] bg-[#F5E1E6] hover:bg-[#F7E2E7] aspect-square flex flex-col items-center justify-center p-2 text-center cursor-pointer transition-all shadow-2xs">
+                <label className="rounded-2xl border-2 border-dashed border-[#E8C6D1] hover:border-[#8064A2] bg-[#FFF7FA] hover:bg-[#F9EBF0] aspect-square flex flex-col items-center justify-center p-2 text-center cursor-pointer transition-all shadow-2xs">
                   <input 
                     type="file" 
                     accept="image/*" 
@@ -489,12 +489,12 @@ export default function MobilePhotoManagerSheet({
                   />
                   {uploadingSingle ? (
                     <div className="flex flex-col items-center justify-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-[#4E0C22] mb-1" />
+                      <Loader2 className="w-6 h-6 animate-spin text-[#C76B85] mb-1" />
                       <span className="text-[9px] font-bold text-slate-700">Uploading...</span>
                     </div>
                   ) : (
                     <>
-                      <div className="w-8 h-8 rounded-full bg-[#4E0C22]/10 text-[#4E0C22] flex items-center justify-center mb-1">
+                      <div className="w-8 h-8 rounded-full bg-[#C76B85]/10 text-[#C76B85] flex items-center justify-center mb-1">
                         <Plus className="w-4 h-4" />
                       </div>
                       <span className="text-[10px] font-bold text-slate-800 leading-tight">
@@ -518,7 +518,7 @@ export default function MobilePhotoManagerSheet({
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-[#4E0C22]" /> Family Album
+                  <Users className="w-3.5 h-3.5 text-[#C76B85]" /> Family Album
                 </h4>
                 <p className="text-[10.5px] text-slate-500">
                   Photos with parents, siblings, or auspicious family functions (Max 2).
@@ -571,7 +571,7 @@ export default function MobilePhotoManagerSheet({
                         }}
                       />
                       <div className="absolute top-1.5 left-1.5 z-10">
-                        <span className="px-1.5 py-0.5 rounded-md bg-[#380817]/90 text-white text-[8px] font-bold">
+                        <span className="px-1.5 py-0.5 rounded-md bg-[#2E1A36]/90 text-white text-[8px] font-bold">
                           Family #{slotIdx + 1}
                         </span>
                       </div>
@@ -681,7 +681,7 @@ export default function MobilePhotoManagerSheet({
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-[#4E0C22]" /> Who Can See My Photos
+                    <Lock className="w-3.5 h-3.5 text-[#C76B85]" /> Who Can See My Photos
                   </h3>
                   <p className="text-[10px] text-slate-500">
                     Choose who has permission to view your full photographs
@@ -699,13 +699,13 @@ export default function MobilePhotoManagerSheet({
                       onClick={() => handleSelectVisibility(opt.id)}
                       className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-start space-x-3 ${
                         isSelected
-                          ? 'border-[#E7CCD3] bg-[#F5E1E6] ring-2 ring-[#8E5766]/30 shadow-xs'
+                          ? 'border-[#E8C6D1] bg-[#FFF7FA] ring-2 ring-[#8064A2]/30 shadow-xs'
                           : 'border-slate-200 bg-slate-50 hover:bg-slate-100/80'
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                         isSelected 
-                          ? 'bg-[#4E0C22] text-white' 
+                          ? 'bg-[#C76B85] text-white' 
                           : 'bg-white text-slate-600 border border-slate-200'
                       }`}>
                         <Icon className="w-4 h-4" />
@@ -713,7 +713,7 @@ export default function MobilePhotoManagerSheet({
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1 flex-wrap">
-                          <span className={`font-bold text-xs ${isSelected ? 'text-[#380817]' : 'text-slate-800'}`}>
+                          <span className={`font-bold text-xs ${isSelected ? 'text-[#2E1A36]' : 'text-slate-800'}`}>
                             {opt.title}
                           </span>
                           <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold border ${opt.badgeColor}`}>
@@ -728,7 +728,7 @@ export default function MobilePhotoManagerSheet({
                       <div className="shrink-0 mt-1">
                         <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
                           isSelected 
-                            ? 'border-[#4E0C22] bg-[#4E0C22]' 
+                            ? 'border-[#C76B85] bg-[#C76B85]' 
                             : 'border-slate-300 bg-white'
                         }`}>
                           {isSelected && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
@@ -751,7 +751,7 @@ export default function MobilePhotoManagerSheet({
                 <div className="py-2.5 flex items-center justify-between">
                   <div className="pr-2">
                     <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-[#4E0C22]" />
+                      <Sparkles className="w-3.5 h-3.5 text-[#C76B85]" />
                       <span>Blur Photos for Unconnected Members</span>
                     </span>
                     <span className="text-[10px] text-slate-500 block">
@@ -762,7 +762,7 @@ export default function MobilePhotoManagerSheet({
                     type="checkbox" 
                     checked={blurPhotosForUnconnected}
                     onChange={(e) => handleToggleBlur(e.target.checked)}
-                    className="rounded accent-[#4E0C22] cursor-pointer w-4 h-4 shrink-0"
+                    className="rounded accent-[#C76B85] cursor-pointer w-4 h-4 shrink-0"
                   />
                 </div>
 
@@ -830,7 +830,7 @@ export default function MobilePhotoManagerSheet({
               onClose();
             }
           }}
-          className="px-6 py-2 rounded-xl text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] active:scale-95 transition-all shadow-md flex items-center gap-1.5 cursor-pointer shrink-0"
+          className="px-6 py-2 rounded-xl text-xs font-bold text-white bg-[#C76B85] hover:bg-[#B35872] active:scale-95 transition-all shadow-md flex items-center gap-1.5 cursor-pointer shrink-0"
         >
           <Check className="w-4 h-4 text-white stroke-[2.5]" />
           <span>Done & Save</span>

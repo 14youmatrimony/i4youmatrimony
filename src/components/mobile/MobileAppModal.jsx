@@ -213,26 +213,26 @@ export default function MobileAppModal({
     >
       {/* 90% Screen Modal Window Container */}
       <div 
-        className="w-[96vw] md:w-[92vw] lg:w-[90vw] h-[94vh] md:h-[90vh] bg-[#380817] border-2 border-[#8E5766]/50 rounded-[28px] sm:rounded-[36px] shadow-[0_25px_80px_rgba(122,46,67,0.4)] flex flex-col overflow-hidden relative"
+        className="w-[96vw] md:w-[92vw] lg:w-[90vw] h-[94vh] md:h-[90vh] bg-[#2E1A36] border-2 border-[#8064A2]/50 rounded-[28px] sm:rounded-[36px] shadow-[0_25px_80px_rgba(122,46,67,0.4)] flex flex-col overflow-hidden relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Decorative subtle ambient lights */}
-        <div className="absolute top-0 right-1/4 w-80 h-80 bg-[#8E5766]/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-[#4E0C22]/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute top-0 right-1/4 w-80 h-80 bg-[#8064A2]/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-[#C76B85]/20 rounded-full blur-3xl pointer-events-none"></div>
 
         {/* Modal Top Control Header */}
-        <header className="px-4 py-2.5 sm:px-6 sm:py-3 bg-[#380817]/95 border-b border-[#8E5766]/30 flex flex-wrap items-center justify-between gap-3 text-white z-30 shrink-0">
+        <header className="px-4 py-2.5 sm:px-6 sm:py-3 bg-[#2E1A36]/95 border-b border-[#8064A2]/30 flex flex-wrap items-center justify-between gap-3 text-white z-30 shrink-0">
           
           {/* Left: Brand Identity & Active Profile */}
           <div className="flex items-center space-x-3 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#4E0C22] via-[#8E5766] to-[#E4C1CA] p-0.5 shadow-md shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#C76B85] via-[#8064A2] to-[#E8C6D1] p-0.5 shadow-md shrink-0">
               <img 
                 src="/brand-logo.png" 
                 alt="I 4 You Logo" 
                 className="w-full h-full object-cover rounded-full"
                 onError={(e) => {
                   e.target.style.display = 'none';
-                  e.target.parentElement.innerHTML = '<div class="w-full h-full bg-[#4E0C22] text-white font-serif font-black flex items-center justify-center text-xs">I4U</div>';
+                  e.target.parentElement.innerHTML = '<div class="w-full h-full bg-[#C76B85] text-white font-serif font-black flex items-center justify-center text-xs">I4U</div>';
                 }}
               />
             </div>
@@ -242,7 +242,7 @@ export default function MobileAppModal({
                 <h3 className="font-serif font-extrabold text-sm sm:text-base text-white tracking-wide truncate">
                   I 4 You Mobile Experience
                 </h3>
-                <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-[#8E5766]/20 text-[#E4C1CA] border border-[#8E5766]/40 shadow-xs hidden sm:inline-block shrink-0">
+                <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-[#8064A2]/20 text-[#E8C6D1] border border-[#8064A2]/40 shadow-xs hidden sm:inline-block shrink-0">
                   90% Screen Web App
                 </span>
               </div>
@@ -268,7 +268,7 @@ export default function MobileAppModal({
                 onClick={() => setModalLayoutMode('phone')}
                 className={`px-2.5 py-1 rounded-full font-bold transition-all cursor-pointer flex items-center space-x-1 ${
                   modalLayoutMode === 'phone'
-                    ? 'bg-[#4E0C22] text-white shadow-sm'
+                    ? 'bg-[#C76B85] text-white shadow-sm'
                     : 'text-slate-300 hover:text-white'
                 }`}
                 title="Exact smartphone aspect ratio matching screenshot (420px)"
@@ -282,7 +282,7 @@ export default function MobileAppModal({
                 onClick={() => setModalLayoutMode('wide')}
                 className={`px-2.5 py-1 rounded-full font-bold transition-all cursor-pointer flex items-center space-x-1 ${
                   modalLayoutMode === 'wide'
-                    ? 'bg-[#4E0C22] text-white shadow-sm'
+                    ? 'bg-[#C76B85] text-white shadow-sm'
                     : 'text-slate-300 hover:text-white'
                 }`}
                 title="Spacious mobile view (520px)"
@@ -295,7 +295,7 @@ export default function MobileAppModal({
                 onClick={() => setModalLayoutMode('fill')}
                 className={`px-2.5 py-1 rounded-full font-bold transition-all cursor-pointer flex items-center space-x-1 ${
                   modalLayoutMode === 'fill'
-                    ? 'bg-[#4E0C22] text-white shadow-sm'
+                    ? 'bg-[#C76B85] text-white shadow-sm'
                     : 'text-slate-300 hover:text-white'
                 }`}
                 title="Responsive layout filling full 80% width"
@@ -307,7 +307,7 @@ export default function MobileAppModal({
 
             {/* Demo Persona Switcher: Bride (Priya) vs Groom (Rohan) */}
             {!isProduction && onSwitchDemoGender && (
-              <div className="hidden sm:flex items-center space-x-0.5 bg-black/40 p-0.5 rounded-full border border-[#8E5766]/40 text-xs">
+              <div className="hidden sm:flex items-center space-x-0.5 bg-black/40 p-0.5 rounded-full border border-[#8064A2]/40 text-xs">
                 <button
                   type="button"
                   onClick={() => onSwitchDemoGender('female')}
@@ -346,7 +346,7 @@ export default function MobileAppModal({
                 className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/20 transition-all flex items-center space-x-1.5 cursor-pointer active:scale-95"
                 title="Switch to full screen simulator view"
               >
-                <Maximize2 className="w-3.5 h-3.5 text-[#E4C1CA]" />
+                <Maximize2 className="w-3.5 h-3.5 text-[#E8C6D1]" />
                 <span className="hidden md:inline">Full Screen</span>
               </button>
             )}
@@ -366,7 +366,7 @@ export default function MobileAppModal({
         </header>
 
         {/* Modal Body: Houses the Active Mobile Application View */}
-        <div className="flex-1 min-h-0 overflow-hidden relative flex justify-center items-center p-0 sm:p-2 md:p-3 bg-gradient-to-b from-[#380817] via-[#1F1214] to-[#140B0D]">
+        <div className="flex-1 min-h-0 overflow-hidden relative flex justify-center items-center p-0 sm:p-2 md:p-3 bg-gradient-to-b from-[#2E1A36] via-[#1F1214] to-[#140B0D]">
           
           {/* Frame Container fitting either phone (420px), wide (520px), or fill (full 80% width) */}
           <div className={`flex flex-col h-full shadow-2xl relative overflow-hidden transition-all duration-300 sm:rounded-[32px] sm:border-2 sm:border-slate-800 ${

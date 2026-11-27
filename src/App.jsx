@@ -5335,7 +5335,7 @@ export default function App() {
             {/* SCREEN 1: Dedicated Login Modal on Website */}
             {currentScreen === 'login' && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-                <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-[#E7CCD3] relative">
+                <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-[#E8C6D1] relative">
                   <LoginScreen 
                     onLoginSuccess={handleLoginSuccess}
                     setCurrentScreen={setCurrentScreen}
@@ -5348,7 +5348,7 @@ export default function App() {
 
             {/* SCREEN 1B: Business / Vendor Self-Service Portal on Website (Guest Landing Only) */}
             {!currentUser && currentScreen === 'vendor-portal' && (
-              <div className="fixed inset-0 z-50 overflow-y-auto bg-[#F5E1E6]">
+              <div className="fixed inset-0 z-50 overflow-y-auto bg-[#FFF7FA]">
                 <VendorPortalScreen
                   onBack={() => setCurrentScreen('app')}
                   showToast={showToast}
@@ -5358,7 +5358,7 @@ export default function App() {
 
             {/* SCREEN 1C: Customer Wedding Services View on Website */}
             {currentScreen === 'services' && (
-              <div className="fixed inset-0 z-50 overflow-y-auto bg-[#F5E1E6]">
+              <div className="fixed inset-0 z-50 overflow-y-auto bg-[#FFF7FA]">
                 <MobileServicesScreen
                   currentUser={currentUser}
                   onOpenOffers={handleOpenOffers}
@@ -5372,7 +5372,7 @@ export default function App() {
             {/* SCREEN 2: Dedicated Register Modal on Website */}
             {currentScreen === 'register' && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-                <div className={`w-full ${registeredVerifiedPhone ? 'max-w-xl max-h-[90vh]' : 'max-w-md'} overflow-y-auto bg-white rounded-3xl shadow-2xl border border-[#E7CCD3] relative`}>
+                <div className={`w-full ${registeredVerifiedPhone ? 'max-w-xl max-h-[90vh]' : 'max-w-md'} overflow-y-auto bg-white rounded-3xl shadow-2xl border border-[#E8C6D1] relative`}>
                   {registeredVerifiedPhone ? (
                     <RegistrationWizard 
                       initialData={{ mobile: registeredVerifiedPhone, mobileVerified: true }}
@@ -5418,7 +5418,7 @@ export default function App() {
             {/* SCREEN 3.5: Aadhaar Verification Modal on Website */}
             {currentScreen === 'verify-aadhaar' && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-                <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-[#E7CCD3] relative">
+                <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-[#E8C6D1] relative">
                   <AadhaarVerificationScreen 
                     registrationData={pendingRegistration || currentUser}
                     onVerificationSuccess={(data) => {
@@ -5786,12 +5786,12 @@ export default function App() {
                 <div className={`px-4 py-3 rounded-2xl shadow-2xl flex items-center space-x-2.5 text-xs font-semibold backdrop-blur-md ${
                   toastType === 'error'
                     ? 'bg-rose-950/95 text-rose-100 border border-rose-500 shadow-rose-900/50'
-                    : 'bg-[#380817]/95 text-white border border-[#8E5766]/50 shadow-[#4E0C22]/20'
+                    : 'bg-[#2E1A36]/95 text-white border border-[#8064A2]/50 shadow-[#C76B85]/20'
                 }`}>
                   {toastType === 'error' ? (
                     <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                   ) : (
-                    <Sparkles className="w-4 h-4 text-[#E4C1CA] shrink-0" />
+                    <Sparkles className="w-4 h-4 text-[#E8C6D1] shrink-0" />
                   )}
                   <span className="truncate">{toastMessage}</span>
                 </div>
@@ -5831,12 +5831,12 @@ export default function App() {
             <div className={`px-3.5 py-2.5 rounded-2xl shadow-xl flex items-center space-x-2 text-xs font-semibold backdrop-blur-md ${
               toastType === 'error'
                 ? 'bg-rose-950/95 text-rose-100 border border-rose-500 shadow-rose-900/50'
-                : 'bg-[#380817]/95 text-white border border-[#8E5766]/50 shadow-[#4E0C22]/20'
+                : 'bg-[#2E1A36]/95 text-white border border-[#8064A2]/50 shadow-[#C76B85]/20'
             }`}>
               {toastType === 'error' ? (
                 <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
               ) : (
-                <Sparkles className="w-3.5 h-3.5 text-[#E4C1CA] shrink-0" />
+                <Sparkles className="w-3.5 h-3.5 text-[#E8C6D1] shrink-0" />
               )}
               <span className="truncate">{toastMessage}</span>
             </div>

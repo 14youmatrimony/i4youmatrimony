@@ -119,17 +119,17 @@ export default function WebsiteSuccessStories() {
   return (
     <section
       id="testimonials-section"
-      className="py-3 md:py-4 bg-[#FAF0F2] text-[#4A2E37] relative overflow-hidden"
+      className="py-3 md:py-4 bg-[#FDF2F6] text-[#5A4463] relative overflow-hidden"
     >
       <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 relative z-10 space-y-3 mt-1">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-1.5">
-          <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-[#F7E2E7] border border-[#E7CCD3] text-[#4E0C22] text-xs font-bold uppercase tracking-wider">
+          <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-[#F9EBF0] border border-[#E8C6D1] text-[#C76B85] text-xs font-bold uppercase tracking-wider">
             <Heart className="w-3.5 h-3.5 fill-current" />
             <span>Real Couples, Real Blessed Marriages</span>
           </div>
 
-          <h2 className="text-2xl sm:text-4xl font-serif font-extrabold tracking-tight text-[#380817]">
+          <h2 className="text-2xl sm:text-4xl font-serif font-extrabold tracking-tight text-[#2E1A36]">
             100+ Happy Stories
           </h2>
         </div>
@@ -139,11 +139,11 @@ export default function WebsiteSuccessStories() {
           {displayStories.map((story) => (
             <article
               key={story.id}
-              className="h-full bg-white rounded-2xl p-3.5 border border-[#E7CCD3] shadow-xs flex flex-col justify-between group hover:border-[#8E5766] hover:shadow-md transition-all select-none"
+              className="h-full bg-white rounded-2xl p-3.5 border border-[#E8C6D1] shadow-xs flex flex-col justify-between group hover:border-[#8064A2] hover:shadow-md transition-all select-none"
             >
               {/* Couple Wedding Portrait */}
               <div
-                className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-[#F7E2E7]/40 select-none"
+                className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-[#F9EBF0]/40 select-none"
                 onContextMenu={(e) => e.preventDefault()}
               >
                 <img
@@ -163,20 +163,20 @@ export default function WebsiteSuccessStories() {
               {/* Couple Details */}
               <div className="pt-3 flex-1 flex flex-col justify-between space-y-2">
                 <div className="space-y-1">
-                  <h3 className="text-base font-serif font-bold text-[#380817] leading-snug">
+                  <h3 className="text-base font-serif font-bold text-[#2E1A36] leading-snug">
                     {story.couple}
                   </h3>
-                  <p className="text-xs text-[#4E0C22] font-medium flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-[#8E5766] shrink-0" />
+                  <p className="text-xs text-[#C76B85] font-medium flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-[#8064A2] shrink-0" />
                     <span>{story.location}</span>
                   </p>
-                  <p className="text-xs text-[#4A2E37] line-clamp-1 leading-relaxed pt-0.5">
+                  <p className="text-xs text-[#5A4463] line-clamp-1 leading-relaxed pt-0.5">
                     {story.note}
                   </p>
                 </div>
 
-                <div className="pt-2 border-t border-[#F7E2E7] flex items-center justify-between text-[11px] text-[#7B4A57] font-medium">
-                  <span className="flex items-center gap-1 text-[#8E5766] font-semibold">
+                <div className="pt-2 border-t border-[#F9EBF0] flex items-center justify-between text-[11px] text-[#AA98A9] font-medium">
+                  <span className="flex items-center gap-1 text-[#8064A2] font-semibold">
                     <Calendar className="w-3.5 h-3.5" />
                     <span>{story.weddingDate}</span>
                   </span>

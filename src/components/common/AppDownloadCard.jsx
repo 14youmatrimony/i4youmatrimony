@@ -23,10 +23,10 @@ export default function AppDownloadCard({ onSwitchToAppMode, className = '' }) {
   return (
     <>
       {/* Exact replica of the user reference card */}
-      <div className={`bg-white text-slate-900 rounded-[28px] p-6 sm:p-8 shadow-xl shadow-[#4E0C22]/06 border border-[#E7CCD3] max-w-lg mx-auto transition-all duration-300 ${className}`}>
+      <div className={`bg-white text-slate-900 rounded-[28px] p-6 sm:p-8 shadow-xl shadow-[#C76B85]/06 border border-[#E8C6D1] max-w-lg mx-auto transition-all duration-300 ${className}`}>
         
         {/* Header Text matching user's design */}
-        <p className="text-center text-[15px] sm:text-[16.5px] font-normal text-[#380817] leading-snug mb-6 max-w-md mx-auto">
+        <p className="text-center text-[15px] sm:text-[16.5px] font-normal text-[#2E1A36] leading-snug mb-6 max-w-md mx-auto">
           Point your phone camera at the QR code or use<br className="hidden sm:inline" /> one of the download links below
         </p>
 
@@ -118,7 +118,7 @@ export default function AppDownloadCard({ onSwitchToAppMode, className = '' }) {
       {/* iOS App Store / Simulator Information Modal */}
       {showIosModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-[#380817] text-white border border-[#8E5766]/40 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative">
+          <div className="bg-[#2E1A36] text-white border border-[#8064A2]/40 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative">
             
             <button
               onClick={() => setShowIosModal(false)}
@@ -127,7 +127,7 @@ export default function AppDownloadCard({ onSwitchToAppMode, className = '' }) {
               <X className="w-5 h-5" />
             </button>
 
-            <div className="w-12 h-12 rounded-2xl bg-[#8E5766]/10 border border-[#8E5766]/30 flex items-center justify-center text-[#E4C1CA] mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#8064A2]/10 border border-[#8064A2]/30 flex items-center justify-center text-[#E8C6D1] mb-4">
               <Smartphone className="w-6 h-6" />
             </div>
 
@@ -147,7 +147,7 @@ export default function AppDownloadCard({ onSwitchToAppMode, className = '' }) {
                     setShowIosModal(false);
                     onSwitchToAppMode();
                   }}
-                  className="w-full py-3 px-4 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-[#4E0C22]/20 transition-all cursor-pointer"
+                  className="w-full py-3 px-4 rounded-xl bg-[#C76B85] hover:bg-[#B35872] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-[#C76B85]/20 transition-all cursor-pointer"
                 >
                   <Smartphone className="w-4 h-4" />
                   <span>Launch Live Interactive Mobile App</span>

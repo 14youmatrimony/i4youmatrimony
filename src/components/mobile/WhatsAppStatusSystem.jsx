@@ -24,11 +24,11 @@ import { resolveProfilePhoto } from '../../services/api';
 
 // Sample background gradients for WhatsApp-style text status
 const TEXT_GRADIENTS = [
-  { id: 'rose-gold', label: 'Rose Gold', bg: 'from-[#4E0C22] via-[#8E354F] to-[#380817]', text: 'text-white' },
+  { id: 'rose-gold', label: 'Rose Gold', bg: 'from-[#C76B85] via-[#8E354F] to-[#2E1A36]', text: 'text-white' },
   { id: 'emerald', label: 'Emerald Temple', bg: 'from-emerald-900 via-teal-900 to-emerald-950', text: 'text-emerald-100' },
   { id: 'violet', label: 'Mystic Purple', bg: 'from-purple-900 via-indigo-950 to-slate-950', text: 'text-purple-100' },
   { id: 'crimson', label: 'Festive Red', bg: 'from-rose-900 via-red-950 to-amber-950', text: 'text-rose-100' },
-  { id: 'gold', label: 'Plum & Rose Gold', bg: 'from-[#4E0C22] via-[#8E5766] to-[#E4C1CA]', text: 'text-white' }
+  { id: 'gold', label: 'Plum & Rose Gold', bg: 'from-[#C76B85] via-[#8064A2] to-[#E8C6D1]', text: 'text-white' }
 ];
 
 export default function WhatsAppStatusSystem({
@@ -231,7 +231,7 @@ export function WhatsAppStoryViewerModal({
             alt={profile?.name || 'Status'} 
             gender={profile?.gender}
             size="sm"
-            className="w-10 h-10 ring-2 ring-[#8E5766] shrink-0"
+            className="w-10 h-10 ring-2 ring-[#8064A2] shrink-0"
           />
           <div className="min-w-0">
             <div className="flex items-center space-x-1.5">
@@ -315,7 +315,7 @@ export function WhatsAppStoryViewerModal({
             )}
           </div>
         ) : status?.type === 'text' ? (
-          <div className={`w-full h-full flex items-center justify-center p-6 bg-gradient-to-br ${status.bgGradient || 'from-[#4E0C22] to-[#6B1230]'}`}>
+          <div className={`w-full h-full flex items-center justify-center p-6 bg-gradient-to-br ${status.bgGradient || 'from-[#C76B85] to-[#B35872]'}`}>
             <p className="font-serif text-lg sm:text-xl text-center leading-relaxed text-white font-medium max-w-xs drop-shadow-md">
               "{status.caption || status.text}"
             </p>
@@ -360,7 +360,7 @@ export function WhatsAppStoryViewerModal({
         {isOwnStatus ? (
           <div className="bg-white/10 backdrop-blur-md rounded-2xl px-3.5 py-2 flex items-center justify-between text-white border border-white/15">
             <div className="flex items-center space-x-2 text-xs">
-              <Eye className="w-4 h-4 text-[#8E5766]" />
+              <Eye className="w-4 h-4 text-[#8064A2]" />
               <span className="font-bold">{status?.viewsCount || 18} Views</span>
               <span className="text-[10px] text-slate-300">• Viewed by mutual matches</span>
             </div>
@@ -392,7 +392,7 @@ export function WhatsAppStoryViewerModal({
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   placeholder={`Reply to ${candidateFirstName}...`}
-                  className="flex-1 px-3.5 py-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 text-white placeholder-slate-300 text-xs focus:bg-white/30 focus:outline-none focus:ring-1 focus:ring-[#8E5766]"
+                  className="flex-1 px-3.5 py-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 text-white placeholder-slate-300 text-xs focus:bg-white/30 focus:outline-none focus:ring-1 focus:ring-[#8064A2]"
                 />
                 
                 {/* Quick Emoji Reaction Buttons */}
@@ -412,7 +412,7 @@ export function WhatsAppStoryViewerModal({
                 <button
                   type="submit"
                   disabled={!replyText.trim()}
-                  className="p-2.5 rounded-2xl bg-[#4E0C22] text-white disabled:opacity-40 font-bold transition-all shadow-md hover:bg-[#6B1230]"
+                  className="p-2.5 rounded-2xl bg-[#C76B85] text-white disabled:opacity-40 font-bold transition-all shadow-md hover:bg-[#B35872]"
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>
@@ -429,7 +429,7 @@ export function WhatsAppStoryViewerModal({
                 className={`text-[10px] font-bold px-3 py-1 rounded-full flex items-center space-x-1 transition-all ${
                   isInterested 
                     ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400/40'
-                    : 'bg-[#8E5766]/20 text-[#4E0C22] border border-[#8E5766]/40 hover:bg-[#8E5766]/30'
+                    : 'bg-[#8064A2]/20 text-[#C76B85] border border-[#8064A2]/40 hover:bg-[#8064A2]/30'
                 }`}
               >
                 <Heart className={`w-3 h-3 ${isInterested ? 'fill-emerald-400' : ''}`} />
@@ -449,7 +449,7 @@ export function WhatsAppStoryViewerModal({
         onClick={onClose}
       >
         <div 
-          className="w-full max-w-[380px] sm:max-w-[395px] h-[90vh] max-h-[720px] rounded-3xl overflow-hidden shadow-2xl relative border border-[#8E5766]/40 flex flex-col justify-between bg-black animate-in zoom-in-95 duration-200 select-none"
+          className="w-full max-w-[380px] sm:max-w-[395px] h-[90vh] max-h-[720px] rounded-3xl overflow-hidden shadow-2xl relative border border-[#8064A2]/40 flex flex-col justify-between bg-black animate-in zoom-in-95 duration-200 select-none"
           onClick={(e) => e.stopPropagation()}
           onMouseDown={() => setIsPaused(true)}
           onMouseUp={() => setIsPaused(false)}
@@ -618,7 +618,7 @@ export function WhatsAppStatusEditorSheet({
   const editorContent = (
     <div 
       className={isWebsite 
-        ? "bg-white rounded-3xl w-full max-w-[420px] max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative border border-[#E7CCD3]" 
+        ? "bg-white rounded-3xl w-full max-w-[420px] max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative border border-[#E8C6D1]" 
         : "bg-white rounded-t-3xl w-full max-w-[392px] sm:max-w-md max-h-[92%] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-300 relative border-t border-slate-200"
       }
       onClick={(e) => e.stopPropagation()}
@@ -629,8 +629,8 @@ export function WhatsAppStatusEditorSheet({
         {/* Sheet Header Bar */}
         <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2">
-            <div className="w-7 h-7 rounded-full bg-[#F5E1E6] text-[#4E0C22] flex items-center justify-center font-bold border border-[#E7CCD3]">
-              <Pencil className="w-3.5 h-3.5 text-[#4E0C22]" />
+            <div className="w-7 h-7 rounded-full bg-[#FFF7FA] text-[#C76B85] flex items-center justify-center font-bold border border-[#E8C6D1]">
+              <Pencil className="w-3.5 h-3.5 text-[#C76B85]" />
             </div>
             <div>
               <h3 className="font-serif font-bold text-sm text-slate-900">
@@ -660,7 +660,7 @@ export function WhatsAppStatusEditorSheet({
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <Camera className="w-3.5 h-3.5 text-[#4E0C22]" />
+              <Camera className="w-3.5 h-3.5 text-[#C76B85]" />
               <span>Photo</span>
             </button>
 
@@ -712,7 +712,7 @@ export function WhatsAppStatusEditorSheet({
                   onClick={() => fileInputRef.current?.click()}
                   className="absolute bottom-2.5 right-2.5 px-3 py-1.5 rounded-xl bg-black/75 backdrop-blur-md text-white text-xs font-bold flex items-center space-x-1.5 hover:bg-black border border-white/20 shadow-md"
                 >
-                  <Camera className="w-3.5 h-3.5 text-[#E4C1CA]" />
+                  <Camera className="w-3.5 h-3.5 text-[#E8C6D1]" />
                   <span>Choose Photo</span>
                 </button>
               </div>
@@ -755,7 +755,7 @@ export function WhatsAppStatusEditorSheet({
                   onClick={() => fileInputRef.current?.click()}
                   className="absolute bottom-2.5 right-2.5 px-3 py-1.5 rounded-xl bg-black/75 backdrop-blur-md text-white text-xs font-bold flex items-center space-x-1.5 hover:bg-black border border-white/20 shadow-md"
                 >
-                  <Video className="w-3.5 h-3.5 text-[#E4C1CA]" />
+                  <Video className="w-3.5 h-3.5 text-[#E8C6D1]" />
                   <span>Choose Video</span>
                 </button>
               </div>
@@ -797,7 +797,7 @@ export function WhatsAppStatusEditorSheet({
                       type="button"
                       onClick={() => setSelectedGradient(g.bg)}
                       className={`w-7 h-7 rounded-full bg-gradient-to-tr ${g.bg} transition-all flex items-center justify-center ring-2 ${
-                        selectedGradient === g.bg ? 'ring-[#8E5766] scale-110' : 'ring-transparent'
+                        selectedGradient === g.bg ? 'ring-[#8064A2] scale-110' : 'ring-transparent'
                       }`}
                       title={g.label}
                     >
@@ -821,7 +821,7 @@ export function WhatsAppStatusEditorSheet({
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder={activeTab === 'text' ? "Type your status message..." : "Add a caption for your matrimony matches..."}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#8E5766] focus:outline-none resize-none font-medium text-slate-800"
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#8064A2] focus:outline-none resize-none font-medium text-slate-800"
               maxLength={180}
             />
             <div className="flex justify-between items-center text-[10px] text-slate-400 mt-0.5">
@@ -869,7 +869,7 @@ export function WhatsAppStatusEditorSheet({
               type="button"
               onClick={handleSave}
               disabled={isProcessing || (activeTab === 'text' ? !caption.trim() : !mediaUrl && !caption.trim())}
-              className="px-5 py-2 rounded-xl text-xs font-bold bg-[#4E0C22] text-white hover:bg-[#6B1230] transition-all shadow-md flex items-center space-x-1.5 disabled:opacity-40 cursor-pointer"
+              className="px-5 py-2 rounded-xl text-xs font-bold bg-[#C76B85] text-white hover:bg-[#B35872] transition-all shadow-md flex items-center space-x-1.5 disabled:opacity-40 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>{isProcessing ? 'Processing...' : (initialStatus ? 'Update Status' : 'Share Status')}</span>
@@ -911,7 +911,7 @@ export function WhatsAppStatusContextMenu({
   const menuContent = (
     <div 
       className={isWebsite
-        ? "bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative border border-[#E7CCD3]"
+        ? "bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative border border-[#E8C6D1]"
         : "bg-white rounded-t-3xl w-full max-w-[392px] sm:max-w-md shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-300 relative border-t border-slate-200"
       }
       onClick={(e) => e.stopPropagation()}
@@ -924,7 +924,7 @@ export function WhatsAppStatusContextMenu({
           <img 
             src={profile?.photo} 
             alt={profile?.name || 'Status'} 
-            className="w-11 h-11 rounded-full object-cover ring-2 ring-[#8E5766]" 
+            className="w-11 h-11 rounded-full object-cover ring-2 ring-[#8064A2]" 
           />
           <div className="min-w-0 flex-1">
             <h4 className="font-bold text-sm text-slate-900 truncate">

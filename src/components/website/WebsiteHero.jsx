@@ -79,10 +79,10 @@ export default function WebsiteHero({
       id="hero-section"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="relative w-full min-h-[460px] lg:h-[65vh] lg:min-h-[460px] lg:max-h-[640px] flex items-center py-6 md:py-8 overflow-hidden border-b border-[#E7CCD3]"
+      className="relative w-full min-h-[460px] lg:h-[65vh] lg:min-h-[460px] lg:max-h-[640px] flex items-center py-6 md:py-8 overflow-hidden border-b border-[#E8C6D1]"
     >
       {/* Full-Bleed Rotating Newlywed Indian Couple Slideshow */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#380817]">
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#2E1A36]">
         {slides.map((slide, idx) => {
           const isActive = idx === activeSlideIndex % slides.length;
           return (
@@ -129,7 +129,7 @@ export default function WebsiteHero({
                   onClick={() => setActiveSlideIndex(idx)}
                   aria-label={`Go to banner ${idx + 1}`}
                   className={`h-2 rounded-full transition-all cursor-pointer ${
-                    isDotActive ? 'w-6 bg-[#E4C1CA]' : 'w-2 bg-white/50 hover:bg-white/80'
+                    isDotActive ? 'w-6 bg-[#E8C6D1]' : 'w-2 bg-white/50 hover:bg-white/80'
                   }`}
                 />
               );
@@ -146,20 +146,20 @@ export default function WebsiteHero({
             <button
               type="button"
               onClick={onOpenOffers || (() => onScrollToSection?.('plans-section'))}
-              className="group inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white/90 hover:bg-white border border-[#E7CCD3] text-[#4E0C22] text-xs font-bold shadow-md backdrop-blur-md transition-all cursor-pointer"
+              className="group inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white/90 hover:bg-white border border-[#E8C6D1] text-[#C76B85] text-xs font-bold shadow-md backdrop-blur-md transition-all cursor-pointer"
               title={`Special Matrimony Offer: ${activeOffer.discount_percent}% OFF with code ${activeOffer.code}`}
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span className="text-[#4E0C22] font-extrabold uppercase tracking-wide">
+              <span className="text-[#C76B85] font-extrabold uppercase tracking-wide">
                 Special Offer: {activeOffer.discount_percent}% OFF
               </span>
-              <span className="text-[#4A2E37] font-normal hidden sm:inline">
+              <span className="text-[#5A4463] font-normal hidden sm:inline">
                 {activeOffer.title || 'Limited Time Festive Savings'}
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-[#4E0C22] text-white font-mono font-black text-[11px] uppercase group-hover:bg-[#6B1230] transition-colors">
+              <span className="px-2 py-0.5 rounded-md bg-[#C76B85] text-white font-mono font-black text-[11px] uppercase group-hover:bg-[#B35872] transition-colors">
                 {activeOffer.code}
               </span>
-              <span className="text-[#4E0C22] font-bold flex items-center gap-0.5 text-[11px]">
+              <span className="text-[#C76B85] font-bold flex items-center gap-0.5 text-[11px]">
                 <span>Claim Now</span>
                 <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
               </span>
@@ -172,9 +172,9 @@ export default function WebsiteHero({
           {/* Left Column: Frosted-Glass Featured Candidate Card (2cm-3cm from left edge, +10% height) */}
           {featuredProfile && (
             <div className="lg:col-span-5 lg:order-1 flex justify-center lg:justify-start relative lg:ml-6">
-              <div className="relative w-full max-w-sm sm:max-w-[360px] backdrop-blur-md bg-white/90 rounded-2xl py-4 sm:py-5 px-3.5 sm:px-4 border border-[#E4C1CA]/80 shadow-2xl group transition-all duration-300 hover:-translate-y-1">
+              <div className="relative w-full max-w-sm sm:max-w-[360px] backdrop-blur-md bg-white/90 rounded-2xl py-4 sm:py-5 px-3.5 sm:px-4 border border-[#E8C6D1]/80 shadow-2xl group transition-all duration-300 hover:-translate-y-1">
                 {/* Floating Top Match Seal */}
-                <div className="absolute -top-3 left-5 bg-[#4E0C22] text-white text-[11px] font-extrabold px-3 py-0.5 rounded-full shadow-md flex items-center space-x-1.5">
+                <div className="absolute -top-3 left-5 bg-[#C76B85] text-white text-[11px] font-extrabold px-3 py-0.5 rounded-full shadow-md flex items-center space-x-1.5">
                   <Crown className="w-3 h-3 fill-current text-white" />
                   <span>Featured Profile of the Day</span>
                 </div>
@@ -186,12 +186,12 @@ export default function WebsiteHero({
                     alt={featuredProfile.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#380817]/80 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#2E1A36]/80 via-transparent to-transparent" />
 
                   {/* High Match Score Badge (Logged-in users only) */}
                   {Boolean(currentUser && !currentUser.isGuest && featuredProfile.matchScore) && (
-                    <div className="absolute top-2.5 right-2.5 flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-white/95 text-[#4E0C22] border border-[#E7CCD3] font-bold text-[11px] shadow-sm backdrop-blur-md">
-                      <Sparkles className="w-3 h-3 text-[#8E5766]" />
+                    <div className="absolute top-2.5 right-2.5 flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-white/95 text-[#C76B85] border border-[#E8C6D1] font-bold text-[11px] shadow-sm backdrop-blur-md">
+                      <Sparkles className="w-3 h-3 text-[#8064A2]" />
                       <span>{featuredProfile.matchScore}% Match</span>
                     </div>
                   )}
@@ -207,13 +207,13 @@ export default function WebsiteHero({
                 <div className="mt-3.5 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg sm:text-xl font-serif font-bold text-[#380817] group-hover:text-[#4E0C22] transition-colors leading-tight">
+                      <h3 className="text-lg sm:text-xl font-serif font-bold text-[#2E1A36] group-hover:text-[#C76B85] transition-colors leading-tight">
                         {featuredProfile.name}
                       </h3>
-                      <p className="text-[11px] text-[#4A2E37] flex items-center gap-1 mt-0.5 font-medium">
+                      <p className="text-[11px] text-[#5A4463] flex items-center gap-1 mt-0.5 font-medium">
                         <span>{featuredProfile.age} Yrs, {featuredProfile.height}</span>
                         <span>•</span>
-                        <MapPin className="w-3 h-3 text-[#8E5766]" />
+                        <MapPin className="w-3 h-3 text-[#8064A2]" />
                         <span>{featuredProfile.district || featuredProfile.city}, {featuredProfile.state}</span>
                       </p>
                     </div>
@@ -230,8 +230,8 @@ export default function WebsiteHero({
                       }}
                       className={`p-2 rounded-full transition-all cursor-pointer shadow-sm ${
                         isInterested
-                          ? 'bg-[#4E0C22] text-white hover:bg-[#6B1230] animate-pulse'
-                          : 'bg-[#F7E2E7] hover:bg-[#f7ddd4] text-[#4E0C22] border border-[#E7CCD3]'
+                          ? 'bg-[#C76B85] text-white hover:bg-[#B35872] animate-pulse'
+                          : 'bg-[#F9EBF0] hover:bg-[#f7ddd4] text-[#C76B85] border border-[#E8C6D1]'
                       }`}
                       title={isInterested ? 'Interest Sent' : 'Send Interest'}
                     >
@@ -239,20 +239,20 @@ export default function WebsiteHero({
                     </button>
                   </div>
 
-                  <p className="text-[11px] text-[#4A2E37] flex items-center gap-1.5 line-clamp-1 font-medium">
-                    <GraduationCap className="w-3 h-3 text-[#8E5766] shrink-0" />
+                  <p className="text-[11px] text-[#5A4463] flex items-center gap-1.5 line-clamp-1 font-medium">
+                    <GraduationCap className="w-3 h-3 text-[#8064A2] shrink-0" />
                     <span className="truncate">{featuredProfile.education}</span>
                   </p>
 
-                  <p className="text-[11px] text-[#4A2E37] flex items-center gap-1.5 line-clamp-1 font-medium">
-                    <Briefcase className="w-3 h-3 text-[#8E5766] shrink-0" />
+                  <p className="text-[11px] text-[#5A4463] flex items-center gap-1.5 line-clamp-1 font-medium">
+                    <Briefcase className="w-3 h-3 text-[#8064A2] shrink-0" />
                     <span className="truncate">{featuredProfile.profession} • {featuredProfile.company}</span>
                   </p>
 
                   <div className="pt-1.5 flex items-center gap-2">
                     <button
                       onClick={() => onSelectProfile(featuredProfile)}
-                      className="flex-1 py-2 rounded-xl bg-white hover:bg-[#F7E2E7] text-[#4E0C22] font-semibold text-xs border border-[#E7CCD3] transition-all text-center cursor-pointer shadow-xs active:scale-95"
+                      className="flex-1 py-2 rounded-xl bg-white hover:bg-[#F9EBF0] text-[#C76B85] font-semibold text-xs border border-[#E8C6D1] transition-all text-center cursor-pointer shadow-xs active:scale-95"
                     >
                       View Horoscope
                     </button>
@@ -266,7 +266,7 @@ export default function WebsiteHero({
                           onToggleInterest(featuredProfile.id);
                         }
                       }}
-                      className="flex-1 py-2 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-extrabold text-xs transition-all text-center cursor-pointer shadow-sm active:scale-95"
+                      className="flex-1 py-2 rounded-xl bg-[#C76B85] hover:bg-[#B35872] text-white font-extrabold text-xs transition-all text-center cursor-pointer shadow-sm active:scale-95"
                     >
                       {isInterested ? 'Interest Sent' : 'Send Free Interest'}
                     </button>
@@ -279,46 +279,46 @@ export default function WebsiteHero({
           {/* Right Column: Headline, 4 Frosted-Glass Switches & CTAs */}
           <div className="lg:col-span-7 lg:order-2 space-y-5 text-center lg:text-left">
             <h1 className="text-2xl sm:text-4xl lg:text-[42px] font-serif font-extrabold tracking-tight text-white drop-shadow-md leading-tight lg:leading-[1.16]">
-              Find Your <span className="text-[#F7E2E7]">Sacred Match</span> With Dignity &amp;{' '}
-              <span className="text-[#E4C1CA]">Trust</span>
+              Find Your <span className="text-[#F9EBF0]">Sacred Match</span> With Dignity &amp;{' '}
+              <span className="text-[#E8C6D1]">Trust</span>
             </h1>
 
             {/* 4 Uniform Frosted-Glass Switches Floating Over Full-Bleed Photo */}
             <div className="grid grid-cols-2 sm:grid-cols-4 auto-rows-fr gap-2.5 pt-0.5">
-              <div className="h-full min-h-[74px] flex flex-col justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-md bg-white/85 border border-[#E4C1CA]/80 hover:border-[#8E5766] text-left transition-all hover:-translate-y-0.5 shadow-lg group">
+              <div className="h-full min-h-[74px] flex flex-col justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-md bg-white/85 border border-[#E8C6D1]/80 hover:border-[#8064A2] text-left transition-all hover:-translate-y-0.5 shadow-lg group">
                 <div className="flex items-center justify-between mb-0.5 w-full">
-                  <p className="text-base sm:text-lg font-serif font-bold text-[#4E0C22]">100%</p>
+                  <p className="text-base sm:text-lg font-serif font-bold text-[#C76B85]">100%</p>
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
                 </div>
-                <p className="text-[10px] text-[#380817] font-semibold leading-tight">Aadhaar UIDAI Verified</p>
+                <p className="text-[10px] text-[#2E1A36] font-semibold leading-tight">Aadhaar UIDAI Verified</p>
               </div>
 
-              <div className="h-full min-h-[74px] flex flex-col justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-md bg-white/85 border border-[#E4C1CA]/80 hover:border-[#8E5766] text-left transition-all hover:-translate-y-0.5 shadow-lg group">
+              <div className="h-full min-h-[74px] flex flex-col justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-md bg-white/85 border border-[#E8C6D1]/80 hover:border-[#8064A2] text-left transition-all hover:-translate-y-0.5 shadow-lg group">
                 <div className="flex items-center justify-between mb-0.5 w-full">
-                  <p className="text-base sm:text-lg font-serif font-bold text-[#4E0C22]">700+ Dist.</p>
-                  <MapPin className="w-3.5 h-3.5 text-[#8E5766] group-hover:scale-110 transition-transform shrink-0" />
+                  <p className="text-base sm:text-lg font-serif font-bold text-[#C76B85]">700+ Dist.</p>
+                  <MapPin className="w-3.5 h-3.5 text-[#8064A2] group-hover:scale-110 transition-transform shrink-0" />
                 </div>
-                <p className="text-[10px] text-[#380817] font-semibold leading-tight">All India Access</p>
+                <p className="text-[10px] text-[#2E1A36] font-semibold leading-tight">All India Access</p>
               </div>
 
-              <div className="h-full min-h-[74px] flex flex-col justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-md bg-white/85 border border-[#E4C1CA]/80 hover:border-[#8E5766] text-left transition-all hover:-translate-y-0.5 shadow-lg group">
+              <div className="h-full min-h-[74px] flex flex-col justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-md bg-white/85 border border-[#E8C6D1]/80 hover:border-[#8064A2] text-left transition-all hover:-translate-y-0.5 shadow-lg group">
                 <div className="flex items-center justify-between mb-0.5 w-full">
                   <p className="text-base sm:text-lg font-serif font-bold text-emerald-700">0% Fake</p>
                   <Lock className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
                 </div>
-                <p className="text-[10px] text-[#380817] font-semibold leading-tight">Photo Privacy Shield</p>
+                <p className="text-[10px] text-[#2E1A36] font-semibold leading-tight">Photo Privacy Shield</p>
               </div>
 
               <button
                 type="button"
                 onClick={() => (onOpenVendorPortal ? onOpenVendorPortal() : onOpenServices?.())}
-                className="h-full min-h-[74px] flex flex-col justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-md bg-white/85 hover:bg-white/95 border border-[#E4C1CA]/80 hover:border-[#8E5766] text-left transition-all hover:-translate-y-0.5 shadow-lg group cursor-pointer"
+                className="h-full min-h-[74px] flex flex-col justify-center p-2.5 sm:p-3 rounded-xl backdrop-blur-md bg-white/85 hover:bg-white/95 border border-[#E8C6D1]/80 hover:border-[#8064A2] text-left transition-all hover:-translate-y-0.5 shadow-lg group cursor-pointer"
               >
                 <div className="flex items-center justify-between mb-0.5 w-full">
-                  <p className="text-base sm:text-lg font-serif font-bold text-[#4E0C22]">Services</p>
-                  <Store className="w-3.5 h-3.5 text-[#8E5766] group-hover:scale-110 transition-transform shrink-0" />
+                  <p className="text-base sm:text-lg font-serif font-bold text-[#C76B85]">Services</p>
+                  <Store className="w-3.5 h-3.5 text-[#8064A2] group-hover:scale-110 transition-transform shrink-0" />
                 </div>
-                <p className="text-[10px] text-[#380817] font-semibold leading-tight">Matrimony Services</p>
+                <p className="text-[10px] text-[#2E1A36] font-semibold leading-tight">Matrimony Services</p>
               </button>
             </div>
 
@@ -327,7 +327,7 @@ export default function WebsiteHero({
               <button
                 type="button"
                 onClick={() => onScrollToSection?.('matches-section')}
-                className="px-4.5 py-2.5 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-bold text-xs sm:text-[13px] transition-all shadow-lg shadow-black/25 flex items-center space-x-1.5 cursor-pointer active:scale-95"
+                className="px-4.5 py-2.5 rounded-xl bg-[#C76B85] hover:bg-[#B35872] text-white font-bold text-xs sm:text-[13px] transition-all shadow-lg shadow-black/25 flex items-center space-x-1.5 cursor-pointer active:scale-95"
               >
                 <span>Browse 100% Verified Matches</span>
                 <ArrowRight className="w-3.5 h-3.5 text-white" />
@@ -337,9 +337,9 @@ export default function WebsiteHero({
                 <button
                   type="button"
                   onClick={() => setViewMode('app')}
-                  className="px-4 py-2.5 rounded-xl bg-white/90 hover:bg-white backdrop-blur-md text-[#4E0C22] font-bold text-xs sm:text-[13px] border-2 border-[#E4C1CA] transition-all flex items-center space-x-1.5 cursor-pointer shadow-md active:scale-95"
+                  className="px-4 py-2.5 rounded-xl bg-white/90 hover:bg-white backdrop-blur-md text-[#C76B85] font-bold text-xs sm:text-[13px] border-2 border-[#E8C6D1] transition-all flex items-center space-x-1.5 cursor-pointer shadow-md active:scale-95"
                 >
-                  <Smartphone className="w-3.5 h-3.5 text-[#4E0C22]" />
+                  <Smartphone className="w-3.5 h-3.5 text-[#C76B85]" />
                   <span>Open Matrimony App</span>
                 </button>
               )}
@@ -347,9 +347,9 @@ export default function WebsiteHero({
               <button
                 type="button"
                 onClick={() => onScrollToSection('matches-section')}
-                className="px-4 py-2.5 rounded-xl bg-white/90 hover:bg-white backdrop-blur-md text-[#4E0C22] font-semibold text-xs sm:text-[13px] border border-[#E4C1CA] transition-all flex items-center space-x-1.5 cursor-pointer shadow-md"
+                className="px-4 py-2.5 rounded-xl bg-white/90 hover:bg-white backdrop-blur-md text-[#C76B85] font-semibold text-xs sm:text-[13px] border border-[#E8C6D1] transition-all flex items-center space-x-1.5 cursor-pointer shadow-md"
               >
-                <Search className="w-3.5 h-3.5 text-[#4E0C22]" />
+                <Search className="w-3.5 h-3.5 text-[#C76B85]" />
                 <span>Explore Live Profiles</span>
               </button>
             </div>

@@ -314,18 +314,18 @@ export default function MobileAccountScreen({
   if (subView === 'privacy_settings') {
     return (
       <div className="flex-1 flex flex-col h-full w-full bg-slate-50 relative overflow-hidden">
-        <header className="bg-[#FAF0F2] text-[#380817] px-3.5 py-3 flex items-center justify-between border-b border-[#E7CCD3] shadow-xs shrink-0">
+        <header className="bg-[#FDF2F6] text-[#2E1A36] px-3.5 py-3 flex items-center justify-between border-b border-[#E8C6D1] shadow-xs shrink-0">
           <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={() => setSubView('profile')}
-              className="p-1.5 -ml-1 rounded-full text-slate-500 hover:text-[#380817] hover:bg-slate-100 transition-colors cursor-pointer"
+              className="p-1.5 -ml-1 rounded-full text-slate-500 hover:text-[#2E1A36] hover:bg-slate-100 transition-colors cursor-pointer"
             >
-              <ChevronLeft className="w-5 h-5 text-[#4E0C22]" />
+              <ChevronLeft className="w-5 h-5 text-[#C76B85]" />
             </button>
             <div>
-              <h2 className="font-serif font-bold text-sm text-[#380817]">Privacy & Security Settings</h2>
-              <p className="text-[10px] text-[#4A2E37]">UIDAI & Contact Protection Controls</p>
+              <h2 className="font-serif font-bold text-sm text-[#2E1A36]">Privacy & Security Settings</h2>
+              <p className="text-[10px] text-[#5A4463]">UIDAI & Contact Protection Controls</p>
             </div>
           </div>
         </header>
@@ -476,7 +476,7 @@ export default function MobileAccountScreen({
                 setSubView('profile');
               }
             }}
-            className="w-full py-2.5 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-2.5 rounded-xl bg-[#C76B85] hover:bg-[#B35872] text-white text-xs font-bold shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isSavingPrivacy ? 'Saving to Supabase...' : 'Save & Return to Account'}
           </button>
@@ -489,31 +489,31 @@ export default function MobileAccountScreen({
   if (subView === 'invoices') {
     return (
       <div className="flex-1 flex flex-col h-full w-full bg-slate-50 relative overflow-hidden">
-        <header className="bg-[#FAF0F2] text-[#380817] px-3.5 py-3 flex items-center justify-between border-b border-[#E7CCD3] shadow-xs shrink-0">
+        <header className="bg-[#FDF2F6] text-[#2E1A36] px-3.5 py-3 flex items-center justify-between border-b border-[#E8C6D1] shadow-xs shrink-0">
           <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={() => setSubView('profile')}
-              className="p-1.5 -ml-1 rounded-full text-slate-500 hover:text-[#380817] hover:bg-slate-100 transition-colors cursor-pointer"
+              className="p-1.5 -ml-1 rounded-full text-slate-500 hover:text-[#2E1A36] hover:bg-slate-100 transition-colors cursor-pointer"
             >
-              <ChevronLeft className="w-5 h-5 text-[#4E0C22]" />
+              <ChevronLeft className="w-5 h-5 text-[#C76B85]" />
             </button>
             <div>
-              <h2 className="font-serif font-bold text-sm text-[#380817]">Payment Receipts & Invoices</h2>
-              <p className="text-[10px] text-[#4A2E37]">GST Tax Invoices & Order History</p>
+              <h2 className="font-serif font-bold text-sm text-[#2E1A36]">Payment Receipts & Invoices</h2>
+              <p className="text-[10px] text-[#5A4463]">GST Tax Invoices & Order History</p>
             </div>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5 pb-12">
           {(!currentUser?.paymentHistory || currentUser.paymentHistory.length === 0) ? (
-            <div className="p-8 text-center bg-white rounded-3xl border border-[#E7CCD3] shadow-sm space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-[#F5E1E6] text-[#4E0C22] flex items-center justify-center mx-auto">
+            <div className="p-8 text-center bg-white rounded-3xl border border-[#E8C6D1] shadow-sm space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#FFF7FA] text-[#C76B85] flex items-center justify-center mx-auto">
                 <FileText className="w-6 h-6" />
               </div>
               <div>
-                <h4 className="font-bold text-[#380817] text-sm">No Payments Made Yet</h4>
-                <p className="text-xs text-[#4A2E37] mt-1 max-w-xs mx-auto">
+                <h4 className="font-bold text-[#2E1A36] text-sm">No Payments Made Yet</h4>
+                <p className="text-xs text-[#5A4463] mt-1 max-w-xs mx-auto">
                   Upgrade your membership to unlock contact details, horoscopes, and get official GST tax invoices.
                 </p>
               </div>
@@ -523,7 +523,7 @@ export default function MobileAccountScreen({
                   setSubView('profile');
                   onOpenOffers?.();
                 }}
-                className="px-4 py-2 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-bold text-xs shadow-md cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-[#C76B85] hover:bg-[#B35872] text-white font-bold text-xs shadow-md cursor-pointer"
               >
                 {activeOffer ? `View Plans (Flat ${activeOffer.discount_percent}% OFF)` : 'View Membership Plans'}
               </button>
@@ -551,7 +551,7 @@ export default function MobileAccountScreen({
                     </div>
 
                     <div className="text-right">
-                      <span className="font-serif font-black text-sm text-[#380817]">
+                      <span className="font-serif font-black text-sm text-[#2E1A36]">
                         ₹ {(item.totalAmount || 2499).toLocaleString('en-IN')}
                       </span>
                       <span className="block text-[9px] font-bold text-emerald-700">PAID</span>
@@ -565,7 +565,7 @@ export default function MobileAccountScreen({
                     <button
                       type="button"
                       onClick={() => onViewInvoice && onViewInvoice(item)}
-                      className="px-3 py-1 rounded-xl bg-[#F5E1E6] text-[#4E0C22] border border-[#E7CCD3] hover:bg-[#F7E2E7] font-bold flex items-center space-x-1 cursor-pointer transition-colors shadow-2xs"
+                      className="px-3 py-1 rounded-xl bg-[#FFF7FA] text-[#C76B85] border border-[#E8C6D1] hover:bg-[#F9EBF0] font-bold flex items-center space-x-1 cursor-pointer transition-colors shadow-2xs"
                     >
                       <FileText className="w-3.5 h-3.5" />
                       <span>View Tax Invoice</span>
@@ -585,8 +585,8 @@ export default function MobileAccountScreen({
       
       {/* Profile Card */}
       {!currentUser ? (
-        <div className="bg-gradient-to-r from-[#4E0C22] via-[#6B1230] to-[#380817] rounded-2xl p-5 text-white shadow-md border border-[#E7CCD3]/40 text-center space-y-3">
-          <div className="w-12 h-12 rounded-full bg-white/10 border border-[#E7CCD3]/50 text-[#E4C1CA] mx-auto flex items-center justify-center">
+        <div className="bg-gradient-to-r from-[#C76B85] via-[#B35872] to-[#2E1A36] rounded-2xl p-5 text-white shadow-md border border-[#E8C6D1]/40 text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-white/10 border border-[#E8C6D1]/50 text-[#E8C6D1] mx-auto flex items-center justify-center">
             <Lock className="w-6 h-6" />
           </div>
           <div>
@@ -602,7 +602,7 @@ export default function MobileAccountScreen({
                 if (onOpenLogin) onOpenLogin();
                 else setSubView('switch_login');
               }}
-              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-[#E7CCD3]/60 text-white font-bold text-xs cursor-pointer active:scale-95 transition-all shadow-xs"
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-[#E8C6D1]/60 text-white font-bold text-xs cursor-pointer active:scale-95 transition-all shadow-xs"
             >
               Member Login
             </button>
@@ -612,14 +612,14 @@ export default function MobileAccountScreen({
                 if (onOpenRegister) onOpenRegister();
                 else setSubView('edit_reg');
               }}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#8E5766] to-[#E4C1CA] text-[#380817] font-bold text-xs shadow-md cursor-pointer hover:opacity-95 active:scale-95 transition-all"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#8064A2] to-[#E8C6D1] text-[#2E1A36] font-bold text-xs shadow-md cursor-pointer hover:opacity-95 active:scale-95 transition-all"
             >
               Register Free
             </button>
           </div>
         </div>
       ) : (
-        <div className="bg-gradient-to-r from-[#4E0C22] via-[#6B1230] to-[#380817] rounded-2xl p-4 text-white shadow-md relative overflow-hidden border border-[#E7CCD3]/30">
+        <div className="bg-gradient-to-r from-[#C76B85] via-[#B35872] to-[#2E1A36] rounded-2xl p-4 text-white shadow-md relative overflow-hidden border border-[#E8C6D1]/30">
         <div className="flex items-center space-x-3.5">
           <div 
             onClick={() => {
@@ -638,15 +638,15 @@ export default function MobileAccountScreen({
               alt={currentUser?.name || "Profile"}
               gender={currentUser?.gender}
               size="lg"
-              className={`w-16 h-16 ring-2 ${currentUser?.aadhaarVerified ? 'ring-emerald-400' : 'ring-[#8E5766]'} group-hover:opacity-90 transition-opacity select-none`}
+              className={`w-16 h-16 ring-2 ${currentUser?.aadhaarVerified ? 'ring-emerald-400' : 'ring-[#8064A2]'} group-hover:opacity-90 transition-opacity select-none`}
             />
             <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-              <Camera className="w-5 h-5 text-[#E4C1CA]" />
+              <Camera className="w-5 h-5 text-[#E8C6D1]" />
             </div>
             {currentUser?.aadhaarVerified ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 absolute -bottom-1 -right-1 bg-[#4E0C22] rounded-full stroke-[2.5]" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 absolute -bottom-1 -right-1 bg-[#C76B85] rounded-full stroke-[2.5]" />
             ) : (
-              <ShieldCheck className="w-5 h-5 text-amber-400 absolute -bottom-1 -right-1 bg-[#4E0C22] rounded-full" />
+              <ShieldCheck className="w-5 h-5 text-amber-400 absolute -bottom-1 -right-1 bg-[#C76B85] rounded-full" />
             )}
           </div>
 
@@ -670,7 +670,7 @@ export default function MobileAccountScreen({
                 className="px-2 py-1 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-amber-200 border border-amber-300/40 font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs"
                 title="Click to manage Single Photos"
               >
-                <Camera className="w-3 h-3 text-[#E4C1CA]" />
+                <Camera className="w-3 h-3 text-[#E8C6D1]" />
                 <span>{currentSinglePhotos.length}/5 Single</span>
               </button>
 
@@ -735,20 +735,20 @@ export default function MobileAccountScreen({
           <button
             type="button"
             onClick={() => onNavigateToInterests?.('sent')}
-            className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-xl p-2 cursor-pointer border border-white/5 hover:border-[#E4C1CA]/40 text-center flex flex-col items-center justify-center group shadow-xs"
+            className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-xl p-2 cursor-pointer border border-white/5 hover:border-[#E8C6D1]/40 text-center flex flex-col items-center justify-center group shadow-xs"
             title="View Sent Interests"
           >
-            <span className="text-base font-bold text-[#E4C1CA] group-hover:scale-105 transition-transform">{interestCount}</span>
+            <span className="text-base font-bold text-[#E8C6D1] group-hover:scale-105 transition-transform">{interestCount}</span>
             <p className="text-[10px] text-slate-200 group-hover:text-white transition-colors">Interests Sent</p>
           </button>
           
           <button
             type="button"
             onClick={() => onNavigateToInterests?.('shortlist')}
-            className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-xl p-2 cursor-pointer border border-white/5 hover:border-[#E4C1CA]/40 text-center flex flex-col items-center justify-center group shadow-xs"
+            className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-xl p-2 cursor-pointer border border-white/5 hover:border-[#E8C6D1]/40 text-center flex flex-col items-center justify-center group shadow-xs"
             title="View Shortlisted Profiles"
           >
-            <span className="text-base font-bold text-[#E4C1CA] group-hover:scale-105 transition-transform">{shortlistCount}</span>
+            <span className="text-base font-bold text-[#E8C6D1] group-hover:scale-105 transition-transform">{shortlistCount}</span>
             <p className="text-[10px] text-slate-200 group-hover:text-white transition-colors">Shortlisted</p>
           </button>
           
@@ -774,10 +774,10 @@ export default function MobileAccountScreen({
                   <button
                     type="button"
                     onClick={() => setShowProfileViewsModal(true)}
-                    className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-xl p-2 cursor-pointer border border-white/5 hover:border-[#E4C1CA]/40 text-center flex flex-col items-center justify-center group shadow-xs"
+                    className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-xl p-2 cursor-pointer border border-white/5 hover:border-[#E8C6D1]/40 text-center flex flex-col items-center justify-center group shadow-xs"
                     title="View Profile Visitors (28 Views)"
                   >
-                    <span className="text-base font-bold text-[#E4C1CA] group-hover:scale-105 transition-transform">
+                    <span className="text-base font-bold text-[#E8C6D1] group-hover:scale-105 transition-transform">
                       {currentUser?.profileViews || currentUser?.viewsCount || 28}
                     </span>
                     <p className="text-[10px] text-slate-200 group-hover:text-white transition-colors">Profile Views</p>
@@ -812,10 +812,10 @@ export default function MobileAccountScreen({
       )}
 
       {/* ── Prominent Membership & Plan Card ── */}
-      <div className="bg-gradient-to-r from-[#4E0C22] via-[#6B1230] to-[#380817] rounded-2xl p-4 text-white border border-[#E7CCD3]/50 shadow-md relative overflow-hidden">
+      <div className="bg-gradient-to-r from-[#C76B85] via-[#B35872] to-[#2E1A36] rounded-2xl p-4 text-white border border-[#E8C6D1]/50 shadow-md relative overflow-hidden">
         <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#8E5766] to-[#E4C1CA] text-[#380817] flex items-center justify-center font-bold shadow-xs shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#8064A2] to-[#E8C6D1] text-[#2E1A36] flex items-center justify-center font-bold shadow-xs shrink-0">
               <Crown className="w-5 h-5 fill-current" />
             </div>
             <div className="min-w-0">
@@ -823,12 +823,12 @@ export default function MobileAccountScreen({
                 <span className="font-serif font-extrabold text-sm text-white truncate">
                   {currentUser?.membershipPlan || (currentUser?.membership === 'vip' ? 'Platinum Royal Member' : currentUser?.membership === 'diamond' ? 'Diamond VIP Member' : currentUser?.membership === 'gold' ? 'Gold Match Member' : 'Free Basic Member')}
                 </span>
-                <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full shrink-0 ${currentUser?.membership && currentUser.membership !== 'free' ? 'bg-emerald-600 text-white' : 'bg-[#8E5766] text-white'}`}>
+                <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full shrink-0 ${currentUser?.membership && currentUser.membership !== 'free' ? 'bg-emerald-600 text-white' : 'bg-[#8064A2] text-white'}`}>
                   {currentUser?.membership && currentUser.membership !== 'free' ? 'ACTIVE' : 'FREE'}
                 </span>
               </div>
               <p className="text-[10px] text-slate-200 truncate">
-                Contact Unlocks: <strong className="text-[#E4C1CA]">
+                Contact Unlocks: <strong className="text-[#E8C6D1]">
                   {hasPaidPlan 
                     ? (currentUser?.contactCredits === 999 ? 'Unlimited' : `${currentUser?.contactCredits ?? 0} Remaining`)
                     : '0 (Subscription Required)'
@@ -841,7 +841,7 @@ export default function MobileAccountScreen({
           <button
             type="button"
             onClick={onOpenOffers}
-            className="ml-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#8E5766] to-[#E4C1CA] text-[#380817] text-[11px] font-extrabold hover:opacity-95 shadow-md flex items-center space-x-1 cursor-pointer transition-transform active:scale-95 shrink-0"
+            className="ml-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#8064A2] to-[#E8C6D1] text-[#2E1A36] text-[11px] font-extrabold hover:opacity-95 shadow-md flex items-center space-x-1 cursor-pointer transition-transform active:scale-95 shrink-0"
           >
             <span>{currentUser?.membership && currentUser.membership !== 'free' ? 'Renew / Boost' : 'Upgrade Plan'}</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -856,12 +856,12 @@ export default function MobileAccountScreen({
             </span>
           ) : activeOffer ? (
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#E4C1CA] shrink-0" />
-              <span className="text-[10px] text-[#E4C1CA]">{activeOffer.title || 'Special Offer'} ({activeOffer.discount_percent}% OFF)</span>
+              <Sparkles className="w-3.5 h-3.5 text-[#E8C6D1] shrink-0" />
+              <span className="text-[10px] text-[#E8C6D1]">{activeOffer.title || 'Special Offer'} ({activeOffer.discount_percent}% OFF)</span>
             </span>
           ) : (
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#E4C1CA] shrink-0" />
+              <Sparkles className="w-3.5 h-3.5 text-[#E8C6D1] shrink-0" />
               <span className="text-[10px] text-slate-200">Upgrade to Connect Directly</span>
             </span>
           )}
@@ -869,7 +869,7 @@ export default function MobileAccountScreen({
             <button
               type="button"
               onClick={() => setSubView('invoices')}
-              className="text-[#E4C1CA] font-semibold text-[10px] hover:underline flex items-center gap-0.5 cursor-pointer"
+              className="text-[#E8C6D1] font-semibold text-[10px] hover:underline flex items-center gap-0.5 cursor-pointer"
             >
               <span>{currentUser.paymentHistory.length} Invoices</span>
               <ChevronRight className="w-3 h-3" />
@@ -991,7 +991,7 @@ export default function MobileAccountScreen({
                   setSubView('verify_aadhaar');
                 }
               }}
-              className="ml-2 px-3 py-1.5 rounded-xl bg-[#4E0C22] text-white text-[11px] font-bold shrink-0 hover:bg-[#6B1230] cursor-pointer shadow-xs"
+              className="ml-2 px-3 py-1.5 rounded-xl bg-[#C76B85] text-white text-[11px] font-bold shrink-0 hover:bg-[#B35872] cursor-pointer shadow-xs"
             >
               {currentUser?.aadhaar_front_image ? 'View Status' : 'Verify Now'}
             </button>
@@ -1010,7 +1010,7 @@ export default function MobileAccountScreen({
         >
           <div className="flex items-center space-x-3">
             <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
-              hasPaidPlan ? 'bg-emerald-100 text-emerald-800' : 'bg-gradient-to-tr from-[#8E5766] to-[#E4C1CA] text-[#380817]'
+              hasPaidPlan ? 'bg-emerald-100 text-emerald-800' : 'bg-gradient-to-tr from-[#8064A2] to-[#E8C6D1] text-[#2E1A36]'
             }`}>
               <Crown className="w-4 h-4 fill-current" />
             </div>
@@ -1049,7 +1049,7 @@ export default function MobileAccountScreen({
           <div className="flex items-center space-x-3">
             <div 
               className="w-7 h-7 rounded-xl flex items-center justify-center text-white shrink-0 shadow-2xs transition-transform group-hover:scale-105"
-              style={{ backgroundColor: accent?.primary || '#4E0C22' }}
+              style={{ backgroundColor: accent?.primary || '#C76B85' }}
             >
               <Palette className="w-4 h-4 fill-current" />
             </div>
@@ -1078,7 +1078,7 @@ export default function MobileAccountScreen({
               className="p-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-7 h-7 rounded-xl bg-[#F7E2E7] text-[#4E0C22] flex items-center justify-center shrink-0">
+                <div className="w-7 h-7 rounded-xl bg-[#F9EBF0] text-[#C76B85] flex items-center justify-center shrink-0">
                   <CreditCard className="w-4 h-4" />
                 </div>
                 <div>
@@ -1098,8 +1098,8 @@ export default function MobileAccountScreen({
                 className="p-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-7 h-7 rounded-xl bg-[#F7E2E7] text-[#4E0C22] flex items-center justify-center shrink-0">
-                    <Bell className="w-4 h-4 fill-[#8E5766]" />
+                  <div className="w-7 h-7 rounded-xl bg-[#F9EBF0] text-[#C76B85] flex items-center justify-center shrink-0">
+                    <Bell className="w-4 h-4 fill-[#8064A2]" />
                   </div>
                   <div>
                     <span className="font-bold">Notifications & Alerts</span>
@@ -1236,7 +1236,7 @@ export default function MobileAccountScreen({
               className="p-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer"
             >
               <div className="flex items-center space-x-3">
-                <Lock className="w-4 h-4 text-[#4E0C22]" />
+                <Lock className="w-4 h-4 text-[#C76B85]" />
                 <div>
                   <span>Privacy & Contact Security Settings</span>
                   <p className="text-[10px] font-normal text-slate-400">
@@ -1261,7 +1261,7 @@ export default function MobileAccountScreen({
               className="p-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer"
             >
               <div className="flex items-center space-x-3">
-                <Camera className="w-4 h-4 text-[#4E0C22]" />
+                <Camera className="w-4 h-4 text-[#C76B85]" />
                 <div>
                   <span className="font-bold">Manage Profile & Family Photos</span>
                   <p className="text-[10px] font-normal text-slate-400">
@@ -1272,7 +1272,7 @@ export default function MobileAccountScreen({
               <span className={`px-2.5 py-1 rounded-xl text-[10px] font-bold border ${
                 currentUser?.hidePhotos 
                   ? 'bg-rose-50 text-rose-700 border-rose-200' 
-                  : 'bg-[#F5E1E6] text-[#4E0C22] border-[#E7CCD3]'
+                  : 'bg-[#FFF7FA] text-[#C76B85] border-[#E8C6D1]'
               }`}>
                 {currentUser?.hidePhotos ? 'Hidden' : 'Manage'}
               </span>
@@ -1286,7 +1286,7 @@ export default function MobileAccountScreen({
               className="p-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer"
             >
               <div className="flex items-center space-x-3">
-                <Edit3 className="w-4 h-4 text-[#4E0C22]" />
+                <Edit3 className="w-4 h-4 text-[#C76B85]" />
                 <div>
                   <span>Edit Matrimony Profile & Preferences</span>
                   <p className="text-[10px] font-normal text-slate-400">
@@ -1304,7 +1304,7 @@ export default function MobileAccountScreen({
                 className="p-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer"
               >
                 <div className="flex items-center space-x-3">
-                  <Sparkles className="w-4 h-4 text-[#8E5766]" />
+                  <Sparkles className="w-4 h-4 text-[#8064A2]" />
                   <span>Kundali & Horoscope Matching Settings</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -1331,7 +1331,7 @@ export default function MobileAccountScreen({
           className="p-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer"
         >
           <div className="flex items-center space-x-3">
-            <Scale className="w-4 h-4 text-[#4E0C22]" />
+            <Scale className="w-4 h-4 text-[#C76B85]" />
             <div>
               <span>Terms & Conditions & Legal Policies</span>
               <p className="text-[10px] font-normal text-slate-400">
@@ -1398,7 +1398,7 @@ export default function MobileAccountScreen({
           ======================================================== */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-[#380817] text-white rounded-3xl border border-rose-500/40 p-4 sm:p-5 shadow-2xl flex flex-col max-h-[88vh] overflow-hidden">
+          <div className="w-full max-w-md bg-[#2E1A36] text-white rounded-3xl border border-rose-500/40 p-4 sm:p-5 shadow-2xl flex flex-col max-h-[88vh] overflow-hidden">
             
             {/* Header */}
             <div className="flex items-center justify-between pb-2.5 border-b border-white/10 shrink-0">
@@ -1500,17 +1500,17 @@ export default function MobileAccountScreen({
 
               {/* Celebratory Marriage Success Story & Wedding Photo Upload Card */}
               {deleteReason === MARRIAGE_FIXED_REASON && (
-                <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#F5E1E6] to-[#F7E2E7] border border-[#E7CCD3] shadow-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="flex items-center justify-between border-b border-[#E7CCD3] pb-2.5">
+                <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#FFF7FA] to-[#F9EBF0] border border-[#E8C6D1] shadow-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between border-b border-[#E8C6D1] pb-2.5">
                     <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 rounded-lg bg-[#4E0C22]/10 border border-[#4E0C22]/30 text-[#4E0C22] flex items-center justify-center">
+                      <div className="w-6 h-6 rounded-lg bg-[#C76B85]/10 border border-[#C76B85]/30 text-[#C76B85] flex items-center justify-center">
                         <Sparkles className="w-3.5 h-3.5" />
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-[#4E0C22] block leading-tight">
+                        <span className="text-xs font-bold text-[#C76B85] block leading-tight">
                           Share Your Success Story on Our Main Website
                         </span>
-                        <span className="text-[9.5px] text-[#4A2E37]">
+                        <span className="text-[9.5px] text-[#5A4463]">
                           Inspire other members with your blessed wedding
                         </span>
                       </div>
@@ -1533,28 +1533,28 @@ export default function MobileAccountScreen({
                     <div className="space-y-3 pt-1">
                       {/* Couple / Partner Name Input */}
                       <div className="space-y-1">
-                        <label className="text-[10.5px] font-bold text-[#4E0C22] flex items-center justify-between">
+                        <label className="text-[10.5px] font-bold text-[#C76B85] flex items-center justify-between">
                           <span>Couple / Partner Names:</span>
-                          <span className="text-[9px] text-[#7B4A57] font-normal">e.g. Arun & Anjana</span>
+                          <span className="text-[9px] text-[#AA98A9] font-normal">e.g. Arun & Anjana</span>
                         </label>
                         <input
                           type="text"
                           value={coupleNames}
                           onChange={(e) => setCoupleNames(e.target.value)}
                           placeholder="Your Name & Partner's Name"
-                          className="w-full bg-white border border-[#E7CCD3] focus:border-[#8E5766] rounded-xl px-3 py-2 text-xs text-[#380817] placeholder-slate-400 focus:outline-none transition-colors"
+                          className="w-full bg-white border border-[#E8C6D1] focus:border-[#8064A2] rounded-xl px-3 py-2 text-xs text-[#2E1A36] placeholder-slate-400 focus:outline-none transition-colors"
                         />
                       </div>
 
                       {/* Wedding / Engagement Photo Upload */}
                       <div className="space-y-1">
-                        <label className="text-[10.5px] font-bold text-[#4E0C22] flex items-center justify-between">
+                        <label className="text-[10.5px] font-bold text-[#C76B85] flex items-center justify-between">
                           <span>Wedding / Engagement Photo:</span>
                           <span className="text-[9px] text-emerald-600 font-semibold">WebP Cloudflare R2</span>
                         </label>
 
                         {weddingPhotoPreview ? (
-                          <div className="relative w-full h-36 rounded-xl overflow-hidden border border-[#8E5766]/50 group bg-slate-900 shadow-inner">
+                          <div className="relative w-full h-36 rounded-xl overflow-hidden border border-[#8064A2]/50 group bg-slate-900 shadow-inner">
                             <img
                               src={weddingPhotoPreview}
                               alt="Wedding Photo Preview"
@@ -1587,14 +1587,14 @@ export default function MobileAccountScreen({
                             </span>
                           </div>
                         ) : (
-                          <label className="w-full h-24 rounded-xl border-2 border-dashed border-[#E7CCD3] hover:border-[#8E5766] bg-[#F5E1E6] flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-white group">
-                            <div className="w-8 h-8 rounded-full bg-[#4E0C22]/10 border border-[#4E0C22]/30 flex items-center justify-center text-[#4E0C22] mb-1 group-hover:scale-110 transition-transform">
+                          <label className="w-full h-24 rounded-xl border-2 border-dashed border-[#E8C6D1] hover:border-[#8064A2] bg-[#FFF7FA] flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-white group">
+                            <div className="w-8 h-8 rounded-full bg-[#C76B85]/10 border border-[#C76B85]/30 flex items-center justify-center text-[#C76B85] mb-1 group-hover:scale-110 transition-transform">
                               <Camera className="w-4 h-4" />
                             </div>
-                            <span className="text-[11px] font-bold text-[#380817]">
+                            <span className="text-[11px] font-bold text-[#2E1A36]">
                               Upload Wedding / Engagement Photo
                             </span>
-                            <span className="text-[9.5px] text-[#4A2E37]">
+                            <span className="text-[9.5px] text-[#5A4463]">
                               Auto-compressed to WebP & hosted on Cloudflare R2
                             </span>
                             <input
@@ -1609,7 +1609,7 @@ export default function MobileAccountScreen({
 
                       {/* Testimonial / Happy Message */}
                       <div className="space-y-1">
-                        <label className="text-[10.5px] font-bold text-[#4E0C22] block">
+                        <label className="text-[10.5px] font-bold text-[#C76B85] block">
                           Testimonial / Happy Message:
                         </label>
                         <textarea
@@ -1617,7 +1617,7 @@ export default function MobileAccountScreen({
                           value={storyQuote}
                           onChange={(e) => setStoryQuote(e.target.value)}
                           placeholder="e.g. We found our life partner through I 4 You Matrimony! Blessed to begin our sacred journey."
-                          className="w-full bg-white border border-[#E7CCD3] focus:border-[#8E5766] rounded-xl p-2.5 text-xs text-[#380817] placeholder-slate-400 focus:outline-none transition-colors resize-none"
+                          className="w-full bg-white border border-[#E8C6D1] focus:border-[#8064A2] rounded-xl p-2.5 text-xs text-[#2E1A36] placeholder-slate-400 focus:outline-none transition-colors resize-none"
                         />
                       </div>
 
@@ -1630,7 +1630,7 @@ export default function MobileAccountScreen({
                             value={coupleLocation}
                             onChange={(e) => setCoupleLocation(e.target.value)}
                             placeholder="City, State"
-                            className="w-full bg-[#3D2328] border border-[#6B1230] rounded-lg px-2.5 py-1.5 text-[10.5px] text-slate-200 focus:outline-none focus:border-[#8E5766]"
+                            className="w-full bg-[#3D2328] border border-[#B35872] rounded-lg px-2.5 py-1.5 text-[10.5px] text-slate-200 focus:outline-none focus:border-[#8064A2]"
                           />
                         </div>
                         <div>
@@ -1640,7 +1640,7 @@ export default function MobileAccountScreen({
                             value={weddingDate}
                             onChange={(e) => setWeddingDate(e.target.value)}
                             placeholder="e.g. November 2026"
-                            className="w-full bg-[#3D2328] border border-[#6B1230] rounded-lg px-2.5 py-1.5 text-[10.5px] text-slate-200 focus:outline-none focus:border-[#8E5766]"
+                            className="w-full bg-[#3D2328] border border-[#B35872] rounded-lg px-2.5 py-1.5 text-[10.5px] text-slate-200 focus:outline-none focus:border-[#8064A2]"
                           />
                         </div>
                       </div>
@@ -1659,7 +1659,7 @@ export default function MobileAccountScreen({
                   value={deleteFeedback}
                   onChange={(e) => setDeleteFeedback(e.target.value)}
                   placeholder="Share any additional feedback with our matrimonial team..."
-                  className="w-full bg-[#1A1012] border border-slate-700 focus:border-[#8E5766] rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition-colors resize-none"
+                  className="w-full bg-[#1A1012] border border-slate-700 focus:border-[#8064A2] rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none transition-colors resize-none"
                 />
               </div>
 
@@ -1737,23 +1737,23 @@ export default function MobileAccountScreen({
       {/* Kundali & Horoscope Matching Settings Modal */}
       {showKundaliSettingsModal && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200">
-          <div className="bg-[#FAF0F2] text-[#380817] w-full max-w-sm rounded-3xl border border-[#E7CCD3] shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-200 p-4">
+          <div className="bg-[#FDF2F6] text-[#2E1A36] w-full max-w-sm rounded-3xl border border-[#E8C6D1] shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-200 p-4">
             
             {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#E7CCD3] shrink-0">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8C6D1] shrink-0">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#4E0C22] to-[#8E5766] text-white flex items-center justify-center font-bold shadow-sm">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#C76B85] to-[#8064A2] text-white flex items-center justify-center font-bold shadow-sm">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#380817]">Kundali & Horoscope Matching</h3>
-                  <p className="text-[10px] text-[#4E0C22]">Vedic Ashtakoot Milan & 36 Gunas</p>
+                  <h3 className="text-sm font-bold text-[#2E1A36]">Kundali & Horoscope Matching</h3>
+                  <p className="text-[10px] text-[#C76B85]">Vedic Ashtakoot Milan & 36 Gunas</p>
                 </div>
               </div>
               <button 
                 type="button"
                 onClick={() => setShowKundaliSettingsModal(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-[#380817] hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-[#2E1A36] hover:bg-slate-100 transition-colors cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
@@ -1764,15 +1764,15 @@ export default function MobileAccountScreen({
             <div className="flex-1 overflow-y-auto py-3 space-y-3 dark-scrollbar">
               
               {/* Active Status Badge */}
-              <div className="p-2.5 rounded-2xl bg-gradient-to-r from-[#F5E1E6] to-[#F7E2E7] border border-[#E7CCD3] flex items-center justify-between">
+              <div className="p-2.5 rounded-2xl bg-gradient-to-r from-[#FFF7FA] to-[#F9EBF0] border border-[#E8C6D1] flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                   <div>
-                    <p className="text-xs font-bold text-[#380817]">Ashtakoot Milan Active</p>
-                    <p className="text-[10px] text-[#4E0C22]">Calculates compatibility based on 36 Gunas</p>
+                    <p className="text-xs font-bold text-[#2E1A36]">Ashtakoot Milan Active</p>
+                    <p className="text-[10px] text-[#C76B85]">Calculates compatibility based on 36 Gunas</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#4E0C22] text-white">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C76B85] text-white">
                   {currentUser?.religion || 'Hindu'}
                 </span>
               </div>
@@ -1822,13 +1822,13 @@ export default function MobileAccountScreen({
                       onClick={() => setKundaliGunasPref(item.id)}
                       className={`p-2 rounded-xl border text-left text-xs font-semibold transition-all cursor-pointer ${
                         kundaliGunasPref === item.id
-                          ? 'bg-[#F7E2E7] border-[#4E0C22] text-[#4E0C22]'
-                          : 'bg-white border-[#E7CCD3] text-[#4A2E37] hover:bg-slate-50'
+                          ? 'bg-[#F9EBF0] border-[#C76B85] text-[#C76B85]'
+                          : 'bg-white border-[#E8C6D1] text-[#5A4463] hover:bg-slate-50'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[11px]">{item.label}</span>
-                        {kundaliGunasPref === item.id && <Check className="w-3 h-3 text-[#4E0C22]" />}
+                        {kundaliGunasPref === item.id && <Check className="w-3 h-3 text-[#C76B85]" />}
                       </div>
                     </button>
                   ))}
@@ -1837,7 +1837,7 @@ export default function MobileAccountScreen({
 
               {/* Preference 2: Manglik Compatibility Preference */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-[#4A2E37] uppercase tracking-wider block">
+                <label className="text-[10px] font-bold text-[#5A4463] uppercase tracking-wider block">
                   Manglik Matching Preference:
                 </label>
                 <div className="space-y-1">
@@ -1853,12 +1853,12 @@ export default function MobileAccountScreen({
                       onClick={() => setKundaliManglikPref(item.id)}
                       className={`w-full p-2 rounded-xl border text-left text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${
                         kundaliManglikPref === item.id
-                          ? 'bg-[#F7E2E7] border-[#4E0C22] text-[#4E0C22]'
-                          : 'bg-white border-[#E7CCD3] text-[#4A2E37] hover:bg-slate-50'
+                          ? 'bg-[#F9EBF0] border-[#C76B85] text-[#C76B85]'
+                          : 'bg-white border-[#E8C6D1] text-[#5A4463] hover:bg-slate-50'
                       }`}
                     >
                       <span className="text-[11px]">{item.label}</span>
-                      {kundaliManglikPref === item.id && <Check className="w-3 h-3 text-[#4E0C22]" />}
+                      {kundaliManglikPref === item.id && <Check className="w-3 h-3 text-[#C76B85]" />}
                     </button>
                   ))}
                 </div>
@@ -1908,7 +1908,7 @@ export default function MobileAccountScreen({
                     setIsSavingKundali(false);
                   }
                 }}
-                className="flex-1 py-2 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                className="flex-1 py-2 rounded-xl bg-[#C76B85] hover:bg-[#B35872] text-white text-xs font-bold shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
               >
                 {isSavingKundali ? 'Saving...' : 'Save Settings'}
               </button>
@@ -2005,19 +2005,19 @@ export default function MobileAccountScreen({
           onClick={() => setShowProfileViewsModal(false)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-[#E7CCD3] relative animate-in zoom-in-95"
+            className="bg-white rounded-3xl max-w-md w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-[#E8C6D1] relative animate-in zoom-in-95"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-4 bg-gradient-to-r from-[#4E0C22] via-[#6B1230] to-[#380817] text-white flex items-center justify-between border-b border-white/10 shrink-0">
+            <div className="p-4 bg-gradient-to-r from-[#C76B85] via-[#B35872] to-[#2E1A36] text-white flex items-center justify-between border-b border-white/10 shrink-0">
               <div className="flex items-center space-x-2.5">
-                <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/40 flex items-center justify-center text-[#E4C1CA] shadow-xs">
+                <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/40 flex items-center justify-center text-[#E8C6D1] shadow-xs">
                   <Eye className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-base text-white flex items-center gap-1.5">
                     <span>Profile Visitors</span>
-                    <span className="px-2 py-0.5 rounded-full bg-[#8E5766] text-white text-[10px] font-black">
+                    <span className="px-2 py-0.5 rounded-full bg-[#8064A2] text-white text-[10px] font-black">
                       {currentUser?.profileViews || currentUser?.viewsCount || 28}
                     </span>
                   </h3>
@@ -2035,9 +2035,9 @@ export default function MobileAccountScreen({
             </div>
 
             {/* Metric Highlight Strip */}
-            <div className="bg-[#F5E1E6] border-b border-[#E7CCD3] px-4 py-2.5 flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-2 text-xs text-[#4E0C22] font-semibold">
-                <Sparkles className="w-4 h-4 text-[#4E0C22] shrink-0" />
+            <div className="bg-[#FFF7FA] border-b border-[#E8C6D1] px-4 py-2.5 flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-2 text-xs text-[#C76B85] font-semibold">
+                <Sparkles className="w-4 h-4 text-[#C76B85] shrink-0" />
                 <span>{currentUser?.profileViews || currentUser?.viewsCount || 28} Views this week • High Activity</span>
               </div>
               {onOpenOffers && (
@@ -2047,7 +2047,7 @@ export default function MobileAccountScreen({
                     setShowProfileViewsModal(false);
                     onOpenOffers();
                   }}
-                  className="text-[10px] font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] px-2.5 py-1 rounded-lg active:scale-95 transition-all shadow-xs cursor-pointer"
+                  className="text-[10px] font-bold text-white bg-[#C76B85] hover:bg-[#B35872] px-2.5 py-1 rounded-lg active:scale-95 transition-all shadow-xs cursor-pointer"
                 >
                   Boost 5x
                 </button>
@@ -2083,7 +2083,7 @@ export default function MobileAccountScreen({
                             alt={visitor.name}
                             gender={visitor.gender}
                             size="md"
-                            className="w-12 h-12 border-2 border-slate-200 group-hover:border-[#8E5766] transition-colors shadow-xs"
+                            className="w-12 h-12 border-2 border-slate-200 group-hover:border-[#8064A2] transition-colors shadow-xs"
                           />
                           <span 
                             className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
@@ -2095,7 +2095,7 @@ export default function MobileAccountScreen({
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center space-x-1.5">
-                            <h4 className="font-serif font-bold text-xs sm:text-sm text-slate-900 truncate group-hover:text-[#4E0C22] transition-colors">
+                            <h4 className="font-serif font-bold text-xs sm:text-sm text-slate-900 truncate group-hover:text-[#C76B85] transition-colors">
                               {visitor.name}
                             </h4>
                             {visitor.verified && (
@@ -2106,7 +2106,7 @@ export default function MobileAccountScreen({
                             {visitor.age} yrs • {visitor.height || '5\'6"'} • {visitor.profession || 'Professional'}
                           </p>
                           <div className="flex items-center space-x-1.5 mt-0.5 text-[10px] text-slate-400">
-                            <MapPin className="w-3 h-3 text-[#8E5766] shrink-0" />
+                            <MapPin className="w-3 h-3 text-[#8064A2] shrink-0" />
                             <span className="truncate">{visitor.district || visitor.city || 'Kerala'}, {visitor.state || 'India'}</span>
                             <span>•</span>
                             <span className="text-emerald-600 font-semibold">{visitor.viewTime}</span>
@@ -2123,7 +2123,7 @@ export default function MobileAccountScreen({
                             className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all shadow-xs flex items-center space-x-1 cursor-pointer active:scale-95 ${
                               isSent 
                                 ? 'bg-rose-50 text-rose-600 border border-rose-200' 
-                                : 'bg-[#4E0C22] hover:bg-[#6B1230] text-white'
+                                : 'bg-[#C76B85] hover:bg-[#B35872] text-white'
                             }`}
                             title={isSent ? 'Interest Sent' : 'Connect'}
                           >
@@ -2138,7 +2138,7 @@ export default function MobileAccountScreen({
                               setShowProfileViewsModal(false);
                               onSelectProfile(visitor);
                             }}
-                            className="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-[#4E0C22] hover:bg-slate-100 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-[#C76B85] hover:bg-slate-100 transition-colors cursor-pointer"
                             title="View Profile Details"
                           >
                             <ChevronRight className="w-4 h-4" />

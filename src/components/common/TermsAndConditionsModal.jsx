@@ -26,7 +26,7 @@ export default function TermsAndConditionsModal({
       
       {/* Modal Dialog Card */}
       <div 
-        className="w-full max-w-4xl max-h-[90vh] bg-[#380817] text-slate-100 rounded-3xl border border-[#8E5766]/40 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_35px_rgba(197,139,118,0.2)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-4xl max-h-[90vh] bg-[#2E1A36] text-slate-100 rounded-3xl border border-[#8064A2]/40 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_35px_rgba(197,139,118,0.2)] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
         aria-labelledby="terms-modal-title"
@@ -35,14 +35,14 @@ export default function TermsAndConditionsModal({
         {/* 1. Modal Header */}
         <div className="px-5 py-4 border-b border-white/10 bg-[#1A0E10]/80 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#8E5766] to-[#E4C1CA] text-[#380817] flex items-center justify-center font-bold shadow-md shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#8064A2] to-[#E8C6D1] text-[#2E1A36] flex items-center justify-center font-bold shadow-md shrink-0">
               <Scale className="w-5 h-5" />
             </div>
             <div>
               <h2 id="terms-modal-title" className="font-serif font-bold text-base sm:text-lg text-white">
                 Terms & Conditions & Legal Policies
               </h2>
-              <p className="text-[11px] text-[#E4C1CA] font-medium">
+              <p className="text-[11px] text-[#E8C6D1] font-medium">
                 I 4 You Matrimonial Technologies Pvt. Ltd. • Govt. of India IT Act & DPDP Compliant
               </p>
             </div>
@@ -75,11 +75,11 @@ export default function TermsAndConditionsModal({
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   isActive
-                    ? 'bg-[#4E0C22] text-white shadow-md'
+                    ? 'bg-[#C76B85] text-white shadow-md'
                     : 'bg-slate-900/80 text-slate-300 hover:text-white hover:bg-slate-800 border border-white/10'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-[#E4C1CA]'}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-[#E8C6D1]'}`} />
                 <span>{tab.label}</span>
               </button>
             );
@@ -87,13 +87,13 @@ export default function TermsAndConditionsModal({
         </div>
 
         {/* 3. Modal Scrollable Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-6 text-xs sm:text-sm text-slate-300 leading-relaxed bg-[#380817]/60">
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-6 text-xs sm:text-sm text-slate-300 leading-relaxed bg-[#2E1A36]/60">
           
           {/* TAB 1: TERMS & CONDITIONS */}
           {activeTab === 'terms' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              <div className="bg-[#4E0C22]/15 border border-[#8E5766]/30 rounded-2xl p-4 flex items-start space-x-3 text-rose-100">
-                <AlertCircle className="w-5 h-5 text-[#E4C1CA] shrink-0 mt-0.5" />
+              <div className="bg-[#C76B85]/15 border border-[#8064A2]/30 rounded-2xl p-4 flex items-start space-x-3 text-rose-100">
+                <AlertCircle className="w-5 h-5 text-[#E8C6D1] shrink-0 mt-0.5" />
                 <div className="text-xs space-y-1">
                   <strong className="text-white block font-semibold">Sole Matrimonial Alliance Notice:</strong>
                   <p>
@@ -105,7 +105,7 @@ export default function TermsAndConditionsModal({
               {/* Section 1 */}
               <div className="space-y-2">
                 <h3 className="font-serif font-bold text-sm sm:text-base text-white flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#8E5766]/20 text-[#E4C1CA] flex items-center justify-center text-xs font-bold">1</span>
+                  <span className="w-5 h-5 rounded-full bg-[#8064A2]/20 text-[#E8C6D1] flex items-center justify-center text-xs font-bold">1</span>
                   Eligibility & Legal Marriageable Age
                 </h3>
                 <p className="pl-7">
@@ -122,7 +122,7 @@ export default function TermsAndConditionsModal({
               {/* Section 2 */}
               <div className="space-y-2">
                 <h3 className="font-serif font-bold text-sm sm:text-base text-white flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#8E5766]/20 text-[#E4C1CA] flex items-center justify-center text-xs font-bold">2</span>
+                  <span className="w-5 h-5 rounded-full bg-[#8064A2]/20 text-[#E8C6D1] flex items-center justify-center text-xs font-bold">2</span>
                   Strict Anti-Dowry Prohibition Undertaking
                 </h3>
                 <p className="pl-7">
@@ -136,7 +136,7 @@ export default function TermsAndConditionsModal({
               {/* Section 3 */}
               <div className="space-y-2">
                 <h3 className="font-serif font-bold text-sm sm:text-base text-white flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#8E5766]/20 text-[#E4C1CA] flex items-center justify-center text-xs font-bold">3</span>
+                  <span className="w-5 h-5 rounded-full bg-[#8064A2]/20 text-[#E8C6D1] flex items-center justify-center text-xs font-bold">3</span>
                   Accuracy of Information & Identity Verification
                 </h3>
                 <p className="pl-7">
@@ -147,7 +147,7 @@ export default function TermsAndConditionsModal({
               {/* Section 4 */}
               <div className="space-y-2">
                 <h3 className="font-serif font-bold text-sm sm:text-base text-white flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#8E5766]/20 text-[#E4C1CA] flex items-center justify-center text-xs font-bold">4</span>
+                  <span className="w-5 h-5 rounded-full bg-[#8064A2]/20 text-[#E8C6D1] flex items-center justify-center text-xs font-bold">4</span>
                   Vedic Horoscope & Kundali Matching Disclaimer
                 </h3>
                 <p className="pl-7">
@@ -269,10 +269,10 @@ export default function TermsAndConditionsModal({
                   <p><strong>Name:</strong> Mr. Jayasimha R., Chief Grievance Officer</p>
                   <p><strong>Company:</strong> I 4 You Matrimonial Technologies Pvt. Ltd.</p>
                   <p><strong>Address:</strong> Matrimony Tech Towers, BKC, Mumbai - 400051, Maharashtra, India</p>
-                  <p className="flex items-center gap-2 pt-1 text-[#E4C1CA]">
+                  <p className="flex items-center gap-2 pt-1 text-[#E8C6D1]">
                     <Mail className="w-3.5 h-3.5" /> Email: <strong>grievance@i4youmatrimony.com</strong> / <strong>i4youmatrimony@gmail.com</strong>
                   </p>
-                  <p className="flex items-center gap-2 text-[#E4C1CA]">
+                  <p className="flex items-center gap-2 text-[#E8C6D1]">
                     <PhoneCall className="w-3.5 h-3.5" /> Helpline: <strong>+91 8968926566</strong> (Mon-Sat, 9:30 AM - 6:30 PM IST)
                   </p>
                   <p className="text-[11px] text-slate-400">All complaints are formally acknowledged within 24 hours and resolved within 15 working days.</p>
@@ -284,8 +284,8 @@ export default function TermsAndConditionsModal({
           {/* TAB 4: BILLING & REFUND POLICY */}
           {activeTab === 'refund' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              <div className="bg-[#4E0C22]/15 border border-[#8E5766]/30 rounded-2xl p-4 flex items-start space-x-3 text-rose-100">
-                <CreditCard className="w-5 h-5 text-[#E4C1CA] shrink-0 mt-0.5" />
+              <div className="bg-[#C76B85]/15 border border-[#8064A2]/30 rounded-2xl p-4 flex items-start space-x-3 text-rose-100">
+                <CreditCard className="w-5 h-5 text-[#E8C6D1] shrink-0 mt-0.5" />
                 <div className="text-xs space-y-1">
                   <strong className="text-white block font-semibold">100% Transparent Matrimonial Subscriptions:</strong>
                   <p>
@@ -297,7 +297,7 @@ export default function TermsAndConditionsModal({
               {/* Section 1 */}
               <div className="space-y-2">
                 <h3 className="font-serif font-bold text-sm sm:text-base text-white flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#8E5766]/20 text-[#E4C1CA] flex items-center justify-center text-xs font-bold">1</span>
+                  <span className="w-5 h-5 rounded-full bg-[#8064A2]/20 text-[#E8C6D1] flex items-center justify-center text-xs font-bold">1</span>
                   Free vs. Paid Membership Entitlements
                 </h3>
                 <ul className="pl-11 list-disc space-y-1 text-slate-300">
@@ -309,7 +309,7 @@ export default function TermsAndConditionsModal({
               {/* Section 2 */}
               <div className="space-y-2">
                 <h3 className="font-serif font-bold text-sm sm:text-base text-white flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#8E5766]/20 text-[#E4C1CA] flex items-center justify-center text-xs font-bold">2</span>
+                  <span className="w-5 h-5 rounded-full bg-[#8064A2]/20 text-[#E8C6D1] flex items-center justify-center text-xs font-bold">2</span>
                   14-Day Match Assurance & Refund Guidelines
                 </h3>
                 <p className="pl-7">
@@ -325,7 +325,7 @@ export default function TermsAndConditionsModal({
               {/* Section 3 */}
               <div className="space-y-2">
                 <h3 className="font-serif font-bold text-sm sm:text-base text-white flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#8E5766]/20 text-[#E4C1CA] flex items-center justify-center text-xs font-bold">3</span>
+                  <span className="w-5 h-5 rounded-full bg-[#8064A2]/20 text-[#E8C6D1] flex items-center justify-center text-xs font-bold">3</span>
                   Payment Security & Multi-Method Acceptance
                 </h3>
                 <p className="pl-7">
@@ -355,7 +355,7 @@ export default function TermsAndConditionsModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-1.5 rounded-full bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-extrabold shadow-md shadow-[#4E0C22]/20 hover:opacity-95 transition-all cursor-pointer active:scale-95 flex items-center space-x-1.5"
+              className="px-5 py-1.5 rounded-full bg-[#C76B85] hover:bg-[#B35872] text-white text-xs font-extrabold shadow-md shadow-[#C76B85]/20 hover:opacity-95 transition-all cursor-pointer active:scale-95 flex items-center space-x-1.5"
             >
               <span>I Understand & Accept</span>
             </button>

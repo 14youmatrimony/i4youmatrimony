@@ -81,10 +81,10 @@ export default function MultiCountrySelect({
     <div ref={containerRef} className="relative space-y-2">
       <div className="flex items-center justify-between">
         <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-          <Globe className="w-3.5 h-3.5 text-[#4E0C22]" />
+          <Globe className="w-3.5 h-3.5 text-[#C76B85]" />
           <span>{label}</span>
         </label>
-        <span className="text-[10px] font-semibold text-[#4E0C22]">
+        <span className="text-[10px] font-semibold text-[#C76B85]">
           {selectedList.length === 0 ? 'Any Country' : `${selectedList.length} / ${maxSelections} selected`}
         </span>
       </div>
@@ -92,7 +92,7 @@ export default function MultiCountrySelect({
       {/* Selected Pills Box */}
       <div
         onClick={() => setIsOpen(prev => !prev)}
-        className="min-h-[42px] w-full px-3 py-2 rounded-xl bg-white border border-[#E7CCD3] hover:border-[#8E5766] flex flex-wrap items-center justify-between gap-2 cursor-pointer transition-colors"
+        className="min-h-[42px] w-full px-3 py-2 rounded-xl bg-white border border-[#E8C6D1] hover:border-[#8064A2] flex flex-wrap items-center justify-between gap-2 cursor-pointer transition-colors"
       >
         <div className="flex flex-wrap items-center gap-1.5 flex-1">
           {selectedList.length === 0 ? (
@@ -101,7 +101,7 @@ export default function MultiCountrySelect({
             selectedList.map((country) => (
               <span
                 key={country}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#F7E2E7] border border-[#E4C1CA] text-[#4E0C22] text-[11px] font-semibold"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#F9EBF0] border border-[#E8C6D1] text-[#C76B85] text-[11px] font-semibold"
               >
                 <span>{country}</span>
                 <button
@@ -110,7 +110,7 @@ export default function MultiCountrySelect({
                     e.stopPropagation();
                     removeCountry(country);
                   }}
-                  className="p-0.5 rounded-full hover:bg-[#4E0C22]/15 text-[#4E0C22] cursor-pointer"
+                  className="p-0.5 rounded-full hover:bg-[#C76B85]/15 text-[#C76B85] cursor-pointer"
                   aria-label={`Remove ${country}`}
                 >
                   <X className="w-3 h-3" />
@@ -124,8 +124,8 @@ export default function MultiCountrySelect({
 
       {/* Dropdown List */}
       {isOpen && (
-        <div className="absolute left-0 right-0 z-30 mt-1 rounded-2xl bg-white border border-[#E7CCD3] shadow-xl overflow-hidden">
-          <div className="p-2 border-b border-slate-100 flex items-center gap-2 bg-[#F5E1E6]">
+        <div className="absolute left-0 right-0 z-30 mt-1 rounded-2xl bg-white border border-[#E8C6D1] shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-slate-100 flex items-center gap-2 bg-[#FFF7FA]">
             <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <input
               type="text"
@@ -138,7 +138,7 @@ export default function MultiCountrySelect({
               <button
                 type="button"
                 onClick={() => emitList([])}
-                className="text-[10px] font-bold text-[#4E0C22] hover:underline shrink-0 cursor-pointer"
+                className="text-[10px] font-bold text-[#C76B85] hover:underline shrink-0 cursor-pointer"
               >
                 Clear
               </button>
@@ -157,14 +157,14 @@ export default function MultiCountrySelect({
                   onClick={() => toggleCountry(country)}
                   className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between transition-colors cursor-pointer ${
                     isSelected
-                      ? 'bg-[#F7E2E7]/60 text-[#4E0C22] font-bold'
+                      ? 'bg-[#F9EBF0]/60 text-[#C76B85] font-bold'
                       : disabled
                         ? 'text-slate-300 cursor-not-allowed'
                         : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   <span>{country}</span>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-[#4E0C22]" />}
+                  {isSelected && <Check className="w-3.5 h-3.5 text-[#C76B85]" />}
                 </button>
               );
             })}

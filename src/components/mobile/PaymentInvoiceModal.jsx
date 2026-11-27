@@ -34,11 +34,11 @@ export default function PaymentInvoiceModal({
         {/* Top Header Controls */}
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-3xl shrink-0">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-xl bg-[#8E5766]/15 text-[#4E0C22] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[#8064A2]/15 text-[#C76B85] flex items-center justify-center">
               <FileText className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-serif font-bold text-sm text-[#380817]">Tax Invoice & Receipt</h3>
+              <h3 className="font-serif font-bold text-sm text-[#2E1A36]">Tax Invoice & Receipt</h3>
               <p className="text-[10px] text-slate-500 font-mono">{invoice.invoiceNumber || 'INV-2026-8812'}</p>
             </div>
           </div>
@@ -56,8 +56,8 @@ export default function PaymentInvoiceModal({
           {/* Company & Status Header */}
           <div className="flex items-start justify-between border-b border-slate-200 pb-3">
             <div>
-              <span className="font-serif font-extrabold text-base text-[#380817] tracking-wide flex items-center gap-1">
-                I 4 You <span className="text-[#8E5766] text-xs font-sans font-bold">Matrimony</span>
+              <span className="font-serif font-extrabold text-base text-[#2E1A36] tracking-wide flex items-center gap-1">
+                I 4 You <span className="text-[#8064A2] text-xs font-sans font-bold">Matrimony</span>
               </span>
               <p className="text-[10px] text-slate-500 leading-tight mt-0.5">
                 I 4 You Technologies Pvt. Ltd.<br />
@@ -92,7 +92,7 @@ export default function PaymentInvoiceModal({
               <p className="text-[10px] font-mono text-slate-500 truncate" title={invoice.transactionId}>
                 Txn: {invoice.transactionId || 'TXN_UPI_889412'}
               </p>
-              <span className="inline-block px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#F5E1E6] text-[#4E0C22] border border-[#E7CCD3] mt-0.5">
+              <span className="inline-block px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#FFF7FA] text-[#C76B85] border border-[#E8C6D1] mt-0.5">
                 UIDAI 100% Verified
               </span>
             </div>
@@ -152,17 +152,17 @@ export default function PaymentInvoiceModal({
               <span>SGST (9%):</span>
               <span className="font-semibold text-slate-700">₹ {(invoice.sgst || Math.round(invoice.gst / 2) || 225).toLocaleString('en-IN')}</span>
             </div>
-            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-extrabold text-[#380817]">
+            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-extrabold text-[#2E1A36]">
               <span>Total Paid (Incl. GST):</span>
-              <span className="text-[#4E0C22] text-base font-serif">
+              <span className="text-[#C76B85] text-base font-serif">
                 ₹ {(invoice.totalAmount || 2949).toLocaleString('en-IN')}
               </span>
             </div>
           </div>
 
           {/* Guarantee Note */}
-          <div className="p-2.5 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-center space-y-0.5">
-            <span className="text-[10px] font-bold text-[#4E0C22] flex items-center justify-center gap-1">
+          <div className="p-2.5 rounded-xl bg-[#FFF7FA] border border-[#E8C6D1] text-center space-y-0.5">
+            <span className="text-[10px] font-bold text-[#C76B85] flex items-center justify-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               100% Aadhaar Security & 7-Day Money-Back Guarantee
             </span>
@@ -187,7 +187,7 @@ export default function PaymentInvoiceModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-[#4E0C22] text-white font-bold text-xs hover:bg-[#6B1230] transition-colors cursor-pointer shadow-xs"
+            className="px-4 py-2 rounded-xl bg-[#C76B85] text-white font-bold text-xs hover:bg-[#B35872] transition-colors cursor-pointer shadow-xs"
           >
             Done
           </button>

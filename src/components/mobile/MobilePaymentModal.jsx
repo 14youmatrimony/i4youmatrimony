@@ -676,9 +676,9 @@ export default function MobilePaymentModal({
       >
         
         {/* Top App Bar inside Checkout */}
-        <header className="p-3.5 sm:p-4 bg-gradient-to-r from-[#4E0C22] via-[#8E354F] to-[#4E0C22] text-white rounded-t-3xl border-b border-[#8E5766]/30 flex items-center justify-between shrink-0">
+        <header className="p-3.5 sm:p-4 bg-gradient-to-r from-[#C76B85] via-[#8E354F] to-[#C76B85] text-white rounded-t-3xl border-b border-[#8064A2]/30 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#8E5766]/20 border border-[#8E5766]/40 flex items-center justify-center text-[#E4C1CA]">
+            <div className="w-8 h-8 rounded-xl bg-[#8064A2]/20 border border-[#8064A2]/40 flex items-center justify-center text-[#E8C6D1]">
               <Lock className="w-4 h-4" />
             </div>
             <div>
@@ -698,7 +698,7 @@ export default function MobilePaymentModal({
             onClick={onClose}
             className="p-1.5 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5 text-[#E4C1CA]" />
+            <X className="w-5 h-5 text-[#E8C6D1]" />
           </button>
         </header>
 
@@ -707,17 +707,17 @@ export default function MobilePaymentModal({
           <div className="p-4 space-y-4 overflow-y-auto flex-1">
 
             {/* Cashfree Sandbox Gateway Status Banner */}
-            <div className="bg-gradient-to-r from-[#F5E1E6] via-[#F7E2E7] to-[#F5E1E6] border border-[#E7CCD3] rounded-2xl p-2.5 flex items-center justify-between text-xs shadow-2xs">
+            <div className="bg-gradient-to-r from-[#FFF7FA] via-[#F9EBF0] to-[#FFF7FA] border border-[#E8C6D1] rounded-2xl p-2.5 flex items-center justify-between text-xs shadow-2xs">
               <div className="flex items-center space-x-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-[#8E5766]/20 text-[#4E0C22] flex items-center justify-center font-bold text-xs shrink-0 border border-[#E7CCD3] shadow-2xs">
-                  <FlaskConical className="w-4 h-4 text-[#4E0C22]" />
+                <div className="w-7 h-7 rounded-xl bg-[#8064A2]/20 text-[#C76B85] flex items-center justify-center font-bold text-xs shrink-0 border border-[#E8C6D1] shadow-2xs">
+                  <FlaskConical className="w-4 h-4 text-[#C76B85]" />
                 </div>
                 <div className="truncate">
                   <div className="flex items-center space-x-1.5">
                     <span className="font-bold text-slate-900 block truncate text-xs">
                       Cashfree Sandbox Testing
                     </span>
-                    <span className="text-[9px] font-mono font-bold bg-[#8E5766]/20 text-[#4E0C22] px-1.5 py-0.2 rounded-full border border-[#E7CCD3] shrink-0">
+                    <span className="text-[9px] font-mono font-bold bg-[#8064A2]/20 text-[#C76B85] px-1.5 py-0.2 rounded-full border border-[#E8C6D1] shrink-0">
                       TEST ACTIVE
                     </span>
                   </div>
@@ -746,7 +746,7 @@ export default function MobilePaymentModal({
                     className="text-[10px] font-bold px-2 py-1 rounded-lg bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 flex items-center space-x-1 shrink-0 cursor-pointer shadow-2xs active:scale-95 transition-all"
                     title="Verify payment with Cashfree backend"
                   >
-                    <RefreshCw className={`w-2.5 h-2.5 ${isVerifying ? 'animate-spin text-[#4E0C22]' : ''}`} />
+                    <RefreshCw className={`w-2.5 h-2.5 ${isVerifying ? 'animate-spin text-[#C76B85]' : ''}`} />
                     <span>Verify</span>
                   </button>
                 )}
@@ -784,7 +784,7 @@ export default function MobilePaymentModal({
                 </div>
                 <div className="text-right">
                   <span className="text-slate-400 line-through text-xs font-semibold block">₹ {(order?.originalPrice ?? 0).toLocaleString('en-IN')}</span>
-                  <span className="text-sm font-serif font-extrabold text-[#380817]">₹ {(order?.baseOfferPrice ?? 0).toLocaleString('en-IN')}</span>
+                  <span className="text-sm font-serif font-extrabold text-[#2E1A36]">₹ {(order?.baseOfferPrice ?? 0).toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
@@ -812,12 +812,12 @@ export default function MobilePaymentModal({
                         value={couponInput}
                         onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                         placeholder={activeOffer?.code ? `Have a coupon? e.g. ${activeOffer.code}` : "Have a coupon code?"}
-                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-mono font-bold uppercase placeholder:font-sans placeholder:normal-case placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#8E5766]"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-mono font-bold uppercase placeholder:font-sans placeholder:normal-case placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#8064A2]"
                       />
                     </div>
                     <button 
                       type="submit"
-                      className="px-3 py-1.5 rounded-xl bg-[#4E0C22] text-white font-bold text-xs hover:bg-[#6B1230] cursor-pointer transition-colors shadow-2xs"
+                      className="px-3 py-1.5 rounded-xl bg-[#C76B85] text-white font-bold text-xs hover:bg-[#B35872] cursor-pointer transition-colors shadow-2xs"
                     >
                       Apply
                     </button>
@@ -844,7 +844,7 @@ export default function MobilePaymentModal({
                   onClick={() => setMethod('upi')}
                   className={`p-2 rounded-2xl border font-bold flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
                     method === 'upi'
-                      ? 'bg-[#4E0C22] text-white border-[#4E0C22] shadow-sm'
+                      ? 'bg-[#C76B85] text-white border-[#C76B85] shadow-sm'
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
@@ -857,7 +857,7 @@ export default function MobilePaymentModal({
                   onClick={() => setMethod('card')}
                   className={`p-2 rounded-2xl border font-bold flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
                     method === 'card'
-                      ? 'bg-[#4E0C22] text-white border-[#4E0C22] shadow-sm'
+                      ? 'bg-[#C76B85] text-white border-[#C76B85] shadow-sm'
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
@@ -870,7 +870,7 @@ export default function MobilePaymentModal({
                   onClick={() => setMethod('netbanking')}
                   className={`p-2 rounded-2xl border font-bold flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
                     method === 'netbanking'
-                      ? 'bg-[#4E0C22] text-white border-[#4E0C22] shadow-sm'
+                      ? 'bg-[#C76B85] text-white border-[#C76B85] shadow-sm'
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
@@ -883,7 +883,7 @@ export default function MobilePaymentModal({
                   onClick={() => setMethod('wallet')}
                   className={`p-2 rounded-2xl border font-bold flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
                     method === 'wallet'
-                      ? 'bg-[#4E0C22] text-white border-[#4E0C22] shadow-sm'
+                      ? 'bg-[#C76B85] text-white border-[#C76B85] shadow-sm'
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
@@ -896,7 +896,7 @@ export default function MobilePaymentModal({
                   onClick={() => setMethod('link')}
                   className={`p-2 rounded-2xl border font-bold flex flex-col items-center justify-center space-y-1 transition-all cursor-pointer ${
                     method === 'link'
-                      ? 'bg-[#4E0C22] text-white border-[#4E0C22] shadow-sm'
+                      ? 'bg-[#C76B85] text-white border-[#C76B85] shadow-sm'
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
@@ -914,7 +914,7 @@ export default function MobilePaymentModal({
                     type="button"
                     onClick={() => setUpiMode('apps')}
                     className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      upiMode === 'apps' ? 'bg-white text-[#4E0C22] shadow-2xs' : 'text-slate-600'
+                      upiMode === 'apps' ? 'bg-white text-[#C76B85] shadow-2xs' : 'text-slate-600'
                     }`}
                   >
                     UPI Apps
@@ -923,7 +923,7 @@ export default function MobilePaymentModal({
                     type="button"
                     onClick={() => setUpiMode('qr')}
                     className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      upiMode === 'qr' ? 'bg-white text-[#4E0C22] shadow-2xs' : 'text-slate-600'
+                      upiMode === 'qr' ? 'bg-white text-[#C76B85] shadow-2xs' : 'text-slate-600'
                     }`}
                   >
                     QR Code
@@ -932,7 +932,7 @@ export default function MobilePaymentModal({
                     type="button"
                     onClick={() => setUpiMode('id')}
                     className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      upiMode === 'id' ? 'bg-white text-[#4E0C22] shadow-2xs' : 'text-slate-600'
+                      upiMode === 'id' ? 'bg-white text-[#C76B85] shadow-2xs' : 'text-slate-600'
                     }`}
                   >
                     UPI ID
@@ -952,7 +952,7 @@ export default function MobilePaymentModal({
                           }}
                           className={`p-3 rounded-2xl border flex items-center space-x-3 cursor-pointer transition-all active:scale-95 ${
                             selectedUpiApp === app.id
-                              ? 'bg-[#F5E1E6] border-[#8E5766] ring-2 ring-[#8E5766]/50 shadow-sm'
+                              ? 'bg-[#FFF7FA] border-[#8064A2] ring-2 ring-[#8064A2]/50 shadow-sm'
                               : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs'
                           }`}
                         >
@@ -962,7 +962,7 @@ export default function MobilePaymentModal({
                             <span className="text-[10px] text-slate-500 block truncate">{app.sub}</span>
                           </div>
                           {selectedUpiApp === app.id && (
-                            <CheckCircle2 className="w-4 h-4 text-[#4E0C22] shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-[#C76B85] shrink-0" />
                           )}
                         </div>
                       ))}
@@ -980,7 +980,7 @@ export default function MobilePaymentModal({
                             ? 'bg-[#5f259f] text-white hover:bg-[#4d1e82]'
                             : selectedUpiApp === 'paytm'
                               ? 'bg-[#002970] text-white hover:bg-[#001f54]'
-                              : 'bg-[#4E0C22] text-white hover:bg-[#6B1230]'
+                              : 'bg-[#C76B85] text-white hover:bg-[#B35872]'
                       }`}
                     >
                       <div className="w-6 h-6 flex items-center justify-center shrink-0">
@@ -1009,7 +1009,7 @@ export default function MobilePaymentModal({
                             </div>
                           </div>
                           
-                          <div className="text-center font-bold text-[9px] text-[#380817] font-mono tracking-tighter flex items-center justify-center">
+                          <div className="text-center font-bold text-[9px] text-[#2E1A36] font-mono tracking-tighter flex items-center justify-center">
                             <UpiBadgeLogo className="w-10 h-3.5" />
                           </div>
 
@@ -1036,7 +1036,7 @@ export default function MobilePaymentModal({
                     <button
                       type="button"
                       onClick={handleInitiatePayment}
-                      className="px-3 py-1.5 rounded-xl bg-[#F5E1E6] hover:bg-[#F7E2E7] text-[#4E0C22] border border-[#E7CCD3] text-xs font-bold transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl bg-[#FFF7FA] hover:bg-[#F9EBF0] text-[#C76B85] border border-[#E8C6D1] text-xs font-bold transition-colors cursor-pointer"
                     >
                       ⚡ Simulate Phone Scan & Pay
                     </button>
@@ -1057,7 +1057,7 @@ export default function MobilePaymentModal({
                           setUpiVerified(false);
                         }}
                         placeholder="yourname@okhdfcbank"
-                        className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-medium focus:outline-none focus:ring-1 focus:ring-[#8E5766]"
+                        className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-medium focus:outline-none focus:ring-1 focus:ring-[#8064A2]"
                       />
                       <button
                         type="button"
@@ -1096,7 +1096,7 @@ export default function MobilePaymentModal({
                     value={cardNumber}
                     onChange={(e) => setCardNumber(e.target.value)}
                     placeholder="4532 0000 0000 8912"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold tracking-wider focus:outline-none focus:ring-1 focus:ring-[#8E5766]"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold tracking-wider focus:outline-none focus:ring-1 focus:ring-[#8064A2]"
                   />
                 </div>
 
@@ -1108,7 +1108,7 @@ export default function MobilePaymentModal({
                       value={cardExpiry}
                       onChange={(e) => setCardExpiry(e.target.value)}
                       placeholder="MM/YY"
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#8E5766]"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#8064A2]"
                     />
                   </div>
                   <div>
@@ -1119,7 +1119,7 @@ export default function MobilePaymentModal({
                       value={cardCvv}
                       onChange={(e) => setCardCvv(e.target.value)}
                       placeholder="•••"
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#8E5766]"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#8064A2]"
                     />
                   </div>
                 </div>
@@ -1131,7 +1131,7 @@ export default function MobilePaymentModal({
                     value={cardHolder}
                     onChange={(e) => setCardHolder(e.target.value)}
                     placeholder="Full name as on card"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#8E5766]"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#8064A2]"
                   />
                 </div>
               </div>
@@ -1148,7 +1148,7 @@ export default function MobilePaymentModal({
                       onClick={() => setSelectedBank(bank.id)}
                       className={`p-2.5 rounded-xl border flex items-center space-x-2.5 cursor-pointer transition-all ${
                         selectedBank === bank.id
-                          ? 'bg-[#F5E1E6] border-[#8E5766] ring-1 ring-[#8E5766]'
+                          ? 'bg-[#FFF7FA] border-[#8064A2] ring-1 ring-[#8064A2]'
                           : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
@@ -1174,7 +1174,7 @@ export default function MobilePaymentModal({
                     onClick={() => setSelectedWallet(w.id)}
                     className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all text-xs ${
                       selectedWallet === w.id
-                        ? 'bg-[#F5E1E6] border-[#8E5766] ring-1 ring-[#8E5766]'
+                        ? 'bg-[#FFF7FA] border-[#8064A2] ring-1 ring-[#8064A2]'
                         : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -1192,7 +1192,7 @@ export default function MobilePaymentModal({
             {method === 'link' && (
               <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 space-y-3">
                 <div className="flex items-center space-x-2 text-xs font-bold text-slate-800">
-                  <LinkIcon className="w-4 h-4 text-[#4E0C22]" />
+                  <LinkIcon className="w-4 h-4 text-[#C76B85]" />
                   <span>Cashfree Payment Link (Sandbox Test Mode)</span>
                 </div>
                 
@@ -1205,7 +1205,7 @@ export default function MobilePaymentModal({
                     type="button"
                     disabled={isCreatingLink}
                     onClick={handleGeneratePaymentLink}
-                    className="w-full py-3 px-4 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-bold text-xs flex items-center justify-center space-x-2 transition-colors cursor-pointer shadow-sm active:scale-95"
+                    className="w-full py-3 px-4 rounded-xl bg-[#C76B85] hover:bg-[#B35872] text-white font-bold text-xs flex items-center justify-center space-x-2 transition-colors cursor-pointer shadow-sm active:scale-95"
                   >
                     {isCreatingLink ? (
                       <>
@@ -1252,7 +1252,7 @@ export default function MobilePaymentModal({
                         href={paymentLinkData.link_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="py-2.5 px-3 rounded-xl bg-[#4E0C22] text-white font-bold text-xs flex items-center justify-center space-x-1.5 hover:bg-[#6B1230] transition-colors shadow-2xs"
+                        className="py-2.5 px-3 rounded-xl bg-[#C76B85] text-white font-bold text-xs flex items-center justify-center space-x-1.5 hover:bg-[#B35872] transition-colors shadow-2xs"
                       >
                         <span>Open Link</span>
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -1262,7 +1262,7 @@ export default function MobilePaymentModal({
                         type="button"
                         disabled={isVerifying}
                         onClick={() => handleVerifyLink(paymentLinkData.link_id)}
-                        className="py-2.5 px-3 rounded-xl bg-[#4E0C22] text-white font-extrabold text-xs flex items-center justify-center space-x-1.5 hover:bg-[#6B1230] transition-colors shadow-2xs cursor-pointer active:scale-95"
+                        className="py-2.5 px-3 rounded-xl bg-[#C76B85] text-white font-extrabold text-xs flex items-center justify-center space-x-1.5 hover:bg-[#B35872] transition-colors shadow-2xs cursor-pointer active:scale-95"
                       >
                         {isVerifying ? (
                           <>
@@ -1322,9 +1322,9 @@ export default function MobilePaymentModal({
                 <span>₹ {(order?.gst ?? 0).toLocaleString('en-IN')}</span>
               </div>
 
-              <div className="pt-2 border-t border-slate-200 flex justify-between items-center font-extrabold text-[#380817]">
+              <div className="pt-2 border-t border-slate-200 flex justify-between items-center font-extrabold text-[#2E1A36]">
                 <span className="text-sm">Total Payable:</span>
-                <span className="text-base font-serif font-black text-[#4E0C22]">
+                <span className="text-base font-serif font-black text-[#C76B85]">
                   ₹ {(order?.totalAmount ?? 0).toLocaleString('en-IN')}
                 </span>
               </div>
@@ -1342,11 +1342,11 @@ export default function MobilePaymentModal({
         {/* ── AUTHORIZING LOADER ── */}
         {step === 'authorizing' && (
           <div className="p-8 text-center space-y-4 flex-1 flex flex-col items-center justify-center animate-in fade-in">
-            <div className="w-14 h-14 rounded-full bg-[#8E5766]/20 border-2 border-[#8E5766] flex items-center justify-center animate-spin">
-              <RefreshCw className="w-6 h-6 text-[#4E0C22]" />
+            <div className="w-14 h-14 rounded-full bg-[#8064A2]/20 border-2 border-[#8064A2] flex items-center justify-center animate-spin">
+              <RefreshCw className="w-6 h-6 text-[#C76B85]" />
             </div>
             <div>
-              <h4 className="font-serif font-bold text-base text-[#380817]">
+              <h4 className="font-serif font-bold text-base text-[#2E1A36]">
                 Connecting to Secure Banking Gateway...
               </h4>
               <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
@@ -1405,7 +1405,7 @@ export default function MobilePaymentModal({
               <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2.5">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#4E0C22] to-[#6B1230] text-white font-serif font-black text-xs flex items-center justify-center border border-[#8E5766]/40 shadow-xs">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#C76B85] to-[#B35872] text-white font-serif font-black text-xs flex items-center justify-center border border-[#8064A2]/40 shadow-xs">
                       I 4 U
                     </div>
                     <div>
@@ -1429,7 +1429,7 @@ export default function MobilePaymentModal({
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-xl sm:text-2xl font-serif font-extrabold text-[#4E0C22]">
+                    <span className="text-xl sm:text-2xl font-serif font-extrabold text-[#C76B85]">
                       ₹{(order?.totalAmount ?? 0).toLocaleString('en-IN')}
                     </span>
                   </div>
@@ -1446,7 +1446,7 @@ export default function MobilePaymentModal({
                       <span className="text-[10px] text-slate-500 font-mono">State Bank of India •••• 5821</span>
                     </div>
                   </div>
-                  <span className="text-[9px] font-bold text-[#4E0C22] bg-[#F5E1E6] px-2 py-0.5 rounded-full border border-[#E7CCD3]">
+                  <span className="text-[9px] font-bold text-[#C76B85] bg-[#FFF7FA] px-2 py-0.5 rounded-full border border-[#E8C6D1]">
                     NPCI Link
                   </span>
                 </div>
@@ -1472,7 +1472,7 @@ export default function MobilePaymentModal({
                         key={idx}
                         className={`w-3.5 h-3.5 rounded-full transition-all duration-150 ${
                           isFilled 
-                            ? 'bg-[#4E0C22] scale-110 shadow-xs' 
+                            ? 'bg-[#C76B85] scale-110 shadow-xs' 
                             : 'border-2 border-slate-300 bg-slate-100'
                         }`}
                       />
@@ -1513,7 +1513,7 @@ export default function MobilePaymentModal({
                       setUpiPinInput('749201');
                       setUpiPinError('');
                     }}
-                    className="text-[11px] font-bold text-[#4E0C22] bg-[#F5E1E6] hover:bg-[#F7E2E7] border border-[#E7CCD3] px-3 py-1 rounded-full transition-colors cursor-pointer"
+                    className="text-[11px] font-bold text-[#C76B85] bg-[#FFF7FA] hover:bg-[#F9EBF0] border border-[#E8C6D1] px-3 py-1 rounded-full transition-colors cursor-pointer"
                   >
                     ⚡ Auto-fill Test PIN (749201)
                   </button>
@@ -1578,7 +1578,7 @@ export default function MobilePaymentModal({
                     ? 'bg-[#5f259f] text-white hover:bg-[#4d1e82]'
                     : upiAppPaying === 'paytm'
                       ? 'bg-[#002970] text-white hover:bg-[#001f54]'
-                      : 'bg-[#4E0C22] hover:bg-[#6B1230] text-white'
+                      : 'bg-[#C76B85] hover:bg-[#B35872] text-white'
                 }`}
               >
                 {isUpiPinAuthorizing ? (
@@ -1615,10 +1615,10 @@ export default function MobilePaymentModal({
         {step === 'otp' && (
           <div className="p-5 space-y-4 flex-1 flex flex-col justify-center animate-in fade-in">
             <div className="text-center space-y-1">
-              <div className="w-12 h-12 rounded-2xl bg-[#F5E1E6] text-[#4E0C22] flex items-center justify-center mx-auto shadow-inner border border-[#E7CCD3]">
-                <Lock className="w-6 h-6 text-[#4E0C22]" />
+              <div className="w-12 h-12 rounded-2xl bg-[#FFF7FA] text-[#C76B85] flex items-center justify-center mx-auto shadow-inner border border-[#E8C6D1]">
+                <Lock className="w-6 h-6 text-[#C76B85]" />
               </div>
-              <h4 className="font-serif font-bold text-base text-[#380817]">
+              <h4 className="font-serif font-bold text-base text-[#2E1A36]">
                 Bank / UPI 3D-Secure Authentication
               </h4>
               <p className="text-xs text-slate-600 max-w-xs mx-auto">
@@ -1633,7 +1633,7 @@ export default function MobilePaymentModal({
                 <span className="font-mono text-emerald-400 font-bold">AXIS-ALERT</span>
               </div>
               <p className="text-[11px] leading-snug">
-                OTP for I 4 YOU Matrimony payment of <strong className="text-[#E4C1CA]">₹{order.totalAmount}</strong> is <strong className="text-white font-mono bg-white/20 px-1 py-0.2 rounded tracking-widest">{generatedOtp}</strong>. Do not share with anyone.
+                OTP for I 4 YOU Matrimony payment of <strong className="text-[#E8C6D1]">₹{order.totalAmount}</strong> is <strong className="text-white font-mono bg-white/20 px-1 py-0.2 rounded tracking-widest">{generatedOtp}</strong>. Do not share with anyone.
               </p>
             </div>
 
@@ -1648,7 +1648,7 @@ export default function MobilePaymentModal({
                   value={otpInput}
                   onChange={(e) => setOtpInput(e.target.value)}
                   placeholder="••••••"
-                  className="w-48 text-center bg-slate-50 border-2 border-slate-300 rounded-2xl py-2.5 text-lg font-mono font-bold tracking-widest focus:outline-none focus:border-[#8E5766] focus:bg-white"
+                  className="w-48 text-center bg-slate-50 border-2 border-slate-300 rounded-2xl py-2.5 text-lg font-mono font-bold tracking-widest focus:outline-none focus:border-[#8064A2] focus:bg-white"
                 />
               </div>
 
@@ -1656,7 +1656,7 @@ export default function MobilePaymentModal({
                 <button
                   type="button"
                   onClick={() => setOtpInput(generatedOtp)}
-                  className="text-xs font-bold text-[#4E0C22] hover:underline cursor-pointer"
+                  className="text-xs font-bold text-[#C76B85] hover:underline cursor-pointer"
                 >
                   ⚡ Auto-fill OTP ({generatedOtp})
                 </button>
@@ -1667,7 +1667,7 @@ export default function MobilePaymentModal({
               type="button"
               disabled={isProcessing || otpInput.length < 4}
               onClick={handleConfirmOtp}
-              className="w-full py-3.5 rounded-2xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-extrabold text-sm shadow-lg shadow-[#4E0C22]/25 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3.5 rounded-2xl bg-[#C76B85] hover:bg-[#B35872] text-white font-extrabold text-sm shadow-lg shadow-[#C76B85]/25 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
             >
               {isProcessing ? (
                 <>
@@ -1692,18 +1692,18 @@ export default function MobilePaymentModal({
               <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-lg animate-bounce">
                 <CheckCircle2 className="w-9 h-9 stroke-[2.5]" />
               </div>
-              <Sparkles className="w-6 h-6 text-[#E4C1CA] absolute -top-1 -right-1 animate-pulse" />
+              <Sparkles className="w-6 h-6 text-[#E8C6D1] absolute -top-1 -right-1 animate-pulse" />
             </div>
 
             <div>
-              <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#8E5766]/20 text-[#4E0C22] border border-[#8E5766]/40 uppercase tracking-wider">
+              <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#8064A2]/20 text-[#C76B85] border border-[#8064A2]/40 uppercase tracking-wider">
                 Membership Activated ✨
               </span>
-              <h3 className="font-serif font-extrabold text-xl text-[#380817] mt-2">
+              <h3 className="font-serif font-extrabold text-xl text-[#2E1A36] mt-2">
                 Congratulations, {currentUser?.name?.split(' ')[0] || 'Member'}!
               </h3>
               <p className="text-xs text-slate-600 max-w-xs mx-auto mt-1 leading-relaxed">
-                You are now a verified <strong className="text-slate-900">{plan.name}</strong> subscriber. Your <strong className="text-[#4E0C22]">{plan.contactCredits === 999 ? 'Unlimited' : plan.contactCredits} contact unlocks</strong> and profile boost are active!
+                You are now a verified <strong className="text-slate-900">{plan.name}</strong> subscriber. Your <strong className="text-[#C76B85]">{plan.contactCredits === 999 ? 'Unlimited' : plan.contactCredits} contact unlocks</strong> and profile boost are active!
               </p>
             </div>
 
@@ -1734,14 +1734,14 @@ export default function MobilePaymentModal({
                 onClick={() => onViewInvoice && onViewInvoice(completedInvoice)}
                 className="w-full py-2.5 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs flex items-center justify-center space-x-1.5 shadow-2xs transition-colors cursor-pointer"
               >
-                <FileText className="w-4 h-4 text-[#4E0C22]" />
+                <FileText className="w-4 h-4 text-[#C76B85]" />
                 <span>View & Print GST Tax Invoice</span>
               </button>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-3 px-4 rounded-2xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-bold text-xs shadow-md transition-colors cursor-pointer"
+                className="w-full py-3 px-4 rounded-2xl bg-[#C76B85] hover:bg-[#B35872] text-white font-bold text-xs shadow-md transition-colors cursor-pointer"
               >
                 Continue to Matrimony Feed →
               </button>
@@ -1755,7 +1755,7 @@ export default function MobilePaymentModal({
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[10px] text-slate-400 font-medium block">Total Payable</span>
-                <span className="font-serif font-extrabold text-base text-[#380817]">
+                <span className="font-serif font-extrabold text-base text-[#2E1A36]">
                   ₹ {(order?.totalAmount ?? 0).toLocaleString('en-IN')}
                 </span>
               </div>
@@ -1765,7 +1765,7 @@ export default function MobilePaymentModal({
                   type="button"
                   disabled={isVerifying || isCreatingLink}
                   onClick={paymentLinkData ? () => handleVerifyLink(paymentLinkData.link_id) : handleGeneratePaymentLink}
-                  className="py-3 px-5 sm:px-6 rounded-2xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-[#4E0C22]/25 transition-all flex items-center space-x-2.5 cursor-pointer active:scale-95"
+                  className="py-3 px-5 sm:px-6 rounded-2xl bg-[#C76B85] hover:bg-[#B35872] text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-[#C76B85]/25 transition-all flex items-center space-x-2.5 cursor-pointer active:scale-95"
                 >
                   {isVerifying || isCreatingLink ? (
                     <>
@@ -1791,7 +1791,7 @@ export default function MobilePaymentModal({
                   type="button"
                   disabled={isProcessing}
                   onClick={method === 'upi' ? () => handlePayDirectUpi(selectedUpiApp) : handlePayWithCashfree}
-                  className="py-3 px-5 sm:px-6 rounded-2xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-[#4E0C22]/25 transition-all flex items-center space-x-2.5 cursor-pointer active:scale-95"
+                  className="py-3 px-5 sm:px-6 rounded-2xl bg-[#C76B85] hover:bg-[#B35872] text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-[#C76B85]/25 transition-all flex items-center space-x-2.5 cursor-pointer active:scale-95"
                 >
                   {isProcessing ? (
                     <>
@@ -1833,7 +1833,7 @@ export default function MobilePaymentModal({
               <button
                 type="button"
                 onClick={handleInitiatePayment}
-                className="text-slate-600 hover:text-[#4E0C22] font-bold hover:underline cursor-pointer transition-colors"
+                className="text-slate-600 hover:text-[#C76B85] font-bold hover:underline cursor-pointer transition-colors"
                 title="Simulate bank authorization using a local test OTP without opening external gateway"
               >
                 ⚡ Offline Simulated Demo OTP

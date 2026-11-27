@@ -135,11 +135,11 @@ export default function SearchableSelect({
       {label && (
         <label className="flex items-center justify-between font-semibold text-slate-700 mb-1 text-xs">
           <span className="flex items-center gap-1 truncate">
-            {Icon && <Icon className="w-3.5 h-3.5 text-[#4E0C22] shrink-0" />}
+            {Icon && <Icon className="w-3.5 h-3.5 text-[#C76B85] shrink-0" />}
             <span>{label}</span>
           </span>
           {badge && (
-            <span className="text-[10px] font-bold text-[#4E0C22] bg-[#F5E1E6] px-2 py-0.2 rounded-full border border-[#E7CCD3] shrink-0">
+            <span className="text-[10px] font-bold text-[#C76B85] bg-[#FFF7FA] px-2 py-0.2 rounded-full border border-[#E8C6D1] shrink-0">
               {badge}
             </span>
           )}
@@ -157,8 +157,8 @@ export default function SearchableSelect({
             : error
             ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:ring-2 focus:ring-rose-200'
             : selectedOption
-            ? 'border-slate-300 bg-slate-50 text-slate-900 hover:border-[#8E5766] focus:ring-2 focus:ring-[#8E5766]'
-            : 'border-slate-300 bg-slate-50 text-slate-400 hover:border-[#8E5766] focus:ring-2 focus:ring-[#8E5766]'
+            ? 'border-slate-300 bg-slate-50 text-slate-900 hover:border-[#8064A2] focus:ring-2 focus:ring-[#8064A2]'
+            : 'border-slate-300 bg-slate-50 text-slate-400 hover:border-[#8064A2] focus:ring-2 focus:ring-[#8064A2]'
         } ${buttonClassName}`}
       >
         <span className="truncate flex-1">
@@ -186,7 +186,7 @@ export default function SearchableSelect({
             {/* Header with Title and Close Button */}
             <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
               <h3 className="font-serif font-bold text-slate-900 text-xs flex items-center gap-1 truncate min-w-0 pr-1.5">
-                {Icon && <Icon className="w-3.5 h-3.5 text-[#8E5766] shrink-0" />}
+                {Icon && <Icon className="w-3.5 h-3.5 text-[#8064A2] shrink-0" />}
                 <span className="truncate">{displayTitle}</span>
               </h3>
               <button
@@ -209,7 +209,7 @@ export default function SearchableSelect({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={displaySearchPlaceholder}
-                  className="w-full pl-6 pr-5 py-1 rounded-lg bg-white border border-slate-300 text-[11px] font-medium focus:ring-1 focus:ring-[#8E5766] focus:border-[#8E5766] focus:outline-none shadow-2xs"
+                  className="w-full pl-6 pr-5 py-1 rounded-lg bg-white border border-slate-300 text-[11px] font-medium focus:ring-1 focus:ring-[#8064A2] focus:border-[#8064A2] focus:outline-none shadow-2xs"
                 />
                 {searchQuery && (
                   <button
@@ -243,17 +243,17 @@ export default function SearchableSelect({
                     }
                     handleSelect(customVal);
                   }}
-                  className="w-full px-2 py-1.5 mb-1.5 rounded-lg text-left flex items-center justify-between gap-1.5 bg-[#F5E1E6] hover:bg-[#F7E2E7] text-[#4E0C22] border border-[#E7CCD3] font-bold transition-all cursor-pointer shadow-2xs group shrink-0"
+                  className="w-full px-2 py-1.5 mb-1.5 rounded-lg text-left flex items-center justify-between gap-1.5 bg-[#FFF7FA] hover:bg-[#F9EBF0] text-[#C76B85] border border-[#E8C6D1] font-bold transition-all cursor-pointer shadow-2xs group shrink-0"
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <div className="w-4 h-4 rounded-full bg-[#8E5766] text-white flex items-center justify-center shrink-0">
+                    <div className="w-4 h-4 rounded-full bg-[#8064A2] text-white flex items-center justify-center shrink-0">
                       <Plus className="w-2.5 h-2.5 stroke-[3]" />
                     </div>
                     <span className="text-[11px] truncate">
-                      {customActionText} <span className="font-extrabold text-[#380817]">"{searchQuery.trim()}"</span>
+                      {customActionText} <span className="font-extrabold text-[#2E1A36]">"{searchQuery.trim()}"</span>
                     </span>
                   </div>
-                  <span className="text-[8px] uppercase tracking-wider bg-white/90 px-1 py-0.5 rounded border border-[#E7CCD3] shrink-0 font-extrabold text-[#4E0C22]">
+                  <span className="text-[8px] uppercase tracking-wider bg-white/90 px-1 py-0.5 rounded border border-[#E8C6D1] shrink-0 font-extrabold text-[#C76B85]">
                     + Add
                   </span>
                 </button>
@@ -262,7 +262,7 @@ export default function SearchableSelect({
               {filteredOptions.length === 0 ? (
                 allowCustom && searchQuery.trim() ? (
                   <div className="py-4 px-2 text-center text-xs">
-                    <div className="w-7 h-7 rounded-full bg-[#F5E1E6] text-[#4E0C22] border border-[#E7CCD3] flex items-center justify-center mx-auto mb-1.5">
+                    <div className="w-7 h-7 rounded-full bg-[#FFF7FA] text-[#C76B85] border border-[#E8C6D1] flex items-center justify-center mx-auto mb-1.5">
                       <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                     </div>
                     <p className="font-bold text-slate-800 text-[11px] mb-0.5">
@@ -280,7 +280,7 @@ export default function SearchableSelect({
                         }
                         handleSelect(customVal);
                       }}
-                      className="px-2.5 py-1 rounded-lg bg-[#4E0C22] hover:bg-[#6B1230] text-white font-extrabold text-[10px] shadow-2xs hover:shadow transition-all inline-flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-[#C76B85] hover:bg-[#B35872] text-white font-extrabold text-[10px] shadow-2xs hover:shadow transition-all inline-flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="w-3 h-3 stroke-[3]" />
                       <span>Add "{searchQuery.trim()}"</span>
@@ -299,7 +299,7 @@ export default function SearchableSelect({
                       <button
                         type="button"
                         onClick={() => setSearchQuery('')}
-                        className="mt-2 px-2 py-0.5 rounded bg-[#F5E1E6] text-[#4E0C22] border border-[#E7CCD3] text-[10px] font-semibold cursor-pointer"
+                        className="mt-2 px-2 py-0.5 rounded bg-[#FFF7FA] text-[#C76B85] border border-[#E8C6D1] text-[10px] font-semibold cursor-pointer"
                       >
                         Clear
                       </button>
@@ -316,7 +316,7 @@ export default function SearchableSelect({
                       onClick={() => handleSelect(opt.value)}
                       className={`w-full min-h-[28px] px-2 py-1 rounded-lg text-left flex items-center justify-between gap-1.5 transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-[#F7E2E7] text-[#4E0C22] border border-[#E7CCD3] font-bold shadow-2xs'
+                          ? 'bg-[#F9EBF0] text-[#C76B85] border border-[#E8C6D1] font-bold shadow-2xs'
                           : 'text-slate-700 hover:bg-slate-100/70 border border-transparent font-medium active:bg-slate-200/60'
                       }`}
                     >
@@ -331,7 +331,7 @@ export default function SearchableSelect({
                         )}
                       </div>
                       {isSelected && (
-                        <div className="w-3.5 h-3.5 rounded-full bg-[#4E0C22] text-white flex items-center justify-center shrink-0">
+                        <div className="w-3.5 h-3.5 rounded-full bg-[#C76B85] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2 h-2 stroke-[3]" />
                         </div>
                       )}

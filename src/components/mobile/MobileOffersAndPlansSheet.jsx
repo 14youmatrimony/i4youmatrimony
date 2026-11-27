@@ -121,9 +121,9 @@ export default function MobileOffersAndPlansSheet({
     <div className="flex flex-col h-full w-full overflow-hidden bg-slate-50">
       
       {/* Top Header Bar */}
-      <header className="bg-gradient-to-r from-[#4E0C22] via-[#6B1230] to-[#380817] text-white px-3.5 py-2.5 sm:py-3 flex items-center justify-between border-b border-[#E7CCD3]/30 shadow-md shrink-0">
+      <header className="bg-gradient-to-r from-[#C76B85] via-[#B35872] to-[#2E1A36] text-white px-3.5 py-2.5 sm:py-3 flex items-center justify-between border-b border-[#E8C6D1]/30 shadow-md shrink-0">
         <div className="flex items-center space-x-2">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-[#8E5766] to-[#E4C1CA] text-[#380817] flex items-center justify-center font-bold shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-[#8064A2] to-[#E8C6D1] text-[#2E1A36] flex items-center justify-center font-bold shrink-0">
             <Crown className="w-4 h-4 fill-current" />
           </div>
           <div>
@@ -147,7 +147,7 @@ export default function MobileOffersAndPlansSheet({
           aria-label="Close"
           title="Close"
         >
-          <X className="w-5 h-5 text-[#E4C1CA]" />
+          <X className="w-5 h-5 text-[#E8C6D1]" />
         </button>
       </header>
 
@@ -156,18 +156,18 @@ export default function MobileOffersAndPlansSheet({
 
         {/* ── Festive Shubh Vivah Hero Promo Banner (Only if featuredOffer active) ── */}
         {featuredOffer && (
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#4E0C22] via-[#6B1230] to-[#380817] border border-[#E7CCD3]/60 text-white p-3.5 shadow-md">
-            <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-[#8E5766]/10 rounded-full blur-2xl pointer-events-none"></div>
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#C76B85] via-[#B35872] to-[#2E1A36] border border-[#E8C6D1]/60 text-white p-3.5 shadow-md">
+            <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-[#8064A2]/10 rounded-full blur-2xl pointer-events-none"></div>
             
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <span className="inline-flex items-center gap-1 text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-[#8E5766] to-[#E4C1CA] text-[#380817] uppercase tracking-wider shadow-xs">
+              <span className="inline-flex items-center gap-1 text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-[#8064A2] to-[#E8C6D1] text-[#2E1A36] uppercase tracking-wider shadow-xs">
                 <Sparkles className="w-3 h-3 fill-current" />
                 <span>{defaultOfferTitle}</span>
               </span>
 
               {/* Countdown Clock */}
-              <div className="flex items-center space-x-1 font-mono text-[10px] sm:text-[11px] font-bold text-[#E4C1CA] bg-black/40 px-2 py-0.5 rounded-lg border border-[#E4C1CA]/30">
-                <Clock className="w-3 h-3 text-[#E4C1CA]" />
+              <div className="flex items-center space-x-1 font-mono text-[10px] sm:text-[11px] font-bold text-[#E8C6D1] bg-black/40 px-2 py-0.5 rounded-lg border border-[#E8C6D1]/30">
+                <Clock className="w-3 h-3 text-[#E8C6D1]" />
                 <span>Ends in: {String(timeLeft.hours).padStart(2, '0')}h {String(timeLeft.minutes).padStart(2, '0')}m {String(timeLeft.seconds).padStart(2, '0')}s</span>
               </div>
             </div>
@@ -184,9 +184,9 @@ export default function MobileOffersAndPlansSheet({
             {/* Applied Coupon Pill */}
             <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-xs">
               <div className="flex items-center space-x-1.5">
-                <Tag className="w-3.5 h-3.5 text-[#E4C1CA]" />
+                <Tag className="w-3.5 h-3.5 text-[#E8C6D1]" />
                 <span className="text-[10.5px] text-slate-200 font-medium">Coupon:</span>
-                <span className="font-mono font-bold text-[11px] text-[#E4C1CA] bg-white/10 px-1.5 py-0.2 rounded border border-[#E7CCD3]/40">
+                <span className="font-mono font-bold text-[11px] text-[#E8C6D1] bg-white/10 px-1.5 py-0.2 rounded border border-[#E8C6D1]/40">
                   {activeCoupon || defaultPromoCode}
                 </span>
               </div>
@@ -202,7 +202,7 @@ export default function MobileOffersAndPlansSheet({
                   const targetPlan = recommendedPlan || availablePlans[0];
                   if (targetPlan) onSelectPlanForPayment(targetPlan, selectedDuration, activeCoupon);
                 }}
-                className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#8E5766] to-[#E4C1CA] text-[#380817] font-bold text-[11px] hover:opacity-95 shadow-sm flex items-center space-x-1 cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#8064A2] to-[#E8C6D1] text-[#2E1A36] font-bold text-[11px] hover:opacity-95 shadow-sm flex items-center space-x-1 cursor-pointer"
               >
                 <span>{!currentUser ? 'Login to Claim' : 'Claim Offer'}</span>
                 <ArrowRight className="w-3 h-3" />
@@ -212,18 +212,18 @@ export default function MobileOffersAndPlansSheet({
         )}
 
         {/* ── Active Membership Status Banner ── */}
-        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-[#E7CCD3] shadow-2xs flex items-center justify-between text-xs">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-[#E8C6D1] shadow-2xs flex items-center justify-between text-xs">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-[#F5E1E6] text-[#4E0C22] border border-[#E7CCD3] flex items-center justify-center font-bold shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#FFF7FA] text-[#C76B85] border border-[#E8C6D1] flex items-center justify-center font-bold shrink-0">
               {currentUser?.membership === 'vip' ? '👑' : currentUser?.membership === 'diamond' ? '💎' : currentUser?.membership === 'gold' ? '⭐' : '👤'}
             </div>
             <div>
               <span className="text-[9.5px] text-slate-400 font-bold uppercase tracking-wider block">Current Status</span>
-              <h4 className="font-bold text-[#380817] text-[11.5px]">
+              <h4 className="font-bold text-[#2E1A36] text-[11.5px]">
                 {currentUser?.membershipPlan || (currentUser?.membership ? `${currentUser.membership.toUpperCase()} Member` : 'Free Basic Member')}
               </h4>
               <p className="text-[9.5px] text-slate-500">
-                Contact Unlocks: <strong className="text-[#4E0C22] font-bold">
+                Contact Unlocks: <strong className="text-[#C76B85] font-bold">
                   {currentUser?.membership && currentUser?.membership !== 'free'
                     ? (currentUser?.contactCredits === 999 ? 'Unlimited' : `${currentUser?.contactCredits ?? 0} remaining`)
                     : '0 (Subscription Required)'}
@@ -236,9 +236,9 @@ export default function MobileOffersAndPlansSheet({
             <button
               type="button"
               onClick={onViewInvoices}
-              className="px-2 py-1 rounded-lg bg-[#F5E1E6] border border-[#E7CCD3] text-[#4E0C22] hover:bg-[#F7E2E7] text-[10.5px] font-bold flex items-center space-x-1 cursor-pointer shadow-2xs"
+              className="px-2 py-1 rounded-lg bg-[#FFF7FA] border border-[#E8C6D1] text-[#C76B85] hover:bg-[#F9EBF0] text-[10.5px] font-bold flex items-center space-x-1 cursor-pointer shadow-2xs"
             >
-              <FileText className="w-3 h-3 text-[#4E0C22]" />
+              <FileText className="w-3 h-3 text-[#C76B85]" />
               <span>Invoices ({currentUser.paymentHistory.length})</span>
             </button>
           )}
@@ -266,7 +266,7 @@ export default function MobileOffersAndPlansSheet({
                 onClick={() => setSelectedDuration(d.months)}
                 className={`py-1.5 px-0.5 rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center ${
                   selectedDuration === d.months
-                    ? 'bg-[#4E0C22] text-white shadow-xs font-extrabold'
+                    ? 'bg-[#C76B85] text-white shadow-xs font-extrabold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -301,15 +301,15 @@ export default function MobileOffersAndPlansSheet({
                 key={plan.id}
                 className={`bg-white rounded-2xl border transition-all overflow-hidden shadow-2xs hover:shadow-xs relative ${
                   plan.isPopular 
-                    ? 'border-[#8E5766] ring-1 ring-[#8E5766]/50' 
-                    : plan.accentBorder || 'border-[#E7CCD3]'
+                    ? 'border-[#8064A2] ring-1 ring-[#8064A2]/50' 
+                    : plan.accentBorder || 'border-[#E8C6D1]'
                 }`}
               >
                 {/* Popular / Best Value Ribbon */}
                 {plan.badge && (
                   <div className={`py-0.5 px-2.5 text-center text-[9.5px] font-extrabold tracking-wider uppercase ${
                     plan.id === 'diamond' || plan.isPopular
-                      ? 'bg-[#4E0C22] text-white'
+                      ? 'bg-[#C76B85] text-white'
                       : plan.id === 'silver'
                         ? 'bg-gradient-to-r from-slate-600 to-slate-700 text-white'
                         : 'bg-gradient-to-r from-purple-800 to-indigo-900 text-white'
@@ -327,7 +327,7 @@ export default function MobileOffersAndPlansSheet({
                         <span className="text-base sm:text-lg">
                           {plan.id === 'vip' ? '👑' : plan.id === 'diamond' ? '💎' : plan.id === 'silver' ? '🥈' : '⭐'}
                         </span>
-                        <h4 className="font-serif font-extrabold text-sm sm:text-base text-[#380817]">{plan.name}</h4>
+                        <h4 className="font-serif font-extrabold text-sm sm:text-base text-[#2E1A36]">{plan.name}</h4>
                       </div>
                       <p className="text-[10.5px] text-slate-500 mt-0.5">{plan.tagline}</p>
                     </div>
@@ -335,7 +335,7 @@ export default function MobileOffersAndPlansSheet({
                     <div className="text-right">
                       <div className="flex items-baseline space-x-1 justify-end">
                         <span className="text-[10px] text-slate-400 line-through">₹{(pricing?.originalPrice || 0).toLocaleString('en-IN')}</span>
-                        <span className="font-serif font-black text-base sm:text-lg text-[#380817]">₹{(pricing?.offerPrice || pricing?.discountedPrice || 0).toLocaleString('en-IN')}</span>
+                        <span className="font-serif font-black text-base sm:text-lg text-[#2E1A36]">₹{(pricing?.offerPrice || pricing?.discountedPrice || 0).toLocaleString('en-IN')}</span>
                       </div>
                       <span className="inline-block text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
                         ₹{pricing?.perMonth || Math.round((pricing?.offerPrice || 1999) / (selectedDuration || 6))}/mo ({pricing?.discount || '50% OFF'})
@@ -344,9 +344,9 @@ export default function MobileOffersAndPlansSheet({
                   </div>
 
                   {/* Highlights Banner */}
-                  <div className="bg-[#F5E1E6] rounded-lg p-2 border border-[#E7CCD3] flex items-center justify-between text-[11px]">
-                    <span className="font-bold text-[#4E0C22] flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-[#4E0C22]" />
+                  <div className="bg-[#FFF7FA] rounded-lg p-2 border border-[#E8C6D1] flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-[#C76B85] flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-[#C76B85]" />
                       <span>{plan.contactCredits === 999 ? 'Unlimited' : (plan.contactCredits || pricing?.contacts || 30)} Verified Contact Unlocks</span>
                     </span>
                     <span className="text-[9.5px] font-semibold text-slate-500">
@@ -403,8 +403,8 @@ export default function MobileOffersAndPlansSheet({
                     }}
                     className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center space-x-1 cursor-pointer shadow-2xs ${
                       !currentUser
-                        ? 'bg-[#F7E2E7] hover:bg-[#4E0C22] text-[#4E0C22] hover:text-white border border-[#E7CCD3]'
-                        : 'bg-[#4E0C22] hover:bg-[#6B1230] text-white'
+                        ? 'bg-[#F9EBF0] hover:bg-[#C76B85] text-[#C76B85] hover:text-white border border-[#E8C6D1]'
+                        : 'bg-[#C76B85] hover:bg-[#B35872] text-white'
                     }`}
                   >
                     {!currentUser ? (
@@ -430,10 +430,10 @@ export default function MobileOffersAndPlansSheet({
         <form onSubmit={handleApplyCoupon} className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-[10.5px] font-bold text-slate-700 flex items-center gap-1">
-              <Tag className="w-3 h-3 text-[#4E0C22]" /> Have a Promo Code?
+              <Tag className="w-3 h-3 text-[#C76B85]" /> Have a Promo Code?
             </span>
             {defaultPromoCode ? (
-              <span className="text-[9.5px] text-[#4E0C22] font-bold">Try: {defaultPromoCode}</span>
+              <span className="text-[9.5px] text-[#C76B85] font-bold">Try: {defaultPromoCode}</span>
             ) : null}
           </div>
 
@@ -443,11 +443,11 @@ export default function MobileOffersAndPlansSheet({
               value={couponInput}
               onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
               placeholder={defaultPromoCode ? `e.g. ${defaultPromoCode}` : "Enter promo code"}
-              className="flex-1 px-2.5 py-1.5 bg-slate-50 border border-[#E7CCD3] rounded-lg text-xs font-mono font-bold tracking-wider uppercase focus:outline-hidden focus:border-[#8E5766]"
+              className="flex-1 px-2.5 py-1.5 bg-slate-50 border border-[#E8C6D1] rounded-lg text-xs font-mono font-bold tracking-wider uppercase focus:outline-hidden focus:border-[#8064A2]"
             />
             <button
               type="submit"
-              className="px-3 py-1.5 bg-[#4E0C22] text-white rounded-lg font-bold text-xs hover:bg-[#6B1230] transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-[#C76B85] text-white rounded-lg font-bold text-xs hover:bg-[#B35872] transition-colors cursor-pointer"
             >
               Apply
             </button>
@@ -467,7 +467,7 @@ export default function MobileOffersAndPlansSheet({
             </span>
             <span>•</span>
             <span className="flex items-center gap-1">
-              <Lock className="w-3 h-3 text-[#4E0C22]" />
+              <Lock className="w-3 h-3 text-[#C76B85]" />
               256-Bit Bank Encryption
             </span>
           </div>
@@ -482,7 +482,7 @@ export default function MobileOffersAndPlansSheet({
       <footer className="p-2.5 sm:p-3 bg-white border-t border-slate-200 flex items-center justify-between shrink-0 shadow-lg">
         <div>
           <span className="text-[9.5px] text-slate-400 font-semibold block">Recommended Plan</span>
-          <span className="font-serif font-extrabold text-xs sm:text-sm text-[#380817]">
+          <span className="font-serif font-extrabold text-xs sm:text-sm text-[#2E1A36]">
             {recommendedPlan ? `${recommendedPlan.name} • ₹${(recommendedPlan.pricing && recommendedPlan.pricing[selectedDuration]?.offerPrice) || (recommendedPlan.pricing && recommendedPlan.pricing[6]?.offerPrice) || 2499}` : 'Diamond VIP • ₹2,499'}
           </span>
         </div>
@@ -498,7 +498,7 @@ export default function MobileOffersAndPlansSheet({
             }
             if (targetPlan) onSelectPlanForPayment(targetPlan, selectedDuration, activeCoupon);
           }}
-          className="py-2 px-3.5 sm:px-4 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white font-extrabold text-xs shadow-md transition-all flex items-center space-x-1 cursor-pointer"
+          className="py-2 px-3.5 sm:px-4 rounded-xl bg-[#C76B85] hover:bg-[#B35872] text-white font-extrabold text-xs shadow-md transition-all flex items-center space-x-1 cursor-pointer"
         >
           <span>{!currentUser ? 'Login to Upgrade' : (defaultDiscountPercent > 0 ? `Upgrade Now (${defaultDiscountPercent}% OFF)` : 'Upgrade Now')}</span>
           <ArrowRight className="w-3.5 h-3.5" />
@@ -515,7 +515,7 @@ export default function MobileOffersAndPlansSheet({
         onClick={onClose}
       >
         <div 
-          className="w-full max-w-lg md:max-w-xl max-h-[88vh] h-full sm:h-auto bg-slate-50 rounded-2xl shadow-2xl border border-[#E7CCD3] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200"
+          className="w-full max-w-lg md:max-w-xl max-h-[88vh] h-full sm:h-auto bg-slate-50 rounded-2xl shadow-2xl border border-[#E8C6D1] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           {sheetContent}

@@ -181,12 +181,12 @@ export default function WorldCountrySearchSelect({
       {label && (
         <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
           <span className="flex items-center gap-1">
-            <Globe className="w-3.5 h-3.5 text-[#4E0C22]" />
+            <Globe className="w-3.5 h-3.5 text-[#C76B85]" />
             <span>{label}</span>
             {required && <span className="text-rose-500">*</span>}
           </span>
           {selectedCountryObj && (
-            <span className="text-[10px] font-bold text-[#4E0C22] bg-[#F5E1E6] px-2 py-0.2 rounded-full border border-[#E7CCD3]">
+            <span className="text-[10px] font-bold text-[#C76B85] bg-[#FFF7FA] px-2 py-0.2 rounded-full border border-[#E8C6D1]">
               {selectedCountryObj.code}
             </span>
           )}
@@ -201,7 +201,7 @@ export default function WorldCountrySearchSelect({
         }}
         className={`w-full min-h-[38px] px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 bg-white ${
           isOpen 
-            ? 'border-[#8E5766] ring-2 ring-[#8E5766]/20 shadow-xs' 
+            ? 'border-[#8064A2] ring-2 ring-[#8064A2]/20 shadow-xs' 
             : error 
             ? 'border-rose-400 bg-rose-50/20' 
             : 'border-slate-300 hover:border-slate-400'
@@ -242,7 +242,7 @@ export default function WorldCountrySearchSelect({
               <X className="w-3.5 h-3.5" />
             </button>
           )}
-          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#4E0C22]' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#C76B85]' : ''}`} />
         </div>
       </div>
 
@@ -260,7 +260,7 @@ export default function WorldCountrySearchSelect({
           {/* Quick Header */}
           <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-500 select-none">
             <span>Top 100 World Countries</span>
-            <span className="text-[#4E0C22]">
+            <span className="text-[#C76B85]">
               {filteredCountries.length} countries
             </span>
           </div>
@@ -284,9 +284,9 @@ export default function WorldCountrySearchSelect({
                 onMouseEnter={() => setHighlightIndex(0)}
                 className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
                   highlightIndex === 0
-                    ? 'bg-[#F7E2E7] text-[#4E0C22]'
+                    ? 'bg-[#F9EBF0] text-[#C76B85]'
                     : value === 'Any' || value === 'Working Abroad (NRI)'
-                    ? 'bg-[#4E0C22] text-white'
+                    ? 'bg-[#C76B85] text-white'
                     : 'hover:bg-slate-100 text-slate-800'
                 }`}
               >
@@ -326,9 +326,9 @@ export default function WorldCountrySearchSelect({
                     onMouseEnter={() => setHighlightIndex(navIndex)}
                     className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${
                       isSelected
-                        ? 'bg-[#4E0C22] text-white font-bold shadow-2xs'
+                        ? 'bg-[#C76B85] text-white font-bold shadow-2xs'
                         : isHighlighted
-                        ? 'bg-[#F7E2E7] text-[#4E0C22]'
+                        ? 'bg-[#F9EBF0] text-[#C76B85]'
                         : 'hover:bg-slate-100 text-slate-800'
                     }`}
                   >
@@ -336,7 +336,7 @@ export default function WorldCountrySearchSelect({
                       <span className="text-base leading-none shrink-0">{c.flag}</span>
                       <span className="truncate">{c.name}</span>
                       {c.popular && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-[#4E0C22] shrink-0">
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-[#C76B85] shrink-0">
                           NRI Top
                         </span>
                       )}

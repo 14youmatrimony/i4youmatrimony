@@ -228,29 +228,29 @@ export default function MobileServicesScreen({
   };
 
   return (
-    <div className="min-h-full bg-[#F5E1E6] text-[#380817] pb-24">
+    <div className="min-h-full bg-[#FFF7FA] text-[#2E1A36] pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-[#FAF0F2]/95 backdrop-blur-md border-b border-[#E7CCD3] px-4 pt-4 pb-3 space-y-3">
+      <div className="sticky top-0 z-20 bg-[#FDF2F6]/95 backdrop-blur-md border-b border-[#E8C6D1] px-4 pt-4 pb-3 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             {onBack && (
               <button
                 type="button"
                 onClick={onBack}
-                className="p-2 rounded-xl bg-white border border-[#E7CCD3] text-[#4E0C22] hover:bg-[#F7E2E7]/50 transition-colors cursor-pointer"
+                className="p-2 rounded-xl bg-white border border-[#E8C6D1] text-[#C76B85] hover:bg-[#F9EBF0]/50 transition-colors cursor-pointer"
                 aria-label="Back"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
             )}
-            <div className="w-9 h-9 rounded-2xl bg-[#F7E2E7] border border-[#E4C1CA] flex items-center justify-center text-[#4E0C22]">
+            <div className="w-9 h-9 rounded-2xl bg-[#F9EBF0] border border-[#E8C6D1] flex items-center justify-center text-[#C76B85]">
               <Store className="w-4 h-4" />
             </div>
             <div>
-              <h1 className="text-base font-bold tracking-tight text-[#380817]">
+              <h1 className="text-base font-bold tracking-tight text-[#2E1A36]">
                 All Services
               </h1>
-              <p className="text-[11px] text-[#7B4A57]">
+              <p className="text-[11px] text-[#AA98A9]">
                 Curated bridal, catering, jewellery &amp; event partners
               </p>
             </div>
@@ -259,7 +259,7 @@ export default function MobileServicesScreen({
           <button
             type="button"
             onClick={loadVendors}
-            className="p-2 rounded-xl bg-white border border-[#E7CCD3] text-[#4E0C22] hover:bg-[#F7E2E7]/50 transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-white border border-[#E8C6D1] text-[#C76B85] hover:bg-[#F9EBF0]/50 transition-colors cursor-pointer"
             aria-label="Refresh services"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -269,12 +269,12 @@ export default function MobileServicesScreen({
         {/* Cascading State & District Side-by-Side Filters (-20% width, aligned with grid) */}
         <div className="max-w-3xl mx-auto w-[80%] sm:w-full grid grid-cols-2 gap-2.5">
           <div className="relative">
-            <MapPin className="w-3.5 h-3.5 text-[#4E0C22] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <MapPin className="w-3.5 h-3.5 text-[#C76B85] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <select
               value={selectedState}
               onChange={(e) => handleStateChange(e.target.value)}
               aria-label="Filter by state"
-              className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/90 shadow-sm border border-[#E4C1CA]/80 hover:border-[#8E5766] text-xs font-semibold text-[#380817] focus:outline-none focus:border-[#4E0C22] transition-colors cursor-pointer"
+              className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/90 shadow-sm border border-[#E8C6D1]/80 hover:border-[#8064A2] text-xs font-semibold text-[#2E1A36] focus:outline-none focus:border-[#C76B85] transition-colors cursor-pointer"
             >
               {INDIAN_STATES_AND_UTS.map((st) => (
                 <option key={st} value={st}>
@@ -285,12 +285,12 @@ export default function MobileServicesScreen({
           </div>
 
           <div className="relative">
-            <MapPin className="w-3.5 h-3.5 text-[#8E5766] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <MapPin className="w-3.5 h-3.5 text-[#8064A2] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <select
               value={selectedDistrict}
               onChange={(e) => setSelectedDistrict(e.target.value)}
               aria-label="Filter by district"
-              className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/90 shadow-sm border border-[#E4C1CA]/80 hover:border-[#8E5766] text-xs font-semibold text-[#380817] focus:outline-none focus:border-[#4E0C22] transition-colors cursor-pointer"
+              className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/90 shadow-sm border border-[#E8C6D1]/80 hover:border-[#8064A2] text-xs font-semibold text-[#2E1A36] focus:outline-none focus:border-[#C76B85] transition-colors cursor-pointer"
             >
               {districtOptions.map((dist) => (
                 <option key={dist} value={dist}>
@@ -315,11 +315,11 @@ export default function MobileServicesScreen({
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`group relative rounded-2xl overflow-hidden text-center transition-all duration-300 cursor-pointer border aspect-square min-h-[115px] sm:min-h-[135px] w-full flex flex-col justify-end ${
                   active
-                    ? 'border-[#8E5766] ring-2 ring-[#E4C1CA]/70 shadow-md bg-[#F7E2E7]'
-                    : 'border-[#E7CCD3] hover:border-[#8E5766] bg-white shadow-xs'
+                    ? 'border-[#8064A2] ring-2 ring-[#E8C6D1]/70 shadow-md bg-[#F9EBF0]'
+                    : 'border-[#E8C6D1] hover:border-[#8064A2] bg-white shadow-xs'
                 }`}
               >
-                <div className="absolute inset-0 overflow-hidden bg-[#F5E1E6]">
+                <div className="absolute inset-0 overflow-hidden bg-[#FFF7FA]">
                   <img
                     src={cat.image}
                     alt={cat.label}
@@ -330,13 +330,13 @@ export default function MobileServicesScreen({
                 <div
                   className={`relative z-10 w-full min-h-[38px] px-1.5 py-1.5 flex flex-col justify-center items-center backdrop-blur-sm border-t transition-colors ${
                     active
-                      ? 'bg-[#F7E2E7]/88 border-[#E4C1CA]/70'
-                      : 'bg-[#F5E1E6]/82 border-white/50 group-hover:bg-[#F5E1E6]/90'
+                      ? 'bg-[#F9EBF0]/88 border-[#E8C6D1]/70'
+                      : 'bg-[#FFF7FA]/82 border-white/50 group-hover:bg-[#FFF7FA]/90'
                   }`}
                 >
                   <span
                     className={`block text-[10px] sm:text-[11px] leading-tight font-bold line-clamp-2 ${
-                      active ? 'text-[#4E0C22]' : 'text-[#380817]'
+                      active ? 'text-[#C76B85]' : 'text-[#2E1A36]'
                     }`}
                   >
                     {cat.label}
@@ -349,9 +349,9 @@ export default function MobileServicesScreen({
 
         {/* Free User Paywall Banner */}
         {!isPremium && (
-          <div className="rounded-3xl bg-gradient-to-br from-[#F7E2E7] via-[#F5E1E6] to-[#F3EEFA] border border-[#E4C1CA] p-5 shadow-sm">
+          <div className="rounded-3xl bg-gradient-to-br from-[#F9EBF0] via-[#FFF7FA] to-[#F3EEFA] border border-[#E8C6D1] p-5 shadow-sm">
             <div className="flex items-start gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-white border border-[#E4C1CA] flex items-center justify-center text-[#4E0C22] shrink-0 shadow-xs">
+              <div className="w-11 h-11 rounded-2xl bg-white border border-[#E8C6D1] flex items-center justify-center text-[#C76B85] shrink-0 shadow-xs">
                 <Crown className="w-5 h-5" />
               </div>
               <div className="flex-1 space-y-2">
@@ -359,14 +359,14 @@ export default function MobileServicesScreen({
                   <Lock className="w-3 h-3" />
                   <span>Premium Exclusive</span>
                 </span>
-                <p className="text-sm font-semibold text-[#380817] leading-snug">
+                <p className="text-sm font-semibold text-[#2E1A36] leading-snug">
                   Wedding Services is exclusive to Premium Members. Upgrade to unlock vendor contacts, photos, and videos.
                 </p>
                 <div className="pt-1 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => (currentUser ? onOpenOffers?.() : onOpenLogin?.())}
-                    className="px-4 py-2 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    className="px-4 py-2 rounded-xl bg-[#C76B85] hover:bg-[#B35872] text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                   >
                     <Crown className="w-3.5 h-3.5" />
                     <span>{currentUser ? 'Upgrade to Premium' : 'Sign In / Upgrade'}</span>
@@ -383,10 +383,10 @@ export default function MobileServicesScreen({
             {[1, 2, 3, 4].map((item) => (
               <div
                 key={item}
-                className="h-48 rounded-3xl bg-white border border-[#E7CCD3]/70 p-4 animate-pulse space-y-3"
+                className="h-48 rounded-3xl bg-white border border-[#E8C6D1]/70 p-4 animate-pulse space-y-3"
               >
-                <div className="h-24 rounded-2xl bg-[#F7E2E7]/60" />
-                <div className="h-4 w-2/3 rounded bg-[#F7E2E7]/80" />
+                <div className="h-24 rounded-2xl bg-[#F9EBF0]/60" />
+                <div className="h-4 w-2/3 rounded bg-[#F9EBF0]/80" />
                 <div className="h-3 w-1/2 rounded bg-[#F3EEFA]/80" />
               </div>
             ))}
@@ -395,12 +395,12 @@ export default function MobileServicesScreen({
 
         {/* Empty State */}
         {!loading && vendors.length === 0 && (
-          <div className="rounded-3xl bg-white border border-[#E7CCD3] p-8 text-center space-y-2.5">
-            <div className="w-12 h-12 rounded-2xl bg-[#F7E2E7] text-[#4E0C22] flex items-center justify-center mx-auto">
+          <div className="rounded-3xl bg-white border border-[#E8C6D1] p-8 text-center space-y-2.5">
+            <div className="w-12 h-12 rounded-2xl bg-[#F9EBF0] text-[#C76B85] flex items-center justify-center mx-auto">
               <Store className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-bold text-[#380817]">No Approved Vendors Found</h3>
-            <p className="text-xs text-[#7B4A57] max-w-xs mx-auto">
+            <h3 className="text-sm font-bold text-[#2E1A36]">No Approved Vendors Found</h3>
+            <p className="text-xs text-[#AA98A9] max-w-xs mx-auto">
               Try selecting another category, state, or district, or check back soon as new verified wedding partners join.
             </p>
           </div>
@@ -418,10 +418,10 @@ export default function MobileServicesScreen({
                 <div
                   key={vendor.id}
                   onClick={() => handleOpenVendor(vendor)}
-                  className="rounded-3xl bg-white border border-[#E7CCD3] overflow-hidden shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col"
+                  className="rounded-3xl bg-white border border-[#E8C6D1] overflow-hidden shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col"
                 >
                   {/* Card Media / Locked Preview */}
-                  <div className="relative h-40 bg-gradient-to-br from-[#F7E2E7] via-[#F5E1E6] to-[#F3EEFA] overflow-hidden">
+                  <div className="relative h-40 bg-gradient-to-br from-[#F9EBF0] via-[#FFF7FA] to-[#F3EEFA] overflow-hidden">
                     {isPremium && coverPhoto ? (
                       <img
                         src={coverPhoto}
@@ -430,17 +430,17 @@ export default function MobileServicesScreen({
                       />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center gap-2 px-4 text-center">
-                        <div className="w-10 h-10 rounded-2xl bg-white/90 border border-[#E4C1CA] flex items-center justify-center text-[#4E0C22] shadow-xs">
+                        <div className="w-10 h-10 rounded-2xl bg-white/90 border border-[#E8C6D1] flex items-center justify-center text-[#C76B85] shadow-xs">
                           {isPremium ? <ImageIcon className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
                         </div>
-                        <span className="text-[11px] font-semibold text-[#4E0C22]">
+                        <span className="text-[11px] font-semibold text-[#C76B85]">
                           {isPremium ? 'View Business Profile' : 'Locked Photo & Video Gallery'}
                         </span>
                       </div>
                     )}
 
                     {/* Category Badge */}
-                    <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/95 backdrop-blur-xs border border-[#E7CCD3] text-[10px] font-bold text-[#4E0C22]">
+                    <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/95 backdrop-blur-xs border border-[#E8C6D1] text-[10px] font-bold text-[#C76B85]">
                       {getCategoryLabel(vendor.category)}
                     </span>
 
@@ -474,38 +474,38 @@ export default function MobileServicesScreen({
                   {/* Card Body */}
                   <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                     <div>
-                      <h3 className="text-sm font-bold text-[#380817] line-clamp-1">
+                      <h3 className="text-sm font-bold text-[#2E1A36] line-clamp-1">
                         {vendor.business_name}
                       </h3>
-                      <div className="mt-1 flex items-center gap-1.5 text-xs text-[#7B4A57]">
-                        <MapPin className="w-3.5 h-3.5 text-[#8E5766] shrink-0" />
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-[#AA98A9]">
+                        <MapPin className="w-3.5 h-3.5 text-[#8064A2] shrink-0" />
                         <span>{vendor.district}</span>
                       </div>
                     </div>
 
                     {isPremium ? (
-                      <div className="space-y-2 pt-2 border-t border-[#F7E2E7]">
+                      <div className="space-y-2 pt-2 border-t border-[#F9EBF0]">
                         {vendor.pricing_range && (
                           <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#1E7F5C] bg-[#E7F6EF] px-2.5 py-1 rounded-lg w-fit">
                             <Tag className="w-3 h-3" />
                             <span>{vendor.pricing_range}</span>
                           </div>
                         )}
-                        <div className="flex items-center justify-between text-xs font-bold text-[#4E0C22]">
+                        <div className="flex items-center justify-between text-xs font-bold text-[#C76B85]">
                           <span>View Contact &amp; Gallery</span>
                           <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                         </div>
                       </div>
                     ) : (
-                      <div className="pt-2 border-t border-[#F7E2E7] space-y-1.5">
-                        <div className="flex items-center justify-between text-xs text-[#7B4A57]">
+                      <div className="pt-2 border-t border-[#F9EBF0] space-y-1.5">
+                        <div className="flex items-center justify-between text-xs text-[#AA98A9]">
                           <span className="blur-[4px] select-none">+91 98470 12345</span>
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#4E0C22] bg-[#F7E2E7] px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#C76B85] bg-[#F9EBF0] px-2 py-0.5 rounded-full">
                             <Lock className="w-2.5 h-2.5" />
                             <span>Premium</span>
                           </span>
                         </div>
-                        <p className="text-[11px] text-[#7B4A57] blur-[3px] select-none">
+                        <p className="text-[11px] text-[#AA98A9] blur-[3px] select-none">
                           Owner Contact &amp; Full Address
                         </p>
                       </div>
@@ -521,12 +521,12 @@ export default function MobileServicesScreen({
       {/* Premium Vendor Detail Modal */}
       {isPremium && selectedVendor && (
         <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-[#F5E1E6] w-full sm:max-w-2xl max-h-[92vh] rounded-t-3xl sm:rounded-3xl border border-[#E7CCD3] shadow-2xl flex flex-col overflow-hidden">
+          <div className="bg-[#FFF7FA] w-full sm:max-w-2xl max-h-[92vh] rounded-t-3xl sm:rounded-3xl border border-[#E8C6D1] shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="px-5 py-4 bg-white border-b border-[#E7CCD3] flex items-center justify-between shrink-0">
+            <div className="px-5 py-4 bg-white border-b border-[#E8C6D1] flex items-center justify-between shrink-0">
               <div className="min-w-0 pr-3">
                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#F7E2E7] text-[#4E0C22] text-[10px] font-bold">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#F9EBF0] text-[#C76B85] text-[10px] font-bold">
                     {getCategoryLabel(selectedVendor.category)}
                   </span>
                   {selectedVendor.is_verified && (
@@ -536,14 +536,14 @@ export default function MobileServicesScreen({
                     </span>
                   )}
                 </div>
-                <h2 className="text-base font-bold text-[#380817] truncate">
+                <h2 className="text-base font-bold text-[#2E1A36] truncate">
                   {selectedVendor.business_name}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedVendor(null)}
-                className="p-2 rounded-full bg-[#F7E2E7]/70 hover:bg-[#F7E2E7] text-[#4E0C22] cursor-pointer"
+                className="p-2 rounded-full bg-[#F9EBF0]/70 hover:bg-[#F9EBF0] text-[#C76B85] cursor-pointer"
                 aria-label="Close vendor details"
               >
                 <X className="w-4 h-4" />
@@ -556,12 +556,12 @@ export default function MobileServicesScreen({
               {selectedVendorPhotos.length > 0 && (
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#4E0C22] flex items-center gap-1.5">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#C76B85] flex items-center gap-1.5">
                       <ImageIcon className="w-3.5 h-3.5" />
                       <span>Portfolio Photos ({selectedVendorPhotos.length})</span>
                     </h3>
                   </div>
-                  <div className="rounded-2xl overflow-hidden bg-white border border-[#E7CCD3] aspect-video">
+                  <div className="rounded-2xl overflow-hidden bg-white border border-[#E8C6D1] aspect-video">
                     <img
                       src={activePhotoUrl || selectedVendorPhotos[0].media_url}
                       alt={selectedVendor.business_name}
@@ -577,7 +577,7 @@ export default function MobileServicesScreen({
                           onClick={() => setActivePhotoUrl(img.media_url)}
                           className={`w-16 h-12 rounded-xl overflow-hidden border-2 shrink-0 cursor-pointer ${
                             (activePhotoUrl || selectedVendorPhotos[0].media_url) === img.media_url
-                              ? 'border-[#4E0C22]'
+                              ? 'border-[#C76B85]'
                               : 'border-transparent opacity-75 hover:opacity-100'
                           }`}
                         >
@@ -592,7 +592,7 @@ export default function MobileServicesScreen({
               {/* Promotional Videos (1-2) */}
               {selectedVendorVideos.length > 0 && (
                 <div className="space-y-2.5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#4E0C22] flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#C76B85] flex items-center gap-1.5">
                     <Video className="w-3.5 h-3.5" />
                     <span>Promotional Videos ({selectedVendorVideos.length})</span>
                   </h3>
@@ -600,7 +600,7 @@ export default function MobileServicesScreen({
                     {selectedVendorVideos.map((vid) => {
                       const ytEmbed = isYouTubeUrl(vid.media_url) ? getYouTubeEmbedUrl(vid.media_url) : null;
                       return ytEmbed ? (
-                        <div key={vid.id} className="rounded-2xl overflow-hidden border border-[#E7CCD3] aspect-video bg-black">
+                        <div key={vid.id} className="rounded-2xl overflow-hidden border border-[#E8C6D1] aspect-video bg-black">
                           <iframe
                             src={ytEmbed}
                             title="Promotional Video"
@@ -610,7 +610,7 @@ export default function MobileServicesScreen({
                           />
                         </div>
                       ) : (
-                        <div key={vid.id} className="rounded-2xl overflow-hidden border border-[#E7CCD3] bg-black">
+                        <div key={vid.id} className="rounded-2xl overflow-hidden border border-[#E8C6D1] bg-black">
                           <video
                             src={vid.media_url}
                             controls
@@ -625,27 +625,27 @@ export default function MobileServicesScreen({
               )}
 
               {/* Business & Owner Details */}
-              <div className="rounded-2xl bg-white border border-[#E7CCD3] p-4 space-y-3">
+              <div className="rounded-2xl bg-white border border-[#E8C6D1] p-4 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div className="flex items-start gap-2.5">
-                    <UserCheck className="w-4 h-4 text-[#4E0C22] mt-0.5 shrink-0" />
+                    <UserCheck className="w-4 h-4 text-[#C76B85] mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[11px] text-[#7B4A57]">Owner / Contact Person</p>
-                      <p className="font-bold text-[#380817]">{selectedVendor.owner_name}</p>
+                      <p className="text-[11px] text-[#AA98A9]">Owner / Contact Person</p>
+                      <p className="font-bold text-[#2E1A36]">{selectedVendor.owner_name}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2.5">
                     <Phone className="w-4 h-4 text-[#1E7F5C] mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[11px] text-[#7B4A57]">Phone Number</p>
-                      <p className="font-bold text-[#380817]">{selectedVendor.phone}</p>
+                      <p className="text-[11px] text-[#AA98A9]">Phone Number</p>
+                      <p className="font-bold text-[#2E1A36]">{selectedVendor.phone}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2.5">
-                    <MapPin className="w-4 h-4 text-[#8E5766] mt-0.5 shrink-0" />
+                    <MapPin className="w-4 h-4 text-[#8064A2] mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[11px] text-[#7B4A57]">Location &amp; Address</p>
-                      <p className="font-semibold text-[#380817]">
+                      <p className="text-[11px] text-[#AA98A9]">Location &amp; Address</p>
+                      <p className="font-semibold text-[#2E1A36]">
                         {[selectedVendor.address, selectedVendor.city_address, selectedVendor.district, selectedVendor.state]
                           .filter(Boolean)
                           .join(', ')}
@@ -654,10 +654,10 @@ export default function MobileServicesScreen({
                   </div>
                   {selectedVendor.service_area && (
                     <div className="flex items-start gap-2.5">
-                      <Store className="w-4 h-4 text-[#4E0C22] mt-0.5 shrink-0" />
+                      <Store className="w-4 h-4 text-[#C76B85] mt-0.5 shrink-0" />
                       <div>
-                        <p className="text-[11px] text-[#7B4A57]">Service Coverage Area</p>
-                        <p className="font-semibold text-[#380817]">{selectedVendor.service_area}</p>
+                        <p className="text-[11px] text-[#AA98A9]">Service Coverage Area</p>
+                        <p className="font-semibold text-[#2E1A36]">{selectedVendor.service_area}</p>
                       </div>
                     </div>
                   )}
@@ -665,8 +665,8 @@ export default function MobileServicesScreen({
                     <div className="flex items-start gap-2.5">
                       <CheckCircle2 className="w-4 h-4 text-[#1E7F5C] mt-0.5 shrink-0" />
                       <div>
-                        <p className="text-[11px] text-[#7B4A57]">Experience</p>
-                        <p className="font-semibold text-[#380817]">{selectedVendor.experience_years}</p>
+                        <p className="text-[11px] text-[#AA98A9]">Experience</p>
+                        <p className="font-semibold text-[#2E1A36]">{selectedVendor.experience_years}</p>
                       </div>
                     </div>
                   )}
@@ -674,7 +674,7 @@ export default function MobileServicesScreen({
                     <div className="flex items-start gap-2.5">
                       <Tag className="w-4 h-4 text-[#5B3E8C] mt-0.5 shrink-0" />
                       <div>
-                        <p className="text-[11px] text-[#7B4A57]">Pricing Range</p>
+                        <p className="text-[11px] text-[#AA98A9]">Pricing Range</p>
                         <p className="font-bold text-[#1E7F5C]">{selectedVendor.pricing_range}</p>
                       </div>
                     </div>
@@ -682,21 +682,21 @@ export default function MobileServicesScreen({
                 </div>
 
                 {selectedVendor.description && (
-                  <div className="pt-2.5 border-t border-[#F7E2E7]">
-                    <p className="text-[11px] font-bold text-[#4E0C22] mb-1">About Service</p>
-                    <p className="text-xs text-[#4A2E37] leading-relaxed whitespace-pre-line">
+                  <div className="pt-2.5 border-t border-[#F9EBF0]">
+                    <p className="text-[11px] font-bold text-[#C76B85] mb-1">About Service</p>
+                    <p className="text-xs text-[#5A4463] leading-relaxed whitespace-pre-line">
                       {selectedVendor.description}
                     </p>
                   </div>
                 )}
 
                 {selectedVendor.staff_details && (
-                  <div className="pt-2.5 border-t border-[#F7E2E7]">
+                  <div className="pt-2.5 border-t border-[#F9EBF0]">
                     <p className="text-[11px] font-bold text-[#5B3E8C] flex items-center gap-1.5 mb-1">
                       <Users className="w-3.5 h-3.5" />
                       <span>Team / Catering Staff &amp; Service Details</span>
                     </p>
-                    <p className="text-xs text-[#4A2E37] leading-relaxed whitespace-pre-line bg-[#F3EEFA]/60 p-3 rounded-xl border border-[#D8CBEF]">
+                    <p className="text-xs text-[#5A4463] leading-relaxed whitespace-pre-line bg-[#F3EEFA]/60 p-3 rounded-xl border border-[#D8CBEF]">
                       {selectedVendor.staff_details}
                     </p>
                   </div>
@@ -718,9 +718,9 @@ export default function MobileServicesScreen({
 
                 <form
                   onSubmit={handleSendInquiry}
-                  className="rounded-2xl bg-white border border-[#E7CCD3] p-4 space-y-2.5"
+                  className="rounded-2xl bg-white border border-[#E8C6D1] p-4 space-y-2.5"
                 >
-                  <label className="block text-xs font-bold text-[#380817]">
+                  <label className="block text-xs font-bold text-[#2E1A36]">
                     Send In-App Message
                   </label>
                   <textarea
@@ -728,7 +728,7 @@ export default function MobileServicesScreen({
                     value={inquiryMessage}
                     onChange={(e) => setInquiryMessage(e.target.value)}
                     placeholder="Share your wedding date, venue, and service requirements..."
-                    className="w-full p-3 rounded-xl bg-[#F5E1E6] border border-[#E7CCD3] text-xs text-[#380817] placeholder-[#9D8588] focus:outline-none focus:border-[#8E5766]"
+                    className="w-full p-3 rounded-xl bg-[#FFF7FA] border border-[#E8C6D1] text-xs text-[#2E1A36] placeholder-[#9D8588] focus:outline-none focus:border-[#8064A2]"
                   />
                   {inquirySent && (
                     <div className="px-3 py-2 rounded-xl bg-[#E7F6EF] border border-[#BBE5D3] text-[#1E7F5C] text-xs font-semibold flex items-center gap-1.5">
@@ -739,7 +739,7 @@ export default function MobileServicesScreen({
                   <button
                     type="submit"
                     disabled={sendingInquiry}
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#4E0C22] hover:bg-[#6B1230] text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#C76B85] hover:bg-[#B35872] text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>{sendingInquiry ? 'Sending...' : 'Send In-App Message'}</span>

@@ -44,22 +44,22 @@ export default function WebsitePillarsOfTrust() {
   ];
 
   return (
-    <section id="why-section" className="py-16 lg:py-24 bg-[#F5E1E6] text-[#4A2E37] border-b border-[#E7CCD3] relative overflow-hidden">
+    <section id="why-section" className="py-16 lg:py-24 bg-[#FFF7FA] text-[#5A4463] border-b border-[#E8C6D1] relative overflow-hidden">
       
       <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-12">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-[#F7E2E7] border border-[#E7CCD3] text-[#4E0C22] text-xs font-bold uppercase tracking-wider">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#8E5766]" />
+          <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-[#F9EBF0] border border-[#E8C6D1] text-[#C76B85] text-xs font-bold uppercase tracking-wider">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#8064A2]" />
             <span>Uncompromising Matrimonial Security</span>
           </div>
 
-          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-serif font-extrabold tracking-tight text-[#380817]">
+          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-serif font-extrabold tracking-tight text-[#2E1A36]">
             The 4 Pillars of Matrimonial Trust
           </h2>
 
-          <p className="text-sm sm:text-base text-[#4A2E37] font-normal leading-relaxed">
+          <p className="text-sm sm:text-base text-[#5A4463] font-normal leading-relaxed">
             Finding a life partner is the most sacred decision of your life. Here is how "I 4 You" ensures safety, authenticity, and cultural dignity at every step.
           </p>
         </div>
@@ -71,13 +71,13 @@ export default function WebsitePillarsOfTrust() {
             return (
               <div
                 key={p.title}
-                className="bg-white rounded-3xl p-6 border border-[#E7CCD3] hover:border-[#8E5766] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1"
+                className="bg-white rounded-3xl p-6 border border-[#E8C6D1] hover:border-[#8064A2] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1"
               >
                 <div className="space-y-4">
                   
                   {/* Icon & Badge Header */}
                   <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-[#F7E2E7] text-[#4E0C22] border border-[#E7CCD3] flex items-center justify-center group-hover:scale-110 transition-transform shadow-xs">
+                    <div className="w-12 h-12 rounded-2xl bg-[#F9EBF0] text-[#C76B85] border border-[#E8C6D1] flex items-center justify-center group-hover:scale-110 transition-transform shadow-xs">
                       <Icon className="w-6 h-6" />
                     </div>
                     <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full border ${p.badgeColor}`}>
@@ -85,20 +85,20 @@ export default function WebsitePillarsOfTrust() {
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-serif font-bold text-[#380817] group-hover:text-[#4E0C22] transition-colors leading-snug">
+                  <h3 className="text-lg font-serif font-bold text-[#2E1A36] group-hover:text-[#C76B85] transition-colors leading-snug">
                     {p.title}
                   </h3>
 
-                  <p className="text-xs text-[#4A2E37] leading-relaxed font-normal">
+                  <p className="text-xs text-[#5A4463] leading-relaxed font-normal">
                     {p.desc}
                   </p>
 
                 </div>
 
                 {/* Highlights Checklist */}
-                <div className="pt-5 mt-4 border-t border-[#E7CCD3] space-y-2">
+                <div className="pt-5 mt-4 border-t border-[#E8C6D1] space-y-2">
                   {p.highlights.map((item) => (
-                    <div key={item} className="flex items-center space-x-2 text-[11px] text-[#4A2E37]">
+                    <div key={item} className="flex items-center space-x-2 text-[11px] text-[#5A4463]">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>{item}</span>
                     </div>

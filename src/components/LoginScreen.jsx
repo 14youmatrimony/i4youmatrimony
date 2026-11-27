@@ -327,17 +327,17 @@ export default function LoginScreen({
   return (
     <div className="w-full bg-white relative flex flex-col justify-between overflow-hidden">
       {/* Decorative Gold & Navy Top Accent */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-[#4E0C22] via-[#8E5766] to-[#4E0C22]" />
+      <div className="h-1.5 w-full bg-gradient-to-r from-[#C76B85] via-[#8064A2] to-[#C76B85]" />
 
       <div className="p-6 sm:p-8">
         {/* Header with Title and Close Button */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#8E5766]/15 text-[#4E0C22] border border-[#E7CCD3] text-[11px] font-bold mb-2">
-              <Sparkles className="w-3.5 h-3.5 text-[#8E5766]" />
+            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#8064A2]/15 text-[#C76B85] border border-[#E8C6D1] text-[11px] font-bold mb-2">
+              <Sparkles className="w-3.5 h-3.5 text-[#8064A2]" />
               <span>Pan India Matrimony</span>
             </div>
-            <h2 className="text-2xl font-serif font-bold text-[#380817] tracking-tight">
+            <h2 className="text-2xl font-serif font-bold text-[#2E1A36] tracking-tight">
               Member Sign In
             </h2>
             <p className="text-xs text-slate-500 mt-1">
@@ -371,11 +371,11 @@ export default function LoginScreen({
             }}
             className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
               loginMode === 'registerId'
-                ? 'bg-white text-[#4E0C22] shadow-sm border border-slate-200/50'
+                ? 'bg-white text-[#C76B85] shadow-sm border border-slate-200/50'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <KeyRound className="w-3.5 h-3.5 text-[#8E5766]" />
+            <KeyRound className="w-3.5 h-3.5 text-[#8064A2]" />
             <span>Register ID</span>
           </button>
           <button
@@ -387,11 +387,11 @@ export default function LoginScreen({
             }}
             className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
               loginMode === 'mobile'
-                ? 'bg-white text-[#4E0C22] shadow-sm border border-slate-200/50'
+                ? 'bg-white text-[#C76B85] shadow-sm border border-slate-200/50'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Smartphone className="w-3.5 h-3.5 text-[#8E5766]" />
+            <Smartphone className="w-3.5 h-3.5 text-[#8064A2]" />
             <span>Mobile Number</span>
           </button>
         </div>
@@ -422,7 +422,7 @@ export default function LoginScreen({
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <KeyRound className="w-4 h-4 text-[#8E5766]" />
+                  <KeyRound className="w-4 h-4 text-[#8064A2]" />
                 </div>
                 <input
                   type="text"
@@ -435,7 +435,7 @@ export default function LoginScreen({
                   maxLength={20}
                   autoFocus
                   required
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:border-[#8E5766] focus:ring-2 focus:ring-[#8E5766]/20 outline-none text-sm font-semibold tracking-wider text-slate-800 uppercase placeholder:normal-case placeholder:font-normal placeholder:text-slate-400 transition-all bg-slate-50/50 hover:bg-white focus:bg-white"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:border-[#8064A2] focus:ring-2 focus:ring-[#8064A2]/20 outline-none text-sm font-semibold tracking-wider text-slate-800 uppercase placeholder:normal-case placeholder:font-normal placeholder:text-slate-400 transition-all bg-slate-50/50 hover:bg-white focus:bg-white"
                 />
               </div>
               <p className="text-[11px] text-slate-400 mt-1">
@@ -452,14 +452,14 @@ export default function LoginScreen({
                 <button
                   type="button"
                   onClick={() => setShowHelpModal(true)}
-                  className="text-[11px] font-semibold text-[#4E0C22] hover:text-[#6B1230] transition-colors cursor-pointer"
+                  className="text-[11px] font-semibold text-[#C76B85] hover:text-[#B35872] transition-colors cursor-pointer"
                 >
                   Forgot Password?
                 </button>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Lock className="w-4 h-4 text-[#8E5766]" />
+                  <Lock className="w-4 h-4 text-[#8064A2]" />
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -470,7 +470,7 @@ export default function LoginScreen({
                   }}
                   placeholder="Enter your password"
                   required
-                  className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 focus:border-[#8E5766] focus:ring-2 focus:ring-[#8E5766]/20 outline-none text-sm font-medium text-slate-800 placeholder:text-slate-400 transition-all bg-slate-50/50 hover:bg-white focus:bg-white"
+                  className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 focus:border-[#8064A2] focus:ring-2 focus:ring-[#8064A2]/20 outline-none text-sm font-medium text-slate-800 placeholder:text-slate-400 transition-all bg-slate-50/50 hover:bg-white focus:bg-white"
                 />
                 <button
                   type="button"
@@ -490,7 +490,7 @@ export default function LoginScreen({
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-300 text-[#4E0C22] focus:ring-[#8E5766] cursor-pointer"
+                  className="w-4 h-4 rounded border-slate-300 text-[#C76B85] focus:ring-[#8064A2] cursor-pointer"
                 />
                 <span className="text-xs text-slate-600 font-medium">Keep me logged in</span>
               </label>
@@ -500,7 +500,7 @@ export default function LoginScreen({
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] shadow-lg shadow-[#4E0C22]/25 hover:shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+              className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-[#C76B85] hover:bg-[#B35872] shadow-lg shadow-[#C76B85]/25 hover:shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
             >
               {loading ? (
                 <>
@@ -532,7 +532,7 @@ export default function LoginScreen({
                   setOtpSent(false);
                   setError('');
                 }}
-                className="text-[11px] font-bold text-[#4E0C22] hover:text-[#6B1230] transition-colors cursor-pointer"
+                className="text-[11px] font-bold text-[#C76B85] hover:text-[#B35872] transition-colors cursor-pointer"
               >
                 {mobileAuthType === 'otp' ? 'Use Password instead' : 'Use OTP instead'}
               </button>
@@ -547,7 +547,7 @@ export default function LoginScreen({
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                         Mobile Number <span className="text-red-500">*</span>
                       </label>
-                      <div className="relative flex rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus-within:bg-white focus-within:border-[#8E5766] focus-within:ring-2 focus-within:ring-[#8E5766]/20 transition-all overflow-hidden">
+                      <div className="relative flex rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus-within:bg-white focus-within:border-[#8064A2] focus-within:ring-2 focus-within:ring-[#8064A2]/20 transition-all overflow-hidden">
                         <div className="flex items-center px-3.5 bg-slate-100/80 border-r border-slate-200 text-xs font-bold text-slate-700 space-x-1.5 select-none">
                           <span className="text-base leading-none">🇮🇳</span>
                           <span>+91</span>
@@ -576,7 +576,7 @@ export default function LoginScreen({
                     <button
                       type="submit"
                       disabled={loading || mobileNumber.length !== 10}
-                      className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] shadow-lg shadow-[#4E0C22]/25 hover:shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+                      className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-[#C76B85] hover:bg-[#B35872] shadow-lg shadow-[#C76B85]/25 hover:shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
                     >
                       {loading ? (
                         <>
@@ -597,7 +597,7 @@ export default function LoginScreen({
                     {/* Mobile Number Badge with Edit Option */}
                     <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                       <div className="flex items-center space-x-2">
-                        <Smartphone className="w-4 h-4 text-[#8E5766]" />
+                        <Smartphone className="w-4 h-4 text-[#8064A2]" />
                         <span className="text-xs font-bold text-slate-800">
                           +91 {mobileNumber}
                         </span>
@@ -609,7 +609,7 @@ export default function LoginScreen({
                           setOtp(['', '', '', '', '', '']);
                           setError('');
                         }}
-                        className="text-[11px] font-bold text-[#4E0C22] hover:text-[#6B1230] transition-colors cursor-pointer"
+                        className="text-[11px] font-bold text-[#C76B85] hover:text-[#B35872] transition-colors cursor-pointer"
                       >
                         Change Number
                       </button>
@@ -632,7 +632,7 @@ export default function LoginScreen({
                             onChange={(e) => handleOtpChange(idx, e.target.value)}
                             onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                             onPaste={idx === 0 ? handleOtpPaste : undefined}
-                            className="w-full h-12 text-center text-lg font-bold rounded-xl border border-slate-200 focus:border-[#8E5766] focus:ring-2 focus:ring-[#8E5766]/20 outline-none transition-all bg-slate-50/50 hover:bg-white focus:bg-white text-slate-800"
+                            className="w-full h-12 text-center text-lg font-bold rounded-xl border border-slate-200 focus:border-[#8064A2] focus:ring-2 focus:ring-[#8064A2]/20 outline-none transition-all bg-slate-50/50 hover:bg-white focus:bg-white text-slate-800"
                           />
                         ))}
                       </div>
@@ -648,7 +648,7 @@ export default function LoginScreen({
                               setError('');
                               otpInputsRef.current[5]?.focus();
                             }}
-                            className="font-bold underline text-[#4E0C22] hover:text-[#6B1230] cursor-pointer"
+                            className="font-bold underline text-[#C76B85] hover:text-[#B35872] cursor-pointer"
                           >
                             Auto Fill
                           </button>
@@ -668,7 +668,7 @@ export default function LoginScreen({
                           type="button"
                           onClick={handleResendOtp}
                           disabled={isResending}
-                          className="font-bold text-[#4E0C22] hover:text-[#6B1230] transition-colors inline-flex items-center space-x-1 cursor-pointer"
+                          className="font-bold text-[#C76B85] hover:text-[#B35872] transition-colors inline-flex items-center space-x-1 cursor-pointer"
                         >
                           <RotateCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
                           <span>Resend OTP</span>
@@ -680,7 +680,7 @@ export default function LoginScreen({
                     <button
                       type="submit"
                       disabled={loading || otp.join('').length !== 6}
-                      className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] shadow-lg shadow-[#4E0C22]/25 hover:shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+                      className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-[#C76B85] hover:bg-[#B35872] shadow-lg shadow-[#C76B85]/25 hover:shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
                     >
                       {loading ? (
                         <>
@@ -706,7 +706,7 @@ export default function LoginScreen({
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Mobile Number <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative flex rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus-within:bg-white focus-within:border-[#8E5766] focus-within:ring-2 focus-within:ring-[#8E5766]/20 transition-all overflow-hidden">
+                  <div className="relative flex rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus-within:bg-white focus-within:border-[#8064A2] focus-within:ring-2 focus-within:ring-[#8064A2]/20 transition-all overflow-hidden">
                     <div className="flex items-center px-3.5 bg-slate-100/80 border-r border-slate-200 text-xs font-bold text-slate-700 space-x-1.5 select-none">
                       <span className="text-base leading-none">🇮🇳</span>
                       <span>+91</span>
@@ -737,14 +737,14 @@ export default function LoginScreen({
                     <button
                       type="button"
                       onClick={() => setShowHelpModal(true)}
-                      className="text-[11px] font-semibold text-[#4E0C22] hover:text-[#6B1230] transition-colors cursor-pointer"
+                      className="text-[11px] font-semibold text-[#C76B85] hover:text-[#B35872] transition-colors cursor-pointer"
                     >
                       Forgot Password?
                     </button>
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <Lock className="w-4 h-4 text-[#8E5766]" />
+                      <Lock className="w-4 h-4 text-[#8064A2]" />
                     </div>
                     <input
                       type={showMobilePassword ? 'text' : 'password'}
@@ -755,7 +755,7 @@ export default function LoginScreen({
                       }}
                       placeholder="Enter your password"
                       required
-                      className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 focus:border-[#8E5766] focus:ring-2 focus:ring-[#8E5766]/20 outline-none text-sm font-medium text-slate-800 placeholder:text-slate-400 transition-all bg-slate-50/50 hover:bg-white focus:bg-white"
+                      className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 focus:border-[#8064A2] focus:ring-2 focus:ring-[#8064A2]/20 outline-none text-sm font-medium text-slate-800 placeholder:text-slate-400 transition-all bg-slate-50/50 hover:bg-white focus:bg-white"
                     />
                     <button
                       type="button"
@@ -772,7 +772,7 @@ export default function LoginScreen({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] shadow-lg shadow-[#4E0C22]/25 hover:shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+                  className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-[#C76B85] hover:bg-[#B35872] shadow-lg shadow-[#C76B85]/25 hover:shadow-xl transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
                 >
                   {loading ? (
                     <>
@@ -801,14 +801,14 @@ export default function LoginScreen({
                 setError('');
                 setSuccessMessage('');
               }}
-              className="w-full p-3 rounded-xl border border-slate-200 hover:border-[#8E5766] bg-slate-50/70 hover:bg-[#F5E1E6] flex items-center justify-between transition-all cursor-pointer group"
+              className="w-full p-3 rounded-xl border border-slate-200 hover:border-[#8064A2] bg-slate-50/70 hover:bg-[#FFF7FA] flex items-center justify-between transition-all cursor-pointer group"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-[#8E5766]/15 flex items-center justify-center text-[#4E0C22] group-hover:bg-[#4E0C22] group-hover:text-white transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-[#8064A2]/15 flex items-center justify-center text-[#C76B85] group-hover:bg-[#C76B85] group-hover:text-white transition-colors">
                   <Smartphone className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs font-bold text-[#380817] group-hover:text-[#4E0C22]">
+                  <p className="text-xs font-bold text-[#2E1A36] group-hover:text-[#C76B85]">
                     Switch to Mobile Number Login
                   </p>
                   <p className="text-[11px] text-slate-500">
@@ -816,7 +816,7 @@ export default function LoginScreen({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-1 text-slate-400 group-hover:text-[#4E0C22] transition-colors">
+              <div className="flex items-center space-x-1 text-slate-400 group-hover:text-[#C76B85] transition-colors">
                 <span className="text-[11px] font-semibold">Switch</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </div>
@@ -829,14 +829,14 @@ export default function LoginScreen({
                 setError('');
                 setSuccessMessage('');
               }}
-              className="w-full p-3 rounded-xl border border-slate-200 hover:border-[#8E5766] bg-slate-50/70 hover:bg-[#F5E1E6] flex items-center justify-between transition-all cursor-pointer group"
+              className="w-full p-3 rounded-xl border border-slate-200 hover:border-[#8064A2] bg-slate-50/70 hover:bg-[#FFF7FA] flex items-center justify-between transition-all cursor-pointer group"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-[#8E5766]/15 flex items-center justify-center text-[#4E0C22] group-hover:bg-[#4E0C22] group-hover:text-white transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-[#8064A2]/15 flex items-center justify-center text-[#C76B85] group-hover:bg-[#C76B85] group-hover:text-white transition-colors">
                   <KeyRound className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs font-bold text-[#380817] group-hover:text-[#4E0C22]">
+                  <p className="text-xs font-bold text-[#2E1A36] group-hover:text-[#C76B85]">
                     Switch to Register ID Login
                   </p>
                   <p className="text-[11px] text-slate-500">
@@ -844,7 +844,7 @@ export default function LoginScreen({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-1 text-slate-400 group-hover:text-[#4E0C22] transition-colors">
+              <div className="flex items-center space-x-1 text-slate-400 group-hover:text-[#C76B85] transition-colors">
                 <span className="text-[11px] font-semibold">Switch</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </div>
@@ -865,7 +865,7 @@ export default function LoginScreen({
                   setCurrentScreen('register');
                 }
               }}
-              className="font-bold text-[#4E0C22] hover:text-[#6B1230] transition-colors underline cursor-pointer ml-1 inline-flex items-center gap-1"
+              className="font-bold text-[#C76B85] hover:text-[#B35872] transition-colors underline cursor-pointer ml-1 inline-flex items-center gap-1"
             >
               <UserPlus className="w-3.5 h-3.5 inline" />
               <span>Create New Profile Free</span>
@@ -889,8 +889,8 @@ export default function LoginScreen({
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 text-left shadow-2xl border border-slate-100 relative animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
               <div className="flex items-center space-x-2">
-                <HelpCircle className="w-5 h-5 text-[#8E5766]" />
-                <h3 className="text-sm font-bold text-[#380817]">Need Help Logging In?</h3>
+                <HelpCircle className="w-5 h-5 text-[#8064A2]" />
+                <h3 className="text-sm font-bold text-[#2E1A36]">Need Help Logging In?</h3>
               </div>
               <button
                 type="button"
@@ -907,11 +907,11 @@ export default function LoginScreen({
 
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs space-y-2 mb-4">
               <div className="flex items-center space-x-2 text-slate-700">
-                <PhoneCall className="w-4 h-4 text-[#8E5766] shrink-0" />
+                <PhoneCall className="w-4 h-4 text-[#8064A2] shrink-0" />
                 <span>Toll-Free Helpline: <strong>8968926566</strong></span>
               </div>
               <div className="flex items-center space-x-2 text-slate-700">
-                <Mail className="w-4 h-4 text-[#8E5766] shrink-0" />
+                <Mail className="w-4 h-4 text-[#8064A2] shrink-0" />
                 <span>Email: <strong>i4youmatrimony@gmail.com</strong></span>
               </div>
             </div>
@@ -919,7 +919,7 @@ export default function LoginScreen({
             <button
               type="button"
               onClick={() => setShowHelpModal(false)}
-              className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] transition-colors cursor-pointer"
+              className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-[#C76B85] hover:bg-[#B35872] transition-colors cursor-pointer"
             >
               Understood
             </button>

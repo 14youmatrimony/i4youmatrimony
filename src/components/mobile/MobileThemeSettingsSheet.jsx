@@ -96,11 +96,11 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
             onClick={() => setActiveTab('palette')}
             className={`flex-1 py-1.5 px-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center space-x-1 cursor-pointer ${
               activeTab === 'palette'
-                ? 'bg-[#4E0C22] text-white shadow-xs'
+                ? 'bg-[#C76B85] text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#E4C1CA]" />
+            <Sparkles className="w-3.5 h-3.5 text-[#E8C6D1]" />
             <span>Colors & Mode</span>
           </button>
 
@@ -109,13 +109,13 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
             onClick={() => setActiveTab('layout')}
             className={`flex-1 py-1.5 px-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center space-x-1 cursor-pointer ${
               activeTab === 'layout'
-                ? 'bg-[#4E0C22] text-white shadow-xs'
+                ? 'bg-[#C76B85] text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <LayoutGrid className="w-3.5 h-3.5 text-[#E4C1CA]" />
+            <LayoutGrid className="w-3.5 h-3.5 text-[#E8C6D1]" />
             <span>Feed Layout</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E4C1CA]"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#E8C6D1]"></span>
           </button>
 
           <button
@@ -123,11 +123,11 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
             onClick={() => setActiveTab('bar')}
             className={`flex-1 py-1.5 px-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center space-x-1 cursor-pointer ${
               activeTab === 'bar'
-                ? 'bg-[#4E0C22] text-white shadow-xs'
+                ? 'bg-[#C76B85] text-white shadow-xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <Layers className="w-3.5 h-3.5 text-[#E4C1CA]" />
+            <Layers className="w-3.5 h-3.5 text-[#E8C6D1]" />
             <span>Bottom Bar</span>
           </button>
         </div>
@@ -145,7 +145,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                 <div className="grid grid-cols-3 gap-2 w-full">
                   {[
                     { id: 'light', label: 'Light', sub: 'Daylight ☀️', icon: Sun, bg: 'bg-white', text: 'text-slate-800' },
-                    { id: 'dark', label: 'Dark', sub: 'Midnight 🌙', icon: Moon, bg: 'bg-[#380817]', text: 'text-white' },
+                    { id: 'dark', label: 'Dark', sub: 'Midnight 🌙', icon: Moon, bg: 'bg-[#2E1A36]', text: 'text-white' },
                     { id: 'auto', label: 'Auto', sub: 'System ⚡', icon: Sparkles, bg: 'bg-slate-100', text: 'text-slate-800' }
                   ].map(m => {
                     const Icon = m.icon;
@@ -157,7 +157,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                         onClick={() => setThemeMode(m.id)}
                         className={`py-2 px-2 rounded-xl border text-center transition-all relative flex flex-col items-center justify-center min-w-0 cursor-pointer ${
                           isSelected 
-                            ? 'border-2 border-[#4E0C22] ring-1 ring-[#8E5766]/40 bg-[#F5E1E6] shadow-xs' 
+                            ? 'border-2 border-[#C76B85] ring-1 ring-[#8064A2]/40 bg-[#FFF7FA] shadow-xs' 
                             : 'border-slate-200 hover:border-slate-300 bg-white'
                         }`}
                       >
@@ -235,7 +235,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                   <label className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
                     Main Discover Feed Layout
                   </label>
-                  <span className="text-[10px] font-bold text-[#4E0C22] bg-[#F5E1E6] px-2 py-0.5 rounded-md border border-[#E7CCD3]">
+                  <span className="text-[10px] font-bold text-[#C76B85] bg-[#FFF7FA] px-2 py-0.5 rounded-md border border-[#E8C6D1]">
                     Live Switch ⚡
                   </span>
                 </div>
@@ -254,7 +254,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                         onClick={() => setFeedLayout(layout.id)}
                         className={`p-3 rounded-2xl border transition-all cursor-pointer ${
                           isSelected
-                            ? 'border-2 border-[#4E0C22] ring-2 ring-[#8E5766]/30 bg-[#F5E1E6] shadow-xs'
+                            ? 'border-2 border-[#C76B85] ring-2 ring-[#8064A2]/30 bg-[#FFF7FA] shadow-xs'
                             : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/40'
                         }`}
                       >
@@ -262,26 +262,26 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                           <div className="flex items-start space-x-3 min-w-0 pr-2">
                             {/* Graphic Mockup Preview */}
                             <div className={`w-14 h-16 rounded-xl border flex flex-col p-1.5 shrink-0 transition-colors ${
-                              isSelected ? 'border-[#8E5766] bg-white' : 'border-slate-200 bg-slate-50'
+                              isSelected ? 'border-[#8064A2] bg-white' : 'border-slate-200 bg-slate-50'
                             }`}>
                               {isSingle ? (
                                 /* Single Full Card Mockup */
                                 <div className="w-full h-full flex flex-col justify-between">
-                                  <div className="w-full h-7 rounded-md bg-gradient-to-tr from-[#4E0C22] to-[#6B1230] flex items-center justify-center">
-                                    <div className="w-3 h-3 rounded-full bg-[#E4C1CA]/80" />
+                                  <div className="w-full h-7 rounded-md bg-gradient-to-tr from-[#C76B85] to-[#B35872] flex items-center justify-center">
+                                    <div className="w-3 h-3 rounded-full bg-[#E8C6D1]/80" />
                                   </div>
                                   <div className="space-y-0.5">
                                     <div className="w-4/5 h-1 bg-slate-800 rounded" />
                                     <div className="w-3/5 h-1 bg-slate-400 rounded" />
                                   </div>
-                                  <div className="w-full h-1.5 bg-[#4E0C22] rounded-full" />
+                                  <div className="w-full h-1.5 bg-[#C76B85] rounded-full" />
                                 </div>
                               ) : (
                                 /* 4-Profile Grid Mockup (2x2) */
                                 <div className="w-full h-full grid grid-cols-2 gap-1">
                                   {[1, 2, 3, 4].map(idx => (
-                                    <div key={idx} className="rounded bg-gradient-to-tr from-[#4E0C22] to-[#6B1230] flex flex-col justify-between p-0.5">
-                                      <div className="w-1.5 h-1.5 rounded-full bg-[#E4C1CA]/80 self-center" />
+                                    <div key={idx} className="rounded bg-gradient-to-tr from-[#C76B85] to-[#B35872] flex flex-col justify-between p-0.5">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-[#E8C6D1]/80 self-center" />
                                       <div className="w-full h-0.5 bg-white/60 rounded" />
                                     </div>
                                   ))}
@@ -295,7 +295,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                                 <span className={`font-bold text-xs ${isSelected ? 'text-slate-950 font-black' : 'text-slate-800'}`}>
                                   {layout.name}
                                 </span>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-[#8E5766]/20 text-[#4E0C22]">
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-[#8064A2]/20 text-[#C76B85]">
                                   {layout.badge}
                                 </span>
                               </div>
@@ -332,7 +332,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                   <label className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
                     Bottom Navigation Bar Style
                   </label>
-                  <span className="text-[10px] font-bold text-[#4E0C22] bg-[#F5E1E6] px-2 py-0.5 rounded-md border border-[#E7CCD3]">
+                  <span className="text-[10px] font-bold text-[#C76B85] bg-[#FFF7FA] px-2 py-0.5 rounded-md border border-[#E8C6D1]">
                     Live Preview ✨
                   </span>
                 </div>
@@ -349,7 +349,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                         onClick={() => setBottomBarStyle(style.id)}
                         className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
                           isSelected
-                            ? 'border-2 border-[#4E0C22] ring-2 ring-[#8E5766]/30 bg-[#F5E1E6] shadow-xs'
+                            ? 'border-2 border-[#C76B85] ring-2 ring-[#8064A2]/30 bg-[#FFF7FA] shadow-xs'
                             : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/40'
                         }`}
                       >
@@ -381,7 +381,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                           <div className="shrink-0 pt-0.5">
                             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs border transition-all ${
                               isSelected 
-                                ? 'bg-[#4E0C22] text-white border-[#4E0C22] shadow-sm' 
+                                ? 'bg-[#C76B85] text-white border-[#C76B85] shadow-sm' 
                                 : 'border-slate-300 bg-white text-transparent'
                             }`}>
                               <Check className="w-3.5 h-3.5 stroke-[3] text-white" />
@@ -393,8 +393,8 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                         <div className="mt-2 pt-1.5 border-t border-slate-100">
                           <div className="h-7 rounded-lg overflow-hidden relative flex items-center justify-around px-2 bg-slate-100/90 w-full">
                             {style.id === 'glass' && (
-                              <div className="absolute inset-0 bg-[#4E0C22]/85 backdrop-blur-md flex items-center justify-around px-2 text-white border-t border-white/20">
-                                <span className="text-[9px] font-black text-[#E4C1CA]">🔥 Discover</span>
+                              <div className="absolute inset-0 bg-[#C76B85]/85 backdrop-blur-md flex items-center justify-around px-2 text-white border-t border-white/20">
+                                <span className="text-[9px] font-black text-[#E8C6D1]">🔥 Discover</span>
                                 <span className="text-[9px] font-semibold text-slate-200">🔍 Search</span>
                                 <span className="text-[9px] font-semibold text-slate-200">❤️ Interests</span>
                                 <span className="text-[9px] font-semibold text-slate-200">💬 Chat</span>
@@ -402,8 +402,8 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                             )}
 
                             {style.id === 'classic' && (
-                              <div className="absolute inset-0 bg-[#4E0C22] flex items-center justify-around px-2 text-white border-t border-[#8E5766]/35">
-                                <span className="text-[9px] font-bold text-[#E4C1CA]">🔥 Discover</span>
+                              <div className="absolute inset-0 bg-[#C76B85] flex items-center justify-around px-2 text-white border-t border-[#8064A2]/35">
+                                <span className="text-[9px] font-bold text-[#E8C6D1]">🔥 Discover</span>
                                 <span className="text-[9px] text-slate-300">🔍 Search</span>
                                 <span className="text-[9px] text-slate-300">❤️ Interests</span>
                                 <span className="text-[9px] text-slate-300">💬 Chat</span>
@@ -412,8 +412,8 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
 
                             {style.id === 'dock' && (
                               <div className="w-full flex justify-center">
-                                <div className="px-3 py-0.5 rounded-full bg-[#4E0C22] text-white flex items-center space-x-2.5 shadow-xs border border-[#8E5766]/40">
-                                  <span className="text-[9px] font-black text-[#E4C1CA]">🔥</span>
+                                <div className="px-3 py-0.5 rounded-full bg-[#C76B85] text-white flex items-center space-x-2.5 shadow-xs border border-[#8064A2]/40">
+                                  <span className="text-[9px] font-black text-[#E8C6D1]">🔥</span>
                                   <span className="text-[9px] text-slate-300">🔍</span>
                                   <span className="text-[9px] text-slate-300">❤️</span>
                                   <span className="text-[9px] text-slate-300">💬</span>
@@ -453,7 +453,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
                 </span>
               </div>
               <div className="flex items-center space-x-1 shrink-0 ml-1">
-                <span className="text-[10px] text-[#4E0C22] font-bold bg-[#8E5766]/20 px-2 py-0.5 rounded-md border border-[#E7CCD3]">
+                <span className="text-[10px] text-[#C76B85] font-bold bg-[#8064A2]/20 px-2 py-0.5 rounded-md border border-[#E8C6D1]">
                   {FEED_LAYOUTS[feedLayout]?.badge || '1 Profile'}
                 </span>
                 <span className="text-[10px] text-slate-700 font-semibold bg-slate-200/80 px-2 py-0.5 rounded-md border border-slate-300/60">
@@ -480,7 +480,7 @@ export default function MobileThemeSettingsSheet({ isOpen, onClose }) {
             onClick={handleApply}
             className="flex-1 py-2 px-4 rounded-xl text-white text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm hover:opacity-95 active:scale-95 transition-all truncate"
             style={{ 
-              background: `linear-gradient(135deg, ${accent.primaryDark || '#6B1230'}, ${accent.primary})` 
+              background: `linear-gradient(135deg, ${accent.primaryDark || '#B35872'}, ${accent.primary})` 
             }}
           >
             <CheckCircle2 className="w-4 h-4 shrink-0" />

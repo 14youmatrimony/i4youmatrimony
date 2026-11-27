@@ -4,7 +4,7 @@
  * when the application is closed or running in background.
  */
 
-const CACHE_NAME = 'i4you-wine-blush-v20261128';
+const CACHE_NAME = 'i4you-rose-purple-v20261128b';
 
 // Install & activate service worker immediately without waiting
 self.addEventListener('install', (event) => {

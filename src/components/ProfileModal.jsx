@@ -240,7 +240,7 @@ export default function ProfileModal({
 
         {/* Modal Top Header with Cover and Avatar */}
         <div 
-          className="relative h-44 sm:h-52 shrink-0 bg-gradient-to-r from-[#4E0C22] via-[#8E354F] to-[#6B1230] cursor-pointer select-none photo-protected"
+          className="relative h-44 sm:h-52 shrink-0 bg-gradient-to-r from-[#C76B85] via-[#8E354F] to-[#B35872] cursor-pointer select-none photo-protected"
           onClick={() => {
             if (!profile.hidePhotos && profile.photoVisibility !== 'request' && modalPhotos.length > 0) {
               setLightboxInitialIndex(0);
@@ -256,12 +256,12 @@ export default function ProfileModal({
               className="w-full h-full object-cover opacity-60"
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#380817] via-transparent to-transparent pointer-events-none"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#2E1A36] via-transparent to-transparent pointer-events-none"></div>
 
           {/* Profile Quick Pill in Header (Logged-in users only) */}
           {Boolean(currentUser && !currentUser.isGuest && profile.matchScore) && (
             <div className="absolute top-4 left-4 flex items-center space-x-2">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#4E0C22] text-white shadow-md flex items-center space-x-1">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#C76B85] text-white shadow-md flex items-center space-x-1">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{profile.matchScore}% Match</span>
               </span>
@@ -280,7 +280,7 @@ export default function ProfileModal({
               className="absolute top-4 right-14 z-20 px-3 py-1 rounded-full text-xs font-bold bg-black/60 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 flex items-center gap-1.5 shadow-md cursor-pointer transition-all active:scale-95"
               title="Click to view full-screen photos"
             >
-              <Camera className="w-3.5 h-3.5 text-[#E4C1CA]" />
+              <Camera className="w-3.5 h-3.5 text-[#E8C6D1]" />
               <span>{modalPhotos.length} {modalPhotos.length === 1 ? 'Photo' : 'Photos'}</span>
             </button>
           )}
@@ -342,7 +342,7 @@ export default function ProfileModal({
                 <span>{profile.age} yrs, {profile.height}</span>
                 {profile.bodyType && <span>• {profile.bodyType}</span>}
                 <span>•</span>
-                <MapPin className="w-3 h-3 text-[#8E5766]" />
+                <MapPin className="w-3 h-3 text-[#8064A2]" />
                 {isNri ? (
                   <span>
                     {profile.work_city || profile.workCity || profile.city ? `${profile.work_city || profile.workCity || profile.city}, ` : ''}{candidateCountry}
@@ -372,7 +372,7 @@ export default function ProfileModal({
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 sm:flex-none text-center pb-2.5 sm:pb-3 px-1 sm:px-2 md:px-2.5 font-semibold whitespace-nowrap shrink-0 transition-all border-b-2 cursor-pointer ${
                 activeTab === tab.id 
-                  ? 'text-[#4E0C22] font-bold border-[#4E0C22] -mb-[1px]' 
+                  ? 'text-[#C76B85] font-bold border-[#C76B85] -mb-[1px]' 
                   : 'text-slate-500 hover:text-slate-800 border-transparent hover:border-slate-300'
               }`}
             >
@@ -472,8 +472,8 @@ export default function ProfileModal({
               {(profile.hobbies || profile.interests || profile.sportsFitness) && (
                 <div className="p-3.5 rounded-xl bg-amber-50/50 border border-amber-200/60 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-[#4E0C22] uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-[#8E5766]" /> Hobbies &amp; Interests
+                    <span className="text-[11px] font-bold text-[#C76B85] uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#8064A2]" /> Hobbies &amp; Interests
                     </span>
                     <span className="text-[10px] text-amber-800 bg-white px-2 py-0.5 rounded-full border border-amber-200 font-semibold">
                       Passions
@@ -494,7 +494,7 @@ export default function ProfileModal({
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-3">
                 <div className="flex items-start space-x-3">
-                  <GraduationCap className="w-5 h-5 text-[#4E0C22] shrink-0 mt-0.5" />
+                  <GraduationCap className="w-5 h-5 text-[#C76B85] shrink-0 mt-0.5" />
                   <div className="flex-1 space-y-1">
                     <h5 className="font-bold text-slate-900 text-sm">{profile.education}</h5>
                     <p className="text-xs text-slate-500">{profile.educationCategory}{profile.institute ? ` • ${profile.institute}` : ''}</p>
@@ -548,7 +548,7 @@ export default function ProfileModal({
                       </span>
                       {(profile.jobLocation || profile.jobPlace || profile.workLocation) && (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
-                          <MapPin className="w-3 h-3 text-[#8E5766] shrink-0" />
+                          <MapPin className="w-3 h-3 text-[#8064A2] shrink-0" />
                           <span>Job Place: <strong className="font-bold text-slate-900">{profile.jobLocation || profile.jobPlace || profile.workLocation}</strong></span>
                         </span>
                       )}
@@ -608,7 +608,7 @@ export default function ProfileModal({
                 {!currentUser?.aadhaarVerified ? (
                   <div className="my-3 p-3.5 rounded-xl bg-amber-50/90 border border-amber-200/90 space-y-2">
                     <div className="flex items-center space-x-2">
-                      <Lock className="w-4 h-4 text-[#4E0C22]" />
+                      <Lock className="w-4 h-4 text-[#C76B85]" />
                       <span className="font-bold text-xs text-amber-950">
                         Contact Details Protected by Aadhaar Shield
                       </span>
@@ -626,7 +626,7 @@ export default function ProfileModal({
                         onClose?.();
                         onOpenAadhaarVerification?.();
                       }}
-                      className="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
+                      className="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold text-white bg-[#C76B85] hover:bg-[#B35872] transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                       <span>Verify Your Aadhaar to Unlock Contact</span>
@@ -635,7 +635,7 @@ export default function ProfileModal({
                 ) : !hasPaidPlan ? (
                   <div className="my-3 p-3.5 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 space-y-2.5">
                     <div className="flex items-center space-x-2">
-                      <Crown className="w-4 h-4 text-[#4E0C22]" />
+                      <Crown className="w-4 h-4 text-[#C76B85]" />
                       <span className="font-bold text-xs text-amber-950">
                         Subscription Required for Family Contacts
                       </span>
@@ -653,7 +653,7 @@ export default function ProfileModal({
                         onClose?.();
                         onOpenOffers?.();
                       }}
-                      className="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
+                      className="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold text-white bg-[#C76B85] hover:bg-[#B35872] transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
                     >
                       <Crown className="w-3.5 h-3.5 text-white" />
                       <span>View Plans & Upgrade (50% OFF)</span>
@@ -691,7 +691,7 @@ export default function ProfileModal({
                       <button
                         type="button"
                         onClick={() => onUnlockContact?.(profile.id)}
-                        className="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
+                        className="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold text-white bg-[#C76B85] hover:bg-[#B35872] transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer"
                       >
                         <Lock className="w-3.5 h-3.5 text-white" />
                         <span>Unlock Contact (Uses 1 Credit)</span>
@@ -779,7 +779,7 @@ export default function ProfileModal({
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-200/60 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-[#8E5766]/20 text-[#4E0C22] flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-full bg-[#8064A2]/20 text-[#C76B85] flex items-center justify-center font-bold">
                     <Sparkles className="w-5 h-5" />
                   </div>
                   <div>
@@ -787,7 +787,7 @@ export default function ProfileModal({
                     <p className="text-xs text-amber-800">Kundali Milan Score: <span className="font-bold">{profile.gunasMatch}</span></p>
                   </div>
                 </div>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#4E0C22] text-white">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#C76B85] text-white">
                   Highly Auspicious
                 </span>
               </div>
@@ -902,7 +902,7 @@ export default function ProfileModal({
                         .map(s => s.trim())
                         .filter(Boolean)
                         .map(c => (
-                          <span key={c} className="px-2.5 py-0.5 rounded-full bg-[#F7E2E7] border border-[#E4C1CA] text-[#4E0C22] text-[11px] font-semibold">
+                          <span key={c} className="px-2.5 py-0.5 rounded-full bg-[#F9EBF0] border border-[#E8C6D1] text-[#C76B85] text-[11px] font-semibold">
                             {c}
                           </span>
                         ))}
@@ -918,8 +918,8 @@ export default function ProfileModal({
             <div className="space-y-4">
               {!currentUser?.aadhaarVerified ? (
                 <div className="bg-white rounded-2xl p-6 border border-amber-200 shadow-sm text-center space-y-4">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-100 text-[#4E0C22] flex items-center justify-center mx-auto shadow-inner">
-                    <Lock className="w-7 h-7 text-[#4E0C22]" />
+                  <div className="w-14 h-14 rounded-2xl bg-amber-100 text-[#C76B85] flex items-center justify-center mx-auto shadow-inner">
+                    <Lock className="w-7 h-7 text-[#C76B85]" />
                   </div>
                   <div className="space-y-1">
                     <h4 className="font-bold text-slate-900 text-base">
@@ -963,9 +963,9 @@ export default function ProfileModal({
                   </p>
                 </div>
               ) : !hasPaidPlan ? (
-                <div className="bg-white rounded-2xl p-6 border border-[#8E5766]/60 shadow-sm text-center space-y-4">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-100 to-yellow-100 text-[#4E0C22] flex items-center justify-center mx-auto shadow-inner border border-amber-200">
-                    <Crown className="w-7 h-7 text-[#4E0C22]" />
+                <div className="bg-white rounded-2xl p-6 border border-[#8064A2]/60 shadow-sm text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-100 to-yellow-100 text-[#C76B85] flex items-center justify-center mx-auto shadow-inner border border-amber-200">
+                    <Crown className="w-7 h-7 text-[#C76B85]" />
                   </div>
                   <div className="space-y-1">
                     <span className="inline-block px-3 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
@@ -1015,7 +1015,7 @@ export default function ProfileModal({
                       onClose?.();
                       onOpenOffers?.();
                     }}
-                    className="w-full max-w-md mx-auto py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] shadow-md shadow-[#4E0C22]/30 transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                    className="w-full max-w-md mx-auto py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#C76B85] hover:bg-[#B35872] shadow-md shadow-[#C76B85]/30 transition-all flex items-center justify-center space-x-2 cursor-pointer"
                   >
                     <Crown className="w-4 h-4 text-white" />
                     <span>View Subscription Plans & Upgrade (50% OFF)</span>
@@ -1030,7 +1030,7 @@ export default function ProfileModal({
                   {/* Membership Credit Banner */}
                   <div className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-blue-50 border border-amber-200/80 rounded-xl px-4 py-3 text-xs">
                     <div className="flex items-center space-x-2">
-                      <Crown className="w-4 h-4 text-[#4E0C22]" />
+                      <Crown className="w-4 h-4 text-[#C76B85]" />
                       <div>
                         <span className="font-bold text-slate-800 text-[11px] block">
                           {currentUser?.membershipPlan || `${currentUser?.membership?.toUpperCase()} Member`}
@@ -1102,7 +1102,7 @@ export default function ProfileModal({
                         <button
                           type="button"
                           onClick={() => onUnlockContact?.(profile.id)}
-                          className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#4E0C22] hover:bg-[#6B1230] shadow-md shadow-[#4E0C22]/30 transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-[0.98]"
+                          className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#C76B85] hover:bg-[#B35872] shadow-md shadow-[#C76B85]/30 transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-[0.98]"
                         >
                           <Lock className="w-4 h-4 text-white" />
                           <span>Unlock Contact Details (Uses 1 Credit)</span>
@@ -1345,7 +1345,7 @@ export default function ProfileModal({
                     onToggleInterest(profile.id);
                   }
                 }}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer active:scale-95 bg-[#4E0C22] hover:bg-[#6B1230] text-white shadow-[#4E0C22]/25"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center space-x-1.5 cursor-pointer active:scale-95 bg-[#C76B85] hover:bg-[#B35872] text-white shadow-[#C76B85]/25"
                 title="Send Interest"
               >
                 <Send className="w-4 h-4" />
@@ -1368,8 +1368,8 @@ export default function ProfileModal({
             className="w-full max-w-sm bg-white border border-slate-200 rounded-3xl p-6 text-center shadow-2xl relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-14 h-14 rounded-full bg-[#4E0C22]/10 border border-[#8E5766]/30 text-[#4E0C22] mx-auto flex items-center justify-center mb-4">
-              <Lock className="w-7 h-7 text-[#8E5766]" />
+            <div className="w-14 h-14 rounded-full bg-[#C76B85]/10 border border-[#8064A2]/30 text-[#C76B85] mx-auto flex items-center justify-center mb-4">
+              <Lock className="w-7 h-7 text-[#8064A2]" />
             </div>
 
             <h3 className="font-serif font-bold text-base text-slate-900 mb-2">

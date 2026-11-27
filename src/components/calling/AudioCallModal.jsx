@@ -540,7 +540,7 @@ export default function AudioCallModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 w-full h-[100dvh] bg-gradient-to-b from-[#1A0E10] via-[#380817] to-[#0D0708] text-white overflow-hidden select-none flex flex-col items-center justify-between animate-in fade-in"
+      className="fixed inset-0 z-50 w-full h-[100dvh] bg-gradient-to-b from-[#1A0E10] via-[#2E1A36] to-[#0D0708] text-white overflow-hidden select-none flex flex-col items-center justify-between animate-in fade-in"
       style={{
         height: '100dvh',
         width: '100%',
@@ -568,7 +568,7 @@ export default function AudioCallModal({
       />
 
       {/* Ambient Top Glow */}
-      <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#8E5766]/15 to-transparent pointer-events-none" />
+      <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#8064A2]/15 to-transparent pointer-events-none" />
       <div className="absolute top-1/3 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Inner Responsive Column */}
@@ -586,7 +586,7 @@ export default function AudioCallModal({
             </p>
             {(candidate.district || candidate.city) && (
               <p className="text-xs text-slate-400 flex items-center justify-center gap-1 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-[#E4C1CA]" />
+                <MapPin className="w-3.5 h-3.5 text-[#E8C6D1]" />
                 <span>
                   {candidate.district || candidate.city}, {candidate.state || 'India'}
                 </span>
@@ -597,7 +597,7 @@ export default function AudioCallModal({
           {/* Call Status / Timer */}
           <div className="pt-2">
             {callStatus === 'calling' && (
-              <span className="text-xs sm:text-sm text-[#E4C1CA] font-semibold animate-pulse">
+              <span className="text-xs sm:text-sm text-[#E8C6D1] font-semibold animate-pulse">
                 Calling...
               </span>
             )}
@@ -668,7 +668,7 @@ export default function AudioCallModal({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="h-7 bg-slate-950 rounded-lg px-2 flex items-center justify-end font-mono text-sm text-[#E4C1CA] mb-3">
+            <div className="h-7 bg-slate-950 rounded-lg px-2 flex items-center justify-end font-mono text-sm text-[#E8C6D1] mb-3">
               {dialedDigits || <span className="text-slate-600 text-xs">Press keys below</span>}
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -677,7 +677,7 @@ export default function AudioCallModal({
                   key={key}
                   type="button"
                   onClick={() => handleKeypadPress(key)}
-                  className="py-2.5 rounded-xl bg-white/5 hover:bg-white/15 active:bg-[#8E5766]/30 text-white font-bold text-sm border border-white/10 active:scale-95 transition-all cursor-pointer"
+                  className="py-2.5 rounded-xl bg-white/5 hover:bg-white/15 active:bg-[#8064A2]/30 text-white font-bold text-sm border border-white/10 active:scale-95 transition-all cursor-pointer"
                 >
                   {key}
                 </button>
@@ -697,7 +697,7 @@ export default function AudioCallModal({
                   }}
                 />
                 <div
-                  className="absolute rounded-full border border-[#8E5766]/30 pointer-events-none transition-all duration-150"
+                  className="absolute rounded-full border border-[#8064A2]/30 pointer-events-none transition-all duration-150"
                   style={{
                     width: `${150 + audioLevel * 1.4}px`,
                     height: `${150 + audioLevel * 1.4}px`,
@@ -708,7 +708,7 @@ export default function AudioCallModal({
               </>
             )}
 
-            <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden ring-4 ring-[#8E5766] shadow-2xl">
+            <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden ring-4 ring-[#8064A2] shadow-2xl">
               <SafeAvatar
                 src={resolveProfilePhoto(candidate)}
                 alt={candidate.name}
@@ -717,7 +717,7 @@ export default function AudioCallModal({
                 className="w-full h-full object-cover"
               />
               {candidate.verified && (
-                <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-emerald-600 text-white p-1 rounded-full ring-2 ring-[#380817] shadow-md">
+                <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-emerald-600 text-white p-1 rounded-full ring-2 ring-[#2E1A36] shadow-md">
                   <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               )}
@@ -749,7 +749,7 @@ export default function AudioCallModal({
               onClick={handleToggleSpeaker}
               className={`p-3.5 rounded-full border transition-all cursor-pointer shadow-md flex flex-col items-center ${
                 isSpeakerOn
-                  ? 'bg-[#8E5766]/20 text-[#E4C1CA] border-[#8E5766]/60 ring-2 ring-[#E4C1CA]/30'
+                  ? 'bg-[#8064A2]/20 text-[#E8C6D1] border-[#8064A2]/60 ring-2 ring-[#E8C6D1]/30'
                   : 'bg-white/10 hover:bg-white/20 text-slate-300 border-white/20'
               }`}
               title={isSpeakerOn ? 'Speaker On' : 'Speaker Off'}
