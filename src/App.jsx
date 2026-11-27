@@ -465,7 +465,7 @@ export default function App() {
       const activeUser = currentUser || currentUserRef.current;
       const currentAuthId = activeUser?.id || activeUser?.user_id;
       const liveList = await fetchLiveProfiles(activeUser || currentAuthId);
-      if (Array.isArray(liveList) && liveList.length > 0) {
+      if (Array.isArray(liveList)) {
         const cleanList = liveList.filter(p => p && !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p));
         setProfiles(cleanList);
         safeStorage.setJSON('i4u_cached_profiles', cleanList);
@@ -546,7 +546,7 @@ export default function App() {
     let realtimeInterestsChannel = null;
 
     if (isSupabaseConfigured() && supabase && typeof supabase.channel === 'function') {
-      // 1. Lightweight broadcast listener for profile sync (eliminates whole-table postgres_changes egress)
+      // 1. Realtime listener for profile sync (broadcast + postgres_changes)
       try {
         realtimeChannel = supabase
           .channel('realtime_profiles_sync')
@@ -555,7 +555,14 @@ export default function App() {
             { event: 'profile_updated' },
             (event) => {
               console.log('[Realtime Broadcast Profile Sync]:', event);
-              syncLiveProfiles(false);
+              syncLiveProfiles(true);
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'profiles' },
+            () => {
+              syncLiveProfiles(true);
             }
           )
           .subscribe();
@@ -749,8 +756,9 @@ export default function App() {
         fetchLivePlans(),
         fetchLiveOffers()
       ]);
-      if (Array.isArray(livePlans) && livePlans.length > 0) {
-        const formatted = livePlans.map(formatBackendPlan);
+      if (Array.isArray(livePlans)) {
+        const activeOnlyPlans = livePlans.filter(p => p && (p.is_active === undefined || p.is_active === 1 || p.is_active === true || p.is_active === '1'));
+        const formatted = activeOnlyPlans.map(formatBackendPlan);
         setMembershipPlans(prev => {
           if (JSON.stringify(prev) === JSON.stringify(formatted)) return prev;
           return formatted;

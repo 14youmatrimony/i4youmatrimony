@@ -417,10 +417,32 @@
     return clean;
   }
 
+  function broadcastProfileSync(action, payload) {
+    if (typeof window !== 'undefined') {
+      try {
+        if (!window.__i4u_sb_client && window.supabase && typeof window.supabase.createClient === 'function') {
+          window.__i4u_sb_client = window.supabase.createClient('https://kzvdzospvgzlfkkptadl.supabase.co', SUPABASE_ANON);
+        }
+        if (window.__i4u_sb_client) {
+          const ch = window.__i4u_sb_client.channel('realtime_profiles_sync');
+          ch.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              ch.send({
+                type: 'broadcast',
+                event: 'profile_updated',
+                payload: { action, timestamp: Date.now(), ...payload }
+              });
+            }
+          });
+        }
+      } catch (e) {}
+    }
+  }
+
   async function pushProfileInsertToSupabase(candidateObj) {
     try {
       const clean = sanitizeProfilePayload(candidateObj);
-      await originalFetch(SUPABASE_BASE, {
+      const res = await originalFetch(SUPABASE_BASE, {
         method: 'POST',
         headers: {
           'apikey': SUPABASE_ANON,
@@ -430,6 +452,7 @@
         },
         body: JSON.stringify(clean)
       });
+      if (res.ok) broadcastProfileSync('insert', { id: clean.id });
     } catch (err) {
       console.warn('[Admin Engine] Supabase live insert notice:', err);
     }
@@ -444,7 +467,7 @@
         ? `or=(register_id.eq.${encodeURIComponent(cleanId)},id.eq.${encodeURIComponent(cleanId)})`
         : `or=(id.eq.${encodeURIComponent(cleanId)},register_id.eq.${encodeURIComponent(cleanId)},phone.eq.${encodeURIComponent(cleanId)})`;
 
-      await originalFetch(`${SUPABASE_BASE}?${filter}`, {
+      const res = await originalFetch(`${SUPABASE_BASE}?${filter}`, {
         method: 'PATCH',
         headers: {
           'apikey': SUPABASE_ANON,
@@ -454,6 +477,7 @@
         },
         body: JSON.stringify(clean)
       });
+      if (res.ok) broadcastProfileSync('update', { id: cleanId });
     } catch (err) {
       console.warn('[Admin Engine] Supabase live patch notice:', err);
     }
@@ -479,6 +503,7 @@
           'Authorization': 'Bearer ' + SUPABASE_ANON
         }
       });
+      broadcastProfileSync('delete', { id: cleanId });
     } catch (err) {
       console.warn('[Admin Engine] Supabase live delete notice:', err);
     }
@@ -847,7 +872,7 @@
       });
       if (res.ok) {
         const rows = await res.json();
-        if (Array.isArray(rows) && rows.length > 0) {
+        if (Array.isArray(rows)) {
           const newStr = JSON.stringify(rows);
           if (newStr !== lastSyncedPlansStr) {
             lastSyncedPlansStr = newStr;
@@ -1519,6 +1544,7 @@
       // 6. /api/offers & /api/public/offers
       if (pathname === '/api/offers' || pathname === '/api/public/offers') {
         if (method === 'GET') {
+          await syncOffersFromSupabase(true).catch(() => {});
           if (pathname === '/api/public/offers') {
             const activeOnly = (store.offers || []).filter(o => o.is_active == 1);
             return jsonResponse({ success: true, offers: activeOnly, count: activeOnly.length });
@@ -1655,12 +1681,7 @@
       // 7. /api/plans & /api/public/plans
       if (pathname === '/api/plans' || pathname === '/api/public/plans') {
         if (method === 'GET') {
-          if (!store.plans || !Array.isArray(store.plans) || store.plans.length === 0) {
-            store.plans = JSON.parse(JSON.stringify(SEED_DATA.plans));
-            saveStore(store);
-          }
-          // Non-blocking background sync from Supabase
-          syncPlansFromSupabase().catch(() => {});
+          await syncPlansFromSupabase(true).catch(() => {});
           const formattedPlans = (store.plans || []).map(p => {
             if (!p.features_parsed) {
               if (typeof p.features === 'string') {

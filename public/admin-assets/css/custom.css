@@ -83,7 +83,7 @@ dialog[open] {
 
 @media (min-width: 1024px) {
   #mainWorkspace {
-    left: 16rem; /* 256px sidebar offset */
+    left: 220px; /* 220px compact sidebar offset */
   }
 }
 

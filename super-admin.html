@@ -49,33 +49,33 @@
   <!-- ========================================================
        SIDEBAR NAVIGATION
        ======================================================== -->
-  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-[#2C1A1D] border-r border-[#C58B76]/20 flex flex-col justify-between transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-[220px] bg-[#2C1A1D] border-r border-[#C58B76]/20 flex flex-col justify-between transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
     
     <!-- Top Brand Section -->
     <div>
-      <div class="h-20 flex items-center px-6 border-b border-slate-800/80 justify-between">
-        <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('overview')">
-          <div class="relative w-10 h-10 rounded-full gold-gradient p-0.5 shadow-md shadow-[#C58B76]/20 flex items-center justify-center">
+      <div class="h-16 flex items-center px-4 border-b border-slate-800/80 justify-between">
+        <div class="flex items-center space-x-2.5 cursor-pointer" onclick="switchTab('overview')">
+          <div class="relative w-9 h-9 rounded-full gold-gradient p-0.5 shadow-md shadow-[#C58B76]/20 flex items-center justify-center flex-shrink-0">
             <div class="w-full h-full rounded-full bg-[#2C1A1D] flex items-center justify-center">
-              <i data-lucide="crown" class="w-5 h-5 text-[#E6B8A2]"></i>
+              <i data-lucide="crown" class="w-4 h-4 text-[#E6B8A2]"></i>
             </div>
             <span class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C58B76] opacity-75"></span>
               <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#E6B8A2]"></span>
             </span>
           </div>
-          <div>
-            <div class="flex items-center gap-1.5">
-              <span class="text-xl font-serif font-bold text-white tracking-wide">I 4 You</span>
-              <span class="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-[#C58B76]/20 text-[#E6B8A2] border border-[#C58B76]/40">Admin</span>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1">
+              <span class="text-lg font-serif font-bold text-white tracking-wide">I 4 You</span>
+              <span class="text-[8px] uppercase font-bold px-1 py-0.2 rounded bg-[#C58B76]/20 text-[#E6B8A2] border border-[#C58B76]/40">Admin</span>
             </div>
-            <p class="text-[10px] text-slate-400">Executive Console</p>
+            <p class="text-[10px] text-slate-400 truncate">Executive Console</p>
           </div>
         </div>
       </div>
 
       <!-- Navigation Links -->
-      <nav class="p-4 space-y-1.5">
+      <nav class="p-3 space-y-1">
         <button 
           data-tab-target="overview"
           class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all bg-gradient-to-r from-[#C58B76]/20 to-[#E6B8A2]/10 text-[#E6B8A2] border border-[#C58B76]/40 shadow-inner"
@@ -132,11 +132,11 @@
         <button 
           data-tab-target="vendors"
           class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-300 hover:text-white hover:bg-white/5 border border-transparent group"
-          title="Verify and Approve Wedding Service Vendors"
+          title="Manage & Approve Matrimony Services"
         >
           <div class="flex items-center space-x-3">
             <i data-lucide="store" class="w-4 h-4 text-[#E6B8A2]"></i>
-            <span>Vendor Verification</span>
+            <span>Matrimony Services</span>
           </div>
           <span id="vendorPendingBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">0</span>
         </button>
@@ -201,10 +201,10 @@
   <!-- ========================================================
        MAIN APP WORKSPACE
        ======================================================== -->
-  <div id="mainWorkspace" class="absolute inset-0 lg:left-64 flex flex-col overflow-hidden z-10 bg-[#1A1012]">
+  <div id="mainWorkspace" class="absolute inset-0 lg:left-[220px] flex flex-col overflow-hidden z-10 bg-[#1A1012]">
 
     <!-- Top Header Bar -->
-    <header class="h-20 bg-[#2C1A1D]/95 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-8 flex items-center justify-between flex-shrink-0 z-30 sticky top-0">
+    <header class="h-16 bg-[#2C1A1D]/95 backdrop-blur-md border-b border-slate-800/80 px-3 sm:px-5 flex items-center justify-between flex-shrink-0 z-30 sticky top-0">
       
       <!-- Mobile Menu & Global Search -->
       <div class="flex items-center space-x-4 flex-1 max-w-xl">
@@ -286,7 +286,7 @@
     </header>
 
     <!-- Main Scrollable Content Viewport -->
-    <main class="flex-1 min-h-0 w-full overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-8">
+    <main class="flex-1 min-h-0 w-full overflow-y-auto p-3 sm:p-4 lg:p-5 space-y-6">
 
       <!-- ========================================================
            VIEW 1: OVERVIEW & ANALYTICS
@@ -527,17 +527,17 @@
 
         <!-- Data Table Container -->
         <div class="rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl overflow-hidden">
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto w-full">
             <table class="w-full text-left border-collapse">
               <thead>
-                <tr class="border-b border-slate-800/80 bg-slate-900/50 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                  <th class="py-3.5 px-4">Profile Candidate</th>
-                  <th class="py-3.5 px-4">Contact Coordinates</th>
-                  <th class="py-3.5 px-4">Location</th>
-                  <th class="py-3.5 px-4">Career & Income</th>
-                  <th class="py-3.5 px-4">Trust Badges</th>
-                  <th class="py-3.5 px-4">Status / Reason</th>
-                  <th class="py-3.5 px-4 text-right min-w-[210px]">Actions</th>
+                <tr class="border-b border-slate-800/80 bg-slate-900/50 text-slate-400 text-[11px] font-semibold uppercase tracking-wider">
+                  <th class="py-3 px-2.5 whitespace-nowrap">Profile Candidate</th>
+                  <th class="py-3 px-2.5 whitespace-nowrap">Contact Coordinates</th>
+                  <th class="py-3 px-2.5 whitespace-nowrap">Location</th>
+                  <th class="py-3 px-2.5 whitespace-nowrap">Career &amp; Income</th>
+                  <th class="py-3 px-2.5 whitespace-nowrap">Trust Badges</th>
+                  <th class="py-3 px-2.5 whitespace-nowrap">Status / Reason</th>
+                  <th class="py-3 px-2.5 text-right whitespace-nowrap w-[195px]">Actions</th>
                 </tr>
               </thead>
               <tbody id="userTableBody" class="divide-y divide-slate-800/40 text-sm">
@@ -1068,26 +1068,27 @@
            VIEW 5: SETTINGS
            ======================================================== -->
       <section id="view-vendors" class="hidden space-y-6">
+        <!-- Table Action Bar -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 class="text-2xl font-serif font-bold text-white">Vendor Verification &amp; Approvals</h2>
-            <p class="text-xs text-slate-400">Inspect vendor Mobile OTP status, owner ID / shop license documents, and portfolio media before verifying and publishing to Services.</p>
+            <h2 class="text-2xl font-serif font-bold text-white">Matrimony Services</h2>
+            <p class="text-xs text-slate-400">Manage service providers, inspect Aadhaar &amp; business documents, and approve listings for the main app.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <button onclick="filterVendorApprovals('all')" id="vendorFilterAllBtn" class="px-3 py-1.5 rounded-xl bg-[#C58B76]/20 text-[#E6B8A2] border border-[#C58B76]/40 text-xs font-semibold cursor-pointer">All</button>
             <button onclick="filterVendorApprovals('pending')" id="vendorFilterPendingBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer">Pending</button>
-            <button onclick="filterVendorApprovals('approved')" id="vendorFilterApprovedBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer">Verified &amp; Approved</button>
+            <button onclick="filterVendorApprovals('approved')" id="vendorFilterApprovedBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer">Approved</button>
             <button onclick="filterVendorApprovals('rejected')" id="vendorFilterRejectedBtn" class="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer">Rejected</button>
-            <button onclick="loadVendorApprovals()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors flex items-center gap-1.5 text-xs cursor-pointer" title="Refresh Vendors">
+            <button onclick="loadVendorApprovals()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors flex items-center gap-1.5 text-xs cursor-pointer" title="Refresh Services">
               <i data-lucide="refresh-cw" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
 
-        <!-- Summary Metrics (Matching Profile Verification UI) -->
+        <!-- Summary Metrics -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800">
-            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Vendors</p>
+            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Services</p>
             <p id="vendorMetricTotal" class="text-2xl font-extrabold text-white font-mono mt-1">0</p>
           </div>
           <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-amber-500/30">
@@ -1095,7 +1096,7 @@
             <p id="vendorMetricPending" class="text-2xl font-extrabold text-amber-300 font-mono mt-1">0</p>
           </div>
           <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-emerald-500/30">
-            <p class="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Verified &amp; Approved</p>
+            <p class="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Approved</p>
             <p id="vendorMetricApproved" class="text-2xl font-extrabold text-emerald-300 font-mono mt-1">0</p>
           </div>
           <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-rose-500/30">
@@ -1104,8 +1105,69 @@
           </div>
         </div>
 
-        <div id="vendorApprovalsContainer" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-400">Loading vendor profiles...</div>
+        <!-- Filter Controls Strip -->
+        <div class="p-4 rounded-2xl bg-[#2C1A1D] border border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="lg:col-span-2 relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <i data-lucide="search" class="w-4 h-4"></i>
+            </div>
+            <input 
+              type="text" 
+              id="vendorSearchInput" 
+              placeholder="Search by provider, business name, phone, district, category..."
+              oninput="renderVendorApprovals()"
+              class="w-full pl-9 pr-4 py-2 bg-[#1A1012] border border-slate-700 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-none focus:border-[#C58B76]"
+            />
+          </div>
+          <div>
+            <select id="vendorStatusFilter" onchange="filterVendorApprovals(this.value)" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#C58B76]">
+              <option value="all">All Approval Statuses</option>
+              <option value="pending">Pending Review</option>
+              <option value="approved">Approved Only</option>
+              <option value="rejected">Rejected Only</option>
+            </select>
+          </div>
+          <div>
+            <select id="vendorCategoryFilter" onchange="renderVendorApprovals()" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#C58B76]">
+              <option value="all">All Service Categories</option>
+              <option value="catering_food">Catering</option>
+              <option value="stage_hall_decoration">Decorations</option>
+              <option value="photography_video_drone">Photography</option>
+              <option value="bridal_groom_car">Rental Cars</option>
+              <option value="tourist_bus">Tourist Bus</option>
+              <option value="invitation_cards">Digital Cards</option>
+              <option value="bridal_makeup_hair">Grooming</option>
+              <option value="clothing_stitching">Stitching</option>
+              <option value="jewellery_ornaments">Jewelry</option>
+              <option value="flowers_garlands">Flowers</option>
+              <option value="event_management">Event Management</option>
+              <option value="auditorium_convention">Auditorium &amp; Hall</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Data Table Container (Matching Candidate Profiles Layout) -->
+        <div class="rounded-3xl bg-[#2C1A1D] border border-slate-800 shadow-xl overflow-hidden">
+          <div class="overflow-x-auto w-full">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-800/80 bg-slate-900/50 text-slate-400 text-[11px] font-semibold uppercase tracking-wider">
+                  <th class="py-3 px-2.5 whitespace-nowrap">Provider / Business</th>
+                  <th class="py-3 px-2.5 whitespace-nowrap">Service Category</th>
+                  <th class="py-3 px-2.5 whitespace-nowrap">Contact Coordinates</th>
+                  <th class="py-3 px-2.5 whitespace-nowrap">Location</th>
+                  <th class="py-3 px-2.5 whitespace-nowrap">Docs &amp; Aadhaar</th>
+                  <th class="py-3 px-2.5 whitespace-nowrap">Approval Status</th>
+                  <th class="py-3 px-2.5 text-right whitespace-nowrap w-[180px]">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="vendorTableBody" class="divide-y divide-slate-800/40 text-sm">
+                <tr>
+                  <td colspan="7" class="text-center py-12 text-slate-400 text-xs">Loading matrimony services from Supabase...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -2701,6 +2763,50 @@
     <div class="p-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 bg-slate-900/50">
       <span id="photoInspectCandidateName" class="font-bold text-white truncate max-w-xs">Candidate Name</span>
       <span class="text-[11px] text-slate-500 font-mono">High Resolution Digital Record</span>
+    </div>
+  </dialog>
+
+  <!-- ========================================================
+       MODAL: SERVICE PROVIDER DOCUMENT & AADHAAR VERIFICATION
+       ======================================================== -->
+  <dialog id="vendorDocModal" class="m-auto w-full max-w-2xl rounded-3xl bg-[#2C1A1D] border border-[#C58B76]/30 text-slate-100 p-0 shadow-2xl overflow-hidden backdrop:bg-black/80 backdrop:backdrop-blur-sm">
+    <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/40">
+      <div>
+        <h3 id="vendorDocModalTitle" class="text-lg font-serif font-bold text-white">Document &amp; Aadhaar Verification</h3>
+        <p id="vendorDocModalSubtitle" class="text-xs text-slate-400">Inspect uploaded Aadhaar / Owner ID and service license documents</p>
+      </div>
+      <button onclick="document.getElementById('vendorDocModal').close()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <div id="vendorDocModalBody" class="p-5 space-y-4 max-h-[70vh] overflow-y-auto bg-[#1A1012]">
+      <!-- Injected via JS -->
+    </div>
+    <div class="p-4 border-t border-slate-800 flex items-center justify-end gap-2.5 bg-slate-900/40">
+      <button id="vendorDocRejectBtn" type="button" class="px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5">
+        <i data-lucide="x-circle" class="w-4 h-4"></i> Reject
+      </button>
+      <button id="vendorDocApproveBtn" type="button" class="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5">
+        <i data-lucide="check-circle" class="w-4 h-4"></i> Approve Service
+      </button>
+    </div>
+  </dialog>
+
+  <!-- ========================================================
+       MODAL: SERVICE PROVIDER FULL DETAILS
+       ======================================================== -->
+  <dialog id="vendorDetailModal" class="m-auto w-full max-w-2xl rounded-3xl bg-[#2C1A1D] border border-[#C58B76]/30 text-slate-100 p-0 shadow-2xl overflow-hidden backdrop:bg-black/80 backdrop:backdrop-blur-sm">
+    <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/40">
+      <div>
+        <h3 id="vendorDetailModalTitle" class="text-lg font-serif font-bold text-white">Service Listing Details</h3>
+        <p id="vendorDetailModalSubtitle" class="text-xs text-[#E6B8A2]">Category &bull; Location</p>
+      </div>
+      <button onclick="document.getElementById('vendorDetailModal').close()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <div id="vendorDetailModalBody" class="p-5 space-y-4 max-h-[75vh] overflow-y-auto bg-[#1A1012]">
+      <!-- Injected via JS -->
     </div>
   </dialog>
 

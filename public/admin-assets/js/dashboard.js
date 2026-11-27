@@ -227,6 +227,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadOffers();
   loadPlans();
   loadPayments();
+  loadVendorApprovals();
   startLiveSyncPolling();
   setupRealtimeProfileSync();
 
@@ -1286,10 +1287,10 @@ async function loadUsers() {
       return `
         <tr class="hover:bg-slate-800/40 border-b border-slate-800/60 transition-colors">
           <!-- Profile Card -->
-          <td class="py-3 px-4">
-            <div class="flex items-center space-x-3">
+          <td class="py-2.5 px-2.5">
+            <div class="flex items-center space-x-2.5">
               <div 
-                class="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border ${hasRealPhoto ? 'border-amber-400 ring-2 ring-amber-400/30' : 'border-[#C58B76]/30'} bg-slate-800 cursor-pointer group"
+                class="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border ${hasRealPhoto ? 'border-amber-400 ring-2 ring-amber-400/30' : 'border-[#C58B76]/30'} bg-slate-800 cursor-pointer group"
                 onclick="event.stopPropagation(); openPhotoInspectModal('${userPhotoUrl}', 'Original Portrait Photo', '${safeUserName}', 'Portrait Photo')"
                 title="Click to view original photo"
               >
@@ -1297,23 +1298,23 @@ async function loadUsers() {
                 ${hasRealPhoto ? `<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-slate-900" title="Authentic Photo Uploaded"></span>` : ''}
               </div>
               <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="font-medium text-white text-sm hover:text-[#E6B8A2] cursor-pointer truncate" onclick="openViewProfileModal('${u.id}')">${u.name}</span>
+                <div class="flex items-center gap-1 flex-wrap">
+                  <span class="font-medium text-white text-xs sm:text-sm hover:text-[#E6B8A2] cursor-pointer truncate max-w-[135px]" onclick="openViewProfileModal('${u.id}')">${u.name}</span>
                   ${u.match_score >= 95 ? '<span class="text-[10px] px-1 rounded bg-[#C58B76]/20 text-[#E6B8A2] font-mono">95%+</span>' : ''}
-                  ${hasRealPhoto ? `<button type="button" onclick="event.stopPropagation(); openViewProfileModal('${u.id}')" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-[#E6B8A2] border border-[#C58B76]/40 font-medium hover:bg-amber-500/30 transition-colors cursor-pointer" title="Candidate has authentic uploaded photos">📸 ${totalPhotoCount > 0 ? totalPhotoCount + ' Photos' : 'Original'}</button>` : ''}
+                  ${hasRealPhoto ? `<button type="button" onclick="event.stopPropagation(); openViewProfileModal('${u.id}')" class="text-[10px] px-1 py-0.5 rounded bg-amber-500/20 text-[#E6B8A2] border border-[#C58B76]/40 font-medium hover:bg-amber-500/30 transition-colors cursor-pointer" title="Candidate has authentic uploaded photos">📸 ${totalPhotoCount > 0 ? totalPhotoCount : 'Orig'}</button>` : ''}
                 </div>
-                <div class="text-xs text-slate-400 flex items-center gap-1">
-                  <span>${u.age} yrs</span> &bull; 
+                <div class="text-[11px] text-slate-400 flex items-center gap-1">
+                  <span>${u.age}y</span> &bull; 
                   <span>${u.gender}</span> &bull; 
-                  <span class="truncate max-w-[120px]">${u.religion || 'Hindu'}</span>
+                  <span class="truncate max-w-[85px]">${u.religion || 'Hindu'}</span>
                 </div>
               </div>
             </div>
           </td>
 
           <!-- Contact Coordinates -->
-          <td class="py-3 px-4 text-xs text-slate-300">
-            <div class="flex items-center gap-1.5 font-mono text-slate-200">
+          <td class="py-2.5 px-2.5 text-xs text-slate-300">
+            <div class="flex items-center gap-1 font-mono text-slate-200 whitespace-nowrap">
               <span class="font-medium">${formatDisplayPhone(u.phone)}</span>
               ${hasPhone ? `
                 <a 
@@ -1321,7 +1322,7 @@ async function loadUsers() {
                   class="p-1 rounded bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 transition-all hover:scale-110 flex items-center justify-center shrink-0" 
                   title="Direct Phone Call: ${safeUserName} (${u.phone})"
                 >
-                  <i data-lucide="phone" class="w-3.5 h-3.5"></i>
+                  <i data-lucide="phone" class="w-3 h-3"></i>
                 </a>
                 <a 
                   href="${waUrl}" 
@@ -1330,42 +1331,42 @@ async function loadUsers() {
                   class="p-1 rounded bg-[#25D366]/15 hover:bg-[#25D366]/30 text-[#25D366] border border-[#25D366]/30 transition-all hover:scale-110 flex items-center justify-center shrink-0" 
                   title="WhatsApp Chat: ${safeUserName} (${u.phone})"
                 >
-                  <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24">
                     <path d="M17.472 14.382c-.301-.15-1.777-.877-2.052-.977-.276-.1-.476-.15-.677.15-.201.3-.778.977-.954 1.177-.176.2-.351.226-.652.075-.301-.15-1.272-.469-2.423-1.496-.895-.798-1.5-1.784-1.676-2.085-.176-.301-.019-.464.132-.614.136-.135.301-.351.452-.527.15-.175.2-.301.301-.502.1-.2.05-.376-.025-.526-.075-.15-.677-1.632-.928-2.234-.244-.588-.493-.509-.677-.518-.175-.009-.376-.009-.577-.009-.201 0-.527.075-.803.376s-1.053 1.028-1.053 2.508 1.078 2.91 1.229 3.111c.15.201 2.122 3.24 5.141 4.544.718.31 1.279.495 1.716.634.721.23 1.378.197 1.897.12.579-.086 1.777-.727 2.028-1.43.251-.703.251-1.305.176-1.43-.075-.126-.276-.201-.577-.352zM12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2.05 22l4.98-1.306A9.957 9.957 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18.167c-1.602 0-3.093-.456-4.364-1.246l-.313-.194-2.956.775.789-2.883-.213-.339A8.13 8.13 0 0 1 3.833 12c0-4.503 3.664-8.167 8.167-8.167 4.503 0 8.167 3.664 8.167 8.167 0 4.503-3.664 8.167-8.167 8.167z"/>
                   </svg>
                 </a>
               ` : ''}
             </div>
-            <div class="text-slate-400 truncate max-w-[160px]">${u.email || 'No email registered'}</div>
+            <div class="text-[11px] text-slate-400 truncate max-w-[130px]">${u.email || 'No email'}</div>
           </td>
 
           <!-- Location -->
-          <td class="py-3 px-4 text-xs text-slate-300">
-            <div class="font-medium text-slate-200">${u.city || 'N/A'}</div>
-            <div class="text-slate-400">${u.state || ''}</div>
+          <td class="py-2.5 px-2.5 text-xs text-slate-300 whitespace-nowrap">
+            <div class="font-medium text-slate-200 truncate max-w-[100px]">${u.city || 'N/A'}</div>
+            <div class="text-[11px] text-slate-400 truncate max-w-[100px]">${u.state || ''}</div>
           </td>
 
           <!-- Profession & Education -->
-          <td class="py-3 px-4 text-xs text-slate-300">
-            <div class="font-medium text-slate-200 truncate max-w-[170px]">${u.profession || 'Not Specified'}</div>
-            <div class="text-emerald-400 font-mono text-[11px]">${u.annual_income || ''}</div>
+          <td class="py-2.5 px-2.5 text-xs text-slate-300">
+            <div class="font-medium text-slate-200 truncate max-w-[125px]">${u.profession || 'Not Specified'}</div>
+            <div class="text-emerald-400 font-mono text-[11px] truncate max-w-[125px]">${u.annual_income || ''}</div>
           </td>
 
           <!-- Verification Badges -->
-          <td class="py-3 px-4">
+          <td class="py-2.5 px-2.5">
             <div class="flex flex-wrap gap-1">
               ${aadhaarBadge || govtBadge || (isVerified ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">Verified</span>' : '<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">Unverified</span>')}
             </div>
           </td>
 
           <!-- Status -->
-          <td class="py-3 px-4">
+          <td class="py-2.5 px-2.5 whitespace-nowrap">
             ${statusBadge}
           </td>
 
           <!-- Actions -->
-          <td class="py-3 px-4 text-right">
-            <div class="flex items-center justify-end space-x-1.5">
+          <td class="py-2.5 px-2.5 text-right whitespace-nowrap">
+            <div class="flex items-center justify-end space-x-1">
               <!-- 1. Phone Call Action Button -->
               ${hasPhone ? `
                 <a 
@@ -6186,8 +6187,53 @@ state.vendors = {
   filter: 'all'
 };
 
+const SERVICE_CATEGORY_LABELS = {
+  event_management: 'Event Management',
+  invitation_cards: 'Digital Cards',
+  bridal_groom_wear: 'Bridal & Groom Wear',
+  clothing_stitching: 'Stitching',
+  jewellery_ornaments: 'Jewelry',
+  dress_jewellery_rental: 'Dress & Jewelry Rental',
+  mehndi_artist: 'Mehndi Artist',
+  auditorium_convention: 'Auditorium & Hall',
+  stage_hall_decoration: 'Decorations',
+  flowers_garlands: 'Flowers',
+  sound_lighting_sfx: 'Sound & Lighting',
+  bridal_makeup_hair: 'Grooming',
+  photography_video_drone: 'Photography',
+  catering_food: 'Catering',
+  wedding_cake_sweets: 'Wedding Cake & Sweets',
+  bridal_groom_car: 'Rental Cars',
+  tourist_bus: 'Tourist Bus',
+  guest_accommodation: 'Guest Accommodation',
+  percussion_melam: 'Percussion & Melam',
+  music_dj_anchors: 'Music & DJ',
+  security_valet: 'Security & Valet',
+  return_gifts_hampers: 'Return Gifts',
+  honeymoon_travel: 'Honeymoon Travel',
+  catering: 'Catering',
+  rentals: 'Rental Cars',
+  photography: 'Photography',
+  makeup: 'Grooming',
+  stitching: 'Stitching',
+  jewellery: 'Jewelry',
+  clothing: 'Bridal & Groom Wear',
+  stage_decoration: 'Decorations',
+  vehicle_rental: 'Rental Cars',
+  tourist_buses: 'Tourist Bus'
+};
+
+function getServiceCategoryLabel(slug) {
+  if (!slug) return 'Service';
+  return SERVICE_CATEGORY_LABELS[slug] || String(slug).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function filterVendorApprovals(filterMode) {
   state.vendors.filter = filterMode || 'all';
+  const statusSelect = document.getElementById('vendorStatusFilter');
+  if (statusSelect && statusSelect.value !== state.vendors.filter) {
+    statusSelect.value = state.vendors.filter;
+  }
   ['all', 'pending', 'approved', 'rejected'].forEach(key => {
     const btn = document.getElementById(`vendorFilter${key.charAt(0).toUpperCase() + key.slice(1)}Btn`);
     if (btn) {
@@ -6200,14 +6246,15 @@ function filterVendorApprovals(filterMode) {
 }
 
 async function loadVendorApprovals() {
-  const container = document.getElementById('vendorApprovalsContainer');
-  if (!container) return;
-  container.innerHTML = '<div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-400">Loading wedding service vendors from Supabase...</div>';
+  const tableBody = document.getElementById('vendorTableBody');
+  if (tableBody) {
+    tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-12 text-slate-400 text-xs"><div class="inline-block animate-spin w-5 h-5 border-2 border-[#E6B8A2] border-t-transparent rounded-full mb-2"></div><p>Loading matrimony services from Supabase...</p></td></tr>';
+  }
 
   try {
     const sb = getSupabaseAdminClient();
     if (!sb) {
-      container.innerHTML = '<div class="p-6 rounded-2xl bg-[#2C1A1D] border border-rose-500/30 text-xs text-rose-300">Supabase client not initialized.</div>';
+      if (tableBody) tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-xs text-rose-300">Supabase client not initialized.</td></tr>';
       return;
     }
 
@@ -6217,7 +6264,7 @@ async function loadVendorApprovals() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      container.innerHTML = `<div class="p-6 rounded-2xl bg-[#2C1A1D] border border-rose-500/30 text-xs text-rose-300">Unable to load vendors: ${error.message}</div>`;
+      if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-xs text-rose-300">Unable to load services: ${error.message}</td></tr>`;
       return;
     }
 
@@ -6248,119 +6295,278 @@ async function loadVendorApprovals() {
 
     renderVendorApprovals();
   } catch (err) {
-    container.innerHTML = `<div class="p-6 rounded-2xl bg-[#2C1A1D] border border-rose-500/30 text-xs text-rose-300">Error: ${err.message}</div>`;
+    if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-xs text-rose-300">Error: ${err.message}</td></tr>`;
   }
 }
 
 function renderVendorApprovals() {
-  const container = document.getElementById('vendorApprovalsContainer');
-  if (!container) return;
+  const tableBody = document.getElementById('vendorTableBody');
+  if (!tableBody) return;
+
+  const query = (document.getElementById('vendorSearchInput')?.value || '').trim().toLowerCase();
+  const catFilter = document.getElementById('vendorCategoryFilter')?.value || 'all';
 
   const filtered = (state.vendors.list || []).filter(v => {
     const isLive = Boolean(v.is_verified && v.is_approved);
     const isRejected = !isLive && Boolean(v.rejection_reason);
-    if (state.vendors.filter === 'pending') return !isLive && !isRejected;
-    if (state.vendors.filter === 'approved') return isLive;
-    if (state.vendors.filter === 'rejected') return isRejected;
+    if (state.vendors.filter === 'pending' && (isLive || isRejected)) return false;
+    if (state.vendors.filter === 'approved' && !isLive) return false;
+    if (state.vendors.filter === 'rejected' && !isRejected) return false;
+
+    if (catFilter !== 'all' && v.category !== catFilter) return false;
+
+    if (query) {
+      const catLabel = getServiceCategoryLabel(v.category).toLowerCase();
+      const hay = [
+        v.business_name, v.owner_name, v.phone, v.whatsapp_number,
+        v.city_address, v.district, v.state, v.category, catLabel
+      ].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(query)) return false;
+    }
     return true;
   });
 
   if (filtered.length === 0) {
-    container.innerHTML = '<div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-400">No vendor profiles match the selected filter.</div>';
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="7" class="text-center py-12 text-slate-400">
+          <i data-lucide="store" class="w-8 h-8 mx-auto text-slate-500 mb-2 opacity-50"></i>
+          <p class="text-sm font-medium text-slate-300">No matrimony services found</p>
+          <p class="text-xs text-slate-500 mt-1">Try adjusting your search or filter criteria</p>
+        </td>
+      </tr>
+    `;
+    if (window.lucide) lucide.createIcons();
     return;
   }
 
-  container.innerHTML = filtered.map(v => {
+  tableBody.innerHTML = filtered.map(v => {
     const isLive = Boolean(v.is_verified && v.is_approved);
     const isRejected = !isLive && Boolean(v.rejection_reason);
     const media = Array.isArray(v.vendor_media) ? v.vendor_media : [];
-    const images = media.filter(m => m.media_type === 'image');
-    const videos = media.filter(m => m.media_type === 'video');
-    const thumbsHtml = images.slice(0, 6).map(img => (
-      `<a href="${img.media_url}" target="_blank" rel="noopener noreferrer"><img src="${img.media_url}" alt="Vendor media" class="w-14 h-14 rounded-xl object-cover border border-slate-700 hover:border-[#E6B8A2]" /></a>`
-    )).join('');
+    const firstImg = media.find(m => m.media_type === 'image')?.media_url || '';
+    const phoneNum = v.whatsapp_number || v.phone || '';
+    const hasPhone = Boolean(phoneNum && phoneNum.trim() !== '');
+    const callPhone = hasPhone ? getCleanPhoneForCall(phoneNum) : '';
+    const waUrl = hasPhone ? getWhatsAppUrl(phoneNum, v.business_name || v.owner_name) : '';
+    const safeBizName = (v.business_name || 'Service Provider').replace(/'/g, "\\'");
 
     const statusBadge = isLive
-      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Verified &amp; Approved</span>'
+      ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>Approved</span>'
       : isRejected
-        ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/15 text-rose-300 border border-rose-500/30">Rejected</span>'
-        : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30">Pending Review</span>';
+        ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20" title="${(v.rejection_reason || '').replace(/"/g, '&quot;')}"><span class="w-1.5 h-1.5 rounded-full bg-rose-400 mr-1.5"></span>Rejected</span>`
+        : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 mr-1.5"></span>Pending</span>';
 
-    const otpBadge = v.is_mobile_verified
-      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Mobile OTP Verified</span>'
-      : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-700/60 text-slate-300 border border-slate-600">Mobile Unverified</span>';
+    const hasDoc = Boolean(v.verification_doc_url);
 
     return `
-      <div class="p-5 rounded-2xl bg-[#2C1A1D] border ${isLive ? 'border-emerald-500/30' : isRejected ? 'border-rose-500/30' : 'border-amber-500/30'} space-y-3">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div class="space-y-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <h3 class="text-sm font-bold text-white">${v.business_name || 'Unnamed Business'}</h3>
-              ${statusBadge}
-              ${otpBadge}
+      <tr class="hover:bg-slate-800/40 border-b border-slate-800/60 transition-colors">
+        <td class="py-2.5 px-2.5">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-[#C58B76]/40 bg-slate-800 flex items-center justify-center">
+              ${firstImg
+                ? `<img src="${firstImg}" alt="${safeBizName}" class="w-full h-full object-cover" />`
+                : `<i data-lucide="store" class="w-4 h-4 text-[#E6B8A2]"></i>`
+              }
             </div>
-            <p class="text-xs text-[#E6B8A2]">${v.category || ''} &bull; ${[v.district, v.state].filter(Boolean).join(', ')}</p>
+            <div class="min-w-0">
+              <div class="font-medium text-white text-xs sm:text-sm truncate max-w-[160px] cursor-pointer hover:text-[#E6B8A2]" onclick="openVendorDetailModal('${v.id}')">${v.business_name || 'Unnamed Business'}</div>
+              <div class="text-[11px] text-slate-400 truncate max-w-[160px]">${v.owner_name || 'Owner N/A'}</div>
+            </div>
           </div>
-          <div class="flex items-center gap-2">
+        </td>
+        <td class="py-2.5 px-2.5 whitespace-nowrap">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-[#C58B76]/15 text-[#E6B8A2] border border-[#C58B76]/30">
+            ${getServiceCategoryLabel(v.category)}
+          </span>
+        </td>
+        <td class="py-2.5 px-2.5 text-xs text-slate-300">
+          <div class="flex items-center gap-1 font-mono text-slate-200 whitespace-nowrap">
+            <span>${hasPhone ? phoneNum : 'N/A'}</span>
+            ${hasPhone ? `
+              <a href="tel:${callPhone}" class="p-1 rounded bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 transition-all flex items-center justify-center shrink-0" title="Call ${safeBizName}">
+                <i data-lucide="phone" class="w-3 h-3"></i>
+              </a>
+              <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="p-1 rounded bg-[#25D366]/15 hover:bg-[#25D366]/30 text-[#25D366] border border-[#25D366]/30 transition-all flex items-center justify-center shrink-0" title="WhatsApp ${safeBizName}">
+                <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24">
+                  <path d="M17.472 14.382c-.301-.15-1.777-.877-2.052-.977-.276-.1-.476-.15-.677.15-.201.3-.778.977-.954 1.177-.176.2-.351.226-.652.075-.301-.15-1.272-.469-2.423-1.496-.895-.798-1.5-1.784-1.676-2.085-.176-.301-.019-.464.132-.614.136-.135.301-.351.452-.527.15-.175.2-.301.301-.502.1-.2.05-.376-.025-.526-.075-.15-.677-1.632-.928-2.234-.244-.588-.493-.509-.677-.518-.175-.009-.376-.009-.577-.009-.201 0-.527.075-.803.376s-1.053 1.028-1.053 2.508 1.078 2.91 1.229 3.111c.15.201 2.122 3.24 5.141 4.544.718.31 1.279.495 1.716.634.721.23 1.378.197 1.897.12.579-.086 1.777-.727 2.028-1.43.251-.703.251-1.305.176-1.43-.075-.126-.276-.201-.577-.352zM12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2.05 22l4.98-1.306A9.957 9.957 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18.167c-1.602 0-3.093-.456-4.364-1.246l-.313-.194-2.956.775.789-2.883-.213-.339A8.13 8.13 0 0 1 3.833 12c0-4.503 3.664-8.167 8.167-8.167 4.503 0 8.167 3.664 8.167 8.167 0 4.503-3.664 8.167-8.167 8.167z"/>
+                </svg>
+              </a>
+            ` : ''}
+          </div>
+          <div class="text-[11px] text-slate-400 truncate max-w-[140px]">${v.is_mobile_verified ? 'Mobile OTP Verified' : 'OTP Pending'}</div>
+        </td>
+        <td class="py-2.5 px-2.5 text-xs text-slate-300 whitespace-nowrap">
+          <div class="font-medium text-slate-200 truncate max-w-[120px]">${v.city_address || v.district || 'N/A'}</div>
+          <div class="text-[11px] text-slate-400 truncate max-w-[120px]">${[v.district, v.state].filter(Boolean).join(', ')}</div>
+        </td>
+        <td class="py-2.5 px-2.5 whitespace-nowrap">
+          <button
+            type="button"
+            onclick="openVendorDocModal('${v.id}')"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors ${hasDoc ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'}"
+            title="Inspect Aadhaar & Service Documents"
+          >
+            <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
+            <span>${hasDoc ? 'Inspect Docs' : 'Review Docs'}</span>
+          </button>
+        </td>
+        <td class="py-2.5 px-2.5 whitespace-nowrap">
+          ${statusBadge}
+        </td>
+        <td class="py-2.5 px-2.5 text-right whitespace-nowrap">
+          <div class="flex items-center justify-end space-x-1">
             ${!isLive ? `
-              <button
-                type="button"
-                onclick="verifyAndApproveVendor('${v.id}')"
-                class="px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40"
-              >
-                Verify &amp; Approve
+              <button type="button" onclick="verifyAndApproveVendor('${v.id}')" class="p-1.5 text-emerald-400 hover:text-white bg-emerald-500/15 hover:bg-emerald-600/35 border border-emerald-500/40 rounded-lg transition-all cursor-pointer" title="Approve Service Listing">
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
               </button>
             ` : ''}
-            <button
-              type="button"
-              onclick="rejectVendorPrompt('${v.id}')"
-              class="px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40"
-            >
-              ${isLive ? 'Revoke / Reject' : 'Reject'}
+            <button type="button" onclick="rejectVendorPrompt('${v.id}')" class="p-1.5 text-rose-400 hover:text-white bg-rose-500/15 hover:bg-rose-600/35 border border-rose-500/40 rounded-lg transition-all cursor-pointer" title="${isLive ? 'Revoke / Reject Service' : 'Reject Service Listing'}">
+              <i data-lucide="x-circle" class="w-4 h-4"></i>
+            </button>
+            ${hasPhone ? `
+              <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="p-1.5 text-[#25D366] hover:text-white bg-[#25D366]/15 hover:bg-[#25D366]/35 border border-[#25D366]/40 rounded-lg transition-all flex items-center justify-center" title="Contact via WhatsApp">
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                  <path d="M17.472 14.382c-.301-.15-1.777-.877-2.052-.977-.276-.1-.476-.15-.677.15-.201.3-.778.977-.954 1.177-.176.2-.351.226-.652.075-.301-.15-1.272-.469-2.423-1.496-.895-.798-1.5-1.784-1.676-2.085-.176-.301-.019-.464.132-.614.136-.135.301-.351.452-.527.15-.175.2-.301.301-.502.1-.2.05-.376-.025-.526-.075-.15-.677-1.632-.928-2.234-.244-.588-.493-.509-.677-.518-.175-.009-.376-.009-.577-.009-.201 0-.527.075-.803.376s-1.053 1.028-1.053 2.508 1.078 2.91 1.229 3.111c.15.201 2.122 3.24 5.141 4.544.718.31 1.279.495 1.716.634.721.23 1.378.197 1.897.12.579-.086 1.777-.727 2.028-1.43.251-.703.251-1.305.176-1.43-.075-.126-.276-.201-.577-.352zM12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2.05 22l4.98-1.306A9.957 9.957 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18.167c-1.602 0-3.093-.456-4.364-1.246l-.313-.194-2.956.775.789-2.883-.213-.339A8.13 8.13 0 0 1 3.833 12c0-4.503 3.664-8.167 8.167-8.167 4.503 0 8.167 3.664 8.167 8.167 0 4.503-3.664 8.167-8.167 8.167z"/>
+                </svg>
+              </a>
+            ` : ''}
+            <button type="button" onclick="openVendorDetailModal('${v.id}')" class="p-1.5 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors cursor-pointer" title="View Full Service Details">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+            <button type="button" onclick="deleteVendorService('${v.id}', '${safeBizName}')" class="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-lg transition-colors cursor-pointer" title="Delete Service Listing">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2 text-xs text-slate-300 bg-[#1A1012] p-3 rounded-xl border border-slate-800">
-          <div><span class="text-slate-500">Owner:</span> ${v.owner_name || 'N/A'}</div>
-          <div><span class="text-slate-500">Phone:</span> ${v.phone || 'N/A'}</div>
-          <div><span class="text-slate-500">WhatsApp:</span> ${v.whatsapp_number || 'N/A'}</div>
-          <div><span class="text-slate-500">Pricing:</span> ${v.pricing_range || 'N/A'}</div>
-          <div><span class="text-slate-500">Service Area:</span> ${v.service_area || 'N/A'}</div>
-          <div><span class="text-slate-500">Experience:</span> ${v.experience_years || 'N/A'}</div>
-          ${v.license_number ? `<div class="col-span-2"><span class="text-slate-500">License / Udyam:</span> ${v.license_number}</div>` : ''}
-          <div class="col-span-2"><span class="text-slate-500">Address:</span> ${[v.address, v.city_address, v.district, v.state].filter(Boolean).join(', ') || 'N/A'}</div>
-        </div>
-
-        ${v.description ? `<p class="text-xs text-slate-300 leading-relaxed">${v.description}</p>` : ''}
-        ${v.staff_details ? `<p class="text-xs text-purple-200 bg-purple-500/10 border border-purple-500/20 p-2.5 rounded-xl"><strong>Service / Fleet / Crew Details:</strong> ${v.staff_details}</p>` : ''}
-        ${v.rejection_reason ? `<p class="text-xs text-rose-200 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl"><strong>Rejection Reason:</strong> ${v.rejection_reason}</p>` : ''}
-
-        ${v.verification_doc_url ? `
-          <div class="p-3 rounded-xl bg-[#1A1012] border border-slate-800 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-              <a href="${v.verification_doc_url}" target="_blank" rel="noopener noreferrer">
-                <img src="${v.verification_doc_url}" alt="Verification document" class="w-14 h-14 rounded-lg object-cover border border-slate-700" />
-              </a>
-              <div>
-                <p class="text-xs font-bold text-white">Owner ID / Shop License Document</p>
-                <p class="text-[11px] text-slate-400">Click thumbnail to inspect full-size document</p>
-              </div>
-            </div>
-            <a href="${v.verification_doc_url}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold border border-slate-700">Open</a>
-          </div>
-        ` : '<p class="text-[11px] text-amber-300">No verification document uploaded.</p>'}
-
-        ${(images.length > 0 || videos.length > 0) ? `
-          <div class="space-y-2 pt-1">
-            <p class="text-[11px] text-slate-400 font-semibold">Portfolio Media: ${images.length} photo(s), ${videos.length} video(s)</p>
-            ${thumbsHtml ? `<div class="flex flex-wrap gap-2">${thumbsHtml}</div>` : ''}
-            ${videos.length > 0 ? `<div class="flex flex-wrap gap-2">${videos.map((vid, idx) => `<a href="${vid.media_url}" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200 text-[11px] border border-slate-700 hover:border-[#E6B8A2]">Video ${idx + 1}</a>`).join('')}</div>` : ''}
-          </div>
-        ` : '<p class="text-[11px] text-slate-500">No portfolio media uploaded yet.</p>'}
-      </div>
+        </td>
+      </tr>
     `;
   }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function openVendorDocModal(vendorId) {
+  const v = (state.vendors.list || []).find(item => String(item.id) === String(vendorId));
+  if (!v) return;
+  const modal = document.getElementById('vendorDocModal');
+  const titleEl = document.getElementById('vendorDocModalTitle');
+  const subEl = document.getElementById('vendorDocModalSubtitle');
+  const bodyEl = document.getElementById('vendorDocModalBody');
+  const approveBtn = document.getElementById('vendorDocApproveBtn');
+  const rejectBtn = document.getElementById('vendorDocRejectBtn');
+  if (!modal || !bodyEl) return;
+
+  if (titleEl) titleEl.textContent = `${v.business_name || 'Service Provider'} — Verification Docs`;
+  if (subEl) subEl.textContent = `Owner: ${v.owner_name || 'N/A'} • Category: ${getServiceCategoryLabel(v.category)}`;
+
+  bodyEl.innerHTML = `
+    <div class="grid grid-cols-2 gap-3 text-xs bg-[#2C1A1D] p-3.5 rounded-2xl border border-slate-800">
+      <div><span class="text-slate-400">Mobile:</span> <span class="text-white font-mono">${v.phone || 'N/A'}</span></div>
+      <div><span class="text-slate-400">OTP Status:</span> <span class="${v.is_mobile_verified ? 'text-emerald-400' : 'text-amber-400'} font-semibold">${v.is_mobile_verified ? 'Verified' : 'Unverified'}</span></div>
+      <div><span class="text-slate-400">License / Udyam:</span> <span class="text-white">${v.license_number || 'Not provided'}</span></div>
+      <div><span class="text-slate-400">Location:</span> <span class="text-white">${[v.district, v.state].filter(Boolean).join(', ') || 'N/A'}</span></div>
+    </div>
+    ${v.verification_doc_url ? `
+      <div class="space-y-2">
+        <p class="text-xs font-semibold text-[#E6B8A2]">Uploaded Aadhaar / Owner ID / Business License Document</p>
+        <div class="rounded-2xl overflow-hidden border border-slate-700 bg-black/40 flex items-center justify-center p-2">
+          <img src="${v.verification_doc_url}" alt="Aadhaar / Service Document" class="max-h-80 w-auto rounded-xl object-contain" />
+        </div>
+        <a href="${v.verification_doc_url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs text-[#E6B8A2] hover:underline">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Open full resolution in new tab
+        </a>
+      </div>
+    ` : `
+      <div class="p-6 rounded-2xl bg-[#2C1A1D] border border-amber-500/30 text-center text-xs text-amber-300">
+        No Aadhaar card or business license document has been uploaded by this provider yet.
+      </div>
+    `}
+  `;
+
+  if (approveBtn) {
+    approveBtn.onclick = async () => {
+      modal.close();
+      await verifyAndApproveVendor(v.id);
+    };
+  }
+  if (rejectBtn) {
+    rejectBtn.onclick = async () => {
+      modal.close();
+      await rejectVendorPrompt(v.id);
+    };
+  }
+
+  modal.showModal();
+  if (window.lucide) lucide.createIcons();
+}
+
+function openVendorDetailModal(vendorId) {
+  const v = (state.vendors.list || []).find(item => String(item.id) === String(vendorId));
+  if (!v) return;
+  const modal = document.getElementById('vendorDetailModal');
+  const titleEl = document.getElementById('vendorDetailModalTitle');
+  const subEl = document.getElementById('vendorDetailModalSubtitle');
+  const bodyEl = document.getElementById('vendorDetailModalBody');
+  if (!modal || !bodyEl) return;
+
+  const media = Array.isArray(v.vendor_media) ? v.vendor_media : [];
+  const images = media.filter(m => m.media_type === 'image');
+  const videos = media.filter(m => m.media_type === 'video');
+
+  if (titleEl) titleEl.textContent = v.business_name || 'Service Listing Details';
+  if (subEl) subEl.textContent = `${getServiceCategoryLabel(v.category)} • ${[v.city_address, v.district, v.state].filter(Boolean).join(', ')}`;
+
+  bodyEl.innerHTML = `
+    <div class="grid grid-cols-2 gap-3 text-xs bg-[#2C1A1D] p-4 rounded-2xl border border-slate-800">
+      <div><span class="text-slate-400">Owner Name:</span> <span class="text-white font-semibold">${v.owner_name || 'N/A'}</span></div>
+      <div><span class="text-slate-400">Phone:</span> <span class="text-white font-mono">${v.phone || 'N/A'}</span></div>
+      <div><span class="text-slate-400">WhatsApp:</span> <span class="text-white font-mono">${v.whatsapp_number || 'N/A'}</span></div>
+      <div><span class="text-slate-400">Pricing Range:</span> <span class="text-emerald-300 font-semibold">${v.pricing_range || 'N/A'}</span></div>
+      <div><span class="text-slate-400">Service Area:</span> <span class="text-white">${v.service_area || 'N/A'}</span></div>
+      <div><span class="text-slate-400">Experience:</span> <span class="text-white">${v.experience_years || 'N/A'}</span></div>
+      <div class="col-span-2"><span class="text-slate-400">Address:</span> <span class="text-white">${[v.address, v.city_address, v.district, v.state].filter(Boolean).join(', ') || 'N/A'}</span></div>
+    </div>
+    ${v.description ? `<div class="p-3.5 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-300 leading-relaxed"><strong class="text-white block mb-1">About Service</strong>${v.description}</div>` : ''}
+    ${v.staff_details ? `<div class="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-200"><strong class="block mb-1">Fleet / Crew / Service Details</strong>${v.staff_details}</div>` : ''}
+    ${v.rejection_reason ? `<div class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-200"><strong class="block mb-1">Rejection Reason</strong>${v.rejection_reason}</div>` : ''}
+    ${(images.length > 0 || videos.length > 0) ? `
+      <div class="space-y-2">
+        <p class="text-xs font-semibold text-[#E6B8A2]">Portfolio Media (${images.length} photos, ${videos.length} videos)</p>
+        <div class="flex flex-wrap gap-2">
+          ${images.map(img => `<a href="${img.media_url}" target="_blank" rel="noopener noreferrer"><img src="${img.media_url}" alt="Portfolio" class="w-20 h-20 rounded-xl object-cover border border-slate-700 hover:border-[#E6B8A2]" /></a>`).join('')}
+        </div>
+        ${videos.length > 0 ? `<div class="flex flex-wrap gap-2 pt-1">${videos.map((vid, idx) => `<a href="${vid.media_url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 text-xs border border-slate-700 hover:border-[#E6B8A2]">Video ${idx + 1}</a>`).join('')}</div>` : ''}
+      </div>
+    ` : ''}
+  `;
+
+  modal.showModal();
+  if (window.lucide) lucide.createIcons();
+}
+
+async function deleteVendorService(vendorId, businessName) {
+  if (!confirm(`Permanently delete service listing "${businessName}"? This will immediately remove it from Supabase and the main app.`)) {
+    return;
+  }
+  try {
+    const sb = getSupabaseAdminClient();
+    if (!sb) return;
+    const { error } = await sb
+      .from('wedding_vendors')
+      .delete()
+      .eq('id', vendorId);
+
+    if (error) {
+      showToast(`Failed to delete service: ${error.message}`, 'error');
+      return;
+    }
+
+    showToast('Service listing deleted from Supabase.', 'success');
+    await loadVendorApprovals();
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
 }
 
 async function verifyAndApproveVendor(vendorId) {
@@ -6420,6 +6626,9 @@ window.verifyAndApproveVendor = verifyAndApproveVendor;
 window.rejectVendorPrompt = rejectVendorPrompt;
 window.filterVendorApprovals = filterVendorApprovals;
 window.loadVendorApprovals = loadVendorApprovals;
+window.openVendorDocModal = openVendorDocModal;
+window.openVendorDetailModal = openVendorDetailModal;
+window.deleteVendorService = deleteVendorService;
 
 window.loadDailyContactLimit = loadDailyContactLimit;
 window.handleSaveDailyContactLimit = handleSaveDailyContactLimit;

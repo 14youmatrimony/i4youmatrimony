@@ -1494,31 +1494,31 @@ export async function fetchLiveOffers() {
     try {
       const { data, error } = await supabase
         .from('offers')
-        .select('id, title, discount_pct, code, valid_till, is_active, created_at')
+        .select('*')
         .order('id', { ascending: false });
       if (!error && Array.isArray(data)) {
-        if (data.length > 0) {
-          try { localStorage.setItem('i4u_cached_offers', JSON.stringify(data)); } catch (e) {}
-          return data;
-        } else {
-          return [];
-        }
+        const normalized = data.map(o => ({
+          ...o,
+          discount_percent: o.discount_percent ?? o.discount_pct ?? 0,
+          discount_pct: o.discount_pct ?? o.discount_percent ?? 0,
+          valid_until: o.valid_until ?? o.valid_till ?? null,
+          valid_till: o.valid_till ?? o.valid_until ?? null
+        }));
+        try {
+          if (normalized.length > 0) {
+            localStorage.setItem('i4u_cached_offers', JSON.stringify(normalized));
+          } else {
+            localStorage.removeItem('i4u_cached_offers');
+          }
+        } catch (e) {}
+        return normalized;
       }
     } catch (sbErr) {
       console.warn('[Supabase fetchLiveOffers fallback]:', sbErr.message);
     }
   }
 
-  // 2. Local cache fallback
-  try {
-    const cached = localStorage.getItem('i4u_cached_offers');
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch (e) {}
-
-  // 3. Fallback to Python backend (local dev only)
+  // 2. Fallback to Python backend (local dev only)
   try {
     const data = await safeFetchJson(`${API_BASE}/public/offers?t=${Date.now()}`, {
       headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
@@ -1529,12 +1529,20 @@ export async function fetchLiveOffers() {
     return [];
   } catch (err) {
     console.warn('[API] Could not connect to backend offers:', err.message);
+    // 3. Offline cache fallback only when both Supabase and API are unreachable
+    try {
+      const cached = localStorage.getItem('i4u_cached_offers');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
     return [];
   }
 }
 
 /**
- * Fetch dynamic membership plans from the Python database
+ * Fetch dynamic membership plans directly from Supabase
  */
 export async function fetchLivePlans() {
   // 1. Direct real-time fetch from Supabase Cloud Database
@@ -1542,10 +1550,16 @@ export async function fetchLivePlans() {
     try {
       const { data, error } = await supabase
         .from('membership_plans')
-        .select('id, name, duration_months, price, original_price, contact_credits, call_credits, features, is_popular, sort_order')
+        .select('*')
         .order('sort_order', { ascending: true });
-      if (!error && Array.isArray(data) && data.length > 0) {
-        try { localStorage.setItem('i4u_cached_plans', JSON.stringify(data)); } catch (e) {}
+      if (!error && Array.isArray(data)) {
+        try {
+          if (data.length > 0) {
+            localStorage.setItem('i4u_cached_plans', JSON.stringify(data));
+          } else {
+            localStorage.removeItem('i4u_cached_plans');
+          }
+        } catch (e) {}
         return data;
       }
     } catch (sbErr) {
@@ -1553,16 +1567,7 @@ export async function fetchLivePlans() {
     }
   }
 
-  // 2. Local cache fallback
-  try {
-    const cached = localStorage.getItem('i4u_cached_plans');
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch (e) {}
-
-  // 3. Fallback to Python backend (local dev only)
+  // 2. Fallback to Python backend (local dev only)
   try {
     const data = await safeFetchJson(`${API_BASE}/public/plans?t=${Date.now()}`, {
       headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
@@ -1573,6 +1578,13 @@ export async function fetchLivePlans() {
     return null;
   } catch (err) {
     console.warn('[API] Could not connect to backend plans:', err.message);
+    try {
+      const cached = localStorage.getItem('i4u_cached_plans');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
     return null;
   }
 }
