@@ -35,7 +35,8 @@ export default function WebsiteHero({
   onOpenServices,
   onOpenOffers,
   offers = [],
-  banners = []
+  banners = [],
+  currentUser = null
 }) {
   const slides = React.useMemo(() => {
     if (Array.isArray(banners) && banners.length > 0) {
@@ -187,11 +188,13 @@ export default function WebsiteHero({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#2C1A1D]/80 via-transparent to-transparent" />
 
-                  {/* High Match Score Badge */}
-                  <div className="absolute top-2.5 right-2.5 flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-white/95 text-[#7A2E43] border border-[#E5D0C6] font-bold text-[11px] shadow-sm backdrop-blur-md">
-                    <Sparkles className="w-3 h-3 text-[#C58B76]" />
-                    <span>{featuredProfile.matchScore}% Match</span>
-                  </div>
+                  {/* High Match Score Badge (Logged-in users only) */}
+                  {Boolean(currentUser && !currentUser.isGuest && featuredProfile.matchScore) && (
+                    <div className="absolute top-2.5 right-2.5 flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-white/95 text-[#7A2E43] border border-[#E5D0C6] font-bold text-[11px] shadow-sm backdrop-blur-md">
+                      <Sparkles className="w-3 h-3 text-[#C58B76]" />
+                      <span>{featuredProfile.matchScore}% Match</span>
+                    </div>
+                  )}
 
                   {/* Aadhaar Verified Badge */}
                   <div className="absolute bottom-2.5 left-2.5 flex items-center space-x-1 px-2.5 py-0.5 rounded-md bg-emerald-950/85 border border-emerald-500/60 text-emerald-300 text-[11px] font-semibold backdrop-blur-md shadow-md">

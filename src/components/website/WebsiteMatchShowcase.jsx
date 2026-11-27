@@ -677,13 +677,15 @@ export default function WebsiteMatchShowcase({
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#2C1A1D] via-[#2C1A1D]/25 to-transparent"></div>
 
-                    {/* Top Badge: Match Score */}
-                    <div className="absolute top-3 left-3 z-10">
-                      <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#7A2E43] text-white shadow-md flex items-center space-x-1.5">
-                        <Sparkles className="w-3.5 h-3.5 fill-white text-white" />
-                        <span>{profile.matchScore}% Match</span>
-                      </span>
-                    </div>
+                    {/* Top Badge: Match Score (Logged-in users only) */}
+                    {Boolean(currentUser && !currentUser.isGuest && profile.matchScore) && (
+                      <div className="absolute top-3 left-3 z-10">
+                        <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#7A2E43] text-white shadow-md flex items-center space-x-1.5">
+                          <Sparkles className="w-3.5 h-3.5 fill-white text-white" />
+                          <span>{profile.matchScore}% Match</span>
+                        </span>
+                      </div>
+                    )}
 
                     {/* Shortlist Heart Button */}
                     <button

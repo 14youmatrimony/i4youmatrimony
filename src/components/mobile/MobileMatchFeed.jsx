@@ -736,8 +736,8 @@ export default function MobileMatchFeed({
                     {/* Dark gradient for bottom text contrast */}
                     <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none"></div>
 
-                    {/* Top Match Score Badge (Left) */}
-                    {profile.matchScore && (
+                    {/* Top Match Score Badge (Left, Logged-in users only) */}
+                    {Boolean(currentUser && !currentUser.isGuest && profile.matchScore) && (
                       <div className="absolute top-1.5 left-1.5 z-10 px-1.5 py-0.5 rounded-md bg-[#7A2E43]/90 backdrop-blur-md border border-[#E5D0C6]/50 shadow-xs flex items-center space-x-0.5">
                         <Sparkles className="w-2.5 h-2.5 text-[#E6B8A2] animate-pulse" />
                         <span className="font-mono font-black text-[9px] text-[#E6B8A2]">
@@ -1059,8 +1059,8 @@ export default function MobileMatchFeed({
                         </div>
                       </div>
 
-                      {/* Match Percentage in Small Digital Badge */}
-                      {profile.matchScore && (
+                      {/* Match Percentage in Small Digital Badge (Logged-in users only) */}
+                      {Boolean(currentUser && !currentUser.isGuest && profile.matchScore) && (
                         <div className="shrink-0 mb-0.5">
                           <div className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-[#7A2E43]/90 backdrop-blur-md border border-[#E5D0C6]/50 shadow-md">
                             <Sparkles className="w-3 h-3 text-[#E6B8A2] shrink-0 animate-pulse" />

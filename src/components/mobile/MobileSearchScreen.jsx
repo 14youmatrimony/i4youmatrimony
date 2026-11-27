@@ -354,9 +354,11 @@ export default function MobileSearchScreen({
                   </div>
                   <span className="text-[8px] font-sans text-slate-300">Verified</span>
                 </div>
-                <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded-full text-[8px] font-bold bg-[#7A2E43] text-white">
-                  {profile.matchScore}%
-                </span>
+                {Boolean(currentUser && !currentUser.isGuest && profile.matchScore) && (
+                  <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded-full text-[8px] font-bold bg-[#7A2E43] text-white">
+                    {profile.matchScore}%
+                  </span>
+                )}
               </div>
 
               <div className="flex-1 min-w-0">

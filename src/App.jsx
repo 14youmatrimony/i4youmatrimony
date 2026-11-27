@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { fetchLiveProfiles, detectVisitorLocation, recordLivePayment, registerLiveProfile, deletePersonalAccount, verifyLiveAadhaar, updateLivePhotos, updateLiveUserProfile, profileSyncChannel, mapSupabaseRowToProfile, fetchLivePlans, fetchLiveOffers, fetchLiveHomepageBanners, fetchLiveUserProfile, ensureProfileRowExists, compressBase64Image, purgeDemoProfilesFromSupabase, isDemoProfile, isPlaceholderOrIncompleteProfile, fetchUserNotifications, markNotificationAsReadApi, markAllUserNotificationsAsRead, deleteNotificationApi, resolveProfilePhoto, isFakeAvatarUrl, fetchActiveStoriesApi, insertStoryApi, deleteStoryApi, deleteExpiredStoriesApi, insertSuccessStoryApi, fetchSuccessStoriesApi } from './services/api';
 import { addCacheBuster } from './utils/cacheBuster';
+import { computeDynamicMatchScore } from './utils/matchScore';
 import { formatR2PublicUrl, uploadStoryToR2, uploadSuccessStoryToR2, deletePhotoFromR2 } from './utils/r2Upload';
 import { supabase, isSupabaseConfigured, initSupabaseAuthListener } from './services/supabase';
 import { profileSyncService } from './services/profileSyncService';
@@ -5117,8 +5118,14 @@ export default function App() {
   // - If user is logged in with gender, strictly filter by opposite gender
   // - If guest / unauthenticated, provide interleaved Male & Female candidates to WebsiteView
   const websiteProfiles = useMemo(() => {
-    const validProfiles = profiles.filter(p => Boolean(p && !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)));
-    if (currentUser && !currentUser.isGuest && currentUser.gender) {
+    const isLoggedIn = Boolean(currentUser && !currentUser.isGuest && currentUser.id);
+    const validProfiles = profiles
+      .filter(p => Boolean(p && !isDemoProfile(p) && !isPlaceholderOrIncompleteProfile(p)))
+      .map(p => ({
+        ...p,
+        matchScore: isLoggedIn ? computeDynamicMatchScore(currentUser, p) : null
+      }));
+    if (isLoggedIn && currentUser.gender) {
       const targetGender = getTargetCandidateGender(currentUser);
       return validProfiles.filter(p => {
         if (isSelfProfile(p, currentUser)) return false;

@@ -1479,7 +1479,8 @@ export default function MobileProfileDetailSheet({
                 </div>
                 <h4 className="font-bold text-[#2C1A1D] text-base">Ashtakoot Kundali Milan</h4>
                 <p className="text-xs text-[#5A4649]">
-                  Compatibility Score: <span className="font-bold">{profile.gunasMatch}</span> ({profile.matchScore}% Match)
+                  Compatibility Score: <span className="font-bold">{profile.gunasMatch}</span>
+                  {Boolean(currentUser && !currentUser.isGuest && profile.matchScore) ? ` (${profile.matchScore}% Match)` : ''}
                 </p>
                 <span className="inline-block mt-1 px-3 py-0.5 rounded-full text-[11px] font-bold bg-[#7A2E43] text-white">
                   Highly Auspicious Match

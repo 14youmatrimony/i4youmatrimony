@@ -258,13 +258,15 @@ export default function ProfileModal({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-[#2C1A1D] via-transparent to-transparent pointer-events-none"></div>
 
-          {/* Profile Quick Pill in Header */}
-          <div className="absolute top-4 left-4 flex items-center space-x-2">
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#7A2E43] text-white shadow-md flex items-center space-x-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{profile.matchScore || 85}% Match</span>
-            </span>
-          </div>
+          {/* Profile Quick Pill in Header (Logged-in users only) */}
+          {Boolean(currentUser && !currentUser.isGuest && profile.matchScore) && (
+            <div className="absolute top-4 left-4 flex items-center space-x-2">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#7A2E43] text-white shadow-md flex items-center space-x-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{profile.matchScore}% Match</span>
+              </span>
+            </div>
+          )}
 
           {/* Photos Button */}
           {modalPhotos.length > 0 && !profile.hidePhotos && profile.photoVisibility !== 'request' && (
