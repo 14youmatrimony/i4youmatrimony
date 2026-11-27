@@ -581,11 +581,19 @@ export default function MobileMatchFeed({
           </div>
         )}
 
-        {/* Quick Feed Layout Switcher Bar */}
+        {/* Quick Feed Brand & Layout Switcher Bar */}
         {filteredProfiles.length > 0 && (
-          <div className="flex items-center justify-between px-1 py-1">
-            <span className="text-[11px] font-bold text-[#5A4649]">
-              {filteredProfiles.length} {getTargetGenderLabel(currentUser)} • {feedLayout === 'grid4' ? '4-Profile Grid' : 'Single Card'}
+          <div className="flex items-center justify-between py-1.5 px-1">
+            <span className="inline-flex items-baseline select-none bg-gradient-to-r from-[#B6891B] via-[#D4AF37] to-[#AA7C11] bg-clip-text text-transparent">
+              <span
+                style={{ fontFamily: "'Great Vibes', cursive" }}
+                className="text-xl md:text-2xl leading-none pr-0.5"
+              >
+                I
+              </span>
+              <span className="text-xs md:text-sm font-serif font-semibold tracking-wide">
+                4You Matrimony
+              </span>
             </span>
 
             <div className="flex items-center space-x-0.5 bg-slate-200/80 p-0.5 rounded-xl border border-slate-300/60 shadow-2xs">
