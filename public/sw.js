@@ -4,13 +4,54 @@
  * when the application is closed or running in background.
  */
 
+const CACHE_NAME = 'i4you-wine-blush-v20261128';
+
 // Install & activate service worker immediately without waiting
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((cacheNames) =>
+      Promise.all(
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      )
+    ).then(() => self.clients.claim())
+  );
+});
+
+// Network-First strategy for HTML, CSS, and JS bundles so theme updates load immediately
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+
+  const isDocumentOrAsset =
+    req.mode === 'navigate' ||
+    url.pathname === '/' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.startsWith('/assets/');
+
+  if (!isDocumentOrAsset) return;
+
+  event.respondWith(
+    fetch(req, { cache: req.mode === 'navigate' ? 'no-store' : 'default' })
+      .then((networkRes) => {
+        if (networkRes && networkRes.ok) {
+          const clone = networkRes.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone)).catch(() => {});
+        }
+        return networkRes;
+      })
+      .catch(() => caches.match(req))
+  );
 });
 
 // Background Web Push Notification Event
