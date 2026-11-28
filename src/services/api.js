@@ -1365,6 +1365,8 @@ async function fetchGender3TierNearest({ genderType, loc, excludeSelfId, maxCoun
       if (collected.length >= maxCount) break;
       const rid = String(row?.id || '').trim();
       if (!rid || seenIds.has(rid)) continue;
+      const mapped = mapSupabaseRowToProfile(row);
+      if (!mapped || isDemoProfile(mapped) || isPlaceholderOrIncompleteProfile(mapped)) continue;
       seenIds.add(rid);
       collected.push(row);
     }
@@ -1409,7 +1411,7 @@ async function fetchGender3TierNearest({ genderType, loc, excludeSelfId, maxCoun
 /**
  * Fetch all active profiles from Supabase first, with fallback to Flask backend & offline cache
  * Excludes all demo/deleted/suspended/blocked profiles - returns real registered candidates.
- * Uses 3-tier nearest-location cascade (City/District -> State -> Pan-India) for up to 20 latest profiles (10 Gents + 10 Ladies).
+ * Uses 3-tier nearest-location cascade (City/District -> State -> Pan-India) for up to 10 latest guest profiles (5 Gents + 5 Ladies) or 20 for logged-in users.
  */
 export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, page = 0, gender = null, targetGender = null, visitorLocation = null, nearestShowcase = false } = {}) {
   // Determine current logged-in user ID & gender
@@ -1450,7 +1452,7 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
     try {
       const loc = visitorLocation || await detectVisitorLocation(typeof currentUserOrId === 'object' ? currentUserOrId : null);
 
-      // 3-Tier Nearest-Location Showcase Query (up to 10 Gents + 10 Ladies = 20 latest profiles)
+      // 3-Tier Nearest-Location Showcase Query (5 Gents + 5 Ladies = 10 latest profiles for guests; 20 opposite-gender for logged-in users)
       if (!targetOppositeGender || nearestShowcase) {
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Supabase fetch timed out')), 8000)
@@ -1460,8 +1462,8 @@ export async function fetchLiveProfiles(currentUserOrId = null, { limit = 100, p
         if (!targetOppositeGender) {
           const [males, females] = await Promise.race([
             Promise.all([
-              fetchGender3TierNearest({ genderType: 'male', loc, excludeSelfId: cleanId, maxCount: 10 }),
-              fetchGender3TierNearest({ genderType: 'female', loc, excludeSelfId: cleanId, maxCount: 10 })
+              fetchGender3TierNearest({ genderType: 'male', loc, excludeSelfId: cleanId, maxCount: 5 }),
+              fetchGender3TierNearest({ genderType: 'female', loc, excludeSelfId: cleanId, maxCount: 5 })
             ]),
             timeoutPromise
           ]);

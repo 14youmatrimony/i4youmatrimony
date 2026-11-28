@@ -5116,7 +5116,7 @@ export default function App() {
 
   // Profiles for website showcase:
   // - If user is logged in with gender, strictly filter by opposite gender
-  // - If guest / unauthenticated, provide interleaved Male & Female candidates to WebsiteView
+  // - If guest / unauthenticated, provide up to 10 interleaved Male & Female candidates (5 Male + 5 Female) to WebsiteView
   const websiteProfiles = useMemo(() => {
     const isLoggedIn = Boolean(currentUser && !currentUser.isGuest && currentUser.id);
     const validProfiles = profiles
@@ -5132,19 +5132,15 @@ export default function App() {
         return isCandidateMatchingTarget(p, targetGender);
       });
     }
-    const males = validProfiles.filter(p => normalizeGender(p.gender) === 'male');
-    const females = validProfiles.filter(p => normalizeGender(p.gender) === 'female');
-    const others = validProfiles.filter(p => {
-      const g = normalizeGender(p.gender);
-      return g !== 'male' && g !== 'female';
-    });
+    const males = validProfiles.filter(p => normalizeGender(p.gender) === 'male').slice(0, 5);
+    const females = validProfiles.filter(p => normalizeGender(p.gender) === 'female').slice(0, 5);
     const mixed = [];
     const maxLen = Math.max(males.length, females.length);
     for (let i = 0; i < maxLen; i += 1) {
       if (males[i]) mixed.push(males[i]);
       if (females[i]) mixed.push(females[i]);
     }
-    return [...mixed, ...others];
+    return mixed;
   }, [profiles, currentUser]);
 
   const totalUnreadChatCount = useMemo(() => {
