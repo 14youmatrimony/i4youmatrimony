@@ -325,6 +325,11 @@ export default function ProfileModal({
                 <h3 className="text-xl sm:text-2xl font-serif font-bold tracking-tight">
                   {profile.name}
                 </h3>
+                {(profile.registerId || profile.register_id) && (
+                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-white/15 text-[#F9EBF0] border border-white/25">
+                    {profile.registerId || profile.register_id}
+                  </span>
+                )}
                 <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   ID Verified
                 </span>

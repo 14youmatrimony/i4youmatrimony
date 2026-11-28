@@ -1012,6 +1012,11 @@ export default function MobileMatchFeed({
                           <h3 className="font-serif font-bold text-xl drop-shadow-sm truncate">
                             {profile.name}
                           </h3>
+                          {(profile.registerId || profile.register_id) && (
+                            <span className="px-2 py-0.5 rounded-md bg-black/60 border border-white/25 text-[#F9EBF0] font-mono font-bold text-[10px] shrink-0">
+                              {profile.registerId || profile.register_id}
+                            </span>
+                          )}
                           {profile.aadhaarVerified ? (
                             <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white border border-emerald-400 text-[10px] font-bold flex items-center gap-1 shadow-sm shrink-0">
                               <CheckCircle2 className="w-3 h-3 text-white stroke-[2.5]" />

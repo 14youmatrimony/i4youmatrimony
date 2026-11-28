@@ -1110,11 +1110,20 @@ function setupSearchAndFilters() {
   const globalSearch = document.getElementById('globalSearchInput');
   if (globalSearch) {
     globalSearch.addEventListener('input', debounce((e) => {
-      state.users.query = e.target.value.trim();
+      const qVal = e.target.value.trim();
+      state.users.query = qVal;
       state.users.page = 1;
       const userSearchInput = document.getElementById('userSearchInput');
-      if (userSearchInput) userSearchInput.value = state.users.query;
+      if (userSearchInput) userSearchInput.value = qVal;
       loadUsers();
+
+      state.aadhaar.query = qVal;
+      state.aadhaar.page = 1;
+      const aadhaarSearchInput = document.getElementById('aadhaarSearchInput');
+      if (aadhaarSearchInput) aadhaarSearchInput.value = qVal;
+      if (state.currentTab === 'aadhaar') {
+        loadAadhaarVerifications();
+      }
     }, 300));
   }
 
@@ -1309,6 +1318,7 @@ async function loadUsers() {
               <div class="min-w-0">
                 <div class="flex items-center gap-1 flex-wrap">
                   <span class="font-medium text-white text-xs sm:text-sm hover:text-[#E6B8A2] cursor-pointer truncate max-w-[135px]" onclick="openViewProfileModal('${u.id}')">${u.name}</span>
+                  ${(u.register_id || u.registerId) ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-[#E6B8A2] border border-[#C58B76]/30 font-mono font-bold">${u.register_id || u.registerId}</span>` : ''}
                   ${u.match_score >= 95 ? '<span class="text-[10px] px-1 rounded bg-[#C58B76]/20 text-[#E6B8A2] font-mono">95%+</span>' : ''}
                   ${hasRealPhoto ? `<button type="button" onclick="event.stopPropagation(); openViewProfileModal('${u.id}')" class="text-[10px] px-1 py-0.5 rounded bg-amber-500/20 text-[#E6B8A2] border border-[#C58B76]/40 font-medium hover:bg-amber-500/30 transition-colors cursor-pointer" title="Candidate has authentic uploaded photos">📸 ${totalPhotoCount > 0 ? totalPhotoCount : 'Orig'}</button>` : ''}
                 </div>
@@ -4896,8 +4906,11 @@ async function loadAadhaarVerifications() {
             const q = state.aadhaar.query.toLowerCase();
             candidates = candidates.filter(u => 
               (u.name && u.name.toLowerCase().includes(q)) ||
+              (u.register_id && String(u.register_id).toLowerCase().includes(q)) ||
+              (u.registerId && String(u.registerId).toLowerCase().includes(q)) ||
               (u.phone && u.phone.includes(q)) ||
               (u.city && u.city.toLowerCase().includes(q)) ||
+              (u.district && u.district.toLowerCase().includes(q)) ||
               (u.id && String(u.id).toLowerCase().includes(q))
             );
           }
@@ -4996,7 +5009,7 @@ async function loadAadhaarVerifications() {
               <div class="min-w-0">
                 <div class="flex items-center gap-1.5">
                   <span class="font-medium text-white text-sm hover:text-[#E6B8A2] cursor-pointer truncate" onclick="openViewProfileModal('${u.id}')">${u.name}</span>
-                  <span class="text-[10px] text-slate-400 font-mono">#${u.id}</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-[#E6B8A2] border border-[#C58B76]/30 font-mono font-bold">${u.register_id || u.registerId || '#' + u.id}</span>
                 </div>
                 <div class="text-xs text-slate-400 flex items-center gap-1">
                   <span>${u.age} yrs</span> &bull; 

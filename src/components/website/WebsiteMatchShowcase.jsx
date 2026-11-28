@@ -710,6 +710,11 @@ export default function WebsiteMatchShowcase({
                         <span className="px-2.5 py-0.5 rounded-md bg-emerald-950/85 border border-emerald-500/50 text-emerald-300 font-bold text-[10px] flex items-center gap-1 shadow-xs backdrop-blur-xs">
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> UIDAI Verified
                         </span>
+                        {(profile.registerId || profile.register_id) && (
+                          <span className="px-2 py-0.5 rounded-md bg-black/65 border border-[#E8C6D1]/50 text-[#F9EBF0] font-mono font-bold text-[10px] backdrop-blur-xs">
+                            {profile.registerId || profile.register_id}
+                          </span>
+                        )}
                       </div>
 
                       <h3 className="text-xl font-serif font-bold text-white tracking-wide truncate group-hover:text-[#E8C6D1] transition-colors drop-shadow-sm">

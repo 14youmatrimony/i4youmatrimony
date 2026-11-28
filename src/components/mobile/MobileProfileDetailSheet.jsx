@@ -461,10 +461,15 @@ export default function MobileProfileDetailSheet({
 
             {/* Bottom Hero Info on Photo */}
             <div className="absolute bottom-4 left-4 right-4 text-white z-10 pointer-events-none">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                 <h1 className="font-serif font-bold text-2xl drop-shadow-md text-white">
                   {profile.name}
                 </h1>
+                {(profile.registerId || profile.register_id) && (
+                  <span className="px-2 py-0.5 rounded-md bg-black/60 border border-white/25 text-[#F9EBF0] font-mono font-bold text-[11px]">
+                    {profile.registerId || profile.register_id}
+                  </span>
+                )}
                 {profile.aadhaarVerified ? (
                   <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white border border-emerald-400 text-[10px] font-bold flex items-center gap-1 shadow-md">
                     <CheckCircle2 className="w-3 h-3 text-white stroke-[2.5]" />

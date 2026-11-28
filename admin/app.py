@@ -2500,12 +2500,14 @@ def api_get_users():
         search_param = f"%{search}%"
         conditions.append("""(
             LOWER(name) LIKE ? OR 
+            LOWER(register_id) LIKE ? OR
             LOWER(city) LIKE ? OR 
+            LOWER(district) LIKE ? OR
             LOWER(state) LIKE ? OR 
             LOWER(profession) LIKE ? OR
             LOWER(education) LIKE ?
         )""")
-        params.extend([search_param] * 5)
+        params.extend([search_param] * 7)
 
     if status != 'all':
         conditions.append("status = ?")
@@ -2564,9 +2566,11 @@ def api_get_users():
             filtered_users = [
                 u for u in all_candidates
                 if (search in (u.get('name') or '').lower() or
+                    search in (u.get('register_id') or '').lower() or
                     search in (u.get('email') or '').lower() or
                     search in (u.get('phone') or '').lower() or
                     search in (u.get('city') or '').lower() or
+                    search in (u.get('district') or '').lower() or
                     search in (u.get('state') or '').lower() or
                     search in (u.get('profession') or '').lower())
             ]

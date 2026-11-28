@@ -261,7 +261,7 @@ export async function syncProfileToSupabase(userData) {
 
     const payload = {
       id: userData.id,
-      register_id: userData.registerId || userData.register_id || null,
+      ...(userData.registerId || userData.register_id ? { register_id: String(userData.registerId || userData.register_id).trim().toUpperCase() } : {}),
       password: userData.password || null,
       name: userData.name,
       email: userData.email || null,

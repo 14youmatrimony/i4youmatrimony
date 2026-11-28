@@ -655,6 +655,11 @@ export default function MobileAccountScreen({
               <h3 className="font-serif font-bold text-lg text-white truncate">
                 {currentUser?.name || currentUser?.fullName || (currentUser?.registerId ? `Member ${currentUser.registerId}` : 'Member')}
               </h3>
+              {(currentUser?.registerId || currentUser?.register_id) && (
+                <span className="px-2 py-0.5 rounded-md bg-white/15 border border-white/25 text-[#F9EBF0] font-mono font-bold text-[10px] shrink-0">
+                  {currentUser.registerId || currentUser.register_id}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 mt-2 text-[10px] flex-wrap">
               <button

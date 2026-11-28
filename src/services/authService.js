@@ -66,9 +66,9 @@ export async function registerWithRegisterId(formData) {
   const rawPassword = formData.password;
   const passwordHash = rawPassword ? await hashPasswordSha256(rawPassword) : '';
 
-  // 1. Determine next sequential Register ID
-  const registerId = formData.registerId || await getNextSequentialRegisterId();
-  const profileId = formData.id || `${registerId.toLowerCase()}_${Date.now()}`;
+  // 1. Let Supabase PostgreSQL BEFORE INSERT trigger assign sequential district register_id
+  let registerId = formData.registerId ? String(formData.registerId).trim().toUpperCase() : null;
+  const profileId = formData.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? `usr_${crypto.randomUUID()}` : `usr_${Date.now()}`);
 
   // Upload photo to Supabase Storage if it is a Data URL or Blob
   let publicPhotoUrl = formData.photo || (formData.singlePhotos && formData.singlePhotos[0]) || null;
@@ -124,32 +124,47 @@ export async function registerWithRegisterId(formData) {
     updated_at: new Date().toISOString()
   };
 
-  // 2. Save directly to Supabase if configured
+  // 2. Save directly to Supabase if configured (DB trigger assigns register_id atomically)
   let savedToSupabase = false;
   if (isSupabaseConfigured()) {
     try {
       const fullPayload = {
         ...profilePayload,
-        register_id: registerId,
         password: passwordHash
       };
+      if (registerId) {
+        fullPayload.register_id = registerId;
+      }
 
-      let { error: insertError } = await supabase.from('profiles').upsert([fullPayload]);
+      let { data: insertedRow, error: insertError } = await supabase
+        .from('profiles')
+        .upsert([fullPayload])
+        .select('id, register_id')
+        .single();
       if (insertError && (insertError.code === '42703' || insertError.message?.includes('register_id') || insertError.message?.includes('password'))) {
         console.warn('[authService] Custom columns not in profiles schema yet, saving standard profile row...');
-        const retryResult = await supabase.from('profiles').upsert([profilePayload]);
+        const retryResult = await supabase.from('profiles').upsert([profilePayload]).select('id').single();
         insertError = retryResult.error;
+        insertedRow = retryResult.data;
       }
 
       if (!insertError) {
         savedToSupabase = true;
-        console.log('[authService] Successfully registered member in Supabase:', profileId);
+        if (insertedRow?.register_id) {
+          registerId = insertedRow.register_id;
+        }
+        console.log('[authService] Successfully registered member in Supabase:', profileId, registerId);
       } else {
         console.warn('[authService] Supabase insert warning:', insertError.message);
       }
     } catch (sbErr) {
       console.warn('[authService] Supabase register exception:', sbErr);
     }
+  }
+
+  if (!registerId) {
+    const distClean = String(profilePayload.district || profilePayload.city || '').replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3) || 'GEN';
+    registerId = `I4Y${distClean}10001`;
   }
 
   // 3. Format user session object

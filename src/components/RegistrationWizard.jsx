@@ -921,16 +921,11 @@ export default function RegistrationWizard({
     try {
       const result = await registerWithRegisterId(sanitized);
       if (result.success) {
-        setGeneratedRegisterId(result.registerId);
+        setGeneratedRegisterId(result.registerId || result.user?.registerId || '');
         setRegisteredUser(result.user);
-      } else {
-        const fallbackId = 'I4Y' + (Math.floor(Math.random() * 900) + 1001);
-        setGeneratedRegisterId(fallbackId);
       }
     } catch (e) {
       console.warn('[RegistrationWizard] Submit warning:', e);
-      const fallbackId = 'I4Y' + (Math.floor(Math.random() * 900) + 1001);
-      setGeneratedRegisterId(fallbackId);
     } finally {
       setIsSubmitting(false);
       setShowCompleteModal(true);
