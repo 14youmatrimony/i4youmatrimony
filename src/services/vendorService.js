@@ -451,24 +451,32 @@ export async function saveVendorProfile(ownerUserId, formData, existingVendorId 
     verification_doc_url: String(formData.verification_doc_url || '').trim() || null,
     is_mobile_verified: Boolean(formData.is_mobile_verified)
   };
-
-  if (existingVendorId) {
-    const { data, error } = await supabase
-      .from('wedding_vendors')
-      .update({ ...payload, rejection_reason: null })
-      .eq('id', existingVendorId)
-      .eq('owner_user_id', ownerUserId)
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return data;
+  if (String(formData.map_url || '').trim()) {
+    payload.map_url = String(formData.map_url).trim();
   }
 
-  const { data, error } = await supabase
-    .from('wedding_vendors')
-    .insert({ ...payload, is_verified: false, is_approved: false })
-    .select()
-    .single();
+  const runSave = async (body) => {
+    if (existingVendorId) {
+      return supabase
+        .from('wedding_vendors')
+        .update({ ...body, rejection_reason: null })
+        .eq('id', existingVendorId)
+        .eq('owner_user_id', ownerUserId)
+        .select()
+        .single();
+    }
+    return supabase
+      .from('wedding_vendors')
+      .insert({ ...body, is_verified: false, is_approved: false })
+      .select()
+      .single();
+  };
+
+  let { data, error } = await runSave(payload);
+  if (error && payload.map_url && String(error.message || '').includes('map_url')) {
+    const { map_url: _omit, ...fallbackPayload } = payload;
+    ({ data, error } = await runSave(fallbackPayload));
+  }
   if (error) throw new Error(error.message);
   return data;
 }
@@ -491,6 +499,21 @@ export async function addVendorMediaFile({ vendorId, file, mediaType = 'image', 
     .single();
 
   if (error) throw new Error(error.message);
+
+  // Best-effort sync of image URLs into wedding_vendors.photos JSONB array
+  if (mediaType === 'image' && data?.media_url) {
+    try {
+      const { data: allImgs } = await supabase
+        .from('vendor_media')
+        .select('media_url')
+        .eq('vendor_id', vendorId)
+        .eq('media_type', 'image')
+        .order('sort_order', { ascending: true });
+      const urls = (allImgs || []).map(r => r.media_url).filter(Boolean);
+      await supabase.from('wedding_vendors').update({ photos: urls }).eq('id', vendorId);
+    } catch (_) {}
+  }
+
   return data;
 }
 

@@ -2470,6 +2470,8 @@ def api_get_users():
     status = request.args.get('status', 'all')
     gender = request.args.get('gender', 'all')
     verified = request.args.get('verified', 'all')
+    aadhaar_only = request.args.get('aadhaar_only', '0') == '1'
+    exclude_vendors = request.args.get('exclude_vendors', '0') == '1' or aadhaar_only
     sort_by = request.args.get('sort_by', 'created_at')
     order = request.args.get('order', 'desc').lower()
     
@@ -2521,15 +2523,36 @@ def api_get_users():
         elif verified in ('sent_back', 'rejected'):
             conditions.append("aadhaar_status = 'sent_back'")
         elif verified in ('pending', 'pending_aadhaar', 'unverified_aadhaar'):
-            conditions.append("((aadhaar_verified = 0 OR aadhaar_verified IS NULL) AND (aadhaar_status != 'approved' OR aadhaar_status IS NULL))")
+            conditions.append("((aadhaar_verified = 0 OR aadhaar_verified IS NULL) AND (aadhaar_status != 'approved' OR aadhaar_status IS NULL) AND (aadhaar_status IS NULL OR aadhaar_status != 'sent_back'))")
+        elif verified == 'aadhaar_all':
+            pass
         else:
             conditions.append("((verified = 0 OR verified IS NULL) AND (aadhaar_verified = 0 OR aadhaar_verified IS NULL))")
 
-    where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+    if aadhaar_only:
+        conditions.append("""(
+            (aadhaar_front_image IS NOT NULL AND aadhaar_front_image != '') OR
+            (aadhaar_back_image IS NOT NULL AND aadhaar_back_image != '') OR
+            aadhaar_verified = 1 OR
+            aadhaar_status IN ('pending', 'pending_aadhaar', 'sent_back', 'approved')
+        )""")
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        if exclude_vendors:
+            try:
+                cursor.execute("SELECT owner_user_id FROM wedding_vendors")
+                vendor_ids = [str(r[0]) for r in cursor.fetchall() if r and r[0]]
+                if vendor_ids:
+                    placeholders = ",".join(["?"] * len(vendor_ids))
+                    conditions.append(f"id NOT IN ({placeholders})")
+                    params.extend(vendor_ids)
+            except Exception:
+                pass
+
+        where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
 
         if search_is_pii:
             # For encrypted PII (phone/email), fetch candidates and filter decrypted values in-memory

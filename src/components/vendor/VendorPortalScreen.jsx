@@ -115,6 +115,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
     pricing_range: '',
     description: '',
     staff_details: '',
+    map_url: '',
     verification_doc_url: '',
     is_mobile_verified: false
   });
@@ -190,6 +191,7 @@ export default function VendorPortalScreen({ onBack, showToast }) {
           pricing_range: profile.pricing_range || '',
           description: profile.description || '',
           staff_details: profile.staff_details || '',
+          map_url: profile.map_url || '',
           verification_doc_url: profile.verification_doc_url || '',
           is_mobile_verified: Boolean(profile.is_mobile_verified)
         });
@@ -413,10 +415,6 @@ export default function VendorPortalScreen({ onBack, showToast }) {
     }
     if (!form.business_name.trim() || !form.owner_name.trim() || !form.city_address.trim() || !form.address.trim()) {
       setAuthError('Please fill in Business Name, Owner Name, Town/City, and Full Street Address.');
-      return;
-    }
-    if (!form.verification_doc_url) {
-      setAuthError('Please upload an Owner ID or Shop License verification document.');
       return;
     }
 
@@ -1194,39 +1192,64 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       />
                     </div>
 
-                    {/* Verification Document Upload (R2) */}
+                    {/* Verification Document Upload (Optional - R2) */}
                     <div className="p-4 rounded-2xl bg-[#F9EBF0]/50 border border-[#E8C6D1] space-y-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
                           <p className="text-xs font-bold text-[#C76B85] flex items-center gap-1.5">
                             <FileText className="w-4 h-4" />
-                            <span>Verification Document (Owner ID or Shop License) *</span>
+                            <span>Aadhaar / ID Proof (Optional)</span>
                           </p>
                           <p className="text-[11px] text-[#AA98A9]">
-                            Uploaded securely to Cloudflare R2 for Super Admin verification.
+                            Optional: Upload Owner Aadhaar, ID Proof, or Shop License to Cloudflare R2.
                           </p>
                         </div>
-                        <label className="px-3 py-2 rounded-xl bg-white border border-[#E8C6D1] text-[#C76B85] text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-[#F9EBF0]">
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>{uploadingDoc ? 'Uploading...' : form.verification_doc_url ? 'Replace Document' : 'Upload Photo'}</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={uploadingDoc}
-                            onChange={handleVerificationDocUpload}
-                            className="hidden"
-                          />
-                        </label>
+                        <div className="flex items-center gap-2">
+                          <label className="px-3 py-2 rounded-xl bg-white border border-[#E8C6D1] text-[#C76B85] text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-[#F9EBF0]">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{uploadingDoc ? 'Uploading...' : form.verification_doc_url ? 'Replace Document' : 'Upload Photo'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              disabled={uploadingDoc}
+                              onChange={handleVerificationDocUpload}
+                              className="hidden"
+                            />
+                          </label>
+                          {form.verification_doc_url && (
+                            <button
+                              type="button"
+                              onClick={() => setForm(prev => ({ ...prev, verification_doc_url: '' }))}
+                              className="px-2.5 py-2 rounded-xl bg-white border border-rose-200 text-rose-600 text-xs font-semibold hover:bg-rose-50 cursor-pointer"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {form.verification_doc_url && (
                         <div className="flex items-center gap-3 p-2 rounded-xl bg-white border border-[#E8C6D1]">
                           <img src={form.verification_doc_url} alt="Verification document" className="w-14 h-14 rounded-lg object-cover border border-[#E8C6D1]" />
                           <div className="text-xs text-[#1E7F5C] font-semibold flex items-center gap-1.5">
                             <CheckCircle2 className="w-4 h-4" />
-                            <span>Document attached for Super Admin review</span>
+                            <span>Document attached for Matrimony Services review</span>
                           </div>
                         </div>
                       )}
+                    </div>
+
+                    {/* Google Maps / Coordinates (Optional) */}
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5A4463] mb-1">
+                        Google Maps Link / Location Coordinates (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={form.map_url}
+                        onChange={(e) => setForm({ ...form, map_url: e.target.value })}
+                        placeholder="e.g. https://maps.google.com/?q=10.0159,76.3419 or 10.0159, 76.3419"
+                        className="w-full px-3 py-2.5 rounded-xl bg-[#FFF7FA] border border-[#E8C6D1] text-xs focus:outline-none focus:border-[#8064A2]"
+                      />
                     </div>
 
                     {/* Portfolio Photos & Videos (Optional during registration, max 10 photos & 2 videos) */}
@@ -1264,6 +1287,27 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                           />
                         </label>
                       </div>
+                      {stagedPhotos.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {stagedPhotos.map((file, idx) => (
+                            <div key={`${file.name}-${idx}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#E8C6D1] bg-white">
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setStagedPhotos(prev => prev.filter((_, i) => i !== idx))}
+                                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 text-white text-[10px] font-bold flex items-center justify-center hover:bg-rose-600 cursor-pointer"
+                                title="Remove photo"
+                              >
+                                &times;
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <button
@@ -1630,34 +1674,59 @@ export default function VendorPortalScreen({ onBack, showToast }) {
                       />
                     </div>
 
-                    {/* Verification Document Upload */}
+                    {/* Verification Document Upload (Optional) */}
                     <div className="p-4 rounded-2xl bg-[#F9EBF0]/50 border border-[#E8C6D1] space-y-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
                           <p className="text-xs font-bold text-[#C76B85] flex items-center gap-1.5">
                             <FileText className="w-4 h-4" />
-                            <span>Verification Document (Owner ID / Shop License)</span>
+                            <span>Aadhaar / ID Proof (Optional)</span>
                           </p>
-                          <p className="text-[11px] text-[#AA98A9]">Uploaded to Cloudflare R2 for Super Admin verification.</p>
+                          <p className="text-[11px] text-[#AA98A9]">Optional: Uploaded to Cloudflare R2 for Matrimony Services review.</p>
                         </div>
-                        <label className="px-3 py-2 rounded-xl bg-white border border-[#E8C6D1] text-[#C76B85] text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-[#F9EBF0]">
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>{uploadingDoc ? 'Uploading...' : form.verification_doc_url ? 'Replace Document' : 'Upload Photo'}</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={uploadingDoc}
-                            onChange={handleVerificationDocUpload}
-                            className="hidden"
-                          />
-                        </label>
+                        <div className="flex items-center gap-2">
+                          <label className="px-3 py-2 rounded-xl bg-white border border-[#E8C6D1] text-[#C76B85] text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-[#F9EBF0]">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{uploadingDoc ? 'Uploading...' : form.verification_doc_url ? 'Replace Document' : 'Upload Photo'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              disabled={uploadingDoc}
+                              onChange={handleVerificationDocUpload}
+                              className="hidden"
+                            />
+                          </label>
+                          {form.verification_doc_url && (
+                            <button
+                              type="button"
+                              onClick={() => setForm(prev => ({ ...prev, verification_doc_url: '' }))}
+                              className="px-2.5 py-2 rounded-xl bg-white border border-rose-200 text-rose-600 text-xs font-semibold hover:bg-rose-50 cursor-pointer"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {form.verification_doc_url && (
                         <div className="flex items-center gap-3 p-2 rounded-xl bg-white border border-[#E8C6D1]">
                           <img src={form.verification_doc_url} alt="Verification document" className="w-14 h-14 rounded-lg object-cover border border-[#E8C6D1]" />
-                          <span className="text-xs text-[#1E7F5C] font-semibold">Verification document attached</span>
+                          <span className="text-xs text-[#1E7F5C] font-semibold">Document attached</span>
                         </div>
                       )}
+                    </div>
+
+                    {/* Google Maps / Coordinates (Optional) */}
+                    <div>
+                      <label className="block text-xs font-semibold text-[#5A4463] mb-1">
+                        Google Maps Link / Location Coordinates (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={form.map_url}
+                        onChange={(e) => setForm({ ...form, map_url: e.target.value })}
+                        placeholder="e.g. https://maps.google.com/?q=10.0159,76.3419 or 10.0159, 76.3419"
+                        className="w-full px-3 py-2.5 rounded-xl bg-[#FFF7FA] border border-[#E8C6D1] text-xs focus:outline-none focus:border-[#8064A2]"
+                      />
                     </div>
 
                     <button

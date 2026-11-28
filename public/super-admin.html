@@ -1154,18 +1154,29 @@
           <div>
             <select id="vendorCategoryFilter" onchange="renderVendorApprovals()" class="w-full py-2 px-3 bg-[#1A1012] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-[#C58B76]">
               <option value="all">All Service Categories</option>
-              <option value="catering_food">Catering</option>
-              <option value="stage_hall_decoration">Decorations</option>
-              <option value="photography_video_drone">Photography</option>
-              <option value="bridal_groom_car">Rental Cars</option>
-              <option value="tourist_bus">Tourist Bus</option>
+              <option value="event_management">Event Management</option>
               <option value="invitation_cards">Digital Cards</option>
-              <option value="bridal_makeup_hair">Grooming</option>
+              <option value="bridal_groom_wear">Bridal &amp; Groom Wear</option>
               <option value="clothing_stitching">Stitching</option>
               <option value="jewellery_ornaments">Jewelry</option>
-              <option value="flowers_garlands">Flowers</option>
-              <option value="event_management">Event Management</option>
+              <option value="dress_jewellery_rental">Dress &amp; Jewelry Rental</option>
+              <option value="mehndi_artist">Mehndi Artist</option>
               <option value="auditorium_convention">Auditorium &amp; Hall</option>
+              <option value="stage_hall_decoration">Decorations</option>
+              <option value="flowers_garlands">Flowers</option>
+              <option value="sound_lighting_sfx">Sound &amp; Lighting</option>
+              <option value="bridal_makeup_hair">Grooming</option>
+              <option value="photography_video_drone">Photography</option>
+              <option value="catering_food">Catering</option>
+              <option value="wedding_cake_sweets">Wedding Cake &amp; Sweets</option>
+              <option value="bridal_groom_car">Rental Cars</option>
+              <option value="tourist_bus">Tourist Bus</option>
+              <option value="guest_accommodation">Guest Accommodation</option>
+              <option value="percussion_melam">Percussion &amp; Melam</option>
+              <option value="music_dj_anchors">Music &amp; DJ</option>
+              <option value="security_valet">Security &amp; Valet</option>
+              <option value="return_gifts_hampers">Return Gifts</option>
+              <option value="honeymoon_travel">Honeymoon Travel</option>
             </select>
           </div>
         </div>
@@ -3000,8 +3011,16 @@
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
     </div>
-    <div id="vendorDetailModalBody" class="p-5 space-y-4 max-h-[75vh] overflow-y-auto bg-[#1A1012]">
+    <div id="vendorDetailModalBody" class="p-5 space-y-4 max-h-[70vh] overflow-y-auto bg-[#1A1012]">
       <!-- Injected via JS -->
+    </div>
+    <div class="p-4 border-t border-slate-800 flex items-center justify-end gap-2.5 bg-slate-900/40">
+      <button id="vendorDetailRejectBtn" type="button" class="px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5">
+        <i data-lucide="x-circle" class="w-4 h-4"></i> Reject
+      </button>
+      <button id="vendorDetailApproveBtn" type="button" class="px-4 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5">
+        <i data-lucide="check-circle" class="w-4 h-4"></i> Approve Service
+      </button>
     </div>
   </dialog>
 

@@ -1226,6 +1226,7 @@ async function loadUsers() {
       status: state.users.status,
       gender: state.users.gender,
       verified: state.users.verified,
+      exclude_vendors: '1',
       sort_by: state.users.sortBy,
       order: state.users.order,
       page: state.users.page,
@@ -4702,8 +4703,47 @@ function openDeleteAdminUserModal(adminId, adminName) {
 }
 
 // ==========================================
+// ==========================================
 // AADHAAR MANUAL VERIFICATION CONTROLLER
 // ==========================================
+
+async function getVendorOwnerIdsSet() {
+  const ownerIds = new Set();
+  if (Array.isArray(state.vendors?.list) && state.vendors.list.length > 0) {
+    state.vendors.list.forEach(v => {
+      if (v?.owner_user_id) ownerIds.add(String(v.owner_user_id));
+    });
+    return ownerIds;
+  }
+  try {
+    const sb = getSupabaseAdminClient();
+    if (sb) {
+      const { data } = await sb.from('wedding_vendors').select('owner_user_id');
+      (data || []).forEach(v => {
+        if (v?.owner_user_id) ownerIds.add(String(v.owner_user_id));
+      });
+    }
+  } catch (_) {}
+  return ownerIds;
+}
+
+function isServiceProviderProfile(u, vendorOwnerIds) {
+  if (!u) return true;
+  if (vendorOwnerIds && u.id && vendorOwnerIds.has(String(u.id))) return true;
+  const roleVal = String(u.role || u.account_type || u.user_type || '').toLowerCase().trim();
+  return ['vendor', 'service_provider', 'matrimony_service'].includes(roleVal);
+}
+
+function hasSubmittedAadhaar(u) {
+  if (!u) return false;
+  const hasFront = Boolean(u.aadhaar_front_image && String(u.aadhaar_front_image).trim());
+  const hasBack = Boolean(u.aadhaar_back_image && String(u.aadhaar_back_image).trim());
+  const hasNum = Boolean((u.aadhaar_number || u.aadhaarNumber || u.masked_aadhaar || u.maskedAadhaar) && String(u.aadhaar_number || u.aadhaarNumber || u.masked_aadhaar || u.maskedAadhaar).trim());
+  const isVerified = Boolean(u.aadhaar_verified === 1 || u.aadhaar_verified === true);
+  const statusVal = String(u.aadhaar_status || '').toLowerCase().trim();
+  const hasStatus = ['pending', 'pending_aadhaar', 'sent_back', 'approved'].includes(statusVal);
+  return hasFront || hasBack || hasNum || isVerified || hasStatus;
+}
 
 async function loadAadhaarVerifications() {
   const tableBody = document.getElementById('aadhaarTableBody');
@@ -4719,6 +4759,8 @@ async function loadAadhaarVerifications() {
   `;
 
   try {
+    const vendorOwnerIds = await getVendorOwnerIdsSet();
+
     // 1. Fetch metrics from analytics
     fetch('/api/analytics', {
       headers: getAdminAuthHeaders(),
@@ -4750,8 +4792,8 @@ async function loadAadhaarVerifications() {
       }
     }).catch(() => {});
 
-    // 2. Fetch filtered users list
-    let verifiedParam = 'all';
+    // 2. Fetch filtered regular Matrimony candidates who submitted Aadhaar (exclude vendors)
+    let verifiedParam = 'aadhaar_all';
     if (state.aadhaar.status === 'pending') {
       verifiedParam = 'pending_aadhaar';
     } else if (state.aadhaar.status === 'sent_back') {
@@ -4763,6 +4805,8 @@ async function loadAadhaarVerifications() {
     const params = new URLSearchParams({
       q: state.aadhaar.query,
       verified: verifiedParam,
+      aadhaar_only: '1',
+      exclude_vendors: '1',
       sort_by: state.aadhaar.sortBy,
       order: state.aadhaar.order,
       page: state.aadhaar.page,
@@ -4790,6 +4834,10 @@ async function loadAadhaarVerifications() {
         throw new Error(`Failed to fetch verification list (HTTP ${res.status}: ${res.statusText || 'Error'})`);
       }
       data = await res.json();
+      if (data && Array.isArray(data.users)) {
+        const cleanUsers = data.users.filter(u => !isServiceProviderProfile(u, vendorOwnerIds) && hasSubmittedAadhaar(u));
+        data.users = cleanUsers;
+      }
     } catch (apiErr) {
       console.warn('[Super Admin Verification] Primary endpoint /api/users failed, activating direct PostgreSQL Supabase fallback:', apiErr);
       fetchError = apiErr;
@@ -4799,14 +4847,7 @@ async function loadAadhaarVerifications() {
         const SUPABASE_BASE = 'https://kzvdzospvgzlfkkptadl.supabase.co/rest/v1/profiles';
         const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dmR6b3Nwdmd6bGZra3B0YWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5NjYwOTAsImV4cCI6MjEwNzU0MjA5MH0.2cbo44WPrlC_BNQH6-YvloxlAbxd67RwMsQOOiMFh-w';
         
-        let filterQuery = `select=*&order=${encodeURIComponent(state.aadhaar.sortBy || 'created_at')}.${state.aadhaar.order || 'desc'}`;
-        if (state.aadhaar.status === 'pending') {
-          filterQuery += '&or=(aadhaar_verified.eq.0,aadhaar_verified.is.null,aadhaar_status.in.(pending,pending_aadhaar,sent_back))';
-        } else if (state.aadhaar.status === 'sent_back') {
-          filterQuery += '&aadhaar_status=eq.sent_back';
-        } else if (state.aadhaar.status === 'verified') {
-          filterQuery += '&or=(aadhaar_verified.eq.1,aadhaar_status.eq.approved)';
-        }
+        const filterQuery = `select=*&or=(aadhaar_front_image.not.is.null,aadhaar_back_image.not.is.null,aadhaar_status.in.(pending,pending_aadhaar,sent_back,approved),aadhaar_verified.eq.1)&order=${encodeURIComponent(state.aadhaar.sortBy || 'created_at')}.${state.aadhaar.order || 'desc'}`;
 
         const sbRes = await fetch(`${SUPABASE_BASE}?${filterQuery}`, {
           method: 'GET',
@@ -4819,7 +4860,38 @@ async function loadAadhaarVerifications() {
 
         if (sbRes.ok) {
           const rows = await sbRes.json();
-          let candidates = rows || [];
+          const allAadhaarCandidates = (rows || []).filter(u => !isServiceProviderProfile(u, vendorOwnerIds) && hasSubmittedAadhaar(u));
+
+          // Update Aadhaar Approval metric cards accurately from regular Matrimony candidates
+          const totalSubmitted = allAadhaarCandidates.length;
+          const approvedSubmitted = allAadhaarCandidates.filter(u => u.aadhaar_verified === 1 || u.aadhaar_verified === true || u.aadhaar_status === 'approved').length;
+          const pendingSubmitted = allAadhaarCandidates.filter(u => !(u.aadhaar_verified === 1 || u.aadhaar_verified === true || u.aadhaar_status === 'approved') && u.aadhaar_status !== 'sent_back').length;
+          const rateSubmitted = totalSubmitted > 0 ? Math.round((approvedSubmitted / totalSubmitted) * 100) : 0;
+
+          const elTotal = document.getElementById('aadhaarMetricTotal');
+          const elPending = document.getElementById('aadhaarMetricPending');
+          const elApproved = document.getElementById('aadhaarMetricApproved');
+          const elRate = document.getElementById('aadhaarMetricRate');
+          const elBadge = document.getElementById('aadhaarPendingBadge');
+          if (elTotal) elTotal.textContent = String(totalSubmitted);
+          if (elPending) elPending.textContent = String(pendingSubmitted);
+          if (elApproved) elApproved.textContent = String(approvedSubmitted);
+          if (elRate) elRate.textContent = `${rateSubmitted}%`;
+          if (elBadge) {
+            elBadge.textContent = String(pendingSubmitted);
+            if (pendingSubmitted > 0) elBadge.classList.remove('hidden');
+            else elBadge.classList.add('hidden');
+          }
+
+          let candidates = allAadhaarCandidates.filter(u => {
+            const isApproved = Boolean(u.aadhaar_verified === 1 || u.aadhaar_verified === true || u.aadhaar_status === 'approved');
+            const isSentBack = u.aadhaar_status === 'sent_back';
+            if (state.aadhaar.status === 'pending') return !isApproved && !isSentBack;
+            if (state.aadhaar.status === 'sent_back') return isSentBack;
+            if (state.aadhaar.status === 'verified') return isApproved;
+            return true;
+          });
+
           if (state.aadhaar.query) {
             const q = state.aadhaar.query.toLowerCase();
             candidates = candidates.filter(u => 
@@ -4840,7 +4912,7 @@ async function loadAadhaarVerifications() {
             limit: limit,
             total_pages: Math.ceil(total / limit) || 1
           };
-          console.info('[Super Admin Verification] Successfully loaded candidates via direct PostgreSQL Supabase fallback:', data.total);
+          console.info('[Super Admin Verification] Successfully loaded Aadhaar candidates via Supabase fallback:', data.total);
         } else {
           const sbErrorText = await sbRes.text().catch(() => '');
           console.error('[Super Admin Verification] Direct PostgreSQL Supabase fallback failed:', {
@@ -6405,7 +6477,10 @@ function renderVendorApprovals() {
     const isLive = Boolean(v.is_verified && v.is_approved);
     const isRejected = !isLive && Boolean(v.rejection_reason);
     const media = Array.isArray(v.vendor_media) ? v.vendor_media : [];
-    const firstImg = media.find(m => m.media_type === 'image')?.media_url || '';
+    const mediaImgs = media.filter(m => m.media_type === 'image').map(m => m.media_url).filter(Boolean);
+    const jsonImgs = Array.isArray(v.photos) ? v.photos.filter(Boolean) : [];
+    const allImgs = Array.from(new Set([...mediaImgs, ...jsonImgs]));
+    const firstImg = allImgs[0] || '';
     const phoneNum = v.whatsapp_number || v.phone || '';
     const hasPhone = Boolean(phoneNum && phoneNum.trim() !== '');
     const callPhone = hasPhone ? getCleanPhoneForCall(phoneNum) : '';
@@ -6465,11 +6540,11 @@ function renderVendorApprovals() {
           <button
             type="button"
             onclick="openVendorDocModal('${v.id}')"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors ${hasDoc ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'}"
-            title="Inspect Aadhaar & Service Documents"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors ${hasDoc ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'}"
+            title="${hasDoc ? 'Inspect Optional Aadhaar / Business Document' : 'Optional Aadhaar / ID Proof Not Uploaded'}"
           >
-            <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
-            <span>${hasDoc ? 'Inspect Docs' : 'Review Docs'}</span>
+            <i data-lucide="${hasDoc ? 'file-check' : 'file-minus'}" class="w-3.5 h-3.5"></i>
+            <span>${hasDoc ? 'View Doc' : 'Not Uploaded'}</span>
           </button>
         </td>
         <td class="py-2.5 px-2.5 whitespace-nowrap">
@@ -6539,8 +6614,9 @@ function openVendorDocModal(vendorId) {
         </a>
       </div>
     ` : `
-      <div class="p-6 rounded-2xl bg-[#2C1A1D] border border-amber-500/30 text-center text-xs text-amber-300">
-        No Aadhaar card or business license document has been uploaded by this provider yet.
+      <div class="p-6 rounded-2xl bg-[#2C1A1D] border border-slate-700 text-center text-xs text-slate-300">
+        <p class="font-semibold text-white mb-1">Not Uploaded</p>
+        <p class="text-slate-400">Optional Aadhaar / ID Proof was skipped by this service provider. Approval is not blocked.</p>
       </div>
     `}
   `;
@@ -6569,11 +6645,16 @@ function openVendorDetailModal(vendorId) {
   const titleEl = document.getElementById('vendorDetailModalTitle');
   const subEl = document.getElementById('vendorDetailModalSubtitle');
   const bodyEl = document.getElementById('vendorDetailModalBody');
+  const approveBtn = document.getElementById('vendorDetailApproveBtn');
+  const rejectBtn = document.getElementById('vendorDetailRejectBtn');
   if (!modal || !bodyEl) return;
 
   const media = Array.isArray(v.vendor_media) ? v.vendor_media : [];
-  const images = media.filter(m => m.media_type === 'image');
+  const mediaImgs = media.filter(m => m.media_type === 'image').map(m => m.media_url).filter(Boolean);
+  const jsonImgs = Array.isArray(v.photos) ? v.photos.filter(Boolean) : [];
+  const images = Array.from(new Set([...mediaImgs, ...jsonImgs]));
   const videos = media.filter(m => m.media_type === 'video');
+  const fullLocation = [v.address, v.city_address, v.district, v.state].filter(Boolean).join(', ') || 'N/A';
 
   if (titleEl) titleEl.textContent = v.business_name || 'Service Listing Details';
   if (subEl) subEl.textContent = `${getServiceCategoryLabel(v.category)} • ${[v.city_address, v.district, v.state].filter(Boolean).join(', ')}`;
@@ -6581,26 +6662,56 @@ function openVendorDetailModal(vendorId) {
   bodyEl.innerHTML = `
     <div class="grid grid-cols-2 gap-3 text-xs bg-[#2C1A1D] p-4 rounded-2xl border border-slate-800">
       <div><span class="text-slate-400">Owner Name:</span> <span class="text-white font-semibold">${v.owner_name || 'N/A'}</span></div>
+      <div><span class="text-slate-400">Category:</span> <span class="text-[#E6B8A2] font-semibold">${getServiceCategoryLabel(v.category)}</span></div>
       <div><span class="text-slate-400">Phone:</span> <span class="text-white font-mono">${v.phone || 'N/A'}</span></div>
       <div><span class="text-slate-400">WhatsApp:</span> <span class="text-white font-mono">${v.whatsapp_number || 'N/A'}</span></div>
       <div><span class="text-slate-400">Pricing Range:</span> <span class="text-emerald-300 font-semibold">${v.pricing_range || 'N/A'}</span></div>
       <div><span class="text-slate-400">Service Area:</span> <span class="text-white">${v.service_area || 'N/A'}</span></div>
       <div><span class="text-slate-400">Experience:</span> <span class="text-white">${v.experience_years || 'N/A'}</span></div>
-      <div class="col-span-2"><span class="text-slate-400">Address:</span> <span class="text-white">${[v.address, v.city_address, v.district, v.state].filter(Boolean).join(', ') || 'N/A'}</span></div>
+      <div><span class="text-slate-400">License / Udyam:</span> <span class="text-white">${v.license_number || 'Not provided'}</span></div>
+      <div class="col-span-2"><span class="text-slate-400">Full Location:</span> <span class="text-white">${fullLocation}</span></div>
+      ${v.map_url ? `<div class="col-span-2"><span class="text-slate-400">Map / Coordinates:</span> <a href="${v.map_url.startsWith('http') ? v.map_url : 'https://maps.google.com/?q=' + encodeURIComponent(v.map_url)}" target="_blank" rel="noopener noreferrer" class="text-[#E6B8A2] hover:underline break-all">${v.map_url}</a></div>` : ''}
     </div>
     ${v.description ? `<div class="p-3.5 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-300 leading-relaxed"><strong class="text-white block mb-1">About Service</strong>${v.description}</div>` : ''}
     ${v.staff_details ? `<div class="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-200"><strong class="block mb-1">Fleet / Crew / Service Details</strong>${v.staff_details}</div>` : ''}
     ${v.rejection_reason ? `<div class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-200"><strong class="block mb-1">Rejection Reason</strong>${v.rejection_reason}</div>` : ''}
+    <div class="p-3.5 rounded-2xl bg-[#2C1A1D] border border-slate-800 space-y-2">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-semibold text-[#E6B8A2]">Optional Aadhaar / ID Proof</p>
+        <span class="text-[11px] font-semibold ${v.verification_doc_url ? 'text-emerald-400' : 'text-slate-400'}">${v.verification_doc_url ? 'Uploaded' : 'Not Uploaded'}</span>
+      </div>
+      ${v.verification_doc_url ? `
+        <div class="flex items-center gap-3">
+          <a href="${v.verification_doc_url}" target="_blank" rel="noopener noreferrer">
+            <img src="${v.verification_doc_url}" alt="Aadhaar / ID Proof" class="w-24 h-16 rounded-xl object-cover border border-slate-700 hover:border-[#E6B8A2]" />
+          </a>
+          <a href="${v.verification_doc_url}" target="_blank" rel="noopener noreferrer" class="text-xs text-[#E6B8A2] hover:underline">Open full document</a>
+        </div>
+      ` : '<p class="text-[11px] text-slate-400">No Aadhaar or business ID document was uploaded. You can approve this service without it.</p>'}
+    </div>
     ${(images.length > 0 || videos.length > 0) ? `
       <div class="space-y-2">
-        <p class="text-xs font-semibold text-[#E6B8A2]">Portfolio Media (${images.length} photos, ${videos.length} videos)</p>
+        <p class="text-xs font-semibold text-[#E6B8A2]">Uploaded Service Photos &amp; Videos (${images.length} photos, ${videos.length} videos)</p>
         <div class="flex flex-wrap gap-2">
-          ${images.map(img => `<a href="${img.media_url}" target="_blank" rel="noopener noreferrer"><img src="${img.media_url}" alt="Portfolio" class="w-20 h-20 rounded-xl object-cover border border-slate-700 hover:border-[#E6B8A2]" /></a>`).join('')}
+          ${images.map(imgUrl => `<a href="${imgUrl}" target="_blank" rel="noopener noreferrer"><img src="${imgUrl}" alt="Service Photo" class="w-20 h-20 rounded-xl object-cover border border-slate-700 hover:border-[#E6B8A2]" /></a>`).join('')}
         </div>
         ${videos.length > 0 ? `<div class="flex flex-wrap gap-2 pt-1">${videos.map((vid, idx) => `<a href="${vid.media_url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 text-xs border border-slate-700 hover:border-[#E6B8A2]">Video ${idx + 1}</a>`).join('')}</div>` : ''}
       </div>
-    ` : ''}
+    ` : '<div class="p-3 rounded-2xl bg-[#2C1A1D] border border-slate-800 text-xs text-slate-400">No service photos uploaded yet.</div>'}
   `;
+
+  if (approveBtn) {
+    approveBtn.onclick = async () => {
+      modal.close();
+      await verifyAndApproveVendor(v.id);
+    };
+  }
+  if (rejectBtn) {
+    rejectBtn.onclick = async () => {
+      modal.close();
+      await rejectVendorPrompt(v.id);
+    };
+  }
 
   modal.showModal();
   if (window.lucide) lucide.createIcons();
