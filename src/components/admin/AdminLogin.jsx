@@ -94,8 +94,8 @@ export default function AdminLogin({ onLoginSuccess, onBack }) {
       <div className="w-full max-w-md p-8 rounded-3xl bg-[#2C1A1D] border border-[#C58B76]/30 shadow-2xl relative z-10 space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="w-16 h-14 rounded-2xl bg-[#1A1012]/80 border border-[#C58B76]/40 p-1.5 flex items-center justify-center mx-auto shadow-inner">
-            <img src="/logo.png" alt="I 4 You Logo" className="w-full h-full object-contain" />
+          <div className="h-14 flex items-center justify-center mx-auto bg-transparent">
+            <img src="/logo.png" alt="I 4 You Logo" className="h-12 w-auto object-contain golden-hearts-pulse" />
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C58B76]/10 border border-[#C58B76]/30 text-[10px] text-[#E6B8A2] font-bold uppercase tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-[#C58B76] animate-pulse" />

@@ -81,33 +81,16 @@ export default function SplashScreen({ onFinish, duration = 2800 }) {
 
       {/* Centerpiece: Brand Logo Emblem & Animated Typography */}
       <div className="relative z-10 flex flex-col items-center text-center my-auto px-4 max-w-lg">
-        {/* Emblem Wrapper with Dual Halo and Smooth Pulse Animation */}
-        <div className="relative mb-6 sm:mb-8 flex items-center justify-center">
-          {/* Subtle Rotating Rose-Gold Ring */}
-          <div className="absolute w-36 h-36 sm:w-44 sm:h-44 rounded-full border border-dashed border-[#8064A2]/30 animate-splash-aura pointer-events-none" />
-
-          {/* Secondary Plum Radial Ambient Halo */}
-          <div className="absolute w-44 h-44 sm:w-56 sm:h-56 rounded-full bg-gradient-to-tr from-[#C76B85]/30 to-[#8064A2]/25 blur-2xl pointer-events-none" />
-
-          {/* Elevated Brand Logo Box */}
-          <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-3xl bg-gradient-to-br from-[#3D2328] via-[#2E1A36] to-[#1A0E10] p-3.5 sm:p-4 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_35px_rgba(197,139,118,0.35)] border-2 border-[#8064A2] ring-4 ring-[#8064A2]/20 flex items-center justify-center overflow-hidden animate-splash-scale-in animate-splash-pulse-glow">
-            {/* Subtle Glass Reflection Line */}
-            <div className="absolute -top-10 -left-10 w-24 h-40 bg-white/10 rotate-45 pointer-events-none" />
-
-            <img
-              src={brandLogoAsset}
-              onError={(e) => {
-                e.currentTarget.src = '/logo.png';
-              }}
-              alt="I4 You Matrimony Logo"
-              className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]"
-            />
-          </div>
-
-          {/* Luxury Corner Heart / Sparkle Jewel */}
-          <div className="absolute -bottom-1 -right-1 bg-gradient-to-br from-[#E8C6D1] via-[#8064A2] to-[#C76B85] p-1.5 rounded-full shadow-lg border-2 border-[#2E1A36] flex items-center justify-center">
-            <Heart className="w-3.5 h-3.5 text-[#2E1A36] fill-[#2E1A36]" />
-          </div>
+        {/* Clean Transparent Interlocking Hearts Logo */}
+        <div className="relative mb-6 sm:mb-8 flex items-center justify-center bg-transparent">
+          <img
+            src={brandLogoAsset}
+            onError={(e) => {
+              e.currentTarget.src = '/logo.png';
+            }}
+            alt="I4 You Matrimony Logo"
+            className="w-32 sm:w-40 h-auto object-contain golden-hearts-pulse animate-splash-scale-in"
+          />
         </div>
 
         {/* Brand Title: "I4 You Matrimony" */}

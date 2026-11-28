@@ -320,22 +320,13 @@ export default function RegisterPhoneVerification({
 
           {/* Brand Header with Prominent I 4 You Matrimony Logo */}
           <div className="flex flex-col items-center text-center mb-3.5 shrink-0 relative">
-            
-            {/* Ambient Halo Behind Logo */}
-            <div className="absolute w-24 h-24 -top-2 bg-[#8064A2]/25 rounded-full blur-2xl pointer-events-none" />
-
-            {/* Logo in Prominent Size with Luxury Dual Ring & Elevation */}
-            <div className="relative mb-2.5 group">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-[#C76B85] via-[#8E354F] to-[#C76B85] p-2 shadow-xl shadow-[#C76B85]/20 border-2 border-[#8064A2] ring-4 ring-[#8064A2]/20 flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:scale-105 group-hover:ring-[#8064A2]/35">
-                <img 
-                  src="/logo.png" 
-                  alt="I 4 You Matrimony Logo" 
-                  className="w-full h-full object-contain drop-shadow-md"
-                />
-              </div>
-              <span className="absolute -bottom-1 -right-1 bg-gradient-to-br from-emerald-400 to-emerald-600 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center shadow-md">
-                <Check className="w-3 h-3 text-white stroke-[3]" />
-              </span>
+            {/* Clean Transparent Golden Interlocking Hearts Logo */}
+            <div className="relative mb-2.5 flex items-center justify-center bg-transparent">
+              <img 
+                src="/logo.png" 
+                alt="I 4 You Matrimony Logo" 
+                className="h-14 sm:h-16 w-auto object-contain golden-hearts-pulse"
+              />
             </div>
 
             {/* Brand Tagline Badge */}

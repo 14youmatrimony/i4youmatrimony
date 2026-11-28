@@ -225,11 +225,11 @@ export default function MobileAppModal({
           
           {/* Left: Brand Identity & Active Profile */}
           <div className="flex items-center space-x-3 min-w-0">
-            <div className="h-9 flex items-center justify-center shrink-0">
+            <div className="h-9 flex items-center justify-center shrink-0 bg-transparent">
               <img 
                 src="/logo.png" 
                 alt="I 4 You Logo" 
-                className="h-8 w-auto object-contain"
+                className="h-8 w-auto object-contain golden-hearts-pulse"
                 onError={(e) => {
                   e.target.style.display = 'none';
                   e.target.parentElement.innerHTML = '<div class="px-2 py-1 rounded-lg bg-[#C76B85] text-white font-serif font-black flex items-center justify-center text-xs">I4U</div>';
