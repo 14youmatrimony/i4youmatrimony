@@ -7326,6 +7326,54 @@ const cropState = {
   startOffsetY: 0
 };
 
+const CROP_MIN_HORIZONTAL_BLEED = 1.16;
+
+function computeCropFrameMetrics(img, viewportEl, targetW, targetH) {
+  const rect = viewportEl?.getBoundingClientRect?.();
+  const vw = rect && rect.width > 10 ? rect.width : targetW / 2;
+  const vh = rect && rect.height > 10 ? rect.height : targetH / 2;
+  const iw = img?.naturalWidth || img?.width || targetW;
+  const ih = img?.naturalHeight || img?.height || targetH;
+  // Ensure at least 16% horizontal cover bleed so Left/Right panning works even at 1.00x zoom
+  const baseScale = Math.max(vw / iw, vh / ih, (vw * CROP_MIN_HORIZONTAL_BLEED) / iw);
+  return { vw, vh, iw, ih, baseW: iw * baseScale, baseH: ih * baseScale };
+}
+
+function clampCropStateOffsets(cropObj, viewportEl, targetW, targetH) {
+  if (!cropObj?.img) return;
+  const { vw, vh, baseW, baseH } = computeCropFrameMetrics(cropObj.img, viewportEl, targetW, targetH);
+  const maxOffsetX = Math.max(0, (baseW * cropObj.zoom - vw) / 2);
+  const maxOffsetY = Math.max(0, (baseH * cropObj.zoom - vh) / 2);
+  cropObj.offsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, cropObj.offsetX));
+  cropObj.offsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, cropObj.offsetY));
+}
+
+function renderCropImgPreview(cropObj, imgEl, viewportEl, targetW, targetH) {
+  if (!imgEl || !cropObj?.img) return;
+  const { baseW, baseH } = computeCropFrameMetrics(cropObj.img, viewportEl, targetW, targetH);
+  if (imgEl.dataset.boundSrc !== cropObj.img.src) {
+    imgEl.src = cropObj.img.src;
+    imgEl.dataset.boundSrc = cropObj.img.src;
+  }
+  imgEl.style.width = `${baseW}px`;
+  imgEl.style.height = `${baseH}px`;
+  imgEl.style.marginLeft = `${-baseW / 2}px`;
+  imgEl.style.marginTop = `${-baseH / 2}px`;
+  imgEl.style.transformOrigin = 'center center';
+  imgEl.style.transform = `translate3d(${cropObj.offsetX}px, ${cropObj.offsetY}px, 0) scale(${cropObj.zoom})`;
+}
+
+function drawCropStateToCanvas(ctx, outW, outH, cropObj, viewportEl, targetW, targetH) {
+  const { vw, baseW, baseH } = computeCropFrameMetrics(cropObj.img, viewportEl, targetW, targetH);
+  const exportScale = outW / Math.max(1, vw);
+  const drawW = baseW * cropObj.zoom * exportScale;
+  const drawH = baseH * cropObj.zoom * exportScale;
+  const dx = (outW - drawW) / 2 + cropObj.offsetX * exportScale;
+  const dy = (outH - drawH) / 2 + cropObj.offsetY * exportScale;
+  ctx.clearRect(0, 0, outW, outH);
+  ctx.drawImage(cropObj.img, dx, dy, drawW, drawH);
+}
+
 function bindCropViewportEvents() {
   const viewport = document.getElementById('cropViewport');
   if (!viewport || viewport.dataset.bound === '1') return;
@@ -7343,10 +7391,8 @@ function bindCropViewportEvents() {
 
   viewport.addEventListener('pointermove', (e) => {
     if (!cropState.isDragging || !cropState.img) return;
-    const rect = viewport.getBoundingClientRect();
-    const scaleRatio = BANNER_CROP_W / Math.max(1, rect.width);
-    const dx = (e.clientX - cropState.dragStartX) * scaleRatio;
-    const dy = (e.clientY - cropState.dragStartY) * scaleRatio;
+    const dx = e.clientX - cropState.dragStartX;
+    const dy = e.clientY - cropState.dragStartY;
     cropState.offsetX = cropState.startOffsetX + dx;
     cropState.offsetY = cropState.startOffsetY + dy;
     clampCropOffsets();
@@ -7358,43 +7404,18 @@ function bindCropViewportEvents() {
   viewport.addEventListener('pointercancel', endDrag);
 }
 
-function getBaseCoverScale() {
-  if (!cropState.img) return 1;
-  const iw = cropState.img.naturalWidth || cropState.img.width || BANNER_CROP_W;
-  const ih = cropState.img.naturalHeight || cropState.img.height || BANNER_CROP_H;
-  return Math.max(BANNER_CROP_W / iw, BANNER_CROP_H / ih);
-}
-
 function clampCropOffsets() {
-  if (!cropState.img) return;
-  const iw = cropState.img.naturalWidth || cropState.img.width || BANNER_CROP_W;
-  const ih = cropState.img.naturalHeight || cropState.img.height || BANNER_CROP_H;
-  const scale = getBaseCoverScale() * cropState.zoom;
-  const drawW = iw * scale;
-  const drawH = ih * scale;
-  const maxOffsetX = Math.max(0, (drawW - BANNER_CROP_W) / 2);
-  const maxOffsetY = Math.max(0, (drawH - BANNER_CROP_H) / 2);
-  cropState.offsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, cropState.offsetX));
-  cropState.offsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, cropState.offsetY));
+  clampCropStateOffsets(cropState, document.getElementById('cropViewport'), BANNER_CROP_W, BANNER_CROP_H);
 }
 
 function renderCropCanvas() {
-  const canvas = document.getElementById('cropPreviewCanvas');
-  if (!canvas || !cropState.img) return;
-  canvas.width = BANNER_CROP_W;
-  canvas.height = BANNER_CROP_H;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, BANNER_CROP_W, BANNER_CROP_H);
-
-  const iw = cropState.img.naturalWidth || cropState.img.width || BANNER_CROP_W;
-  const ih = cropState.img.naturalHeight || cropState.img.height || BANNER_CROP_H;
-  const scale = getBaseCoverScale() * cropState.zoom;
-  const drawW = iw * scale;
-  const drawH = ih * scale;
-  const dx = (BANNER_CROP_W - drawW) / 2 + cropState.offsetX;
-  const dy = (BANNER_CROP_H - drawH) / 2 + cropState.offsetY;
-
-  ctx.drawImage(cropState.img, dx, dy, drawW, drawH);
+  renderCropImgPreview(
+    cropState,
+    document.getElementById('cropSourceImg'),
+    document.getElementById('cropViewport'),
+    BANNER_CROP_W,
+    BANNER_CROP_H
+  );
 }
 
 function setCropZoom(val) {
@@ -7470,9 +7491,10 @@ async function openExistingBannerCrop(bannerId) {
     cropState.img = img;
     cropState.originalKB = Number(banner.original_size_kb) || Number(banner.compressed_size_kb) || 0;
     cropState.fileName = banner.title || 'banner';
-    resetCropTransform();
     bindCropViewportEvents();
-    modal?.showModal();
+    if (modal && !modal.open) modal.showModal();
+    resetCropTransform();
+    requestAnimationFrame(() => renderCropCanvas());
     if (window.lucide) lucide.createIcons();
   } catch (err) {
     showToast(err.message, 'error');
@@ -7524,9 +7546,10 @@ async function loadCurrentCropItem() {
   cropState.img = img;
   cropState.originalKB = Math.max(1, Math.round(file.size / 1024));
   cropState.fileName = file.name;
-  resetCropTransform();
   bindCropViewportEvents();
   if (modal && !modal.open) modal.showModal();
+  resetCropTransform();
+  requestAnimationFrame(() => renderCropCanvas());
   if (window.lucide) lucide.createIcons();
 }
 
@@ -7553,8 +7576,8 @@ function skipCurrentCropItem() {
 async function exportCroppedCanvasUnder500KB() {
   const MAX_BYTES = 500 * 1024;
   const TARGET_BYTES = 430 * 1024;
-  const sourceCanvas = document.getElementById('cropPreviewCanvas');
-  if (!sourceCanvas) throw new Error('Crop canvas not ready');
+  const viewport = document.getElementById('cropViewport');
+  if (!cropState.img) throw new Error('Crop image not ready');
 
   const offscreen = document.createElement('canvas');
   const ctx = offscreen.getContext('2d');
@@ -7562,8 +7585,7 @@ async function exportCroppedCanvasUnder500KB() {
   const encode = (w, h, mime, q) => new Promise((resolve) => {
     offscreen.width = w;
     offscreen.height = h;
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(sourceCanvas, 0, 0, w, h);
+    drawCropStateToCanvas(ctx, w, h, cropState, viewport, BANNER_CROP_W, BANNER_CROP_H);
     offscreen.toBlob((b) => resolve(b), mime, q);
   });
 
@@ -7687,6 +7709,17 @@ async function applyCropAndUpload() {
   }
 }
 
+window.addEventListener('resize', () => {
+  if (cropState.img && document.getElementById('bannerCropModal')?.open) {
+    clampCropOffsets();
+    renderCropCanvas();
+  }
+  if (happyStoryCropState.img && document.getElementById('happyStoryCropModal')?.open) {
+    clampHappyStoryOffsets();
+    renderHappyStoryCropCanvas();
+  }
+});
+
 window.openExistingBannerCrop = openExistingBannerCrop;
 window.closeBannerCropModal = closeBannerCropModal;
 window.skipCurrentCropItem = skipCurrentCropItem;
@@ -7800,10 +7833,8 @@ function bindHappyStoryViewportEvents() {
 
   viewport.addEventListener('pointermove', (e) => {
     if (!happyStoryCropState.isDragging || !happyStoryCropState.img) return;
-    const rect = viewport.getBoundingClientRect();
-    const scaleRatio = HAPPY_STORY_CROP_W / Math.max(1, rect.width);
-    happyStoryCropState.offsetX = happyStoryCropState.startOffsetX + (e.clientX - happyStoryCropState.dragStartX) * scaleRatio;
-    happyStoryCropState.offsetY = happyStoryCropState.startOffsetY + (e.clientY - happyStoryCropState.dragStartY) * scaleRatio;
+    happyStoryCropState.offsetX = happyStoryCropState.startOffsetX + (e.clientX - happyStoryCropState.dragStartX);
+    happyStoryCropState.offsetY = happyStoryCropState.startOffsetY + (e.clientY - happyStoryCropState.dragStartY);
     clampHappyStoryOffsets();
     renderHappyStoryCropCanvas();
   });
@@ -7813,40 +7844,23 @@ function bindHappyStoryViewportEvents() {
   viewport.addEventListener('pointercancel', endDrag);
 }
 
-function getHappyStoryBaseScale() {
-  if (!happyStoryCropState.img) return 1;
-  const iw = happyStoryCropState.img.naturalWidth || happyStoryCropState.img.width || HAPPY_STORY_CROP_W;
-  const ih = happyStoryCropState.img.naturalHeight || happyStoryCropState.img.height || HAPPY_STORY_CROP_H;
-  return Math.max(HAPPY_STORY_CROP_W / iw, HAPPY_STORY_CROP_H / ih);
-}
-
 function clampHappyStoryOffsets() {
-  if (!happyStoryCropState.img) return;
-  const iw = happyStoryCropState.img.naturalWidth || happyStoryCropState.img.width || HAPPY_STORY_CROP_W;
-  const ih = happyStoryCropState.img.naturalHeight || happyStoryCropState.img.height || HAPPY_STORY_CROP_H;
-  const scale = getHappyStoryBaseScale() * happyStoryCropState.zoom;
-  const maxX = Math.max(0, (iw * scale - HAPPY_STORY_CROP_W) / 2);
-  const maxY = Math.max(0, (ih * scale - HAPPY_STORY_CROP_H) / 2);
-  happyStoryCropState.offsetX = Math.max(-maxX, Math.min(maxX, happyStoryCropState.offsetX));
-  happyStoryCropState.offsetY = Math.max(-maxY, Math.min(maxY, happyStoryCropState.offsetY));
+  clampCropStateOffsets(
+    happyStoryCropState,
+    document.getElementById('happyStoryCropViewport'),
+    HAPPY_STORY_CROP_W,
+    HAPPY_STORY_CROP_H
+  );
 }
 
 function renderHappyStoryCropCanvas() {
-  const canvas = document.getElementById('happyStoryCropCanvas');
-  if (!canvas || !happyStoryCropState.img) return;
-  canvas.width = HAPPY_STORY_CROP_W;
-  canvas.height = HAPPY_STORY_CROP_H;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, HAPPY_STORY_CROP_W, HAPPY_STORY_CROP_H);
-
-  const iw = happyStoryCropState.img.naturalWidth || happyStoryCropState.img.width || HAPPY_STORY_CROP_W;
-  const ih = happyStoryCropState.img.naturalHeight || happyStoryCropState.img.height || HAPPY_STORY_CROP_H;
-  const scale = getHappyStoryBaseScale() * happyStoryCropState.zoom;
-  const drawW = iw * scale;
-  const drawH = ih * scale;
-  const dx = (HAPPY_STORY_CROP_W - drawW) / 2 + happyStoryCropState.offsetX;
-  const dy = (HAPPY_STORY_CROP_H - drawH) / 2 + happyStoryCropState.offsetY;
-  ctx.drawImage(happyStoryCropState.img, dx, dy, drawW, drawH);
+  renderCropImgPreview(
+    happyStoryCropState,
+    document.getElementById('happyStoryCropImg'),
+    document.getElementById('happyStoryCropViewport'),
+    HAPPY_STORY_CROP_W,
+    HAPPY_STORY_CROP_H
+  );
 }
 
 function setHappyStoryZoom(val) {
@@ -7889,16 +7903,15 @@ function closeHappyStoryCropModal() {
 async function exportHappyStoryCanvasUnder500KB() {
   const MAX_BYTES = 500 * 1024;
   const TARGET_BYTES = 420 * 1024;
-  const sourceCanvas = document.getElementById('happyStoryCropCanvas');
-  if (!sourceCanvas) throw new Error('Happy Story crop canvas not ready');
+  const viewport = document.getElementById('happyStoryCropViewport');
+  if (!happyStoryCropState.img) throw new Error('Happy Story crop image not ready');
 
   const offscreen = document.createElement('canvas');
   const ctx = offscreen.getContext('2d');
   const encode = (w, h, mime, q) => new Promise((resolve) => {
     offscreen.width = w;
     offscreen.height = h;
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(sourceCanvas, 0, 0, w, h);
+    drawCropStateToCanvas(ctx, w, h, happyStoryCropState, viewport, HAPPY_STORY_CROP_W, HAPPY_STORY_CROP_H);
     offscreen.toBlob((b) => resolve(b), mime, q);
   });
 
@@ -8008,7 +8021,6 @@ async function openNewHappyStoryCrop(file) {
 
   happyStoryCropState.img = img;
   happyStoryCropState.fileName = file.name;
-  resetHappyStoryTransform();
   bindHappyStoryViewportEvents();
 
   const titleInput = document.getElementById('happyStoryCropTitleInput');
@@ -8016,7 +8028,10 @@ async function openNewHappyStoryCrop(file) {
   if (titleInput) titleInput.value = coupleVal || file.name.replace(/\.[^/.]+$/, '');
   if (applyLabel) applyLabel.textContent = 'Apply & Upload Happy Story';
 
-  document.getElementById('happyStoryCropModal')?.showModal();
+  const modal = document.getElementById('happyStoryCropModal');
+  if (modal && !modal.open) modal.showModal();
+  resetHappyStoryTransform();
+  requestAnimationFrame(() => renderHappyStoryCropCanvas());
   if (window.lucide) lucide.createIcons();
 }
 
@@ -8039,7 +8054,6 @@ async function openHappyStoryReCrop(storyId) {
     });
     happyStoryCropState.img = img;
     happyStoryCropState.fileName = story.couple_name || story.couple_names || 'story';
-    resetHappyStoryTransform();
     bindHappyStoryViewportEvents();
 
     const titleInput = document.getElementById('happyStoryCropTitleInput');
@@ -8047,7 +8061,10 @@ async function openHappyStoryReCrop(storyId) {
     if (titleInput) titleInput.value = story.couple_name || story.couple_names || '';
     if (applyLabel) applyLabel.textContent = 'Save Cropped Story Photo';
 
-    document.getElementById('happyStoryCropModal')?.showModal();
+    const modal = document.getElementById('happyStoryCropModal');
+    if (modal && !modal.open) modal.showModal();
+    resetHappyStoryTransform();
+    requestAnimationFrame(() => renderHappyStoryCropCanvas());
     if (window.lucide) lucide.createIcons();
   } catch (err) {
     showToast(err.message, 'error');
