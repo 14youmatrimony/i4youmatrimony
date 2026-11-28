@@ -94,8 +94,8 @@ export default function AdminLogin({ onLoginSuccess, onBack }) {
       <div className="w-full max-w-md p-8 rounded-3xl bg-[#2C1A1D] border border-[#C58B76]/30 shadow-2xl relative z-10 space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#7A2E43]/40 to-[#8E354F]/30 border border-[#C58B76]/40 text-[#E6B8A2] flex items-center justify-center mx-auto shadow-inner">
-            <ShieldCheck className="w-7 h-7 text-[#E6B8A2]" />
+          <div className="w-16 h-14 rounded-2xl bg-[#1A1012]/80 border border-[#C58B76]/40 p-1.5 flex items-center justify-center mx-auto shadow-inner">
+            <img src="/logo.png" alt="I 4 You Logo" className="w-full h-full object-contain" />
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C58B76]/10 border border-[#C58B76]/30 text-[10px] text-[#E6B8A2] font-bold uppercase tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-[#C58B76] animate-pulse" />

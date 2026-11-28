@@ -125,17 +125,17 @@ export default function WebsiteNavbar({
             onClick={() => onScrollToSection('hero-section')} 
             className="flex items-center space-x-2 sm:space-x-3 cursor-pointer group shrink-0"
           >
-            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-[#C76B85] via-[#8064A2] to-[#E8C6D1] p-0.5 shadow-lg shadow-[#C76B85]/20 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
+            <div className="relative h-10 sm:h-11 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
               <img 
-                src="/brand-logo.png" 
+                src="/logo.png" 
                 alt="I 4 You Logo" 
-                className="w-full h-full object-cover rounded-full" 
+                className="h-9 sm:h-10 w-auto object-contain drop-shadow-sm" 
                 onError={(e) => {
                   e.target.style.display = 'none';
-                  e.target.parentElement.innerHTML = '<div class="w-full h-full bg-[#FDF2F6] text-[#C76B85] font-serif font-black flex items-center justify-center text-sm">I4U</div>';
+                  e.target.parentElement.innerHTML = '<div class="px-2.5 py-1.5 rounded-xl bg-[#FDF2F6] text-[#C76B85] font-serif font-black flex items-center justify-center text-sm">I4U</div>';
                 }}
               />
-              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+              <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8064A2] opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#8064A2]"></span>
               </span>

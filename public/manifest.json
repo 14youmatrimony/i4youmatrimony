@@ -18,15 +18,15 @@
       "purpose": "any"
     },
     {
-      "src": "/brand-logo.png",
-      "sizes": "512x512",
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/logo-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/logo.png",
+      "sizes": "974x667",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

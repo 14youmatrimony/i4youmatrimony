@@ -57,8 +57,8 @@ export default function WebsiteFooter({
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#C76B85] to-[#8064A2] p-0.5 shadow-md">
-                <img src="/brand-logo.png" alt="Logo" className="w-full h-full object-cover rounded-full" />
+              <div className="h-10 flex items-center justify-center shrink-0">
+                <img src="/logo.png" alt="I 4 You Logo" className="h-9 sm:h-10 w-auto object-contain" />
               </div>
               <div>
                 <span className="text-2xl font-serif font-extrabold text-[#2E1A36]">I 4 You</span>

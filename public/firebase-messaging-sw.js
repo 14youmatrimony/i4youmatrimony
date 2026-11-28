@@ -28,7 +28,7 @@ self.addEventListener('push', (event) => {
   const title = notification.title || 'I 4 You Matrimony';
   const options = {
     body: notification.body || notification.message || 'You have a new matrimonial notification.',
-    icon: notification.icon || '/brand-logo.png',
+    icon: notification.icon || '/logo.png',
     badge: '/favicon.png',
     tag: data.tag || data.id || `notif_${Date.now()}`,
     data: data.data || data,

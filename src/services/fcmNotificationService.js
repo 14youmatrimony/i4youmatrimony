@@ -653,7 +653,7 @@ class FCMNotificationService {
     const notifTitle = title || 'I 4 You Matrimony';
     const options = {
       body: body || 'You have a new update.',
-      icon: icon || '/brand-logo.png',
+      icon: icon || '/logo.png',
       badge: '/favicon.png',
       tag: tag || data.id || `notif_${Date.now()}`,
       data,

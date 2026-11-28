@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, ShieldCheck, Heart } from 'lucide-react';
-import brandLogoAsset from '../../assets/brand-logo.png';
+import brandLogoAsset from '../../assets/logo.png';
 
 /**
  * Premium Luxury Splash Screen for I4 You Matrimony
@@ -97,7 +97,7 @@ export default function SplashScreen({ onFinish, duration = 2800 }) {
             <img
               src={brandLogoAsset}
               onError={(e) => {
-                e.currentTarget.src = '/brand-logo.png';
+                e.currentTarget.src = '/logo.png';
               }}
               alt="I4 You Matrimony Logo"
               className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]"
