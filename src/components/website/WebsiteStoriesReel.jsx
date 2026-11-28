@@ -81,7 +81,7 @@ export default function WebsiteStoriesReel({
 
   return (
     <section id="stories-section" className="pt-3 pb-1 sm:pt-4 sm:pb-1 bg-[#FDF2F6] text-[#5A4463] select-none">
-      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4">
+      <div className="w-full md:w-[90%] max-w-[1800px] mx-auto px-4">
         
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">

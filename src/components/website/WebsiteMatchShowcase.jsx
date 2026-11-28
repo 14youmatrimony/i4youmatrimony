@@ -249,7 +249,7 @@ export default function WebsiteMatchShowcase({
 
   return (
     <section id="matches-section" className="pt-1 pb-3 md:pt-2 md:pb-4 bg-[#FFF7FA] text-[#5A4463]">
-      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-3">
+      <div className="w-full md:w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-3">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mt-0 mb-1 space-y-1">

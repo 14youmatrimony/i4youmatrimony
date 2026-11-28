@@ -65,11 +65,15 @@ html {
   font-size: 16px;
   zoom: 1;
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 /* Balanced sizing scoped exclusively to the Desktop/Website pages without affecting mobile screens */
 .website-view-root {
   font-size: 15px;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 body {
@@ -79,6 +83,8 @@ body {
   min-height: 100dvh;
   background-color: var(--bg-canvas);
   color: var(--plum-muted);
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 #root {

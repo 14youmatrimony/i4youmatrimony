@@ -51,7 +51,7 @@ export default function WebsiteFooter({
   return (
     <footer className="bg-[#FDF2F6] text-[#5A4463]">
       {/* Main Directory & Links Columns */}
-      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 py-3 md:py-4">
+      <div className="w-full md:w-[90%] max-w-[1800px] mx-auto px-4 py-3 md:py-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           
           {/* Brand Column */}

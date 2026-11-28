@@ -121,7 +121,7 @@ export default function WebsiteSuccessStories() {
       id="testimonials-section"
       className="py-3 md:py-4 bg-[#FDF2F6] text-[#5A4463] relative overflow-hidden"
     >
-      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 relative z-10 space-y-3 mt-1">
+      <div className="w-full md:w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 relative z-10 space-y-3 mt-1">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-1.5">
           <div className="inline-flex items-center space-x-1.5 px-3.5 py-1 rounded-full bg-[#F9EBF0] border border-[#E8C6D1] text-[#C76B85] text-xs font-bold uppercase tracking-wider">

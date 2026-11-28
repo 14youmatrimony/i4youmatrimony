@@ -171,7 +171,7 @@ export default function WebsiteHero({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
           {/* Left Column: Frosted-Glass Featured Candidate Card (2cm-3cm from left edge, +10% height) */}
           {featuredProfile && (
-            <div className="lg:col-span-5 lg:order-1 flex justify-center lg:justify-start relative lg:ml-6">
+            <div className="hidden md:flex lg:col-span-5 lg:order-1 justify-center lg:justify-start relative lg:ml-6">
               <div className="relative w-full max-w-sm sm:max-w-[360px] backdrop-blur-md bg-white/90 rounded-2xl py-4 sm:py-5 px-3.5 sm:px-4 border border-[#E8C6D1]/80 shadow-2xl group transition-all duration-300 hover:-translate-y-1">
                 {/* Floating Top Match Seal */}
                 <div className="absolute -top-3 left-5 bg-[#C76B85] text-white text-[11px] font-extrabold px-3 py-0.5 rounded-full shadow-md flex items-center space-x-1.5">

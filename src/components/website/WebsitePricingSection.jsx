@@ -192,7 +192,7 @@ export default function WebsitePricingSection({
         </div>
       )}
 
-      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-3 sm:space-y-4">
+      <div className="w-full md:w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-3 sm:space-y-4">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-1.5">

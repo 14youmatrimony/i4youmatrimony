@@ -46,7 +46,7 @@ export default function WebsitePillarsOfTrust() {
   return (
     <section id="why-section" className="py-16 lg:py-24 bg-[#FFF7FA] text-[#5A4463] border-b border-[#E8C6D1] relative overflow-hidden">
       
-      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-12">
+      <div className="w-full md:w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 space-y-12">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-3">

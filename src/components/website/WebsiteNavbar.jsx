@@ -66,8 +66,8 @@ export default function WebsiteNavbar({
   return (
     <header className="sticky top-0 z-50 w-full shadow-md">
       {/* 1. Global Announcement / Live Offer Bar */}
-      <div className="bg-[#2E1A36] text-[#FFF7FA] px-3 py-1.5 text-xs font-semibold">
-        <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 flex items-center justify-between gap-2">
+      <div className="bg-[#2E1A36] text-[#FFF7FA] px-0 md:px-3 py-1.5 text-xs font-semibold">
+        <div className="w-full md:w-[90%] max-w-[1800px] mx-auto px-4 flex items-center justify-between gap-2">
           {featuredOffer ? (
             <div className="flex items-center space-x-2 truncate">
               <span className="bg-[#FFFFFF] text-[#8064A2] text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 shadow-xs">
@@ -117,8 +117,8 @@ export default function WebsiteNavbar({
       </div>
 
       {/* 2. Main Luxury Matrimonial Navbar */}
-      <nav className="bg-[#FFFFFF] border-b border-[#E8C6D1] text-[#2E1A36] px-2 sm:px-4 py-2.5 transition-all">
-        <div className="w-[90%] max-w-[1800px] mx-auto flex items-center justify-between gap-2 sm:gap-4">
+      <nav className="bg-[#FFFFFF] border-b border-[#E8C6D1] text-[#2E1A36] px-0 md:px-4 py-2.5 transition-all">
+        <div className="w-full md:w-[90%] max-w-[1800px] mx-auto px-4 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Brand Logo & Tagline */}
           <div 
@@ -199,9 +199,9 @@ export default function WebsiteNavbar({
               </button>
             )}
 
-            {/* User Auth: Login/Register or Profile Pill + Logout */}
+            {/* User Auth: Login/Register or Profile Pill + Logout (Desktop/Tablet only; moved into hamburger on mobile) */}
             {currentUser ? (
-              <div className="flex items-center space-x-1.5 shrink-0">
+              <div className="hidden md:flex items-center space-x-1.5 shrink-0">
                 {onOpenServices && (
                   <button
                     type="button"
@@ -237,7 +237,7 @@ export default function WebsiteNavbar({
                 )}
               </div>
             ) : (
-              <div className="flex items-center space-x-2 shrink-0">
+              <div className="hidden md:flex items-center space-x-2 shrink-0">
                 <button
                   type="button"
                   onClick={onOpenLogin}
@@ -341,6 +341,19 @@ export default function WebsiteNavbar({
                     >
                       <Store className="w-4 h-4 text-[#5B3E8C]" />
                       <span>Services</span>
+                    </button>
+                  )}
+                  {onOpenEditProfile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenEditProfile();
+                        setMobileNavOpen(false);
+                      }}
+                      className="w-full py-2 rounded-xl bg-white hover:bg-[#F9EBF0] border border-[#C76B85] text-[#C76B85] text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer"
+                    >
+                      <Edit3 className="w-4 h-4 text-[#C76B85]" />
+                      <span>Edit Profile</span>
                     </button>
                   )}
                   {onLogout && (

@@ -16,7 +16,7 @@ export default function WebsiteAppShowcase({ onSwitchToAppMode }) {
       <div className="absolute top-1/3 right-10 w-96 h-96 bg-[#8064A2]/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-10 left-10 w-96 h-96 bg-[#C76B85]/05 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="w-[90%] max-w-[1800px] mx-auto px-2 sm:px-4 relative z-10">
+      <div className="w-full md:w-[90%] max-w-[1800px] mx-auto px-4 relative z-10">
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           
